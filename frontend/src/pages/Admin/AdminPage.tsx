@@ -124,21 +124,24 @@ const AdminPage: React.FC = () => {
     <div
       style={{
         display: "flex",
-        minHeight: "calc(100vh - 120px)",
+        height: "calc(100vh - 64px)",
         margin: "-2rem -1.25rem",
         background: "var(--bg)",
+        overflow: "hidden",
       }}
-      className="rounded-2xl overflow-hidden shadow-sm border border-[var(--border)]"
+      className="rounded-2xl shadow-sm border border-[var(--border)]"
     >
       {/* Green Left Sidebar */}
       <aside
         style={{
           width: "260px",
-          background: "#008037", // Green matching the brand image
+          background: "#008037",
           color: "#ffffff",
           display: "flex",
           flexDirection: "column",
           flexShrink: 0,
+          minHeight: 0,
+          overflow: "hidden",
         }}
         className="hidden md:flex"
       >
@@ -157,7 +160,7 @@ const AdminPage: React.FC = () => {
         </div>
 
         {/* Navigation Items */}
-        <nav style={{ flex: 1, padding: "0.75rem" }} className="overflow-y-auto space-y-0.5">
+        <nav style={{ flex: 1, padding: "0.75rem", overflowY: "auto" }} className="space-y-0.5">
           {menuItems.map((item) => {
             const isActive = activeTab === item.id;
             return (
@@ -189,7 +192,7 @@ const AdminPage: React.FC = () => {
       </aside>
 
       {/* Main Content Area */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0, overflow: "hidden" }}>
         {/* Topbar for mobile navigation or route preview */}
         <header
           style={{
@@ -232,7 +235,7 @@ const AdminPage: React.FC = () => {
         </header>
 
         {/* Tab Content container */}
-        <main style={{ flex: 1, padding: "1.5rem", background: "var(--bg)" }} className="overflow-y-auto">
+        <main style={{ flex: 1, padding: "1.5rem", background: "var(--bg)", overflowY: "auto" }}>
           {renderContent()}
         </main>
       </div>
