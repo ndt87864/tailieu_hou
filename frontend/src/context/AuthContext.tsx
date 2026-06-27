@@ -26,12 +26,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
-  const fetchProfile = async (token: string) => {
+  const fetchProfile = async (token: string, userId: string, force: boolean = false) => {
     try {
       setAuthToken(token);
+
+      const cachedProfile = localStorage.getItem("user-profile");
+      const cachedRole = localStorage.getItem("user-role");
+      const profileSynced = localStorage.getItem("profile-synced");
+
+      if (!force && profileSynced === userId && cachedProfile && cachedRole) {
+        setRole(cachedRole);
+        setProfile(JSON.parse(cachedProfile));
+        return;
+      }
+
       const res = await apiClient.get("/api/v1/auth/profile");
-      setRole(res.data.role || "free");
-      setProfile(res.data.profile || null);
+      const fetchedRole = res.data.role || "free";
+      const fetchedProfile = res.data.profile || null;
+
+      setRole(fetchedRole);
+      setProfile(fetchedProfile);
+
+      localStorage.setItem("user-role", fetchedRole);
+      localStorage.setItem("user-profile", JSON.stringify(fetchedProfile));
+      localStorage.setItem("profile-synced", userId);
     } catch (err) {
       console.error("Lỗi đồng bộ profile với backend:", err);
       setRole("free");
@@ -40,32 +58,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    // 1. Lấy session hiện tại
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session) {
-        fetchProfile(session.access_token).then(() => setLoading(false));
-      } else {
-        setAuthToken(null);
-        setRole("guest");
-        setProfile(null);
-        setLoading(false);
-      }
-    });
-
-    // 2. Lắng nghe thay đổi auth
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session) {
-        fetchProfile(session.access_token);
+        fetchProfile(session.access_token, session.user.id).then(() => {
+          setLoading(false);
+        });
       } else {
         setAuthToken(null);
         setRole("guest");
         setProfile(null);
+        // Clear local storage cache
+        localStorage.removeItem("user-role");
+        localStorage.removeItem("user-profile");
+        localStorage.removeItem("profile-synced");
+        localStorage.removeItem("ui-theme-mode");
+        localStorage.removeItem("ui-primary-color");
+        localStorage.removeItem("ui-settings-synced");
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
@@ -79,12 +91,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setRole("guest");
     setProfile(null);
     setAuthToken(null);
+
+    // Clear local storage cache
+    localStorage.removeItem("user-role");
+    localStorage.removeItem("user-profile");
+    localStorage.removeItem("profile-synced");
+    localStorage.removeItem("ui-theme-mode");
+    localStorage.removeItem("ui-primary-color");
+    localStorage.removeItem("ui-settings-synced");
+
     setLoading(false);
   };
 
   const refreshProfile = async () => {
     if (session) {
-      await fetchProfile(session.access_token);
+      await fetchProfile(session.access_token, session.user.id, true);
     }
   };
 

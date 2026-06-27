@@ -70,6 +70,18 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
       if (user) {
         try {
+          const cachedTheme = localStorage.getItem("ui-theme-mode");
+          const cachedColor = localStorage.getItem("ui-primary-color");
+          const settingsSynced = localStorage.getItem("ui-settings-synced");
+
+          if (settingsSynced === user.id && cachedTheme && cachedColor) {
+            setThemeModeState(cachedTheme as ThemeMode);
+            setPrimaryColorState(cachedColor as PrimaryColor);
+            applyToDom(cachedTheme as ThemeMode, cachedColor as PrimaryColor);
+            if (!cancelled) setLoadingSettings(false);
+            return;
+          }
+
           const res = await apiClient.get("/api/v1/auth/ui-settings");
           if (!cancelled && res.data) {
             const serverTheme = (res.data.theme_mode as ThemeMode) || "system";
@@ -78,6 +90,7 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
             setPrimaryColorState(serverColor);
             localStorage.setItem("ui-theme-mode", serverTheme);
             localStorage.setItem("ui-primary-color", serverColor);
+            localStorage.setItem("ui-settings-synced", user.id);
             applyToDom(serverTheme, serverColor);
           }
         } catch {
@@ -100,6 +113,7 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     applyToDom(mode, primaryColor); // áp dụng NGAY LẬP TỨC
 
     if (user) {
+      localStorage.setItem("ui-settings-synced", user.id);
       try {
         await apiClient.put("/api/v1/auth/ui-settings", {
           theme_mode: mode,
@@ -118,6 +132,7 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     applyToDom(themeMode, color); // áp dụng NGAY LẬP TỨC
 
     if (user) {
+      localStorage.setItem("ui-settings-synced", user.id);
       try {
         await apiClient.put("/api/v1/auth/ui-settings", {
           theme_mode: themeMode,
