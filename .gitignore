@@ -5,3 +5,4 @@ frontend/.env.local
 /scripts
 backend/.env.example
 /frontend/node_modules
+/node_modules
