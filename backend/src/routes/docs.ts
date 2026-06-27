@@ -27,7 +27,7 @@ docsRouter.post("/", requireRole("management"), async (c) => {
     const body = await c.req.json();
     const { title, description, category_id } = body;
     const document = await docService.createDocument({ title, description, category_id });
-    return c.json({ document }, 210);
+    return c.json({ document }, 201);
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }

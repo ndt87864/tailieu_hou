@@ -36,9 +36,13 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings }) => {
   const navLinks = user
     ? [
         { to: "/", label: "Trang chủ" },
+        { to: "/lich-thi", label: "Lịch thi" },
         ...(role === "admin" ? [{ to: "/admin", label: "Quản trị" }] : []),
       ]
-    : [{ to: "/", label: "Trang chủ" }];
+    : [
+        { to: "/", label: "Trang chủ" },
+        { to: "/lich-thi", label: "Lịch thi" },
+      ];
 
   const roleBadge: Record<string, { label: string; style: React.CSSProperties }> = {
     admin:      { label: "Admin",  style: { background: "#fee2e2", color: "#b91c1c", borderColor: "#fca5a5" } },

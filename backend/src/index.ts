@@ -8,6 +8,7 @@ import authRouter from "./routes/auth.js";
 import docsRouter from "./routes/docs.js";
 import questionsRouter from "./routes/questions.js";
 import adminRouter from "./routes/admin.js";
+import examRouter from "./routes/exam.js";
 import { authMiddleware } from "./middlewares/auth.js";
 
 dotenv.config();
@@ -29,6 +30,7 @@ app.route("/api/v1/auth", authRouter);
 app.route("/api/v1/documents", docsRouter);
 app.route("/api/v1/questions", questionsRouter);
 app.route("/api/v1/admin", adminRouter);
+app.route("/api/v1/exam", examRouter);
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 
