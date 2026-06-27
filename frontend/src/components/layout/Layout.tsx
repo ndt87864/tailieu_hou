@@ -272,14 +272,21 @@ const Footer: React.FC = () => (
 
 const Layout: React.FC = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const location = useLocation();
+
+  const isDocPage = location.pathname.startsWith("/documents/");
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--bg)", color: "var(--fg)", transition: "background 0.25s ease, color 0.25s ease" }}>
       <Header onOpenSettings={() => setSettingsOpen(true)} />
-      <main style={{ flex: 1, width: "100%" }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      <main style={{ flex: 1, width: "100%", display: "flex", flexDirection: "column" }}>
+        {isDocPage ? (
           <Outlet />
-        </div>
+        ) : (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 w-full">
+            <Outlet />
+          </div>
+        )}
       </main>
       <Footer />
       <UISettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
