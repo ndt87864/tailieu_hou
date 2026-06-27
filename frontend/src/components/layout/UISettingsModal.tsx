@@ -13,47 +13,65 @@ const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) =>
   if (!isOpen) return null;
 
   const themes: { value: ThemeMode; label: string; icon: React.ReactNode }[] = [
-    { value: "light", label: "Sáng", icon: <Sun className="w-4 h-4" /> },
-    { value: "dark", label: "Tối", icon: <Moon className="w-4 h-4" /> },
+    { value: "light",  label: "Sáng",     icon: <Sun    className="w-4 h-4" /> },
+    { value: "dark",   label: "Tối",      icon: <Moon   className="w-4 h-4" /> },
     { value: "system", label: "Hệ thống", icon: <Laptop className="w-4 h-4" /> },
   ];
 
-  const colors: { value: PrimaryColor; label: string; bgClass: string }[] = [
-    { value: "indigo", label: "Indigo", bgClass: "bg-indigo-600" },
-    { value: "blue", label: "Xanh dương", bgClass: "bg-blue-600" },
-    { value: "emerald", label: "Xanh lục", bgClass: "bg-emerald-600" },
-    { value: "rose", label: "Hồng", bgClass: "bg-rose-600" },
-    { value: "amber", label: "Hổ phách", bgClass: "bg-amber-500" },
-    { value: "purple", label: "Tím", bgClass: "bg-purple-600" },
+  // Bảng màu giống hệt tailieu-ehou
+  const colors: { value: PrimaryColor; label: string; hex: string }[] = [
+    { value: "green",  label: "Xanh lá",    hex: "#118d05" },
+    { value: "blue",   label: "Xanh dương", hex: "#0066cc" },
+    { value: "red",    label: "Đỏ",         hex: "#cc0000" },
+    { value: "purple", label: "Tím",        hex: "#6600cc" },
+    { value: "yellow", label: "Vàng",       hex: "#ccbb00" },
+    { value: "brown",  label: "Nâu",        hex: "#996633" },
+    { value: "black",  label: "Đen",        hex: "#333333" },
   ];
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300"
+      <div
+        className="absolute inset-0 backdrop-blur-sm transition-opacity duration-300"
+        style={{ background: "rgba(0,0,0,0.65)" }}
         onClick={onClose}
       />
-      
-      {/* Modal Content */}
-      <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-2xl p-6 overflow-hidden animate-scale-in text-slate-950 dark:text-slate-50">
+
+      {/* Modal */}
+      <div
+        className="relative w-full max-w-sm rounded-2xl p-6 overflow-hidden animate-scale-in"
+        style={{
+          background: "var(--surface)",
+          border: "1px solid var(--border)",
+          boxShadow: "var(--shadow-md)",
+          color: "var(--fg)",
+        }}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="text-xl font-bold tracking-tight">Tùy chỉnh giao diện</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Cá nhân hóa trải nghiệm của bạn</p>
+            <h2 style={{ color: "var(--fg)", fontSize: "1.125rem", fontWeight: 700 }}>
+              Tùy chỉnh giao diện
+            </h2>
+            <p style={{ color: "var(--muted)", fontSize: "0.75rem", marginTop: "0.125rem" }}>
+              Cá nhân hóa trải nghiệm của bạn
+            </p>
           </div>
-          <button 
+          <button
             onClick={onClose}
-            className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            style={{ color: "var(--muted)", borderRadius: "0.75rem", padding: "0.375rem" }}
+            className="hover:bg-[var(--bg-2)] transition-colors"
           >
-            <X className="w-5 h-5 text-slate-500" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Theme mode selection */}
-        <div className="mb-6">
-          <label className="text-sm font-semibold mb-3 block">Chế độ hiển thị</label>
+        {/* Chế độ hiển thị */}
+        <div className="mb-5">
+          <label style={{ color: "var(--fg-2)", fontSize: "0.8rem", fontWeight: 600, display: "block", marginBottom: "0.625rem" }}>
+            Chế độ hiển thị
+          </label>
           <div className="grid grid-cols-3 gap-2">
             {themes.map((t) => {
               const active = themeMode === t.value;
@@ -61,11 +79,20 @@ const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) =>
                 <button
                   key={t.value}
                   onClick={() => setThemeMode(t.value)}
-                  className={`flex flex-col items-center gap-1.5 p-3 rounded-2xl border text-sm font-medium transition-all duration-200 ${
-                    active 
-                      ? "border-brand-500 bg-brand-50/50 dark:bg-brand-950/20 text-brand-600 dark:text-brand-400 ring-2 ring-brand-500/20" 
-                      : "border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-600 dark:text-slate-400"
-                  }`}
+                  className="flex flex-col items-center gap-1.5 p-3 rounded-xl text-xs font-medium transition-all duration-200"
+                  style={
+                    active
+                      ? {
+                          border: `2px solid var(--brand-600)`,
+                          background: `rgba(var(--brand-rgb), 0.08)`,
+                          color: "var(--brand-600)",
+                        }
+                      : {
+                          border: "1px solid var(--border)",
+                          background: "var(--surface-2)",
+                          color: "var(--muted)",
+                        }
+                  }
                 >
                   {t.icon}
                   <span>{t.label}</span>
@@ -75,31 +102,53 @@ const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) =>
           </div>
         </div>
 
-        {/* Primary Color selection */}
-        <div className="mb-4">
-          <label className="text-sm font-semibold mb-3 block">Màu chủ đạo</label>
-          <div className="grid grid-cols-3 gap-2">
+        {/* Màu chủ đạo */}
+        <div>
+          <label style={{ color: "var(--fg-2)", fontSize: "0.8rem", fontWeight: 600, display: "block", marginBottom: "0.625rem" }}>
+            Màu hệ thống
+          </label>
+          <div className="grid grid-cols-4 gap-2">
             {colors.map((c) => {
               const active = primaryColor === c.value;
               return (
                 <button
                   key={c.value}
                   onClick={() => setPrimaryColor(c.value)}
-                  className={`flex items-center gap-2.5 p-3 rounded-2xl border text-left text-xs font-medium transition-all duration-200 ${
-                    active 
-                      ? "border-brand-500 bg-brand-50/50 dark:bg-brand-950/20 text-brand-600 dark:text-brand-400 ring-2 ring-brand-500/20" 
-                      : "border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-600 dark:text-slate-400"
-                  }`}
+                  title={c.label}
+                  className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl text-xs font-medium transition-all duration-200"
+                  style={
+                    active
+                      ? {
+                          border: `2px solid ${c.hex}`,
+                          background: `rgba(var(--brand-rgb, 17,141,5), 0.06)`,
+                          color: "var(--fg)",
+                        }
+                      : {
+                          border: "1px solid var(--border)",
+                          background: "var(--surface-2)",
+                          color: "var(--muted)",
+                        }
+                  }
                 >
-                  <span className={`w-4 h-4 rounded-full ${c.bgClass} flex items-center justify-center shrink-0`}>
-                    {active && <Check className="w-2.5 h-2.5 text-white" />}
+                  <span
+                    className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
+                    style={{ background: c.hex, boxShadow: active ? `0 0 0 2px ${c.hex}33` : undefined }}
+                  >
+                    {active && <Check className="w-3 h-3 text-white" />}
                   </span>
-                  <span className="truncate">{c.label}</span>
+                  <span className="truncate text-[0.65rem]">{c.label}</span>
                 </button>
               );
             })}
           </div>
         </div>
+
+        {/* Note */}
+        <p
+          style={{ color: "var(--meta)", fontSize: "0.7rem", marginTop: "1rem", background: "var(--bg-2)", padding: "0.5rem 0.75rem", borderRadius: "0.5rem" }}
+        >
+          Thiết lập được lưu tự động. Tài khoản khách lưu trên trình duyệt.
+        </p>
       </div>
     </div>
   );

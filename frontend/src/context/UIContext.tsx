@@ -3,11 +3,11 @@ import { useAuth } from "./AuthContext.js";
 import apiClient from "../services/client.js";
 
 export type ThemeMode = "light" | "dark" | "system";
-export type PrimaryColor = "indigo" | "blue" | "emerald" | "rose" | "amber" | "purple";
+export type PrimaryColor = "green" | "blue" | "red" | "purple" | "yellow" | "brown" | "black";
 
 const COLOR_CLASSES = [
-  "theme-indigo", "theme-blue", "theme-emerald",
-  "theme-rose", "theme-amber", "theme-purple",
+  "theme-green", "theme-blue", "theme-red",
+  "theme-purple", "theme-yellow", "theme-brown", "theme-black",
 ] as const;
 
 /** Áp dụng ngay vào DOM — không phụ thuộc vào React re-render */
@@ -44,7 +44,7 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   });
 
   const [primaryColor, setPrimaryColorState] = useState<PrimaryColor>(() => {
-    return (localStorage.getItem("ui-primary-color") as PrimaryColor) || "indigo";
+    return (localStorage.getItem("ui-primary-color") as PrimaryColor) || "green";
   });
 
   const [loadingSettings, setLoadingSettings] = useState<boolean>(true);
@@ -73,7 +73,7 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const res = await apiClient.get("/api/v1/auth/ui-settings");
           if (!cancelled && res.data) {
             const serverTheme = (res.data.theme_mode as ThemeMode) || "system";
-            const serverColor = (res.data.primary_color as PrimaryColor) || "indigo";
+            const serverColor = (res.data.primary_color as PrimaryColor) || "green";
             setThemeModeState(serverTheme);
             setPrimaryColorState(serverColor);
             localStorage.setItem("ui-theme-mode", serverTheme);

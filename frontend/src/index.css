@@ -6,31 +6,33 @@
 @tailwind utilities;
 
 /* ─── CSS Variables ─── */
+/* Bảng màu giống hệt tailieu-ehou */
 :root {
-  /* Default Primary: Indigo */
-  --brand-50: #eef2ff;
-  --brand-100: #e0e7ff;
-  --brand-200: #c7d2fe;
-  --brand-300: #a5b4fc;
-  --brand-400: #818cf8;
-  --brand-500: #6366f1;
-  --brand-600: #4f46e5;
-  --brand-700: #4338ca;
-  --brand-800: #3730a3;
-  --brand-900: #312e81;
-  --brand-950: #1e1b4b;
+  /* Default Primary: Green #118d05 (giống tailieu-ehou) */
+  --brand-50:  #e6f7e6;
+  --brand-100: #c2eabf;
+  --brand-200: #99db93;
+  --brand-300: #6fcb67;
+  --brand-400: #4ebe41;
+  --brand-500: #15a80a;  /* accent-color-light */
+  --brand-600: #118d05;  /* accent-color chính */
+  --brand-700: #0a6b04;  /* accent-color-dark */
+  --brand-800: #095103;  /* accent-color-hover */
+  --brand-900: #063602;
+  --brand-950: #031d01;
+  --brand-rgb: 17, 141, 5;
 
-  /* Semantic tokens sáng */
-  --bg:           #f8fafc;    /* nền tổng */
-  --bg-2:         #f1f5f9;    /* nền phụ, sidebar... */
-  --surface:      #ffffff;    /* card, modal, panel */
-  --surface-2:    #f8fafc;    /* nền bên trong card */
-  --fg:           #0f172a;    /* text chính */
-  --fg-2:         #334155;    /* text phụ */
-  --muted:        #64748b;    /* text mờ */
-  --meta:         #94a3b8;    /* metadata, placeholder */
-  --border:       #e2e8f0;    /* border chính */
-  --border-soft:  #f1f5f9;    /* border mờ */
+  /* Semantic tokens sáng — giống tailieu-ehou light */
+  --bg:           #f8f9fa;    /* body background */
+  --bg-2:         #f1f3f5;    /* nền phụ */
+  --surface:      #ffffff;    /* card, modal */
+  --surface-2:    #f8f9fa;
+  --fg:           #111827;    /* text-gray-900 */
+  --fg-2:         #374151;    /* text-gray-700 */
+  --muted:        #6b7280;    /* text-gray-500 */
+  --meta:         #9ca3af;    /* text-gray-400 */
+  --border:       #e5e7eb;    /* border-gray-200 */
+  --border-soft:  #f3f4f6;
   --accent:       var(--brand-600);
   --accent-hover: var(--brand-700);
   --accent-on:    #ffffff;
@@ -50,58 +52,121 @@
   --motion-base:  250ms;
 }
 
-/* ─── Dark Mode ─── */
+/* ─── Dark Mode — giống tailieu-ehou dark ─── */
 .dark {
-  --bg:          #0b0f1a;
-  --bg-2:        #111827;
-  --surface:     #161d2e;
-  --surface-2:   #1e2a3d;
-  --fg:          #f1f5f9;
-  --fg-2:        #cbd5e1;
-  --muted:       #94a3b8;
-  --meta:        #64748b;
-  --border:      #1e2d45;
-  --border-soft: #161d2e;
+  --bg:          #1a1a1a;    /* bg-primary dark */
+  --bg-2:        #2d2d2d;    /* bg-secondary dark */
+  --surface:     #2d2d2d;
+  --surface-2:   #3a3a3a;
+  --fg:          #e0e0e0;    /* text-primary dark */
+  --fg-2:        #c0c0c0;
+  --muted:       #a0a0a0;    /* text-secondary dark */
+  --meta:        #6b7280;
+  --border:      #3d3d3d;    /* border dark */
+  --border-soft: #2d2d2d;
   --shadow-sm:   0 1px 3px rgba(0,0,0,.3);
-  --shadow-md:   0 4px 20px rgba(0,0,0,.4);
+  --shadow-md:   0 4px 20px rgba(0,0,0,.45);
+  /* brand giữ nguyên nhưng sáng hơn chút cho dark */
+  --brand-500:   #1bc70e;
+  --brand-600:   #15a80a;
+  --brand-700:   #0a6b04;
+  --brand-800:   #095103;
+  --brand-rgb:   21, 168, 10;
 }
 
-/* ─── Dynamic Color Themes ─── */
-.theme-indigo {
-  --brand-50: #eef2ff; --brand-100: #e0e7ff; --brand-200: #c7d2fe;
-  --brand-300: #a5b4fc; --brand-400: #818cf8; --brand-500: #6366f1;
-  --brand-600: #4f46e5; --brand-700: #4338ca; --brand-800: #3730a3;
-  --brand-900: #312e81; --brand-950: #1e1b4b;
+/* ─── Theme Colors — giống hệt tailieu-ehou ─── */
+
+/* Mặc định / Xanh lá (default) */
+.theme-green {
+  --brand-50:  #e6f7e6; --brand-100: #c2eabf; --brand-200: #99db93;
+  --brand-300: #6fcb67; --brand-400: #4ebe41; --brand-500: #15a80a;
+  --brand-600: #118d05; --brand-700: #0a6b04; --brand-800: #095103;
+  --brand-900: #063602; --brand-950: #031d01;
+  --brand-rgb: 17, 141, 5;
 }
+
+/* Xanh dương — blue #0066cc */
 .theme-blue {
-  --brand-50: #eff6ff; --brand-100: #dbeafe; --brand-200: #bfdbfe;
-  --brand-300: #93c5fd; --brand-400: #60a5fa; --brand-500: #3b82f6;
-  --brand-600: #2563eb; --brand-700: #1d4ed8; --brand-800: #1e40af;
-  --brand-900: #1e3a8a; --brand-950: #172554;
+  --brand-50:  #e6f2ff; --brand-100: #cce5ff; --brand-200: #99cbff;
+  --brand-300: #66b0ff; --brand-400: #3396ff; --brand-500: #0d74e7;
+  --brand-600: #0066cc; --brand-700: #0055aa; --brand-800: #004c99;
+  --brand-900: #003d80; --brand-950: #002966;
+  --brand-rgb: 0, 102, 204;
 }
-.theme-emerald {
-  --brand-50: #ecfdf5; --brand-100: #d1fae5; --brand-200: #a7f3d0;
-  --brand-300: #6ee7b7; --brand-400: #34d399; --brand-500: #10b981;
-  --brand-600: #059669; --brand-700: #047857; --brand-800: #065f46;
-  --brand-900: #064e3b; --brand-950: #022c22;
+.dark.theme-blue {
+  --brand-500: #60a5fa; --brand-600: #3b82f6;
+  --brand-700: #2563eb; --brand-800: #1d4ed8;
+  --brand-rgb: 59, 130, 246;
 }
-.theme-rose {
-  --brand-50: #fff1f2; --brand-100: #ffe4e6; --brand-200: #fecdd3;
-  --brand-300: #fda4af; --brand-400: #fb7185; --brand-500: #f43f5e;
-  --brand-600: #e11d48; --brand-700: #be123c; --brand-800: #9f1239;
-  --brand-900: #881337; --brand-950: #4c0519;
+
+/* Đỏ — red #cc0000 */
+.theme-red {
+  --brand-50:  #ffe6e6; --brand-100: #ffcccc; --brand-200: #ff9999;
+  --brand-300: #ff6666; --brand-400: #ff3333; --brand-500: #dc2626;
+  --brand-600: #cc0000; --brand-700: #b91c1c; --brand-800: #991b1b;
+  --brand-900: #7f1d1d; --brand-950: #450a0a;
+  --brand-rgb: 204, 0, 0;
 }
-.theme-amber {
-  --brand-50: #fffbeb; --brand-100: #fef3c7; --brand-200: #fde68a;
-  --brand-300: #fcd34d; --brand-400: #fbbf24; --brand-500: #f59e0b;
-  --brand-600: #d97706; --brand-700: #b45309; --brand-800: #92400e;
-  --brand-900: #78350f; --brand-950: #451a03;
+.dark.theme-red {
+  --brand-500: #f87171; --brand-600: #ef4444;
+  --brand-700: #dc2626; --brand-800: #b91c1c;
+  --brand-rgb: 239, 68, 68;
 }
+
+/* Tím — purple #6600cc */
 .theme-purple {
-  --brand-50: #faf5ff; --brand-100: #f3e8ff; --brand-200: #e9d5ff;
-  --brand-300: #d8b4fe; --brand-400: #c084fc; --brand-500: #a855f7;
-  --brand-600: #9333ea; --brand-700: #7e22ce; --brand-800: #6b21a8;
-  --brand-900: #581c87; --brand-950: #3b0764;
+  --brand-50:  #f2e6ff; --brand-100: #e6ccff; --brand-200: #cc99ff;
+  --brand-300: #b366ff; --brand-400: #9933ff; --brand-500: #7c3aed;
+  --brand-600: #6600cc; --brand-700: #5b21b6; --brand-800: #4c1d95;
+  --brand-900: #3b0764; --brand-950: #2e1065;
+  --brand-rgb: 102, 0, 204;
+}
+.dark.theme-purple {
+  --brand-500: #a78bfa; --brand-600: #8b5cf6;
+  --brand-700: #7c3aed; --brand-800: #6d28d9;
+  --brand-rgb: 139, 92, 246;
+}
+
+/* Vàng — yellow #ccbb00 */
+.theme-yellow {
+  --brand-50:  #fffde6; --brand-100: #fff9cc; --brand-200: #fff399;
+  --brand-300: #ffed66; --brand-400: #ffe733; --brand-500: #d9bb27;
+  --brand-600: #ccbb00; --brand-700: #b59b00; --brand-800: #a28900;
+  --brand-900: #854d0e; --brand-950: #713f12;
+  --brand-rgb: 204, 187, 0;
+}
+.dark.theme-yellow {
+  --brand-500: #facc15; --brand-600: #eab308;
+  --brand-700: #ca8a04; --brand-800: #a16207;
+  --brand-rgb: 234, 179, 8;
+}
+
+/* Nâu — brown #996633 */
+.theme-brown {
+  --brand-50:  #f5f0eb; --brand-100: #e6d8cc; --brand-200: #d4b897;
+  --brand-300: #c09870; --brand-400: #a3734f; --brand-500: #a3734f;
+  --brand-600: #996633; --brand-700: #7c5627; --brand-800: #664520;
+  --brand-900: #713f12; --brand-950: #431407;
+  --brand-rgb: 153, 102, 51;
+}
+.dark.theme-brown {
+  --brand-500: #d97706; --brand-600: #b45309;
+  --brand-700: #92400e; --brand-800: #78350f;
+  --brand-rgb: 180, 83, 9;
+}
+
+/* Đen — black #333333 */
+.theme-black {
+  --brand-50:  #e6e6e6; --brand-100: #d9d9d9; --brand-200: #bfbfbf;
+  --brand-300: #a6a6a6; --brand-400: #8c8c8c; --brand-500: #4b5563;
+  --brand-600: #333333; --brand-700: #1f2937; --brand-800: #111827;
+  --brand-900: #0c0c0c; --brand-950: #030303;
+  --brand-rgb: 51, 51, 51;
+}
+.dark.theme-black {
+  --brand-500: #737373; --brand-600: #525252;
+  --brand-700: #404040; --brand-800: #262626;
+  --brand-rgb: 82, 82, 82;
 }
 
 /* ─── Base ─── */
