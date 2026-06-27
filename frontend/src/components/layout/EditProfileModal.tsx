@@ -154,7 +154,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
             <label
               style={{ color: "var(--fg-2)", fontSize: "0.8rem", fontWeight: 600, display: "block", marginBottom: "0.375rem" }}
             >
-              Email (Chỉ đọc)
+              Email
             </label>
             <input
               type="email"
