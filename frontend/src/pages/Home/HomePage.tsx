@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import apiClient from "../../services/client.js";
 import { SkeletonCard } from "../../components/common/LoadingSpinner.js";
-import { BookOpen, Search, FileText, Clock, ChevronRight, Filter, X } from "lucide-react";
+import { BookOpen, Search, FileText, Clock, ChevronRight, Filter, X, GraduationCap, Book, PenTool, File } from "lucide-react";
 
 interface Document {
   id: string;
@@ -12,11 +12,11 @@ interface Document {
   created_at: string;
 }
 
-const CATEGORIES: Record<string, { label: string; icon: string }> = {
-  exam:     { label: "Đề thi",    icon: "📝" },
-  theory:   { label: "Lý thuyết", icon: "📖" },
-  practice: { label: "Bài tập",   icon: "✏️" },
-  other:    { label: "Khác",      icon: "📄" },
+const CATEGORIES: Record<string, { label: string; icon: (className: string) => React.ReactNode }> = {
+  exam:     { label: "Đề thi",    icon: (className) => <GraduationCap className={className} /> },
+  theory:   { label: "Lý thuyết", icon: (className) => <Book className={className} /> },
+  practice: { label: "Bài tập",   icon: (className) => <PenTool className={className} /> },
+  other:    { label: "Khác",      icon: (className) => <File className={className} /> },
 };
 
 const HomePage: React.FC = () => {
@@ -115,20 +115,21 @@ const HomePage: React.FC = () => {
             Tất cả
           </button>
           {categories.map((cat) => {
-            const info = CATEGORIES[cat] ?? { label: cat, icon: "📄" };
+            const info = CATEGORIES[cat];
+            if (!info) return null;
             const active = selectedCategory === cat;
             return (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(active ? null : cat)}
-                className="shrink-0 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-250"
+                className="shrink-0 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-250 inline-flex items-center gap-1.5"
                 style={
                   active
                     ? { background: "var(--brand-600)", color: "#fff" }
                     : { background: "var(--surface)", border: "1px solid var(--border)", color: "var(--muted)" }
                 }
               >
-                <span className="mr-1">{info.icon}</span>
+                {info.icon(`w-3.5 h-3.5 ${active ? 'text-white' : 'text-[var(--brand-600)]'}`)}
                 {info.label}
               </button>
             );
@@ -200,9 +201,9 @@ const HomePage: React.FC = () => {
                   <div className="flex items-start gap-3 mb-3">
                     <div
                       style={{ background: "color-mix(in srgb, var(--brand-600) 12%, transparent)", borderRadius: "0.75rem" }}
-                      className="w-10 h-10 flex items-center justify-center shrink-0 text-lg"
+                      className="w-10 h-10 flex items-center justify-center shrink-0"
                     >
-                      {catInfo.icon}
+                      {catInfo.icon("w-5 h-5 text-[var(--brand-600)]")}
                     </div>
                     <div className="min-w-0 flex-1">
                       <h3 style={{ color: "var(--fg)" }} className="font-semibold text-sm leading-snug line-clamp-2 group-hover:text-[var(--brand-600)] transition-colors duration-200">

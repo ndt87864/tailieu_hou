@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { Search, Calendar, Clock, MapPin, BookOpen, User, Download, AlertCircle, CheckCircle, XCircle, HelpCircle, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { Search, Calendar, Clock, MapPin, BookOpen, User, Download, AlertCircle, CheckCircle, XCircle, HelpCircle, ChevronDown, ChevronUp, Loader2, ClipboardList } from "lucide-react";
 import apiClient from "../../services/client.js";
 import { toast } from "react-toastify";
 
@@ -276,8 +276,9 @@ const ExamSchedulePage: React.FC = () => {
               style={{ background: "var(--surface-2)", borderBottom: "1px solid var(--border)", padding: "14px 20px" }}
               className="flex items-center justify-between"
             >
-              <h3 style={{ color: "var(--fg)", fontWeight: 700, fontSize: "0.95rem" }}>
-                📋 Danh sách môn thi
+              <h3 style={{ color: "var(--fg)", fontWeight: 700, fontSize: "0.95rem" }} className="flex items-center gap-2">
+                <ClipboardList className="w-4 h-4 text-[var(--brand-600)]" />
+                Danh sách môn thi
               </h3>
               <span style={{ color: "var(--muted)", fontSize: "0.75rem" }}>{rows.length} môn</span>
             </div>
