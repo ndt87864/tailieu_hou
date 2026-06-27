@@ -127,7 +127,7 @@ const DocumentPage: React.FC = () => {
 
   return (
     <div 
-      className="flex flex-col lg:flex-row gap-0 min-h-[calc(100vh-4rem)] -mx-4"
+      className="flex flex-col lg:flex-row gap-0 min-h-[calc(100vh-4rem)]"
       style={{ background: "var(--bg-2)", color: "var(--fg)" }}
     >
       {/* Sidebar - Solid Green */}
