@@ -127,12 +127,12 @@ const DocumentPage: React.FC = () => {
 
   return (
     <div 
-      className="flex flex-col lg:flex-row gap-0 min-h-[calc(100vh-4rem)]"
+      className="flex flex-col lg:flex-row gap-0 min-h-[calc(100vh/0.9-4rem)]"
       style={{ background: "var(--bg-2)", color: "var(--fg)" }}
     >
       {/* Sidebar - Solid Green */}
       <div 
-        className="w-full lg:w-72 shrink-0 flex flex-col border-r lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)] lg:overflow-y-auto z-10"
+        className="w-full lg:w-72 shrink-0 flex flex-col border-r lg:sticky lg:top-16 lg:h-[calc(100vh/0.9-4rem)] lg:overflow-y-auto z-10"
         style={{ background: "var(--brand-700)", borderColor: "var(--brand-800)", color: "#fff" }}
       >
         {/* Mobile Header / Toggle */}
@@ -153,7 +153,7 @@ const DocumentPage: React.FC = () => {
         </div>
 
         {/* Sidebar Navigation */}
-        <div className={`w-full lg:block ${mobileOpen ? "block" : "hidden"} flex-1 p-4 space-y-4`}>
+        <div className={`w-full lg:block ${mobileOpen ? "block" : "hidden"} flex-1 p-4 pb-24 space-y-4`}>
           <div 
             className="hidden lg:flex items-center gap-2.5 font-bold text-lg mb-6 pb-2 border-b text-white"
             style={{ borderColor: "var(--brand-800)" }}
