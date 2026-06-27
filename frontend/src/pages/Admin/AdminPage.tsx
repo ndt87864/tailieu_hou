@@ -3,7 +3,7 @@ import apiClient from "../../services/client.js";
 import LoadingSpinner from "../../components/common/LoadingSpinner.js";
 import { useAuth } from "../../context/AuthContext.js";
 import { toast } from "react-toastify";
-import { Shield, UserCog, UserCheck } from "lucide-react";
+import { Shield } from "lucide-react";
 
 interface Profile {
   id: string;
