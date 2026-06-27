@@ -103,6 +103,11 @@ RETURNS trigger AS $$
 BEGIN
   INSERT INTO public.profiles (id, email, full_name, avatar_url, role)
   VALUES (new.id, new.email, COALESCE(new.raw_user_meta_data->>'full_name', ''), COALESCE(new.raw_user_meta_data->>'avatar_url', ''), 'free');
+  
+  INSERT INTO public.ui_settings (user_id, theme_mode, primary_color)
+  VALUES (new.id, 'system', 'indigo')
+  ON CONFLICT (user_id) DO NOTHING;
+  
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -147,3 +152,23 @@ DROP TRIGGER IF EXISTS questions_set_updated_at ON public.questions;
 CREATE TRIGGER questions_set_updated_at BEFORE UPDATE ON public.questions FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 DROP TRIGGER IF EXISTS student_infor_set_updated_at ON public.student_infor;
 CREATE TRIGGER student_infor_set_updated_at BEFORE UPDATE ON public.student_infor FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- 6. UI SETTINGS
+CREATE TABLE IF NOT EXISTS public.ui_settings (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE UNIQUE,
+  theme_mode text DEFAULT 'system',
+  primary_color text DEFAULT 'indigo',
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE public.ui_settings ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "user_read_own_ui" ON public.ui_settings;
+CREATE POLICY "user_read_own_ui" ON public.ui_settings FOR SELECT USING (user_id = auth.uid());
+DROP POLICY IF EXISTS "user_all_own_ui" ON public.ui_settings;
+CREATE POLICY "user_all_own_ui" ON public.ui_settings FOR ALL USING (user_id = auth.uid());
+
+DROP TRIGGER IF EXISTS ui_settings_set_updated_at ON public.ui_settings;
+CREATE TRIGGER ui_settings_set_updated_at BEFORE UPDATE ON public.ui_settings FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();

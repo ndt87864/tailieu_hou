@@ -2,9 +2,14 @@ import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Outlet } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.js";
-import { BookOpen, User, Shield, LogOut, ChevronDown, Menu, X } from "lucide-react";
+import { BookOpen, User, Shield, LogOut, ChevronDown, Menu, X, Settings } from "lucide-react";
+import UISettingsModal from "./UISettingsModal.js";
 
-const Header: React.FC = () => {
+interface HeaderProps {
+  onOpenSettings: () => void;
+}
+
+const Header: React.FC<HeaderProps> = ({ onOpenSettings }) => {
   const { user, role, logout } = useAuth();
   const location = useLocation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -107,9 +112,9 @@ const Header: React.FC = () => {
 
                 {/* Dropdown */}
                 {dropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl border border-gray-100 shadow-dropdown py-1.5 animate-scale-in origin-top-right z-50">
-                    <div className="px-4 py-2.5 border-b border-gray-50">
-                      <p className="text-xs font-medium text-gray-900 truncate">{user.email}</p>
+                  <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-dropdown py-1.5 animate-scale-in origin-top-right z-50">
+                    <div className="px-4 py-2.5 border-b border-gray-50 dark:border-slate-800">
+                      <p className="text-xs font-medium text-gray-900 dark:text-slate-100 truncate">{user.email}</p>
                       <span className={`inline-block mt-1 text-[10px] font-semibold px-1.5 py-px rounded-full border ${badge.color}`}>
                         {badge.label}
                       </span>
@@ -119,18 +124,30 @@ const Header: React.FC = () => {
                         <Link
                           to="/admin"
                           onClick={() => setDropdownOpen(false)}
-                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
                         >
                           <Shield className="w-4 h-4 text-gray-400" />
                           Quản trị hệ thống
                         </Link>
                       )}
+                      
+                      <button
+                        onClick={() => {
+                          setDropdownOpen(false);
+                          onOpenSettings();
+                        }}
+                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
+                      >
+                        <Settings className="w-4 h-4 text-gray-400" />
+                        Giao diện hệ thống
+                      </button>
+
                       <button
                         onClick={() => {
                           setDropdownOpen(false);
                           logout();
                         }}
-                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
                       >
                         <LogOut className="w-4 h-4" />
                         Đăng xuất
@@ -140,19 +157,28 @@ const Header: React.FC = () => {
                 )}
               </div>
             ) : (
-              <Link
-                to="/login"
-                className="btn-brand text-sm !py-2 !px-4 flex items-center gap-2"
-              >
-                <User className="w-4 h-4" />
-                Đăng nhập
-              </Link>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={onOpenSettings}
+                  className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
+                  aria-label="Tùy chỉnh giao diện"
+                >
+                  <Settings className="w-4.5 h-4.5" />
+                </button>
+                <Link
+                  to="/login"
+                  className="btn-brand text-sm !py-2 !px-4 flex items-center gap-2"
+                >
+                  <User className="w-4 h-4" />
+                  Đăng nhập
+                </Link>
+              </div>
             )}
 
             {/* Mobile menu toggle */}
             <button
               onClick={() => setMobileOpen((p) => !p)}
-              className="md:hidden p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+              className="md:hidden p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
               aria-label="Toggle menu"
             >
               {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -162,24 +188,36 @@ const Header: React.FC = () => {
 
         {/* Mobile Nav */}
         {mobileOpen && (
-          <nav className="md:hidden border-t border-gray-100 py-3 pb-4 animate-slide-up">
+          <nav className="md:hidden border-t border-gray-100 dark:border-slate-800 py-3 pb-4 animate-slide-up">
             {navLinks.map((link) => (
               <Link
                 key={link.to}
                 to={link.to}
                 className={`block px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                   isActive(link.to)
-                    ? "bg-brand-50 text-brand-700"
-                    : "text-gray-600 hover:bg-gray-50"
+                    ? "bg-brand-50 text-brand-700 dark:bg-brand-950/20 dark:text-brand-400"
+                    : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800"
                 }`}
               >
                 {link.label}
               </Link>
             ))}
+            
+            <button
+              onClick={() => {
+                setMobileOpen(false);
+                onOpenSettings();
+              }}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800 rounded-xl transition-colors"
+            >
+              <Settings className="w-4 h-4 text-gray-400" />
+              Giao diện hệ thống
+            </button>
+
             {user && (
               <button
                 onClick={logout}
-                className="w-full mt-2 flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+                className="w-full mt-2 flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-colors"
               >
                 <LogOut className="w-4 h-4" />
                 Đăng xuất
@@ -194,25 +232,25 @@ const Header: React.FC = () => {
 
 const Footer: React.FC = () => {
   return (
-    <footer className="border-t border-gray-100 bg-white">
+    <footer className="border-t border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-900 transition-colors duration-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-lg bg-gradient-brand flex items-center justify-center shadow-sm">
               <BookOpen className="w-3.5 h-3.5 text-white" />
             </div>
-            <span className="text-sm font-semibold text-gray-900">Tài liệu HOU</span>
-            <span className="hidden sm:inline text-xs text-gray-400 ml-2">
+            <span className="text-sm font-semibold text-gray-900 dark:text-slate-100">Tài liệu HOU</span>
+            <span className="hidden sm:inline text-xs text-gray-400 dark:text-gray-500 ml-2">
               &copy; {new Date().getFullYear()} — Nền tảng ôn thi trực tuyến
             </span>
           </div>
-          <div className="flex items-center gap-6 text-xs text-gray-500">
-            <a href="#" className="hover:text-gray-900 transition-colors">Điều khoản</a>
-            <a href="#" className="hover:text-gray-900 transition-colors">Hỗ trợ</a>
-            <a href="#" className="hover:text-gray-900 transition-colors">Liên hệ</a>
+          <div className="flex items-center gap-6 text-xs text-gray-500 dark:text-gray-400">
+            <a href="#" className="hover:text-gray-900 dark:hover:text-white transition-colors">Điều khoản</a>
+            <a href="#" className="hover:text-gray-900 dark:hover:text-white transition-colors">Hỗ trợ</a>
+            <a href="#" className="hover:text-gray-900 dark:hover:text-white transition-colors">Liên hệ</a>
           </div>
         </div>
-        <p className="text-center sm:hidden text-xs text-gray-400 mt-3">
+        <p className="text-center sm:hidden text-xs text-gray-400 dark:text-gray-500 mt-3">
           &copy; {new Date().getFullYear()} — Nền tảng ôn thi trực tuyến
         </p>
       </div>
@@ -221,13 +259,16 @@ const Footer: React.FC = () => {
 };
 
 const Layout: React.FC = () => {
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
-      <Header />
+    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200">
+      <Header onOpenSettings={() => setSettingsOpen(true)} />
       <main className="flex-1 w-full">
         <Outlet />
       </main>
       <Footer />
+      <UISettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 };

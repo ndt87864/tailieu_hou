@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import apiClient from "../../services/client.js";
-import LoadingSpinner, { SkeletonCard } from "../../components/common/LoadingSpinner.js";
+import { SkeletonCard } from "../../components/common/LoadingSpinner.js";
 import { BookOpen, Search, FileText, Clock, ChevronRight, Filter, X } from "lucide-react";
 
 interface Document {
