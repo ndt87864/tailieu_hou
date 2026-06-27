@@ -38,14 +38,7 @@ const App: React.FC = () => {
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/lich-thi" element={<ExamSchedulePage />} />
-          <Route
-            path="/documents/:id"
-            element={
-              <ProtectedRoute roles={["free", "plus", "pro", "ultra", "management", "admin"]}>
-                <DocumentPage />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/documents/:id" element={<DocumentPage />} />
           <Route
             path="/admin/*"
             element={

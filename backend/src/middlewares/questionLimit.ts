@@ -34,8 +34,11 @@ export const questionLimitMiddleware: MiddlewareHandler = async (c, next) => {
     }
   }
 
-  const limited = questions.slice(0, FREE_QUESTION_LIMIT).map((q: any) => ({ ...q, isPremiumLocked: false }));
-  const locked = questions.slice(FREE_QUESTION_LIMIT).map((q: any) => ({
+  // Tài khoản khách/free được xem tối thiểu 1 câu, tối đa 20% tổng số câu
+  const limitCount = Math.max(1, Math.round(questions.length * 0.2));
+
+  const limited = questions.slice(0, limitCount).map((q: any) => ({ ...q, isPremiumLocked: false }));
+  const locked = questions.slice(limitCount).map((q: any) => ({
     id: q.id,
     document_id: q.document_id,
     order_index: q.order_index,
@@ -47,5 +50,5 @@ export const questionLimitMiddleware: MiddlewareHandler = async (c, next) => {
     isPremiumLocked: true,
   }));
 
-  c.res = c.json({ ...data, questions: [...limited, ...locked], limitApplied: true, limitCount: FREE_QUESTION_LIMIT, totalCount: questions.length }, 200);
+  c.res = c.json({ ...data, questions: [...limited, ...locked], limitApplied: true, limitCount, totalCount: questions.length }, 200);
 };
