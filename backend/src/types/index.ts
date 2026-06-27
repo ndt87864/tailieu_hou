@@ -14,6 +14,9 @@ export interface Document {
   description: string;
   category_id: string;
   created_at: string;
+  category?: {
+    title: string;
+  } | null;
 }
 
 export interface Question {

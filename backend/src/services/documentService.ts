@@ -4,11 +4,11 @@ import type { Document } from "../types/index.js";
 export const listDocuments = async (): Promise<Document[]> => {
   const { data, error } = await supabaseAdmin
     .from("documents")
-    .select("*")
+    .select("*, category:categories(title)")
     .order("created_at", { ascending: false });
 
   if (error) throw error;
-  return data ?? [];
+  return data as any ?? [];
 };
 
 export const getDocumentById = async (id: string): Promise<Document | null> => {

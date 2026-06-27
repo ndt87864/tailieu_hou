@@ -10,6 +10,9 @@ interface Document {
   description: string;
   category_id: string;
   created_at: string;
+  category?: {
+    title: string;
+  } | null;
 }
 
 const CATEGORIES: Record<string, { label: string; icon: (className: string) => React.ReactNode }> = {
@@ -33,7 +36,33 @@ const HomePage: React.FC = () => {
       .catch((err) => { console.error(err); setError("Không thể tải danh sách tài liệu."); setLoading(false); });
   }, []);
 
-  const categories = Array.from(new Set(documents.map((d) => d.category_id || "other")));
+  // Map category ID to its title
+  const uniqueCategoryMap = documents.reduce((acc, doc) => {
+    const catId = doc.category_id || "other";
+    if (!acc[catId]) {
+      acc[catId] = doc.category?.title || (catId === "other" ? "Khác" : "Chuyên mục");
+    }
+    return acc;
+  }, {} as Record<string, string>);
+
+  const categories = Object.keys(uniqueCategoryMap);
+
+  const getCategoryInfo = (catId: string, customTitle?: string | null) => {
+    if (CATEGORIES[catId]) {
+      return CATEGORIES[catId];
+    }
+    const title = customTitle || (catId === "other" ? "Khác" : "Chuyên mục");
+    const normalized = title.toLowerCase();
+    let icon = (className: string) => <File className={className} />;
+    if (normalized.includes("thi") || normalized.includes("khảo sát") || normalized.includes("đề")) {
+      icon = (className: string) => <GraduationCap className={className} />;
+    } else if (normalized.includes("thuyết") || normalized.includes("sách") || normalized.includes("tài liệu") || normalized.includes("bài giảng") || normalized.includes("giáo trình")) {
+      icon = (className: string) => <Book className={className} />;
+    } else if (normalized.includes("tập") || normalized.includes("hành")) {
+      icon = (className: string) => <PenTool className={className} />;
+    }
+    return { label: title, icon };
+  };
 
   const filtered = documents.filter((doc) => {
     const matchSearch =
@@ -115,8 +144,7 @@ const HomePage: React.FC = () => {
             Tất cả
           </button>
           {categories.map((cat) => {
-            const info = CATEGORIES[cat];
-            if (!info) return null;
+            const info = getCategoryInfo(cat, uniqueCategoryMap[cat]);
             const active = selectedCategory === cat;
             return (
               <button
@@ -179,59 +207,84 @@ const HomePage: React.FC = () => {
       )}
 
       {/* ── Document Grid ── */}
-      {!loading && !error && filtered.length > 0 && (
-        <div>
-          <div className="flex items-baseline justify-between mb-4">
-            <p style={{ color: "var(--meta)" }} className="text-sm">
-              Hiển thị <span style={{ color: "var(--fg-2)", fontWeight: 600 }}>{filtered.length}</span> tài liệu
-              {search && <span style={{ color: "var(--meta)" }}> — kết quả cho "<span style={{ color: "var(--fg-2)" }}>{search}</span>"</span>}
-            </p>
-          </div>
+      {!loading && !error && filtered.length > 0 && (() => {
+        // Group documents by category
+        const documentsByCategory = filtered.reduce((acc, doc) => {
+          const cat = doc.category_id || "other";
+          if (!acc[cat]) {
+            acc[cat] = [];
+          }
+          acc[cat].push(doc);
+          return acc;
+        }, {} as Record<string, Document[]>);
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map((doc, i) => {
-              const catInfo = CATEGORIES[doc.category_id] ?? CATEGORIES.other;
-              return (
-                <Link
-                  key={doc.id}
-                  to={`/documents/${doc.id}`}
-                  className="group card flex flex-col animate-fade-up"
-                  style={{ padding: "1.25rem", animationDelay: `${i * 50}ms` }}
-                >
-                  <div className="flex items-start gap-3 mb-3">
-                    <div
-                      style={{ background: "color-mix(in srgb, var(--brand-600) 12%, transparent)", borderRadius: "0.75rem" }}
-                      className="w-10 h-10 flex items-center justify-center shrink-0"
-                    >
-                      {catInfo.icon("w-5 h-5 text-[var(--brand-600)]")}
+        const activeCategories = Object.keys(documentsByCategory);
+
+        return (
+          <div>
+            <div className="flex items-baseline justify-between mb-4">
+              <p style={{ color: "var(--meta)" }} className="text-sm">
+                Hiển thị <span style={{ color: "var(--fg-2)", fontWeight: 600 }}>{filtered.length}</span> tài liệu
+                {search && <span style={{ color: "var(--meta)" }}> — kết quả cho "<span style={{ color: "var(--fg-2)" }}>{search}</span>"</span>}
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {activeCategories.map((cat, i) => {
+                const docs = documentsByCategory[cat];
+                const catTitle = docs[0]?.category?.title || (cat === "other" ? "Khác" : cat);
+                const catInfo = getCategoryInfo(cat, catTitle);
+
+                return (
+                  <div
+                    key={cat}
+                    className="card flex flex-col animate-fade-up"
+                    style={{ padding: "1.5rem", animationDelay: `${i * 50}ms` }}
+                  >
+                    {/* Category Header */}
+                    <div className="flex items-center gap-3 mb-4 pb-3" style={{ borderBottom: "1px solid var(--border-soft)" }}>
+                      <div
+                        style={{ background: "color-mix(in srgb, var(--brand-600) 12%, transparent)", borderRadius: "0.75rem" }}
+                        className="w-10 h-10 flex items-center justify-center shrink-0"
+                      >
+                        {catInfo.icon("w-5 h-5 text-[var(--brand-600)]")}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 style={{ color: "var(--fg)" }} className="font-bold text-base leading-snug">
+                          {catInfo.label}
+                        </h3>
+                        <p style={{ color: "var(--meta)" }} className="text-xs">
+                          {docs.length} tài liệu
+                        </p>
+                      </div>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 style={{ color: "var(--fg)" }} className="font-semibold text-sm leading-snug line-clamp-2 group-hover:text-[var(--brand-600)] transition-colors duration-200">
-                        {doc.title}
-                      </h3>
+
+                    {/* Category Body (Documents) */}
+                    <div className="flex-1 flex flex-col gap-1.5">
+                      {docs.map((doc) => (
+                        <Link
+                          key={doc.id}
+                          to={`/documents/${doc.id}`}
+                          className="group/item flex items-center justify-between p-2.5 rounded-xl hover:bg-[var(--bg-2)] transition-colors duration-200"
+                          style={{ border: "1px solid transparent" }}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <FileText className="w-4 h-4 text-[var(--muted)] group-hover/item:text-[var(--brand-600)] shrink-0 transition-colors" />
+                            <span className="text-sm text-[var(--fg-2)] group-hover/item:text-[var(--brand-600)] font-medium truncate transition-colors">
+                              {doc.title}
+                            </span>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-[var(--meta)] opacity-0 group-hover/item:opacity-100 group-hover/item:translate-x-0.5 transition-all shrink-0 duration-200" />
+                        </Link>
+                      ))}
                     </div>
                   </div>
-
-                  <p style={{ color: "var(--muted)" }} className="text-xs line-clamp-2 mb-4 flex-1 leading-relaxed">
-                    {doc.description}
-                  </p>
-
-                  <div style={{ borderTop: "1px solid var(--border-soft)" }} className="flex items-center justify-between pt-3">
-                    <div className="flex items-center gap-1.5 text-xs" style={{ color: "var(--meta)" }}>
-                      <Clock className="w-3 h-3" />
-                      <span>{timeAgo(doc.created_at)}</span>
-                    </div>
-                    <span style={{ color: "var(--brand-600)" }} className="inline-flex items-center gap-1 text-xs font-semibold group-hover:gap-1.5 transition-all duration-200">
-                      Vào ôn thi
-                      <ChevronRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
-                    </span>
-                  </div>
-                </Link>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };
