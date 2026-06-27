@@ -1,9 +1,29 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useAuth } from "./AuthContext.js";
 import apiClient from "../services/client.js";
 
 export type ThemeMode = "light" | "dark" | "system";
 export type PrimaryColor = "indigo" | "blue" | "emerald" | "rose" | "amber" | "purple";
+
+const COLOR_CLASSES = [
+  "theme-indigo", "theme-blue", "theme-emerald",
+  "theme-rose", "theme-amber", "theme-purple",
+] as const;
+
+/** Áp dụng ngay vào DOM — không phụ thuộc vào React re-render */
+function applyToDom(mode: ThemeMode, color: PrimaryColor) {
+  const root = document.documentElement;
+
+  // Màu chủ đạo
+  root.classList.remove(...COLOR_CLASSES);
+  root.classList.add(`theme-${color}`);
+
+  // Chế độ sáng / tối
+  const isDark =
+    mode === "dark" ||
+    (mode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  isDark ? root.classList.add("dark") : root.classList.remove("dark");
+}
 
 interface UIContextType {
   themeMode: ThemeMode;
@@ -17,79 +37,67 @@ const UIContext = createContext<UIContextType | undefined>(undefined);
 
 export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  const [themeMode, setThemeModeState] = useState<ThemeMode>("system");
-  const [primaryColor, setPrimaryColorState] = useState<PrimaryColor>("indigo");
+
+  // Khởi tạo từ localStorage ngay khi render lần đầu (sync)
+  const [themeMode, setThemeModeState] = useState<ThemeMode>(() => {
+    return (localStorage.getItem("ui-theme-mode") as ThemeMode) || "system";
+  });
+
+  const [primaryColor, setPrimaryColorState] = useState<PrimaryColor>(() => {
+    return (localStorage.getItem("ui-primary-color") as PrimaryColor) || "indigo";
+  });
+
   const [loadingSettings, setLoadingSettings] = useState<boolean>(true);
 
-  // 1. Load initial settings
+  // Đồng bộ DOM khi state thay đổi (bao gồm lần đầu mount)
   useEffect(() => {
-    const loadSettings = async () => {
-      setLoadingSettings(true);
-      if (user) {
-        try {
-          const res = await apiClient.get("/api/v1/auth/ui-settings");
-          if (res.data) {
-            setThemeModeState(res.data.theme_mode || "system");
-            setPrimaryColorState(res.data.primary_color || "indigo");
-          }
-        } catch (err) {
-          console.error("Lỗi khi tải cài đặt giao diện từ server:", err);
-          // Fallback to localStorage
-          loadFromLocalStorage();
-        }
-      } else {
-        loadFromLocalStorage();
-      }
-      setLoadingSettings(false);
-    };
+    applyToDom(themeMode, primaryColor);
 
-    loadSettings();
-  }, [user]);
-
-  const loadFromLocalStorage = () => {
-    const savedTheme = localStorage.getItem("ui-theme-mode") as ThemeMode;
-    const savedColor = localStorage.getItem("ui-primary-color") as PrimaryColor;
-    if (savedTheme) setThemeModeState(savedTheme);
-    if (savedColor) setPrimaryColorState(savedColor);
-  };
-
-  // 2. Apply theme classes dynamically to documentElement
-  useEffect(() => {
-    const root = document.documentElement;
-
-    // A. Apply Primary Color Theme class
-    const colorClasses = ["theme-indigo", "theme-blue", "theme-emerald", "theme-rose", "theme-amber", "theme-purple"];
-    root.classList.remove(...colorClasses);
-    root.classList.add(`theme-${primaryColor}`);
-
-    // B. Apply Light/Dark class
-    const updateDarkMode = () => {
-      const isDark =
-        themeMode === "dark" ||
-        (themeMode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-
-      if (isDark) {
-        root.classList.add("dark");
-      } else {
-        root.classList.remove("dark");
-      }
-    };
-
-    updateDarkMode();
-
-    // If system, watch for system preference changes
     if (themeMode === "system") {
-      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-      const listener = () => updateDarkMode();
-      mediaQuery.addEventListener("change", listener);
-      return () => mediaQuery.removeEventListener("change", listener);
+      const mq = window.matchMedia("(prefers-color-scheme: dark)");
+      const listener = () => applyToDom(themeMode, primaryColor);
+      mq.addEventListener("change", listener);
+      return () => mq.removeEventListener("change", listener);
     }
   }, [themeMode, primaryColor]);
 
-  // 3. Set and Persist Theme Mode
-  const setThemeMode = async (mode: ThemeMode) => {
+  // Load settings từ server khi đã đăng nhập
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadSettings = async () => {
+      setLoadingSettings(true);
+
+      if (user) {
+        try {
+          const res = await apiClient.get("/api/v1/auth/ui-settings");
+          if (!cancelled && res.data) {
+            const serverTheme = (res.data.theme_mode as ThemeMode) || "system";
+            const serverColor = (res.data.primary_color as PrimaryColor) || "indigo";
+            setThemeModeState(serverTheme);
+            setPrimaryColorState(serverColor);
+            localStorage.setItem("ui-theme-mode", serverTheme);
+            localStorage.setItem("ui-primary-color", serverColor);
+            applyToDom(serverTheme, serverColor);
+          }
+        } catch {
+          // giữ nguyên giá trị từ localStorage
+        }
+      }
+      // Với khách: đã khởi tạo từ localStorage qua state initializer ở trên
+
+      if (!cancelled) setLoadingSettings(false);
+    };
+
+    loadSettings();
+    return () => { cancelled = true; };
+  }, [user]);
+
+  // Setter: thay đổi chế độ sáng/tối
+  const setThemeMode = useCallback(async (mode: ThemeMode) => {
     setThemeModeState(mode);
     localStorage.setItem("ui-theme-mode", mode);
+    applyToDom(mode, primaryColor); // áp dụng NGAY LẬP TỨC
 
     if (user) {
       try {
@@ -97,16 +105,17 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           theme_mode: mode,
           primary_color: primaryColor,
         });
-      } catch (err) {
-        console.error("Lỗi khi lưu cài đặt giao diện lên server:", err);
+      } catch {
+        // lỗi network, bỏ qua
       }
     }
-  };
+  }, [user, primaryColor]);
 
-  // 4. Set and Persist Primary Color
-  const setPrimaryColor = async (color: PrimaryColor) => {
+  // Setter: thay đổi màu chủ đạo
+  const setPrimaryColor = useCallback(async (color: PrimaryColor) => {
     setPrimaryColorState(color);
     localStorage.setItem("ui-primary-color", color);
+    applyToDom(themeMode, color); // áp dụng NGAY LẬP TỨC
 
     if (user) {
       try {
@@ -114,22 +123,14 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           theme_mode: themeMode,
           primary_color: color,
         });
-      } catch (err) {
-        console.error("Lỗi khi lưu cài đặt giao diện lên server:", err);
+      } catch {
+        // lỗi network, bỏ qua
       }
     }
-  };
+  }, [user, themeMode]);
 
   return (
-    <UIContext.Provider
-      value={{
-        themeMode,
-        primaryColor,
-        setThemeMode,
-        setPrimaryColor,
-        loadingSettings,
-      }}
-    >
+    <UIContext.Provider value={{ themeMode, primaryColor, setThemeMode, setPrimaryColor, loadingSettings }}>
       {children}
     </UIContext.Provider>
   );
