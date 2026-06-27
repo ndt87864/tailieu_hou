@@ -29,12 +29,10 @@ const DocumentPage: React.FC = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-
   const [showAnswer, setShowAnswer] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     if (!id) return;
-
     Promise.all([
       apiClient.get(`/api/v1/documents/${id}`),
       apiClient.get(`/api/v1/questions/document/${id}`),
@@ -51,33 +49,59 @@ const DocumentPage: React.FC = () => {
       });
   }, [id]);
 
-  const toggleAnswer = (idx: number) => {
+  const toggleAnswer = (idx: number) =>
     setShowAnswer((prev) => ({ ...prev, [idx]: !prev[idx] }));
-  };
 
   if (loading) return <LoadingSpinner />;
-  if (error || !doc) return <div className="text-red-500 text-center p-8">{error || "Tài liệu không tồn tại."}</div>;
+  if (error || !doc)
+    return (
+      <div style={{ color: "#ef4444", textAlign: "center", padding: "2rem" }}>
+        {error || "Tài liệu không tồn tại."}
+      </div>
+    );
 
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="text-sm text-gray-500 mb-4">
-        <Link to="/" className="hover:text-indigo-600">Trang chủ</Link> &gt; <span>{doc.title}</span>
+      {/* Breadcrumb */}
+      <div style={{ color: "var(--muted)", fontSize: "0.875rem" }} className="mb-4">
+        <Link to="/" style={{ color: "var(--muted)" }} className="hover:text-[var(--brand-600)] transition-colors">
+          Trang chủ
+        </Link>
+        <span className="mx-1.5">&gt;</span>
+        <span style={{ color: "var(--fg)" }}>{doc.title}</span>
       </div>
 
-      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 mb-6">
-        <h1 className="text-2xl font-bold text-gray-800 mb-2">{doc.title}</h1>
-        <p className="text-gray-500 text-sm">{doc.description}</p>
+      {/* Doc header card */}
+      <div className="card p-6 mb-6">
+        <h1 style={{ color: "var(--fg)" }} className="text-2xl font-bold mb-2">{doc.title}</h1>
+        <p style={{ color: "var(--muted)", fontSize: "0.875rem" }}>{doc.description}</p>
         <div className="mt-4 flex items-center gap-2">
-          <span className="text-xs bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded font-medium">
+          <span
+            style={{
+              background: "color-mix(in srgb, var(--brand-600) 10%, transparent)",
+              color: "var(--brand-600)",
+              fontSize: "0.75rem",
+              fontWeight: 500,
+              padding: "0.25rem 0.625rem",
+              borderRadius: "0.375rem",
+            }}
+          >
             Quyền hiện tại của bạn: {role.toUpperCase()}
           </span>
         </div>
       </div>
 
+      {/* Questions */}
       <div className="space-y-6">
-        <h2 className="text-lg font-bold text-gray-700">Danh sách câu hỏi ôn tập:</h2>
+        <h2 style={{ color: "var(--fg)", fontWeight: 700, fontSize: "1.125rem" }}>
+          Danh sách câu hỏi ôn tập:
+        </h2>
+
         {questions.length === 0 ? (
-          <div className="text-center text-gray-400 py-8 bg-white rounded border border-dashed">
+          <div
+            style={{ color: "var(--meta)", border: "1px dashed var(--border)", borderRadius: "0.75rem", background: "var(--surface)" }}
+            className="text-center py-8"
+          >
             Tài liệu này chưa có câu hỏi nào.
           </div>
         ) : (
@@ -88,66 +112,85 @@ const DocumentPage: React.FC = () => {
             return (
               <div
                 key={q.id || idx}
-                className={`bg-white p-5 rounded-lg shadow-sm border relative transition ${
-                  isLocked ? "border-amber-200 bg-amber-50/10" : "border-gray-100"
-                }`}
+                className="card relative"
+                style={{
+                  padding: "1.25rem",
+                  borderColor: isLocked ? "#fbbf24" : undefined,
+                }}
               >
                 {isLocked && (
-                  <div className="absolute inset-0 bg-white/70 backdrop-blur-[2px] flex flex-col items-center justify-center rounded-lg p-6 z-10 text-center">
+                  <div
+                    style={{
+                      position: "absolute", inset: 0,
+                      background: "color-mix(in srgb, var(--surface) 80%, transparent)",
+                      backdropFilter: "blur(3px)",
+                      borderRadius: "inherit",
+                      display: "flex", flexDirection: "column",
+                      alignItems: "center", justifyContent: "center",
+                      zIndex: 10, textAlign: "center", padding: "1.5rem",
+                    }}
+                  >
                     <Lock className="w-8 h-8 text-amber-500 mb-2 animate-bounce" />
-                    <h3 className="font-bold text-gray-800 text-sm mb-1">Nội dung trả phí bị khóa</h3>
-                    <p className="text-xs text-gray-500 max-w-xs mb-3">
+                    <h3 style={{ color: "var(--fg)", fontWeight: 700, fontSize: "0.875rem" }} className="mb-1">
+                      Nội dung trả phí bị khóa
+                    </h3>
+                    <p style={{ color: "var(--muted)", fontSize: "0.75rem", maxWidth: "20rem" }} className="mb-3">
                       Bạn đang dùng tài khoản {role.toUpperCase()}. Vui lòng nâng cấp Premium để học trọn bộ {questions.length} câu hỏi.
                     </p>
                     <Link
                       to="/admin"
                       className="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-4 py-1.5 rounded text-xs transition"
                     >
-                      Nâng cấp Ngay (Trang Test)
+                      Nâng cấp Ngay
                     </Link>
                   </div>
                 )}
 
                 <div className={isLocked ? "premium-blur" : ""}>
-                  {/* Nội dung text & ảnh câu hỏi */}
-                  <div className="font-semibold text-gray-800 mb-3 flex flex-col gap-2">
+                  {/* Câu hỏi */}
+                  <div style={{ color: "var(--fg)", fontWeight: 600 }} className="mb-3 flex flex-col gap-2">
                     <div className="flex items-start gap-2">
-                      <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-xs mt-0.5">
+                      <span
+                        style={{ background: "var(--bg-2)", color: "var(--muted)", fontSize: "0.75rem", padding: "0.125rem 0.5rem", borderRadius: "0.375rem", marginTop: "0.125rem", whiteSpace: "nowrap" }}
+                      >
                         Câu {idx + 1}
                       </span>
                       <span>{q.question}</span>
                     </div>
                     {q.url_question && (
-                      <div className="mt-2 max-w-lg border rounded p-1 bg-white">
-                        <img
-                          src={q.url_question}
-                          alt={`Ảnh câu hỏi ${idx + 1}`}
-                          className="max-h-60 object-contain"
-                        />
+                      <div style={{ border: "1px solid var(--border)", borderRadius: "0.5rem", padding: "0.25rem", background: "var(--surface-2)" }} className="mt-2 max-w-lg">
+                        <img src={q.url_question} alt={`Ảnh câu hỏi ${idx + 1}`} className="max-h-60 object-contain" />
                       </div>
                     )}
                   </div>
 
-                  {/* Lựa chọn trắc nghiệm */}
+                  {/* Choices */}
                   <div className="grid md:grid-cols-2 gap-3 pl-8">
                     {(q.choices || []).map((opt, oIdx) => {
                       const isCorrectText = showAnswer[idx] && opt.trim().toLowerCase() === cleanAns;
-                      const isLetterCorrect = showAnswer[idx] &&
-                        (cleanAns === "a" && oIdx === 0 ||
-                         cleanAns === "b" && oIdx === 1 ||
-                         cleanAns === "c" && oIdx === 2 ||
-                         cleanAns === "d" && oIdx === 3);
+                      const isLetterCorrect =
+                        showAnswer[idx] &&
+                        ((cleanAns === "a" && oIdx === 0) ||
+                          (cleanAns === "b" && oIdx === 1) ||
+                          (cleanAns === "c" && oIdx === 2) ||
+                          (cleanAns === "d" && oIdx === 3));
+                      const correct = isCorrectText || isLetterCorrect;
 
                       return (
                         <div
                           key={oIdx}
-                          className={`p-3 rounded border text-sm transition cursor-pointer ${
-                            isCorrectText || isLetterCorrect
-                              ? "bg-emerald-50 border-emerald-300 text-emerald-800 font-medium"
-                              : "border-gray-100 hover:bg-gray-50"
-                          }`}
+                          style={{
+                            padding: "0.75rem",
+                            borderRadius: "0.5rem",
+                            border: `1px solid ${correct ? "#6ee7b7" : "var(--border)"}`,
+                            background: correct ? "#ecfdf5" : "var(--surface-2)",
+                            color: correct ? "#065f46" : "var(--fg)",
+                            fontSize: "0.875rem",
+                            cursor: "pointer",
+                            transition: "background 0.15s ease, border-color 0.15s ease",
+                          }}
                         >
-                          <span className="font-bold mr-2">
+                          <span style={{ fontWeight: 700, marginRight: "0.5rem" }}>
                             {String.fromCharCode(65 + oIdx)}.
                           </span>
                           {opt}
@@ -156,27 +199,25 @@ const DocumentPage: React.FC = () => {
                     })}
                   </div>
 
-                  {/* Giải thích / Đáp án */}
-                  <div className="mt-4 pt-3 border-t border-gray-50 flex flex-col gap-2">
+                  {/* Đáp án */}
+                  <div style={{ borderTop: "1px solid var(--border-soft)", marginTop: "1rem", paddingTop: "0.75rem" }} className="flex flex-col gap-2">
                     <button
                       onClick={() => toggleAnswer(idx)}
-                      className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 self-start"
+                      style={{ color: "var(--brand-600)", fontSize: "0.75rem", fontWeight: 600, alignSelf: "flex-start" }}
+                      className="hover:opacity-80 transition-opacity"
                     >
                       {showAnswer[idx] ? "Ẩn giải thích" : "Xem đáp án & giải thích"}
                     </button>
 
                     {showAnswer[idx] && (
-                      <div className="bg-slate-50 p-3 rounded text-xs text-gray-600 border border-slate-100 flex flex-col gap-2">
-                        <p className="font-bold text-slate-800">
-                          Đáp án đúng: {q.answer}
-                        </p>
+                      <div
+                        style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: "0.5rem", padding: "0.75rem", fontSize: "0.75rem", color: "var(--fg-2)" }}
+                        className="flex flex-col gap-2"
+                      >
+                        <p style={{ fontWeight: 700, color: "var(--fg)" }}>Đáp án đúng: {q.answer}</p>
                         {q.url_answer && (
-                          <div className="my-1 max-w-lg border rounded p-1 bg-white">
-                            <img
-                              src={q.url_answer}
-                              alt={`Ảnh đáp án ${idx + 1}`}
-                              className="max-h-60 object-contain"
-                            />
+                          <div style={{ border: "1px solid var(--border)", borderRadius: "0.5rem", padding: "0.25rem", background: "var(--surface)" }} className="my-1 max-w-lg">
+                            <img src={q.url_answer} alt={`Ảnh đáp án ${idx + 1}`} className="max-h-60 object-contain" />
                           </div>
                         )}
                       </div>

@@ -16,7 +16,6 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -41,27 +40,41 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings }) => {
       ]
     : [{ to: "/", label: "Trang chủ" }];
 
-  const roleBadge: Record<string, { label: string; color: string }> = {
-    admin: { label: "Admin", color: "bg-red-50 text-red-700 border-red-200" },
-    management: { label: "QL", color: "bg-amber-50 text-amber-700 border-amber-200" },
-    ultra: { label: "Ultra", color: "bg-purple-50 text-purple-700 border-purple-200" },
-    pro: { label: "Pro", color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-    plus: { label: "Plus", color: "bg-blue-50 text-blue-700 border-blue-200" },
-    free: { label: "Free", color: "bg-gray-50 text-gray-600 border-gray-200" },
+  const roleBadge: Record<string, { label: string; style: React.CSSProperties }> = {
+    admin:      { label: "Admin",  style: { background: "#fee2e2", color: "#b91c1c", borderColor: "#fca5a5" } },
+    management: { label: "QL",    style: { background: "#fef3c7", color: "#b45309", borderColor: "#fcd34d" } },
+    ultra:      { label: "Ultra", style: { background: "#f3e8ff", color: "#7c3aed", borderColor: "#c4b5fd" } },
+    pro:        { label: "Pro",   style: { background: "#d1fae5", color: "#065f46", borderColor: "#6ee7b7" } },
+    plus:       { label: "Plus",  style: { background: "#dbeafe", color: "#1d4ed8", borderColor: "#93c5fd" } },
+    free:       { label: "Free",  style: { background: "var(--bg-2)", color: "var(--muted)", borderColor: "var(--border)" } },
   };
-
-  const badge = roleBadge[role] ?? { label: role.toUpperCase(), color: "bg-gray-50 text-gray-600 border-gray-200" };
+  const badge = roleBadge[role] ?? { label: role.toUpperCase(), style: { background: "var(--bg-2)", color: "var(--muted)", borderColor: "var(--border)" } };
 
   return (
-    <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-gray-100">
+    <header
+      style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 50,
+        background: "color-mix(in srgb, var(--surface) 85%, transparent)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+        borderBottom: "1px solid var(--border)",
+        transition: "background 0.25s ease, border-color 0.25s ease",
+      }}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link
             to="/"
-            className="flex items-center gap-2.5 font-bold text-lg text-gray-900 hover:text-brand-600 transition-colors duration-200 shrink-0"
+            style={{ color: "var(--fg)", textDecoration: "none" }}
+            className="flex items-center gap-2.5 font-bold text-lg shrink-0 hover:opacity-80 transition-opacity"
           >
-            <div className="w-8 h-8 rounded-lg bg-gradient-brand flex items-center justify-center shadow-sm">
+            <div
+              style={{ background: "linear-gradient(135deg, var(--brand-700), var(--brand-500))" }}
+              className="w-8 h-8 rounded-lg flex items-center justify-center shadow-sm"
+            >
               <BookOpen className="w-4 h-4 text-white" />
             </div>
             <span className="hidden sm:inline">Tài liệu HOU</span>
@@ -73,10 +86,13 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings }) => {
               <Link
                 key={link.to}
                 to={link.to}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                style={
                   isActive(link.to)
-                    ? "bg-brand-50 text-brand-700"
-                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                    ? { background: "color-mix(in srgb, var(--brand-600) 10%, transparent)", color: "var(--brand-600)" }
+                    : { color: "var(--muted)" }
+                }
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:opacity-100 ${
+                  isActive(link.to) ? "" : "hover:bg-[var(--bg-2)] hover:text-[var(--fg)]"
                 }`}
               >
                 {link.label}
@@ -90,32 +106,36 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings }) => {
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setDropdownOpen((p) => !p)}
-                  className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl hover:bg-gray-50 transition-all duration-200 group"
+                  style={{ color: "var(--fg)" }}
+                  className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-all duration-200 hover:bg-[var(--bg-2)]"
                 >
-                  <div className="w-8 h-8 rounded-full bg-gradient-brand flex items-center justify-center text-white text-xs font-bold shadow-sm shrink-0">
+                  <div
+                    style={{ background: "linear-gradient(135deg, var(--brand-700), var(--brand-500))" }}
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm shrink-0"
+                  >
                     {user.email?.charAt(0).toUpperCase() ?? "U"}
                   </div>
                   <div className="hidden sm:flex flex-col items-start min-w-0">
-                    <span className="text-xs font-medium text-gray-900 truncate max-w-[120px]">
+                    <span style={{ color: "var(--fg)", fontSize: "0.75rem", fontWeight: 500 }} className="truncate max-w-[120px]">
                       {user.email}
                     </span>
-                    <span className={`text-[10px] font-semibold px-1.5 py-px rounded-full border ${badge.color}`}>
+                    <span
+                      style={{ ...badge.style, fontSize: "0.625rem", fontWeight: 700, padding: "1px 6px", borderRadius: 99, border: "1px solid", borderColor: badge.style.borderColor }}
+                    >
                       {badge.label}
                     </span>
                   </div>
-                  <ChevronDown
-                    className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${
-                      dropdownOpen ? "rotate-180" : ""
-                    }`}
-                  />
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${dropdownOpen ? "rotate-180" : ""}`} style={{ color: "var(--meta)" }} />
                 </button>
 
-                {/* Dropdown */}
                 {dropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-dropdown py-1.5 animate-scale-in origin-top-right z-50">
-                    <div className="px-4 py-2.5 border-b border-gray-50 dark:border-slate-800">
-                      <p className="text-xs font-medium text-gray-900 dark:text-slate-100 truncate">{user.email}</p>
-                      <span className={`inline-block mt-1 text-[10px] font-semibold px-1.5 py-px rounded-full border ${badge.color}`}>
+                  <div
+                    style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-md)" }}
+                    className="absolute right-0 mt-2 w-56 rounded-2xl py-1.5 animate-scale-in origin-top-right z-50"
+                  >
+                    <div style={{ borderBottom: "1px solid var(--border-soft)" }} className="px-4 py-2.5">
+                      <p style={{ color: "var(--fg)", fontSize: "0.75rem", fontWeight: 500 }} className="truncate">{user.email}</p>
+                      <span style={{ ...badge.style, fontSize: "0.625rem", fontWeight: 700, padding: "1px 6px", borderRadius: 99, border: "1px solid", borderColor: badge.style.borderColor, marginTop: 4, display: "inline-block" }}>
                         {badge.label}
                       </span>
                     </div>
@@ -124,30 +144,24 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings }) => {
                         <Link
                           to="/admin"
                           onClick={() => setDropdownOpen(false)}
-                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
+                          style={{ color: "var(--fg-2)" }}
+                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] transition-colors"
                         >
-                          <Shield className="w-4 h-4 text-gray-400" />
+                          <Shield className="w-4 h-4" style={{ color: "var(--meta)" }} />
                           Quản trị hệ thống
                         </Link>
                       )}
-                      
                       <button
-                        onClick={() => {
-                          setDropdownOpen(false);
-                          onOpenSettings();
-                        }}
-                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
+                        onClick={() => { setDropdownOpen(false); onOpenSettings(); }}
+                        style={{ color: "var(--fg-2)" }}
+                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] transition-colors text-left"
                       >
-                        <Settings className="w-4 h-4 text-gray-400" />
+                        <Settings className="w-4 h-4" style={{ color: "var(--meta)" }} />
                         Giao diện hệ thống
                       </button>
-
                       <button
-                        onClick={() => {
-                          setDropdownOpen(false);
-                          logout();
-                        }}
-                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+                        onClick={() => { setDropdownOpen(false); logout(); }}
+                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-red-500 hover:bg-red-500/10 transition-colors text-left"
                       >
                         <LogOut className="w-4 h-4" />
                         Đăng xuất
@@ -160,25 +174,24 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings }) => {
               <div className="flex items-center gap-2">
                 <button
                   onClick={onOpenSettings}
-                  className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
+                  style={{ color: "var(--muted)" }}
+                  className="p-2 rounded-xl hover:bg-[var(--bg-2)] transition-colors"
                   aria-label="Tùy chỉnh giao diện"
                 >
-                  <Settings className="w-4.5 h-4.5" />
+                  <Settings className="w-4 h-4" />
                 </button>
-                <Link
-                  to="/login"
-                  className="btn-brand text-sm !py-2 !px-4 flex items-center gap-2"
-                >
+                <Link to="/login" className="btn-brand text-sm !py-2 !px-4 flex items-center gap-2">
                   <User className="w-4 h-4" />
                   Đăng nhập
                 </Link>
               </div>
             )}
 
-            {/* Mobile menu toggle */}
+            {/* Mobile toggle */}
             <button
               onClick={() => setMobileOpen((p) => !p)}
-              className="md:hidden p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
+              style={{ color: "var(--muted)" }}
+              className="md:hidden p-2 rounded-lg hover:bg-[var(--bg-2)] transition-colors"
               aria-label="Toggle menu"
             >
               {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -188,36 +201,33 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings }) => {
 
         {/* Mobile Nav */}
         {mobileOpen && (
-          <nav className="md:hidden border-t border-gray-100 dark:border-slate-800 py-3 pb-4 animate-slide-up">
+          <nav style={{ borderTop: "1px solid var(--border)" }} className="md:hidden py-3 pb-4 animate-slide-up">
             {navLinks.map((link) => (
               <Link
                 key={link.to}
                 to={link.to}
-                className={`block px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                style={
                   isActive(link.to)
-                    ? "bg-brand-50 text-brand-700 dark:bg-brand-950/20 dark:text-brand-400"
-                    : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800"
-                }`}
+                    ? { background: "color-mix(in srgb, var(--brand-600) 10%, transparent)", color: "var(--brand-600)" }
+                    : { color: "var(--muted)" }
+                }
+                className="block px-4 py-2.5 rounded-xl text-sm font-medium transition-colors mb-1"
               >
                 {link.label}
               </Link>
             ))}
-            
             <button
-              onClick={() => {
-                setMobileOpen(false);
-                onOpenSettings();
-              }}
-              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800 rounded-xl transition-colors"
+              onClick={() => { setMobileOpen(false); onOpenSettings(); }}
+              style={{ color: "var(--fg-2)" }}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] rounded-xl transition-colors"
             >
-              <Settings className="w-4 h-4 text-gray-400" />
+              <Settings className="w-4 h-4" style={{ color: "var(--meta)" }} />
               Giao diện hệ thống
             </button>
-
             {user && (
               <button
                 onClick={logout}
-                className="w-full mt-2 flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-colors"
+                className="w-full mt-2 flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-500/10 rounded-xl transition-colors"
               >
                 <LogOut className="w-4 h-4" />
                 Đăng xuất
@@ -230,42 +240,42 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings }) => {
   );
 };
 
-const Footer: React.FC = () => {
-  return (
-    <footer className="border-t border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-900 transition-colors duration-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-gradient-brand flex items-center justify-center shadow-sm">
-              <BookOpen className="w-3.5 h-3.5 text-white" />
-            </div>
-            <span className="text-sm font-semibold text-gray-900 dark:text-slate-100">Tài liệu HOU</span>
-            <span className="hidden sm:inline text-xs text-gray-400 dark:text-gray-500 ml-2">
-              &copy; {new Date().getFullYear()} — Nền tảng ôn thi trực tuyến
-            </span>
+const Footer: React.FC = () => (
+  <footer style={{ borderTop: "1px solid var(--border)", background: "var(--surface)", transition: "background 0.25s ease, border-color 0.25s ease" }}>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-2.5">
+          <div style={{ background: "linear-gradient(135deg, var(--brand-700), var(--brand-500))" }} className="w-7 h-7 rounded-lg flex items-center justify-center shadow-sm">
+            <BookOpen className="w-3.5 h-3.5 text-white" />
           </div>
-          <div className="flex items-center gap-6 text-xs text-gray-500 dark:text-gray-400">
-            <a href="#" className="hover:text-gray-900 dark:hover:text-white transition-colors">Điều khoản</a>
-            <a href="#" className="hover:text-gray-900 dark:hover:text-white transition-colors">Hỗ trợ</a>
-            <a href="#" className="hover:text-gray-900 dark:hover:text-white transition-colors">Liên hệ</a>
-          </div>
+          <span style={{ color: "var(--fg)", fontSize: "0.875rem", fontWeight: 600 }}>Tài liệu HOU</span>
+          <span style={{ color: "var(--meta)", fontSize: "0.75rem" }} className="hidden sm:inline ml-2">
+            &copy; {new Date().getFullYear()} — Nền tảng ôn thi trực tuyến
+          </span>
         </div>
-        <p className="text-center sm:hidden text-xs text-gray-400 dark:text-gray-500 mt-3">
-          &copy; {new Date().getFullYear()} — Nền tảng ôn thi trực tuyến
-        </p>
+        <div className="flex items-center gap-6 text-xs" style={{ color: "var(--muted)" }}>
+          <a href="#" style={{ color: "var(--muted)" }} className="hover:text-[var(--fg)] transition-colors">Điều khoản</a>
+          <a href="#" style={{ color: "var(--muted)" }} className="hover:text-[var(--fg)] transition-colors">Hỗ trợ</a>
+          <a href="#" style={{ color: "var(--muted)" }} className="hover:text-[var(--fg)] transition-colors">Liên hệ</a>
+        </div>
       </div>
-    </footer>
-  );
-};
+      <p style={{ color: "var(--meta)", fontSize: "0.75rem" }} className="text-center sm:hidden mt-3">
+        &copy; {new Date().getFullYear()} — Nền tảng ôn thi trực tuyến
+      </p>
+    </div>
+  </footer>
+);
 
 const Layout: React.FC = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200">
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--bg)", color: "var(--fg)", transition: "background 0.25s ease, color 0.25s ease" }}>
       <Header onOpenSettings={() => setSettingsOpen(true)} />
-      <main className="flex-1 w-full">
-        <Outlet />
+      <main style={{ flex: 1, width: "100%" }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+          <Outlet />
+        </div>
       </main>
       <Footer />
       <UISettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />

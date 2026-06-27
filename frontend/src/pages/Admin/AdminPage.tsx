@@ -3,7 +3,7 @@ import apiClient from "../../services/client.js";
 import LoadingSpinner from "../../components/common/LoadingSpinner.js";
 import { useAuth } from "../../context/AuthContext.js";
 import { toast } from "react-toastify";
-import { Shield } from "lucide-react";
+import { Shield, RefreshCw } from "lucide-react";
 
 interface Profile {
   id: string;
@@ -12,6 +12,15 @@ interface Profile {
   role: string;
   updated_at: string;
 }
+
+const ROLE_STYLES: Record<string, { bg: string; color: string; border: string }> = {
+  admin:      { bg: "#fee2e2", color: "#b91c1c", border: "#fca5a5" },
+  management: { bg: "#fef3c7", color: "#b45309", border: "#fcd34d" },
+  ultra:      { bg: "#f3e8ff", color: "#7c3aed", border: "#c4b5fd" },
+  pro:        { bg: "#d1fae5", color: "#065f46", border: "#6ee7b7" },
+  plus:       { bg: "#dbeafe", color: "#1d4ed8", border: "#93c5fd" },
+  free:       { bg: "var(--bg-2)", color: "var(--muted)", border: "var(--border)" },
+};
 
 const AdminPage: React.FC = () => {
   const { user, role: myRole } = useAuth();
@@ -22,30 +31,17 @@ const AdminPage: React.FC = () => {
     setLoading(true);
     apiClient
       .get("/api/v1/admin/users")
-      .then((res) => {
-        setUsers(res.data.users || []);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error(err);
-        toast.error("Không thể tải danh sách tài khoản.");
-        setLoading(false);
-      });
+      .then((res) => { setUsers(res.data.users || []); setLoading(false); })
+      .catch((err) => { console.error(err); toast.error("Không thể tải danh sách tài khoản."); setLoading(false); });
   };
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
+  useEffect(() => { fetchUsers(); }, []);
 
   const handleUpdateRole = async (userId: string, newRole: string) => {
     try {
       await apiClient.put(`/api/v1/admin/users/${userId}/role`, { role: newRole });
       toast.success("Cập nhật phân quyền thành công!");
-      // Tự update lại local state để hiển thị
-      setUsers((prev) =>
-        prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
-      );
-      // Nếu tự update role của chính mình, thông báo reload để check
+      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u)));
       if (user && userId === user.id) {
         toast.info("Đang tự đổi quyền của bạn. Hệ thống sẽ đồng bộ lại...");
         setTimeout(() => window.location.reload(), 1500);
@@ -58,79 +54,108 @@ const AdminPage: React.FC = () => {
 
   if (loading) return <LoadingSpinner />;
 
+  const myStyle = ROLE_STYLES[myRole] ?? ROLE_STYLES.free;
+
   return (
     <div className="max-w-5xl mx-auto">
-      <div className="flex items-center gap-3 mb-6 bg-white p-5 rounded-lg border border-gray-100 shadow-sm">
-        <div className="bg-indigo-50 p-2.5 rounded-lg text-indigo-600">
-          <Shield className="w-6 h-6" />
+      {/* Page header */}
+      <div className="card flex items-center gap-3 mb-6 p-5">
+        <div
+          style={{ background: "color-mix(in srgb, var(--brand-600) 12%, transparent)", borderRadius: "0.625rem", padding: "0.625rem" }}
+        >
+          <Shield className="w-6 h-6" style={{ color: "var(--brand-600)" }} />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-gray-800">Trang Quản Trị Hệ Thống</h1>
-          <p className="text-xs text-gray-500">
-            Quyền hạn hiện tại: <span className="font-semibold text-indigo-600">{myRole.toUpperCase()}</span>
+          <h1 style={{ color: "var(--fg)", fontSize: "1.25rem", fontWeight: 700 }}>Trang Quản Trị Hệ Thống</h1>
+          <p style={{ color: "var(--muted)", fontSize: "0.75rem", marginTop: "0.125rem" }}>
+            Quyền hạn hiện tại:{" "}
+            <span
+              style={{ ...myStyle, fontSize: "0.7rem", fontWeight: 700, padding: "1px 6px", borderRadius: 99, border: `1px solid ${myStyle.border}`, display: "inline-block" }}
+            >
+              {myRole.toUpperCase()}
+            </span>
           </p>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-          <h3 className="font-bold text-gray-700 text-sm">Danh Sách Người Dùng & Phân Quyền</h3>
+      {/* Users table card */}
+      <div className="card overflow-hidden">
+        {/* Table header */}
+        <div
+          style={{ borderBottom: "1px solid var(--border)", background: "var(--bg-2)", padding: "1rem 1.25rem" }}
+          className="flex items-center justify-between"
+        >
+          <h3 style={{ color: "var(--fg)", fontWeight: 700, fontSize: "0.875rem" }}>
+            Danh Sách Người Dùng & Phân Quyền
+          </h3>
           <button
             onClick={fetchUsers}
-            className="text-xs bg-white border px-3 py-1 rounded hover:bg-gray-50 font-medium"
+            style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--fg-2)", fontSize: "0.75rem", fontWeight: 500, borderRadius: "0.5rem", padding: "0.25rem 0.75rem" }}
+            className="flex items-center gap-1.5 hover:bg-[var(--bg-2)] transition-colors"
           >
-            Làm mới danh sách
+            <RefreshCw className="w-3 h-3" />
+            Làm mới
           </button>
         </div>
+
+        {/* Table */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-sm">
+          <table className="table-themed">
             <thead>
-              <tr className="bg-gray-100/50 text-gray-400 font-semibold uppercase text-xs border-b">
-                <th className="px-6 py-3">Email</th>
-                <th className="px-6 py-3">Họ Tên</th>
-                <th className="px-6 py-3">Vai Trò</th>
-                <th className="px-6 py-3 text-right">Hành Động</th>
+              <tr>
+                <th>Email</th>
+                <th>Họ Tên</th>
+                <th>Vai Trò</th>
+                <th style={{ textAlign: "right" }}>Hành Động</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody>
               {users.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="text-center py-8 text-gray-400">
+                  <td colSpan={4} style={{ textAlign: "center", padding: "2rem", color: "var(--meta)" }}>
                     Chưa có tài khoản đăng ký nào.
                   </td>
                 </tr>
               ) : (
                 users.map((u) => {
                   const isMe = user && u.id === user.id;
-
+                  const rs = ROLE_STYLES[u.role] ?? ROLE_STYLES.free;
                   return (
-                    <tr key={u.id} className={isMe ? "bg-indigo-50/20" : ""}>
-                      <td className="px-6 py-4 font-medium text-gray-800">
-                        {u.email} {isMe && <span className="ml-1 text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-bold">Tôi</span>}
+                    <tr
+                      key={u.id}
+                      style={isMe ? { background: "color-mix(in srgb, var(--brand-600) 5%, transparent)" } : undefined}
+                    >
+                      <td style={{ color: "var(--fg)", fontWeight: 500 }}>
+                        {u.email}
+                        {isMe && (
+                          <span
+                            style={{ background: "color-mix(in srgb, var(--brand-600) 15%, transparent)", color: "var(--brand-600)", fontSize: "0.625rem", fontWeight: 700, padding: "1px 5px", borderRadius: 4, marginLeft: 6 }}
+                          >
+                            Tôi
+                          </span>
+                        )}
                       </td>
-                      <td className="px-6 py-4 text-gray-500">{u.full_name || "Chưa thiết lập"}</td>
-                      <td className="px-6 py-4">
+                      <td style={{ color: "var(--muted)" }}>{u.full_name || "Chưa thiết lập"}</td>
+                      <td>
                         <span
-                          className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                            u.role === "admin"
-                              ? "bg-red-50 text-red-600 border border-red-200"
-                              : u.role === "management"
-                              ? "bg-amber-50 text-amber-600 border border-amber-200"
-                              : u.role === "ultra"
-                              ? "bg-purple-50 text-purple-600 border border-purple-200"
-                              : u.role === "pro"
-                              ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
-                              : "bg-gray-50 text-gray-500 border"
-                          }`}
+                          style={{ ...rs, fontSize: "0.7rem", fontWeight: 700, padding: "2px 8px", borderRadius: 99, border: `1px solid ${rs.border}`, display: "inline-block" }}
                         >
                           {u.role.toUpperCase()}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right">
+                      <td style={{ textAlign: "right" }}>
                         <select
                           value={u.role}
                           onChange={(e) => handleUpdateRole(u.id, e.target.value)}
-                          className="border rounded text-xs px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-500"
+                          style={{
+                            border: "1px solid var(--border)",
+                            borderRadius: "0.375rem",
+                            fontSize: "0.75rem",
+                            padding: "0.25rem 0.5rem",
+                            background: "var(--surface)",
+                            color: "var(--fg)",
+                            outline: "none",
+                          }}
                         >
                           <option value="free">FREE</option>
                           <option value="plus">PLUS</option>

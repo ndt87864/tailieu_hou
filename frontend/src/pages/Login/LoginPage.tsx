@@ -14,28 +14,16 @@ const LoginPage: React.FC = () => {
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      toast.warn("Vui lòng điền đầy đủ thông tin.");
-      return;
-    }
-
+    if (!email || !password) { toast.warn("Vui lòng điền đầy đủ thông tin."); return; }
     setLoading(true);
     if (isSignUp) {
       const { error } = await supabase.auth.signUp({ email, password });
-      if (error) {
-        toast.error(error.message);
-      } else {
-        toast.success("Đăng ký thành công! Hãy kiểm tra email hoặc đăng nhập ngay.");
-        setIsSignUp(false);
-      }
+      if (error) toast.error(error.message);
+      else { toast.success("Đăng ký thành công! Hãy kiểm tra email hoặc đăng nhập ngay."); setIsSignUp(false); }
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        toast.error(error.message);
-      } else {
-        toast.success("Đăng nhập thành công!");
-        navigate("/");
-      }
+      if (error) toast.error(error.message);
+      else { toast.success("Đăng nhập thành công!"); navigate("/"); }
     }
     setLoading(false);
   };
@@ -43,15 +31,20 @@ const LoginPage: React.FC = () => {
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4">
       <div className="w-full max-w-md animate-fade-up">
+
         {/* Brand */}
         <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-brand shadow-lg shadow-brand-200/50 mb-5">
+          <Link
+            to="/"
+            className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-5"
+            style={{ background: "linear-gradient(135deg, var(--brand-700), var(--brand-500))", boxShadow: "0 8px 24px color-mix(in srgb, var(--brand-600) 30%, transparent)" }}
+          >
             <BookOpen className="w-7 h-7 text-white" />
           </Link>
-          <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">
+          <h1 style={{ color: "var(--fg)", fontSize: "1.5rem", fontWeight: 800, letterSpacing: "-0.02em" }}>
             {isSignUp ? "Tạo tài khoản mới" : "Chào mừng trở lại"}
           </h1>
-          <p className="text-sm text-gray-500 mt-1.5">
+          <p style={{ color: "var(--muted)", fontSize: "0.875rem", marginTop: "0.375rem" }}>
             {isSignUp
               ? "Đăng ký để truy cập kho tài liệu ôn thi HOU"
               : "Đăng nhập để tiếp tục hành trình ôn thi của bạn"}
@@ -59,20 +52,20 @@ const LoginPage: React.FC = () => {
         </div>
 
         {/* Form Card */}
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-card-lg p-6 sm:p-8">
+        <div className="card p-6 sm:p-8">
           <form onSubmit={handleAuth} className="space-y-5">
             {/* Email */}
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+              <label style={{ color: "var(--muted)", fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.5rem" }}>
                 Email
               </label>
               <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--meta)" }} />
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-400 focus:ring-4 focus:ring-brand-50 outline-none transition-all duration-250 bg-gray-50/50 focus:bg-white"
+                  className="input pl-11"
                   placeholder="example@hou.edu.vn"
                 />
               </div>
@@ -80,22 +73,23 @@ const LoginPage: React.FC = () => {
 
             {/* Password */}
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+              <label style={{ color: "var(--muted)", fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.5rem" }}>
                 Mật khẩu
               </label>
               <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--meta)" }} />
                 <input
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-11 pr-12 py-3 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-400 focus:ring-4 focus:ring-brand-50 outline-none transition-all duration-250 bg-gray-50/50 focus:bg-white"
+                  className="input pl-11 pr-12"
                   placeholder={isSignUp ? "Tối thiểu 6 ký tự" : "••••••••"}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((p) => !p)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  style={{ color: "var(--meta)" }}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 hover:text-[var(--fg)] transition-colors"
                   tabIndex={-1}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -107,7 +101,8 @@ const LoginPage: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 disabled:bg-brand-400 text-white font-semibold py-3 rounded-xl transition-all duration-250 shadow-sm hover:shadow-md active:scale-[0.98] text-sm"
+              className="btn-brand w-full py-3 text-sm"
+              style={{ opacity: loading ? 0.7 : 1 }}
             >
               {loading ? (
                 <>
@@ -115,35 +110,30 @@ const LoginPage: React.FC = () => {
                   Đang xử lý...
                 </>
               ) : isSignUp ? (
-                <>
-                  <UserPlus className="w-4 h-4" />
-                  Đăng ký
-                </>
+                <><UserPlus className="w-4 h-4" />Đăng ký</>
               ) : (
-                <>
-                  <LogIn className="w-4 h-4" />
-                  Đăng nhập
-                </>
+                <><LogIn className="w-4 h-4" />Đăng nhập</>
               )}
             </button>
           </form>
 
-          {/* Toggle */}
-          <div className="mt-6 pt-5 border-t border-gray-50 text-center">
+          {/* Toggle sign up / login */}
+          <div style={{ borderTop: "1px solid var(--border-soft)", marginTop: "1.5rem", paddingTop: "1.25rem", textAlign: "center" }}>
             <button
               onClick={() => setIsSignUp(!isSignUp)}
-              className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-brand-600 transition-colors group"
+              style={{ color: "var(--muted)", fontSize: "0.875rem" }}
+              className="inline-flex items-center gap-1.5 hover:text-[var(--brand-600)] transition-colors group"
             >
               {isSignUp ? (
                 <>
                   Đã có tài khoản?
-                  <span className="font-semibold text-brand-600 group-hover:underline">Đăng nhập ngay</span>
+                  <span style={{ color: "var(--brand-600)", fontWeight: 600 }} className="group-hover:underline">Đăng nhập ngay</span>
                   <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
                 </>
               ) : (
                 <>
                   Chưa có tài khoản?
-                  <span className="font-semibold text-brand-600 group-hover:underline">Đăng ký mới</span>
+                  <span style={{ color: "var(--brand-600)", fontWeight: 600 }} className="group-hover:underline">Đăng ký mới</span>
                   <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
                 </>
               )}
@@ -151,9 +141,9 @@ const LoginPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Back link */}
+        {/* Back */}
         <p className="text-center mt-6">
-          <Link to="/" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
+          <Link to="/" style={{ color: "var(--meta)", fontSize: "0.75rem" }} className="hover:text-[var(--fg)] transition-colors">
             ← Quay lại trang chủ
           </Link>
         </p>
