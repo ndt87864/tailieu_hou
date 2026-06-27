@@ -1,177 +1,240 @@
-import React, { useEffect, useState } from "react";
-import apiClient from "../../services/client.js";
-import LoadingSpinner from "../../components/common/LoadingSpinner.js";
-import { useAuth } from "../../context/AuthContext.js";
-import { toast } from "react-toastify";
-import { Shield, RefreshCw } from "lucide-react";
+import React, { useState } from "react";
+import {
+  BarChart2,
+  Users,
+  FolderOpen,
+  FileText,
+  HelpCircle,
+  GraduationCap,
+  Home,
+  Clock,
+  DollarSign,
+  Calendar,
+  Lock,
+  Compass,
+  Mail,
+  PieChart,
+  UserCheck,
+  Shield,
+} from "lucide-react";
 
-interface Profile {
-  id: string;
-  email: string;
-  full_name: string | null;
-  role: string;
-  updated_at: string;
+// Import actual subpages
+import DashboardTab from "./subpages/DashboardTab.js";
+import UsersTab from "./subpages/UsersTab.js";
+import CategoriesTab from "./subpages/CategoriesTab.js";
+import DocumentsTab from "./subpages/DocumentsTab.js";
+import QuestionsTab from "./subpages/QuestionsTab.js";
+import StudentInforTab from "./subpages/StudentInforTab.js";
+
+// Import mock subpages
+import {
+  RoomsTab,
+  SessionsTab,
+  PricingTab,
+  RemindersTab,
+  PremiumTab,
+  FooterTab,
+  ContactsTab,
+  QuestionRatioTab,
+  ProxyTab,
+} from "./subpages/MockTabs.js";
+
+type TabId =
+  | "stats"
+  | "users"
+  | "categories"
+  | "documents"
+  | "questions"
+  | "students"
+  | "rooms"
+  | "sessions"
+  | "pricing"
+  | "calendar"
+  | "premium"
+  | "footer"
+  | "contacts"
+  | "ratio"
+  | "proxy";
+
+interface MenuItem {
+  id: TabId;
+  label: string;
+  icon: React.ReactNode;
 }
 
-const ROLE_STYLES: Record<string, { bg: string; color: string; border: string }> = {
-  admin:      { bg: "#fee2e2", color: "#b91c1c", border: "#fca5a5" },
-  management: { bg: "#fef3c7", color: "#b45309", border: "#fcd34d" },
-  ultra:      { bg: "#f3e8ff", color: "#7c3aed", border: "#c4b5fd" },
-  pro:        { bg: "#d1fae5", color: "#065f46", border: "#6ee7b7" },
-  plus:       { bg: "#dbeafe", color: "#1d4ed8", border: "#93c5fd" },
-  free:       { bg: "var(--bg-2)", color: "var(--muted)", border: "var(--border)" },
-};
-
 const AdminPage: React.FC = () => {
-  const { user, role: myRole } = useAuth();
-  const [users, setUsers] = useState<Profile[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [activeTab, setActiveTab] = useState<TabId>("stats");
 
-  const fetchUsers = () => {
-    setLoading(true);
-    apiClient
-      .get("/api/v1/admin/users")
-      .then((res) => { setUsers(res.data.users || []); setLoading(false); })
-      .catch((err) => { console.error(err); toast.error("Không thể tải danh sách tài khoản."); setLoading(false); });
-  };
+  const menuItems: MenuItem[] = [
+    { id: "stats", label: "Thống kê", icon: <BarChart2 className="w-4 h-4" /> },
+    { id: "users", label: "Quản lý tài khoản", icon: <Users className="w-4 h-4" /> },
+    { id: "categories", label: "Quản lý danh mục", icon: <FolderOpen className="w-4 h-4" /> },
+    { id: "documents", label: "Quản lý tài liệu", icon: <FileText className="w-4 h-4" /> },
+    { id: "questions", label: "Quản lý bộ câu hỏi", icon: <HelpCircle className="w-4 h-4" /> },
+    { id: "students", label: "Quản lý thông tin sinh viên", icon: <GraduationCap className="w-4 h-4" /> },
+    { id: "rooms", label: "Quản lý phòng thi", icon: <Home className="w-4 h-4" /> },
+    { id: "sessions", label: "Quản lý ca thi", icon: <Clock className="w-4 h-4" /> },
+    { id: "pricing", label: "Quản lý giá môn học", icon: <DollarSign className="w-4 h-4" /> },
+    { id: "calendar", label: "Quản lý lịch", icon: <Calendar className="w-4 h-4" /> },
+    { id: "premium", label: "Quản lý tài khoản cao cấp", icon: <Lock className="w-4 h-4" /> },
+    { id: "footer", label: "Quản lý footer", icon: <Compass className="w-4 h-4" /> },
+    { id: "contacts", label: "Quản lý nội dung liên hệ", icon: <Mail className="w-4 h-4" /> },
+    { id: "ratio", label: "Tỷ lệ câu hỏi", icon: <PieChart className="w-4 h-4" /> },
+    { id: "proxy", label: "Quản lý đăng ký môn", icon: <UserCheck className="w-4 h-4" /> },
+  ];
 
-  useEffect(() => { fetchUsers(); }, []);
-
-  const handleUpdateRole = async (userId: string, newRole: string) => {
-    try {
-      await apiClient.put(`/api/v1/admin/users/${userId}/role`, { role: newRole });
-      toast.success("Cập nhật phân quyền thành công!");
-      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u)));
-      if (user && userId === user.id) {
-        toast.info("Đang tự đổi quyền của bạn. Hệ thống sẽ đồng bộ lại...");
-        setTimeout(() => window.location.reload(), 1500);
-      }
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err.response?.data?.error || "Cập nhật thất bại.");
+  const renderContent = () => {
+    switch (activeTab) {
+      case "stats":
+        return <DashboardTab />;
+      case "users":
+        return <UsersTab />;
+      case "categories":
+        return <CategoriesTab />;
+      case "documents":
+        return <DocumentsTab />;
+      case "questions":
+        return <QuestionsTab />;
+      case "students":
+        return <StudentInforTab />;
+      case "rooms":
+        return <RoomsTab />;
+      case "sessions":
+        return <SessionsTab />;
+      case "pricing":
+        return <PricingTab />;
+      case "calendar":
+        return <RemindersTab />;
+      case "premium":
+        return <PremiumTab />;
+      case "footer":
+        return <FooterTab />;
+      case "contacts":
+        return <ContactsTab />;
+      case "ratio":
+        return <QuestionRatioTab />;
+      case "proxy":
+        return <ProxyTab />;
+      default:
+        return <DashboardTab />;
     }
   };
 
-  if (loading) return <LoadingSpinner />;
-
-  const myStyle = ROLE_STYLES[myRole] ?? ROLE_STYLES.free;
-
   return (
-    <div className="max-w-5xl mx-auto">
-      {/* Page header */}
-      <div className="card flex items-center gap-3 mb-6 p-5">
+    <div
+      style={{
+        display: "flex",
+        minHeight: "calc(100vh - 120px)",
+        margin: "-2rem -1.25rem",
+        background: "var(--bg)",
+      }}
+      className="rounded-2xl overflow-hidden shadow-sm border border-[var(--border)]"
+    >
+      {/* Green Left Sidebar */}
+      <aside
+        style={{
+          width: "260px",
+          background: "#008037", // Green matching the brand image
+          color: "#ffffff",
+          display: "flex",
+          flexDirection: "column",
+          flexShrink: 0,
+        }}
+        className="hidden md:flex"
+      >
+        {/* Sidebar Header */}
         <div
-          style={{ background: "color-mix(in srgb, var(--brand-600) 12%, transparent)", borderRadius: "0.625rem", padding: "0.625rem" }}
+          style={{
+            padding: "1.25rem 1.5rem",
+            borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.625rem",
+          }}
         >
-          <Shield className="w-6 h-6" style={{ color: "var(--brand-600)" }} />
+          <Shield className="w-5 h-5 text-white" />
+          <span className="font-bold text-sm tracking-wide">QUẢN TRỊ HOU</span>
         </div>
-        <div>
-          <h1 style={{ color: "var(--fg)", fontSize: "1.25rem", fontWeight: 700 }}>Trang Quản Trị Hệ Thống</h1>
-          <p style={{ color: "var(--muted)", fontSize: "0.75rem", marginTop: "0.125rem" }}>
-            Quyền hạn hiện tại:{" "}
-            <span
-              style={{ ...myStyle, fontSize: "0.7rem", fontWeight: 700, padding: "1px 6px", borderRadius: 99, border: `1px solid ${myStyle.border}`, display: "inline-block" }}
-            >
-              {myRole.toUpperCase()}
+
+        {/* Navigation Items */}
+        <nav style={{ flex: 1, padding: "0.75rem" }} className="overflow-y-auto space-y-0.5">
+          {menuItems.map((item) => {
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.75rem",
+                  padding: "0.625rem 0.875rem",
+                  borderRadius: "0.5rem",
+                  fontSize: "0.825rem",
+                  fontWeight: isActive ? 600 : 500,
+                  background: isActive ? "rgba(255, 255, 255, 0.15)" : "transparent",
+                  color: isActive ? "#ffffff" : "rgba(255, 255, 255, 0.8)",
+                  textAlign: "left",
+                  transition: "all 0.15s ease",
+                }}
+                className="hover:bg-white/10 hover:text-white"
+              >
+                <span className="shrink-0">{item.icon}</span>
+                <span className="truncate">{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      </aside>
+
+      {/* Main Content Area */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+        {/* Topbar for mobile navigation or route preview */}
+        <header
+          style={{
+            padding: "1rem 1.5rem",
+            borderBottom: "1px solid var(--border)",
+            background: "var(--surface)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "between",
+          }}
+          className="w-full flex items-center justify-between"
+        >
+          <div className="flex items-center gap-2">
+            <span style={{ color: "var(--muted)", fontSize: "0.825rem" }}>Tài liệu HOU</span>
+            <span style={{ color: "var(--border)" }}>/</span>
+            <span style={{ color: "var(--fg)", fontSize: "0.825rem", fontWeight: 600 }}>
+              {menuItems.find((m) => m.id === activeTab)?.label}
             </span>
-          </p>
-        </div>
-      </div>
+          </div>
 
-      {/* Users table card */}
-      <div className="card overflow-hidden">
-        {/* Table header */}
-        <div
-          style={{ borderBottom: "1px solid var(--border)", background: "var(--bg-2)", padding: "1rem 1.25rem" }}
-          className="flex items-center justify-between"
-        >
-          <h3 style={{ color: "var(--fg)", fontWeight: 700, fontSize: "0.875rem" }}>
-            Danh Sách Người Dùng & Phân Quyền
-          </h3>
-          <button
-            onClick={fetchUsers}
-            style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--fg-2)", fontSize: "0.75rem", fontWeight: 500, borderRadius: "0.5rem", padding: "0.25rem 0.75rem" }}
-            className="flex items-center gap-1.5 hover:bg-[var(--bg-2)] transition-colors"
-          >
-            <RefreshCw className="w-3 h-3" />
-            Làm mới
-          </button>
-        </div>
+          {/* Mobile Select dropdown for menu */}
+          <div className="md:hidden">
+            <select
+              value={activeTab}
+              onChange={(e) => setActiveTab(e.target.value as TabId)}
+              style={{
+                background: "var(--surface)",
+                color: "var(--fg)",
+                border: "1px solid var(--border)",
+              }}
+              className="text-xs px-2.5 py-1.5 rounded-lg outline-none"
+            >
+              {menuItems.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </header>
 
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="table-themed">
-            <thead>
-              <tr>
-                <th>Email</th>
-                <th>Họ Tên</th>
-                <th>Vai Trò</th>
-                <th style={{ textAlign: "right" }}>Hành Động</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.length === 0 ? (
-                <tr>
-                  <td colSpan={4} style={{ textAlign: "center", padding: "2rem", color: "var(--meta)" }}>
-                    Chưa có tài khoản đăng ký nào.
-                  </td>
-                </tr>
-              ) : (
-                users.map((u) => {
-                  const isMe = user && u.id === user.id;
-                  const rs = ROLE_STYLES[u.role] ?? ROLE_STYLES.free;
-                  return (
-                    <tr
-                      key={u.id}
-                      style={isMe ? { background: "color-mix(in srgb, var(--brand-600) 5%, transparent)" } : undefined}
-                    >
-                      <td style={{ color: "var(--fg)", fontWeight: 500 }}>
-                        {u.email}
-                        {isMe && (
-                          <span
-                            style={{ background: "color-mix(in srgb, var(--brand-600) 15%, transparent)", color: "var(--brand-600)", fontSize: "0.625rem", fontWeight: 700, padding: "1px 5px", borderRadius: 4, marginLeft: 6 }}
-                          >
-                            Tôi
-                          </span>
-                        )}
-                      </td>
-                      <td style={{ color: "var(--muted)" }}>{u.full_name || "Chưa thiết lập"}</td>
-                      <td>
-                        <span
-                          style={{ ...rs, fontSize: "0.7rem", fontWeight: 700, padding: "2px 8px", borderRadius: 99, border: `1px solid ${rs.border}`, display: "inline-block" }}
-                        >
-                          {u.role.toUpperCase()}
-                        </span>
-                      </td>
-                      <td style={{ textAlign: "right" }}>
-                        <select
-                          value={u.role}
-                          onChange={(e) => handleUpdateRole(u.id, e.target.value)}
-                          style={{
-                            border: "1px solid var(--border)",
-                            borderRadius: "0.375rem",
-                            fontSize: "0.75rem",
-                            padding: "0.25rem 0.5rem",
-                            background: "var(--surface)",
-                            color: "var(--fg)",
-                            outline: "none",
-                          }}
-                        >
-                          <option value="free">FREE</option>
-                          <option value="plus">PLUS</option>
-                          <option value="pro">PRO</option>
-                          <option value="ultra">ULTRA</option>
-                          <option value="management">MANAGEMENT</option>
-                          <option value="admin">ADMIN</option>
-                        </select>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+        {/* Tab Content container */}
+        <main style={{ flex: 1, padding: "1.5rem", background: "var(--bg)" }} className="overflow-y-auto">
+          {renderContent()}
+        </main>
       </div>
     </div>
   );

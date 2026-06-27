@@ -58,6 +58,20 @@ docsRouter.put("/:id", requireRole("management"), async (c) => {
   }
 });
 
+docsRouter.patch("/:id", requireRole("management"), async (c) => {
+  try {
+    const id = c.req.param("id");
+    const body = await c.req.json();
+    const document = await docService.updateDocument(id, body);
+    if (!document) {
+      return c.json({ error: "Document not found or update failed" }, 404);
+    }
+    return c.json({ document });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
 docsRouter.delete("/:id", requireRole("management"), async (c) => {
   const id = c.req.param("id");
   const success = await docService.deleteDocument(id);

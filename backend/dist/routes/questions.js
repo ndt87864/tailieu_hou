@@ -16,24 +16,44 @@ questionsRouter.get("/document/:documentId", questionLimitMiddleware, async (c) 
 questionsRouter.post("/", requireRole("management"), async (c) => {
     try {
         const body = await c.req.json();
-        const { document_id, question, answer, choices, correct_answer, url_question, url_answer, order_index } = body;
+        const { document_id, question, answer, choices, url_question, url_answer, order_index } = body;
         const q = await questionService.createQuestion({
-            document_id, question, answer, choices, correct_answer, url_question, url_answer, order_index,
+            document_id, question, answer, choices, url_question, url_answer, order_index,
         });
-        return c.json({ q }, 210);
+        return c.json({ q }, 201);
     }
     catch (error) {
         return c.json({ error: error.message }, 400);
     }
 });
+questionsRouter.get("/:id", async (c) => {
+    const id = c.req.param("id");
+    const q = await questionService.getQuestionById(id);
+    if (!q)
+        return c.json({ error: "Question not found" }, 404);
+    return c.json({ question: q });
+});
 questionsRouter.put("/:id", requireRole("management"), async (c) => {
     try {
         const id = c.req.param("id");
         const body = await c.req.json();
-        const { question, answer, choices, correct_answer, url_question, url_answer, order_index } = body;
+        const { question, answer, choices, url_question, url_answer, order_index } = body;
         const q = await questionService.updateQuestion(id, {
-            question, answer, choices, correct_answer, url_question, url_answer, order_index,
+            question, answer, choices, url_question, url_answer, order_index,
         });
+        if (!q)
+            return c.json({ error: "Question not found" }, 404);
+        return c.json({ q });
+    }
+    catch (error) {
+        return c.json({ error: error.message }, 400);
+    }
+});
+questionsRouter.patch("/:id", requireRole("management"), async (c) => {
+    try {
+        const id = c.req.param("id");
+        const body = await c.req.json();
+        const q = await questionService.updateQuestion(id, body);
         if (!q)
             return c.json({ error: "Question not found" }, 404);
         return c.json({ q });

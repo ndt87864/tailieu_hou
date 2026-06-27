@@ -28,6 +28,13 @@ questionsRouter.post("/", requireRole("management"), async (c) => {
   }
 });
 
+questionsRouter.get("/:id", async (c) => {
+  const id = c.req.param("id");
+  const q = await questionService.getQuestionById(id);
+  if (!q) return c.json({ error: "Question not found" }, 404);
+  return c.json({ question: q });
+});
+
 questionsRouter.put("/:id", requireRole("management"), async (c) => {
   try {
     const id = c.req.param("id");
@@ -36,6 +43,18 @@ questionsRouter.put("/:id", requireRole("management"), async (c) => {
     const q = await questionService.updateQuestion(id, {
       question, answer, choices, url_question, url_answer, order_index,
     });
+    if (!q) return c.json({ error: "Question not found" }, 404);
+    return c.json({ q });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+questionsRouter.patch("/:id", requireRole("management"), async (c) => {
+  try {
+    const id = c.req.param("id");
+    const body = await c.req.json();
+    const q = await questionService.updateQuestion(id, body);
     if (!q) return c.json({ error: "Question not found" }, 404);
     return c.json({ q });
   } catch (error: any) {

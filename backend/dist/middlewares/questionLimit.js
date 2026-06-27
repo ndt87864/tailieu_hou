@@ -1,4 +1,3 @@
-import { FREE_QUESTION_LIMIT } from "../types/index.js";
 import { supabaseAdmin } from "../config/db.js";
 export const questionLimitMiddleware = async (c, next) => {
     await next();
@@ -26,8 +25,10 @@ export const questionLimitMiddleware = async (c, next) => {
             return;
         }
     }
-    const limited = questions.slice(0, FREE_QUESTION_LIMIT).map((q) => ({ ...q, isPremiumLocked: false }));
-    const locked = questions.slice(FREE_QUESTION_LIMIT).map((q) => ({
+    // Tài khoản khách/free được xem tối thiểu 1 câu, tối đa 20% tổng số câu
+    const limitCount = Math.max(1, Math.round(questions.length * 0.2));
+    const limited = questions.slice(0, limitCount).map((q) => ({ ...q, isPremiumLocked: false }));
+    const locked = questions.slice(limitCount).map((q) => ({
         id: q.id,
         document_id: q.document_id,
         order_index: q.order_index,
@@ -38,5 +39,5 @@ export const questionLimitMiddleware = async (c, next) => {
         url_answer: null,
         isPremiumLocked: true,
     }));
-    c.res = c.json({ ...data, questions: [...limited, ...locked], limitApplied: true, limitCount: FREE_QUESTION_LIMIT, totalCount: questions.length }, 200);
+    c.res = c.json({ ...data, questions: [...limited, ...locked], limitApplied: true, limitCount, totalCount: questions.length }, 200);
 };

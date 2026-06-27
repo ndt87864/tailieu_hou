@@ -37,3 +37,13 @@ export const deleteQuestion = async (id) => {
         .eq("id", id);
     return !error;
 };
+export const getQuestionById = async (id) => {
+    const { data, error } = await supabaseAdmin
+        .from("questions")
+        .select("*")
+        .eq("id", id)
+        .single();
+    if (error)
+        return null;
+    return data;
+};
