@@ -4,13 +4,15 @@ import { Outlet } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.js";
 import { BookOpen, User, Shield, LogOut, ChevronDown, Menu, X, Settings } from "lucide-react";
 import UISettingsModal from "./UISettingsModal.js";
+import EditProfileModal from "./EditProfileModal.js";
 
 interface HeaderProps {
   onOpenSettings: () => void;
+  onOpenProfile: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onOpenSettings }) => {
-  const { user, role, logout } = useAuth();
+const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenProfile }) => {
+  const { user, role, profile, logout } = useAuth();
   const location = useLocation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -114,14 +116,18 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings }) => {
                   className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-all duration-200 hover:bg-[var(--bg-2)]"
                 >
                   <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm shrink-0 overflow-hidden"
                     style={{ background: "linear-gradient(135deg, var(--brand-700), var(--brand-500))" }}
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm shrink-0"
                   >
-                    {user.email?.charAt(0).toUpperCase() ?? "U"}
+                    {profile?.avatar_url ? (
+                      <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      user.email?.charAt(0).toUpperCase() ?? "U"
+                    )}
                   </div>
                   <div className="hidden sm:flex flex-col items-start min-w-0">
                     <span style={{ color: "var(--fg)", fontSize: "0.75rem", fontWeight: 500 }} className="truncate max-w-[120px]">
-                      {user.email}
+                      {profile?.full_name || user.email}
                     </span>
                     <span
                       style={{ ...badge.style, fontSize: "0.625rem", fontWeight: 700, padding: "1px 6px", borderRadius: 99, border: "1px solid", borderColor: badge.style.borderColor }}
@@ -138,12 +144,27 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings }) => {
                     className="absolute right-0 mt-2 w-56 rounded-2xl py-1.5 animate-scale-in origin-top-right z-50"
                   >
                     <div style={{ borderBottom: "1px solid var(--border-soft)" }} className="px-4 py-2.5">
-                      <p style={{ color: "var(--fg)", fontSize: "0.75rem", fontWeight: 500 }} className="truncate">{user.email}</p>
+                      <p style={{ color: "var(--fg)", fontSize: "0.75rem", fontWeight: 500 }} className="truncate">
+                        {profile?.full_name || user.email}
+                      </p>
+                      {profile?.full_name && (
+                        <p style={{ color: "var(--muted)", fontSize: "0.65rem" }} className="truncate">
+                          {user.email}
+                        </p>
+                      )}
                       <span style={{ ...badge.style, fontSize: "0.625rem", fontWeight: 700, padding: "1px 6px", borderRadius: 99, border: "1px solid", borderColor: badge.style.borderColor, marginTop: 4, display: "inline-block" }}>
                         {badge.label}
                       </span>
                     </div>
                     <div className="py-1">
+                      <button
+                        onClick={() => { setDropdownOpen(false); onOpenProfile(); }}
+                        style={{ color: "var(--fg-2)" }}
+                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] transition-colors text-left"
+                      >
+                        <User className="w-4 h-4" style={{ color: "var(--meta)" }} />
+                        Chỉnh sửa hồ sơ
+                      </button>
                       {role === "admin" && (
                         <Link
                           to="/admin"
@@ -221,6 +242,14 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings }) => {
               </Link>
             ))}
             <button
+              onClick={() => { setMobileOpen(false); onOpenProfile(); }}
+              style={{ color: "var(--fg-2)" }}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] rounded-xl transition-colors text-left"
+            >
+              <User className="w-4 h-4" style={{ color: "var(--meta)" }} />
+              Chỉnh sửa hồ sơ
+            </button>
+            <button
               onClick={() => { setMobileOpen(false); onOpenSettings(); }}
               style={{ color: "var(--fg-2)" }}
               className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] rounded-xl transition-colors"
@@ -272,13 +301,14 @@ const Footer: React.FC = () => (
 
 const Layout: React.FC = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const location = useLocation();
 
   const isDocPage = location.pathname.startsWith("/documents/");
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--bg)", color: "var(--fg)", transition: "background 0.25s ease, color 0.25s ease" }}>
-      <Header onOpenSettings={() => setSettingsOpen(true)} />
+      <Header onOpenSettings={() => setSettingsOpen(true)} onOpenProfile={() => setProfileOpen(true)} />
       <main style={{ flex: 1, width: "100%", display: "flex", flexDirection: "column" }}>
         {isDocPage ? (
           <Outlet />
@@ -290,6 +320,7 @@ const Layout: React.FC = () => {
       </main>
       <Footer />
       <UISettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <EditProfileModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} />
     </div>
   );
 };

@@ -28,6 +28,20 @@ const LoginPage: React.FC = () => {
     setLoading(false);
   };
 
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
+    if (error) {
+      toast.error(error.message);
+    }
+    setLoading(false);
+  };
+
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4">
       <div className="w-full max-w-md animate-fade-up">
@@ -114,6 +128,44 @@ const LoginPage: React.FC = () => {
               ) : (
                 <><LogIn className="w-4 h-4" />Đăng nhập</>
               )}
+            </button>
+
+            {/* Divider */}
+            <div className="relative flex items-center justify-center my-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-[var(--border-soft)]" />
+              </div>
+              <span className="relative px-3 text-xs bg-[var(--surface)] text-[var(--meta)] uppercase font-semibold">
+                Hoặc
+              </span>
+            </div>
+
+            {/* Google Login */}
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={loading}
+              className="btn-outline w-full py-3 text-sm flex items-center justify-center gap-2"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24">
+                <path
+                  fill="#EA4335"
+                  d="M5.2662 9.7645C6.1988 6.9386 8.8547 4.9091 12 4.9091C13.6909 4.9091 15.2182 5.5282 16.4 6.5455L19.7364 3.2091C17.6545 1.2227 14.9727 0 12 0C7.33 0 3.3283 2.7815 1.5035 6.7937L5.2662 9.7645Z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M16.0407 18.0126C14.9509 18.7163 13.5661 19.0909 12 19.0909C8.8547 19.0909 6.1988 17.0614 5.2662 14.2355L1.5035 17.2063C3.3283 21.2185 7.33 24 12 24C14.9316 24 17.736 22.9229 19.8315 21.0621L16.0407 18.0126Z"
+                />
+                <path
+                  fill="#4285F4"
+                  d="M23.49 12.2727C23.49 11.4436 23.41 10.68 23.2791 9.9491L12 9.9491V14.5418H18.4527C18.1727 16.05 17.3091 17.22 16.0407 18.0126L19.8315 21.0621C22.0295 19.0432 23.49 16.0091 23.49 12.2727Z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.2662 9.7645C5.0124 10.5376 4.8727 11.3592 4.8727 12C4.8727 12.6408 5.0124 13.4624 5.2662 14.2355L1.5035 17.2063C0.54898 15.103 0 12.7259 0 12C0 11.2741 0.54898 8.897 1.5035 6.7937L5.2662 9.7645Z"
+                />
+              </svg>
+              Tiếp tục với Google
             </button>
           </form>
 
