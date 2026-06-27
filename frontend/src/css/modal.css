@@ -1,0 +1,65 @@
+/* Shared Modal Styles */
+
+.modal-backdrop {
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.modal-container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+  color: var(--fg);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-title {
+  color: var(--fg);
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.modal-subtitle {
+  color: var(--muted);
+  font-size: 0.75rem;
+  margin-top: 0.125rem;
+}
+
+.modal-close-btn {
+  color: var(--muted);
+  border-radius: 0.75rem;
+  padding: 0.375rem;
+}
+
+.modal-avatar-preview {
+  border-color: var(--border);
+}
+
+.modal-avatar-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.modal-form-label {
+  color: var(--fg-2);
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 0.375rem;
+}
+
+.modal-form-input {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--fg);
+}
+
+.modal-checkbox-label {
+  color: var(--fg-2);
+}
+
+.modal-btn-cancel {
+  background: var(--bg-2);
+  color: var(--fg-2);
+  border: 1px solid var(--border);
+}

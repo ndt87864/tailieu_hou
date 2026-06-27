@@ -39,6 +39,8 @@ import {
   ProxyTab,
 } from "./subpages/MockTabs.js";
 
+import "../../css/admin.css";
+
 type TabId =
   | "stats"
   | "users"
@@ -121,66 +123,24 @@ const AdminPage: React.FC = () => {
   };
 
   return (
-    <div
-      style={{
-        display: "flex",
-        height: "calc(100vh - 64px)",
-        background: "var(--bg)",
-        overflow: "hidden",
-      }}
-      className="shadow-sm border border-[var(--border)]"
-    >
+    <div className="admin-layout shadow-sm border border-[var(--border)]">
       {/* Green Left Sidebar */}
-      <aside
-        style={{
-          width: "260px",
-          background: "#008037",
-          color: "#ffffff",
-          display: "flex",
-          flexDirection: "column",
-          flexShrink: 0,
-          minHeight: 0,
-          overflow: "hidden",
-        }}
-        className="hidden md:flex"
-      >
+      <aside className="admin-sidebar hidden md:flex">
         {/* Sidebar Header */}
-        <div
-          style={{
-            padding: "1.25rem 1.5rem",
-            borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.625rem",
-          }}
-        >
+        <div className="admin-sidebar-header">
           <Shield className="w-5 h-5 text-white" />
           <span className="font-bold text-sm tracking-wide">QUẢN TRỊ HOU</span>
         </div>
 
         {/* Navigation Items */}
-        <nav style={{ flex: 1, padding: "0.75rem", overflowY: "auto" }} className="space-y-0.5">
+        <nav className="admin-sidebar-nav space-y-0.5">
           {menuItems.map((item) => {
             const isActive = activeTab === item.id;
             return (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.75rem",
-                  padding: "0.625rem 0.875rem",
-                  borderRadius: "0.5rem",
-                  fontSize: "0.825rem",
-                  fontWeight: isActive ? 600 : 500,
-                  background: isActive ? "rgba(255, 255, 255, 0.15)" : "transparent",
-                  color: isActive ? "#ffffff" : "rgba(255, 255, 255, 0.8)",
-                  textAlign: "left",
-                  transition: "all 0.15s ease",
-                }}
-                className="hover:bg-white/10 hover:text-white"
+                className={`admin-nav-btn hover:bg-white/10 hover:text-white ${isActive ? "active" : ""}`}
               >
                 <span className="shrink-0">{item.icon}</span>
                 <span className="truncate">{item.label}</span>
@@ -191,23 +151,13 @@ const AdminPage: React.FC = () => {
       </aside>
 
       {/* Main Content Area */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0, overflow: "hidden" }}>
+      <div className="admin-main-container">
         {/* Topbar for mobile navigation or route preview */}
-        <header
-          style={{
-            padding: "1rem 1.5rem",
-            borderBottom: "1px solid var(--border)",
-            background: "var(--surface)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "between",
-          }}
-          className="w-full flex items-center justify-between"
-        >
+        <header className="admin-header w-full flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span style={{ color: "var(--muted)", fontSize: "0.825rem" }}>Tài liệu HOU</span>
-            <span style={{ color: "var(--border)" }}>/</span>
-            <span style={{ color: "var(--fg)", fontSize: "0.825rem", fontWeight: 600 }}>
+            <span className="admin-breadcrumb-muted">Tài liệu HOU</span>
+            <span className="admin-breadcrumb-separator">/</span>
+            <span className="admin-breadcrumb-active">
               {menuItems.find((m) => m.id === activeTab)?.label}
             </span>
           </div>
@@ -217,12 +167,7 @@ const AdminPage: React.FC = () => {
             <select
               value={activeTab}
               onChange={(e) => setActiveTab(e.target.value as TabId)}
-              style={{
-                background: "var(--surface)",
-                color: "var(--fg)",
-                border: "1px solid var(--border)",
-              }}
-              className="text-xs px-2.5 py-1.5 rounded-lg outline-none"
+              className="admin-mobile-select text-xs px-2.5 py-1.5 rounded-lg outline-none"
             >
               {menuItems.map((item) => (
                 <option key={item.id} value={item.id}>
@@ -234,7 +179,7 @@ const AdminPage: React.FC = () => {
         </header>
 
         {/* Tab Content container */}
-        <main style={{ flex: 1, padding: "1.5rem", background: "var(--bg)", overflowY: "auto" }}>
+        <main className="admin-main-content">
           {renderContent()}
         </main>
       </div>

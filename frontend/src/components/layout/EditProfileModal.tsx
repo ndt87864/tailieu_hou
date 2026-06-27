@@ -3,6 +3,7 @@ import { X, User, Loader2, Phone, Lock } from "lucide-react";
 import { useAuth, supabase } from "../../context/AuthContext.js";
 import apiClient from "../../services/client.js";
 import { toast } from "react-toastify";
+import "../../css/modal.css";
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -87,39 +88,29 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 backdrop-blur-sm transition-opacity duration-300"
-        style={{ background: "rgba(0,0,0,0.65)" }}
+        className="absolute inset-0 backdrop-blur-sm transition-opacity duration-300 modal-backdrop"
         onClick={onClose}
       />
 
       {/* Modal */}
       <form
         onSubmit={handleSubmit}
-        className="relative w-full max-w-md rounded-2xl p-6 overflow-hidden animate-scale-in"
-        style={{
-          background: "var(--surface)",
-          border: "1px solid var(--border)",
-          boxShadow: "var(--shadow-md)",
-          color: "var(--fg)",
-          maxHeight: "90vh",
-          overflowY: "auto",
-        }}
+        className="relative w-full max-w-md rounded-2xl p-6 overflow-hidden animate-scale-in modal-container"
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 style={{ color: "var(--fg)", fontSize: "1.125rem", fontWeight: 700 }}>
+            <h2 className="modal-title">
               Chỉnh sửa hồ sơ
             </h2>
-            <p style={{ color: "var(--muted)", fontSize: "0.75rem", marginTop: "0.125rem" }}>
+            <p className="modal-subtitle">
               Thay đổi thông tin hiển thị của bạn
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            style={{ color: "var(--muted)", borderRadius: "0.75rem", padding: "0.375rem" }}
-            className="hover:bg-[var(--bg-2)] transition-colors"
+            className="hover:bg-[var(--bg-2)] transition-colors modal-close-btn"
           >
             <X className="w-5 h-5" />
           </button>
@@ -128,8 +119,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
         {/* Preview Avatar */}
         <div className="flex flex-col items-center gap-2 mb-6">
           <div
-            className="w-20 h-20 rounded-full border-2 border-[var(--border)] overflow-hidden flex items-center justify-center bg-[var(--bg-2)] shadow-inner"
-            style={{ borderColor: "var(--border)" }}
+            className="w-20 h-20 rounded-full border-2 overflow-hidden flex items-center justify-center bg-[var(--bg-2)] shadow-inner modal-avatar-preview"
           >
             {avatarUrl ? (
               <img
@@ -144,16 +134,14 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
               <User className="w-10 h-10 text-[var(--muted)]" />
             )}
           </div>
-          <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>Ảnh đại diện</span>
+          <span className="modal-avatar-label">Ảnh đại diện</span>
         </div>
 
         {/* Inputs */}
         <div className="space-y-4 mb-6">
           {/* Email (Read-only) */}
           <div>
-            <label
-              style={{ color: "var(--fg-2)", fontSize: "0.8rem", fontWeight: 600, display: "block", marginBottom: "0.375rem" }}
-            >
+            <label className="modal-form-label">
               Email
             </label>
             <input
@@ -161,20 +149,13 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
               value={user?.email || ""}
               readOnly
               disabled
-              className="w-full px-4 py-2 rounded-xl border text-sm opacity-60 cursor-not-allowed"
-              style={{
-                background: "var(--surface-2)",
-                border: "1px solid var(--border)",
-                color: "var(--fg)",
-              }}
+              className="w-full px-4 py-2 rounded-xl border text-sm opacity-60 cursor-not-allowed modal-form-input"
             />
           </div>
 
           {/* Họ và tên */}
           <div>
-            <label
-              style={{ color: "var(--fg-2)", fontSize: "0.8rem", fontWeight: 600, display: "block", marginBottom: "0.375rem" }}
-            >
+            <label className="modal-form-label">
               Họ và tên
             </label>
             <div className="relative">
@@ -187,21 +168,14 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="Nhập họ tên của bạn"
                 required
-                className="w-full pl-9 pr-4 py-2 rounded-xl border text-sm transition-all focus:outline-none focus:ring-2"
-                style={{
-                  background: "var(--surface-2)",
-                  border: "1px solid var(--border)",
-                  color: "var(--fg)",
-                }}
+                className="w-full pl-9 pr-4 py-2 rounded-xl border text-sm transition-all focus:outline-none focus:ring-2 modal-form-input"
               />
             </div>
           </div>
 
           {/* Số điện thoại */}
           <div>
-            <label
-              style={{ color: "var(--fg-2)", fontSize: "0.8rem", fontWeight: 600, display: "block", marginBottom: "0.375rem" }}
-            >
+            <label className="modal-form-label">
               Số điện thoại
             </label>
             <div className="relative">
@@ -213,12 +187,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="Nhập số điện thoại của bạn"
-                className="w-full pl-9 pr-4 py-2 rounded-xl border text-sm transition-all focus:outline-none focus:ring-2"
-                style={{
-                  background: "var(--surface-2)",
-                  border: "1px solid var(--border)",
-                  color: "var(--fg)",
-                }}
+                className="w-full pl-9 pr-4 py-2 rounded-xl border text-sm transition-all focus:outline-none focus:ring-2 modal-form-input"
               />
             </div>
           </div>
@@ -234,8 +203,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
             />
             <label
               htmlFor="changePasswordCheckbox"
-              className="text-sm font-medium cursor-pointer"
-              style={{ color: "var(--fg-2)" }}
+              className="text-sm font-medium cursor-pointer modal-checkbox-label"
             >
               Đổi mật khẩu
             </label>
@@ -245,9 +213,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
           {changePassword && (
             <div className="space-y-4 pt-2 border-t border-[var(--border)]">
               <div>
-                <label
-                  style={{ color: "var(--fg-2)", fontSize: "0.8rem", fontWeight: 600, display: "block", marginBottom: "0.375rem" }}
-                >
+                <label className="modal-form-label">
                   Mật khẩu mới
                 </label>
                 <div className="relative">
@@ -260,20 +226,13 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Nhập mật khẩu mới"
                     required={changePassword}
-                    className="w-full pl-9 pr-4 py-2 rounded-xl border text-sm transition-all focus:outline-none focus:ring-2"
-                    style={{
-                      background: "var(--surface-2)",
-                      border: "1px solid var(--border)",
-                      color: "var(--fg)",
-                    }}
+                    className="w-full pl-9 pr-4 py-2 rounded-xl border text-sm transition-all focus:outline-none focus:ring-2 modal-form-input"
                   />
                 </div>
               </div>
 
               <div>
-                <label
-                  style={{ color: "var(--fg-2)", fontSize: "0.8rem", fontWeight: 600, display: "block", marginBottom: "0.375rem" }}
-                >
+                <label className="modal-form-label">
                   Xác nhận mật khẩu mới
                 </label>
                 <div className="relative">
@@ -286,12 +245,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Xác nhận mật khẩu mới"
                     required={changePassword}
-                    className="w-full pl-9 pr-4 py-2 rounded-xl border text-sm transition-all focus:outline-none focus:ring-2"
-                    style={{
-                      background: "var(--surface-2)",
-                      border: "1px solid var(--border)",
-                      color: "var(--fg)",
-                    }}
+                    className="w-full pl-9 pr-4 py-2 rounded-xl border text-sm transition-all focus:outline-none focus:ring-2 modal-form-input"
                   />
                 </div>
               </div>
@@ -304,12 +258,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-sm font-medium transition-colors"
-            style={{
-              background: "var(--bg-2)",
-              color: "var(--fg-2)",
-              border: "1px solid var(--border)",
-            }}
+            className="px-4 py-2 rounded-xl text-sm font-medium transition-colors modal-btn-cancel"
           >
             Hủy
           </button>
