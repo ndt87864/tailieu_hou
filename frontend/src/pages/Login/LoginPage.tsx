@@ -2,27 +2,62 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "../../context/AuthContext.js";
 import { toast } from "react-toastify";
-import { BookOpen, Mail, Lock, Eye, EyeOff, ArrowRight, LogIn, UserPlus, KeyRound, CheckCircle } from "lucide-react";
+import { BookOpen, Mail, Lock, Eye, EyeOff, ArrowRight, LogIn, UserPlus, KeyRound, CheckCircle, User, Phone } from "lucide-react";
+
+const LABEL_STYLE = {
+  color: "var(--muted)",
+  fontSize: "0.7rem",
+  fontWeight: 600,
+  textTransform: "uppercase" as const,
+  letterSpacing: "0.06em",
+  display: "block",
+  marginBottom: "0.5rem",
+};
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
+  const [confirmPassword, setConfirmPassword] = useState<string>("");
+  const [fullName, setFullName] = useState<string>("");
+  const [phone, setPhone] = useState<string>("");
   const [isSignUp, setIsSignUp] = useState<boolean>(false);
   const [isForgotPassword, setIsForgotPassword] = useState<boolean>(false);
   const [forgotSent, setForgotSent] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) { toast.warn("Vui lòng điền đầy đủ thông tin."); return; }
-    setLoading(true);
+
     if (isSignUp) {
-      const { error } = await supabase.auth.signUp({ email, password });
+      // Validate đăng ký
+      if (!fullName.trim()) { toast.warn("Vui lòng nhập họ và tên."); return; }
+      if (!email) { toast.warn("Vui lòng nhập email."); return; }
+      if (!password) { toast.warn("Vui lòng nhập mật khẩu."); return; }
+      if (password.length < 6) { toast.warn("Mật khẩu phải có ít nhất 6 ký tự."); return; }
+      if (!confirmPassword) { toast.warn("Vui lòng nhập lại mật khẩu."); return; }
+      if (password !== confirmPassword) { toast.error("Mật khẩu nhập lại không khớp."); return; }
+
+      setLoading(true);
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName.trim(),
+            phone: phone.trim() || null,
+          },
+        },
+      });
       if (error) toast.error(error.message);
       else { toast.success("Đăng ký thành công! Hãy kiểm tra email hoặc đăng nhập ngay."); setIsSignUp(false); }
     } else {
+      // Validate đăng nhập
+      if (!email || !password) { toast.warn("Vui lòng điền đầy đủ thông tin."); return; }
+
+      setLoading(true);
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) toast.error(error.message);
       else { toast.success("Đăng nhập thành công!"); navigate("/"); }
@@ -49,14 +84,17 @@ const LoginPage: React.FC = () => {
     setLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: {
-        redirectTo: window.location.origin,
-      },
+      options: { redirectTo: window.location.origin },
     });
-    if (error) {
-      toast.error(error.message);
-    }
+    if (error) toast.error(error.message);
     setLoading(false);
+  };
+
+  const handleToggleMode = () => {
+    setIsSignUp(!isSignUp);
+    setFullName("");
+    setPhone("");
+    setConfirmPassword("");
   };
 
   // --- Forgot Password Screen ---
@@ -64,7 +102,6 @@ const LoginPage: React.FC = () => {
     return (
       <div className="min-h-[80vh] flex items-center justify-center px-4">
         <div className="w-full max-w-md animate-fade-up">
-          {/* Brand */}
           <div className="text-center mb-8">
             <div
               className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-5"
@@ -98,9 +135,7 @@ const LoginPage: React.FC = () => {
             ) : (
               <form onSubmit={handleForgotPassword} className="space-y-5">
                 <div>
-                  <label style={{ color: "var(--muted)", fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.5rem" }}>
-                    Email
-                  </label>
+                  <label style={LABEL_STYLE}>Email</label>
                   <div className="relative">
                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--meta)" }} />
                     <input
@@ -171,10 +206,31 @@ const LoginPage: React.FC = () => {
         {/* Form Card */}
         <div className="card p-6 sm:p-8">
           <form onSubmit={handleAuth} className="space-y-5">
-            {/* Email */}
+
+            {/* 1. Họ và tên - chỉ hiện khi đăng ký */}
+            {isSignUp && (
+              <div>
+                <label style={LABEL_STYLE}>
+                  Họ và tên <span style={{ color: "var(--brand-600)" }}>*</span>
+                </label>
+                <div className="relative">
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--meta)" }} />
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="input pl-11"
+                    placeholder="Nguyễn Văn A"
+                    autoFocus
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* 2. Email */}
             <div>
-              <label style={{ color: "var(--muted)", fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.5rem" }}>
-                Email
+              <label style={LABEL_STYLE}>
+                Email {isSignUp && <span style={{ color: "var(--brand-600)" }}>*</span>}
               </label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--meta)" }} />
@@ -188,11 +244,33 @@ const LoginPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Password */}
+            {/* 3. Số điện thoại - chỉ hiện khi đăng ký */}
+            {isSignUp && (
+              <div>
+                <label style={LABEL_STYLE}>
+                  Số điện thoại{" "}
+                  <span style={{ color: "var(--meta)", fontSize: "0.65rem", fontWeight: 400, textTransform: "none" }}>
+                    (tùy chọn)
+                  </span>
+                </label>
+                <div className="relative">
+                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--meta)" }} />
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="input pl-11"
+                    placeholder="0912 345 678"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* 4. Mật khẩu */}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label style={{ color: "var(--muted)", fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                  Mật khẩu
+                  Mật khẩu {isSignUp && <span style={{ color: "var(--brand-600)" }}>*</span>}
                 </label>
                 {!isSignUp && (
                   <button
@@ -225,6 +303,51 @@ const LoginPage: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {/* 5. Nhập lại mật khẩu - chỉ hiện khi đăng ký */}
+            {isSignUp && (
+              <div>
+                <label style={LABEL_STYLE}>
+                  Nhập lại mật khẩu <span style={{ color: "var(--brand-600)" }}>*</span>
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--meta)" }} />
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="input pl-11 pr-12"
+                    placeholder="Nhập lại mật khẩu"
+                    style={{
+                      borderColor: confirmPassword
+                        ? confirmPassword === password
+                          ? "var(--brand-500)"
+                          : "rgb(239 68 68)"
+                        : undefined,
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((p) => !p)}
+                    style={{ color: "var(--meta)" }}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 hover:text-[var(--fg)] transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                {/* Gợi ý khớp/không khớp */}
+                {confirmPassword && (
+                  <p style={{
+                    fontSize: "0.75rem",
+                    marginTop: "0.375rem",
+                    color: confirmPassword === password ? "var(--brand-600)" : "rgb(239 68 68)",
+                  }}>
+                    {confirmPassword === password ? "✓ Mật khẩu khớp" : "✗ Mật khẩu không khớp"}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Submit */}
             <button
@@ -275,7 +398,7 @@ const LoginPage: React.FC = () => {
           {/* Toggle sign up / login */}
           <div style={{ borderTop: "1px solid var(--border-soft)", marginTop: "1.5rem", paddingTop: "1.25rem", textAlign: "center" }}>
             <button
-              onClick={() => setIsSignUp(!isSignUp)}
+              onClick={handleToggleMode}
               style={{ color: "var(--muted)", fontSize: "0.875rem" }}
               className="inline-flex items-center gap-1.5 hover:text-[var(--brand-600)] transition-colors group"
             >
