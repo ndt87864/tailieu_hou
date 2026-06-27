@@ -29,8 +29,6 @@ const DocumentPage: React.FC = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [showAnswer, setShowAnswer] = useState<Record<number, boolean>>({});
-
   useEffect(() => {
     if (!id) return;
     Promise.all([
@@ -48,9 +46,6 @@ const DocumentPage: React.FC = () => {
         setLoading(false);
       });
   }, [id]);
-
-  const toggleAnswer = (idx: number) =>
-    setShowAnswer((prev) => ({ ...prev, [idx]: !prev[idx] }));
 
   if (loading) return <LoadingSpinner />;
   if (error || !doc)
@@ -167,13 +162,12 @@ const DocumentPage: React.FC = () => {
                   {/* Choices */}
                   <div className="grid md:grid-cols-2 gap-3 pl-8">
                     {(q.choices || []).map((opt, oIdx) => {
-                      const isCorrectText = showAnswer[idx] && opt.trim().toLowerCase() === cleanAns;
+                      const isCorrectText = opt.trim().toLowerCase() === cleanAns;
                       const isLetterCorrect =
-                        showAnswer[idx] &&
-                        ((cleanAns === "a" && oIdx === 0) ||
-                          (cleanAns === "b" && oIdx === 1) ||
-                          (cleanAns === "c" && oIdx === 2) ||
-                          (cleanAns === "d" && oIdx === 3));
+                        (cleanAns === "a" && oIdx === 0) ||
+                        (cleanAns === "b" && oIdx === 1) ||
+                        (cleanAns === "c" && oIdx === 2) ||
+                        (cleanAns === "d" && oIdx === 3);
                       const correct = isCorrectText || isLetterCorrect;
 
                       return (
@@ -201,27 +195,17 @@ const DocumentPage: React.FC = () => {
 
                   {/* Đáp án */}
                   <div style={{ borderTop: "1px solid var(--border-soft)", marginTop: "1rem", paddingTop: "0.75rem" }} className="flex flex-col gap-2">
-                    <button
-                      onClick={() => toggleAnswer(idx)}
-                      style={{ color: "var(--brand-600)", fontSize: "0.75rem", fontWeight: 600, alignSelf: "flex-start" }}
-                      className="hover:opacity-80 transition-opacity"
+                    <div
+                      style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: "0.5rem", padding: "0.75rem", fontSize: "0.75rem", color: "var(--fg-2)" }}
+                      className="flex flex-col gap-2"
                     >
-                      {showAnswer[idx] ? "Ẩn giải thích" : "Xem đáp án & giải thích"}
-                    </button>
-
-                    {showAnswer[idx] && (
-                      <div
-                        style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: "0.5rem", padding: "0.75rem", fontSize: "0.75rem", color: "var(--fg-2)" }}
-                        className="flex flex-col gap-2"
-                      >
-                        <p style={{ fontWeight: 700, color: "var(--fg)" }}>Đáp án đúng: {q.answer}</p>
-                        {q.url_answer && (
-                          <div style={{ border: "1px solid var(--border)", borderRadius: "0.5rem", padding: "0.25rem", background: "var(--surface)" }} className="my-1 max-w-lg">
-                            <img src={q.url_answer} alt={`Ảnh đáp án ${idx + 1}`} className="max-h-60 object-contain" />
-                          </div>
-                        )}
-                      </div>
-                    )}
+                      <p style={{ fontWeight: 700, color: "var(--fg)" }}>Đáp án đúng: {q.answer}</p>
+                      {q.url_answer && (
+                        <div style={{ border: "1px solid var(--border)", borderRadius: "0.5rem", padding: "0.25rem", background: "var(--surface)" }} className="my-1 max-w-lg">
+                          <img src={q.url_answer} alt={`Ảnh đáp án ${idx + 1}`} className="max-h-60 object-contain" />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
