@@ -1,0 +1,7 @@
+frontend/.env.local
+frontend/.env.local
+/frontend/node_modules
+/open-design
+/scripts
+backend/.env.example
+/frontend/node_modules
