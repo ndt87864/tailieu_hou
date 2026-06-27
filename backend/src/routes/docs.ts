@@ -6,8 +6,18 @@ const docsRouter = new Hono();
 
 docsRouter.get("/", async (c) => {
   try {
-    const documents = await docService.listDocuments();
+    const categoryId = c.req.query("category_id");
+    const documents = await docService.listDocuments(categoryId);
     return c.json({ documents });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+docsRouter.get("/grouped", async (c) => {
+  try {
+    const categories = await docService.getGroupedDocumentsPreview();
+    return c.json({ categories });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }

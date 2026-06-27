@@ -22,30 +22,75 @@ const CATEGORIES: Record<string, { label: string; icon: (className: string) => R
   other:    { label: "Khác",      icon: (className) => <File className={className} /> },
 };
 
+interface GroupedCategory {
+  id: string;
+  title: string;
+  documents: Document[];
+  total_count: number;
+}
+
 const HomePage: React.FC = () => {
-  const [documents, setDocuments] = useState<Document[]>([]);
+  const [groupedCategories, setGroupedCategories] = useState<GroupedCategory[]>([]);
+  const [allDocuments, setAllDocuments] = useState<Document[]>([]);
+  const [allDocumentsLoaded, setAllDocumentsLoaded] = useState(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
+  // Track expanded state of category cards
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  // Cache fully loaded documents per category
+  const [expandedDocs, setExpandedDocs] = useState<Record<string, Document[]>>({});
+  const [loadingCategory, setLoadingCategory] = useState<Record<string, boolean>>({});
+
   useEffect(() => {
     apiClient
-      .get("/api/v1/documents")
-      .then((res) => { setDocuments(res.data.documents || []); setLoading(false); })
-      .catch((err) => { console.error(err); setError("Không thể tải danh sách tài liệu."); setLoading(false); });
+      .get("/api/v1/documents/grouped")
+      .then((res) => {
+        setGroupedCategories(res.data.categories || []);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error(err);
+        setError("Không thể tải danh sách tài liệu.");
+        setLoading(false);
+      });
   }, []);
 
-  // Map category ID to its title
-  const uniqueCategoryMap = documents.reduce((acc, doc) => {
-    const catId = doc.category_id || "other";
-    if (!acc[catId]) {
-      acc[catId] = doc.category?.title || (catId === "other" ? "Khác" : "Chuyên mục");
+  // Fetch all documents on-demand when user is searching
+  useEffect(() => {
+    if (search && !allDocumentsLoaded) {
+      apiClient.get("/api/v1/documents")
+        .then(res => {
+          setAllDocuments(res.data.documents || []);
+          setAllDocumentsLoaded(true);
+        })
+        .catch(err => console.error("Failed to load all documents for search:", err));
     }
-    return acc;
-  }, {} as Record<string, string>);
+  }, [search, allDocumentsLoaded]);
 
-  const categories = Object.keys(uniqueCategoryMap);
+  // Load full list for a specific category when expanded
+  const handleExpand = async (catId: string) => {
+    if (expandedCategories[catId]) {
+      setExpandedCategories(prev => ({ ...prev, [catId]: false }));
+      return;
+    }
+
+    setExpandedCategories(prev => ({ ...prev, [catId]: true }));
+
+    if (!expandedDocs[catId]) {
+      setLoadingCategory(prev => ({ ...prev, [catId]: true }));
+      try {
+        const res = await apiClient.get(`/api/v1/documents?category_id=${catId}`);
+        setExpandedDocs(prev => ({ ...prev, [catId]: res.data.documents || [] }));
+      } catch (err) {
+        console.error("Failed to load documents for category:", err);
+      } finally {
+        setLoadingCategory(prev => ({ ...prev, [catId]: false }));
+      }
+    }
+  };
 
   const getCategoryInfo = (catId: string, customTitle?: string | null) => {
     if (CATEGORIES[catId]) {
@@ -64,26 +109,50 @@ const HomePage: React.FC = () => {
     return { label: title, icon };
   };
 
-  const filtered = documents.filter((doc) => {
+  // Derive categories list from loaded groupedCategories
+  const uniqueCategoryMap = groupedCategories.reduce((acc, cat) => {
+    acc[cat.id] = cat.title;
+    return acc;
+  }, {} as Record<string, string>);
+
+  const categories = Object.keys(uniqueCategoryMap);
+
+  // Compute displayed list depending on search status
+  const isSearchActive = !!search;
+
+  // Filter for search mode
+  const filteredSearchDocs = allDocuments.filter((doc) => {
     const matchSearch =
-      !search ||
       doc.title.toLowerCase().includes(search.toLowerCase()) ||
       doc.description.toLowerCase().includes(search.toLowerCase());
     const matchCat = !selectedCategory || (doc.category_id || "other") === selectedCategory;
     return matchSearch && matchCat;
   });
 
-  const timeAgo = (dateStr: string) => {
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return "Vừa xong";
-    if (mins < 60) return `${mins} phút trước`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs} giờ trước`;
-    const days = Math.floor(hrs / 24);
-    if (days < 30) return `${days} ngày trước`;
-    return new Date(dateStr).toLocaleDateString("vi-VN");
-  };
+  const searchGrouped = filteredSearchDocs.reduce((acc, doc) => {
+    const cat = doc.category_id || "other";
+    if (!acc[cat]) {
+      const catTitle = doc.category?.title || (cat === "other" ? "Khác" : "Chuyên mục");
+      acc[cat] = {
+        id: cat,
+        title: catTitle,
+        documents: [],
+        total_count: 0
+      };
+    }
+    acc[cat].documents.push(doc);
+    acc[cat].total_count++;
+    return acc;
+  }, {} as Record<string, { id: string; title: string; documents: Document[]; total_count: number }>);
+
+  const searchGroupedCategories = Object.values(searchGrouped);
+
+  // Filtered categories for normal mode
+  const normalGroupedCategories = groupedCategories.filter(
+    cat => !selectedCategory || cat.id === selectedCategory
+  );
+
+  const activeCategories = isSearchActive ? searchGroupedCategories : normalGroupedCategories;
 
   return (
     <div>
@@ -183,16 +252,16 @@ const HomePage: React.FC = () => {
       )}
 
       {/* ── Empty ── */}
-      {!loading && !error && filtered.length === 0 && (
+      {!loading && !error && activeCategories.length === 0 && (
         <div className="flex flex-col items-center justify-center py-20 animate-fade-in">
           <div style={{ background: "var(--bg-2)", borderRadius: "1.5rem" }} className="w-16 h-16 flex items-center justify-center mb-4">
             <FileText className="w-7 h-7" style={{ color: "var(--border)" }} />
           </div>
           <h3 style={{ color: "var(--fg-2)" }} className="text-base font-semibold mb-1">
-            {documents.length === 0 ? "Chưa có tài liệu nào" : "Không tìm thấy tài liệu"}
+            {!isSearchActive ? "Chưa có tài liệu nào" : "Không tìm thấy tài liệu"}
           </h3>
           <p style={{ color: "var(--meta)" }} className="text-sm max-w-xs text-center">
-            {documents.length === 0 ? "Hệ thống đang cập nhật tài liệu. Vui lòng quay lại sau." : "Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm."}
+            {!isSearchActive ? "Hệ thống đang cập nhật tài liệu. Vui lòng quay lại sau." : "Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm."}
           </p>
           {search && (
             <button
@@ -207,84 +276,94 @@ const HomePage: React.FC = () => {
       )}
 
       {/* ── Document Grid ── */}
-      {!loading && !error && filtered.length > 0 && (() => {
-        // Group documents by category
-        const documentsByCategory = filtered.reduce((acc, doc) => {
-          const cat = doc.category_id || "other";
-          if (!acc[cat]) {
-            acc[cat] = [];
-          }
-          acc[cat].push(doc);
-          return acc;
-        }, {} as Record<string, Document[]>);
+      {!loading && !error && activeCategories.length > 0 && (
+        <div>
+          <div className="flex items-baseline justify-between mb-4">
+            <p style={{ color: "var(--meta)" }} className="text-sm">
+              Hiển thị <span style={{ color: "var(--fg-2)", fontWeight: 600 }}>{activeCategories.length}</span> chuyên mục
+              {search && <span style={{ color: "var(--meta)" }}> — kết quả tìm kiếm cho "<span style={{ color: "var(--fg-2)" }}>{search}</span>"</span>}
+            </p>
+          </div>
 
-        const activeCategories = Object.keys(documentsByCategory);
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {activeCategories.map((cat, i) => {
+              const isExpanded = !!expandedCategories[cat.id];
+              const isCatLoading = !!loadingCategory[cat.id];
+              
+              // If expanded, use cached full docs, otherwise use the preview/search documents
+              const docs = (isExpanded && expandedDocs[cat.id]) ? expandedDocs[cat.id] : cat.documents;
+              
+              const catInfo = getCategoryInfo(cat.id, cat.title);
+              const showExpandButton = !isSearchActive && cat.total_count > 10;
 
-        return (
-          <div>
-            <div className="flex items-baseline justify-between mb-4">
-              <p style={{ color: "var(--meta)" }} className="text-sm">
-                Hiển thị <span style={{ color: "var(--fg-2)", fontWeight: 600 }}>{filtered.length}</span> tài liệu
-                {search && <span style={{ color: "var(--meta)" }}> — kết quả cho "<span style={{ color: "var(--fg-2)" }}>{search}</span>"</span>}
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {activeCategories.map((cat, i) => {
-                const docs = documentsByCategory[cat];
-                const catTitle = docs[0]?.category?.title || (cat === "other" ? "Khác" : cat);
-                const catInfo = getCategoryInfo(cat, catTitle);
-
-                return (
-                  <div
-                    key={cat}
-                    className="card flex flex-col animate-fade-up"
-                    style={{ padding: "1.5rem", animationDelay: `${i * 50}ms` }}
-                  >
-                    {/* Category Header */}
-                    <div className="flex items-center gap-3 mb-4 pb-3" style={{ borderBottom: "1px solid var(--border-soft)" }}>
-                      <div
-                        style={{ background: "color-mix(in srgb, var(--brand-600) 12%, transparent)", borderRadius: "0.75rem" }}
-                        className="w-10 h-10 flex items-center justify-center shrink-0"
-                      >
-                        {catInfo.icon("w-5 h-5 text-[var(--brand-600)]")}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h3 style={{ color: "var(--fg)" }} className="font-bold text-base leading-snug">
-                          {catInfo.label}
-                        </h3>
-                        <p style={{ color: "var(--meta)" }} className="text-xs">
-                          {docs.length} tài liệu
-                        </p>
-                      </div>
+              return (
+                <div
+                  key={cat.id}
+                  className="card flex flex-col animate-fade-up"
+                  style={{ padding: "1.5rem", animationDelay: `${i * 50}ms` }}
+                >
+                  {/* Category Header */}
+                  <div className="flex items-center gap-3 mb-4 pb-3" style={{ borderBottom: "1px solid var(--border-soft)" }}>
+                    <div
+                      style={{ background: "color-mix(in srgb, var(--brand-600) 12%, transparent)", borderRadius: "0.75rem" }}
+                      className="w-10 h-10 flex items-center justify-center shrink-0"
+                    >
+                      {catInfo.icon("w-5 h-5 text-[var(--brand-600)]")}
                     </div>
-
-                    {/* Category Body (Documents) */}
-                    <div className="flex-1 flex flex-col gap-1.5">
-                      {docs.map((doc) => (
-                        <Link
-                          key={doc.id}
-                          to={`/documents/${doc.id}`}
-                          className="group/item flex items-center justify-between p-2.5 rounded-xl hover:bg-[var(--bg-2)] transition-colors duration-200"
-                          style={{ border: "1px solid transparent" }}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                            <FileText className="w-4 h-4 text-[var(--muted)] group-hover/item:text-[var(--brand-600)] shrink-0 transition-colors" />
-                            <span className="text-sm text-[var(--fg-2)] group-hover/item:text-[var(--brand-600)] font-medium truncate transition-colors">
-                              {doc.title}
-                            </span>
-                          </div>
-                          <ChevronRight className="w-4 h-4 text-[var(--meta)] opacity-0 group-hover/item:opacity-100 group-hover/item:translate-x-0.5 transition-all shrink-0 duration-200" />
-                        </Link>
-                      ))}
+                    <div className="min-w-0 flex-1">
+                      <h3 style={{ color: "var(--fg)" }} className="font-bold text-base leading-snug">
+                        {catInfo.label}
+                      </h3>
+                      <p style={{ color: "var(--meta)" }} className="text-xs">
+                        {cat.total_count || docs.length} tài liệu
+                      </p>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+
+                  {/* Category Body (Documents) */}
+                  <div className="flex-1 flex flex-col gap-1.5 mb-4">
+                    {docs.map((doc) => (
+                      <Link
+                        key={doc.id}
+                        to={`/documents/${doc.id}`}
+                        className="group/item flex items-center justify-between p-2.5 rounded-xl hover:bg-[var(--bg-2)] transition-colors duration-200"
+                        style={{ border: "1px solid transparent" }}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <FileText className="w-4 h-4 text-[var(--muted)] group-hover/item:text-[var(--brand-600)] shrink-0 transition-colors" />
+                          <span className="text-sm text-[var(--fg-2)] group-hover/item:text-[var(--brand-600)] font-medium truncate transition-colors">
+                            {doc.title}
+                          </span>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-[var(--meta)] opacity-0 group-hover/item:opacity-100 group-hover/item:translate-x-0.5 transition-all shrink-0 duration-200" />
+                      </Link>
+                    ))}
+                    {isCatLoading && (
+                      <div className="text-center py-2 text-xs text-[var(--meta)]">Đang tải tài liệu...</div>
+                    )}
+                  </div>
+
+                  {/* Expand/Collapse Button */}
+                  {showExpandButton && (
+                    <button
+                      onClick={() => handleExpand(cat.id)}
+                      disabled={isCatLoading}
+                      className="mt-auto w-full py-2.5 px-4 rounded-xl text-xs font-semibold text-center border transition-all duration-200"
+                      style={{
+                        background: isExpanded ? "var(--bg-2)" : "var(--surface)",
+                        borderColor: "var(--border)",
+                        color: "var(--fg-2)"
+                      }}
+                    >
+                      {isExpanded ? "Thu gọn" : `Xem tất cả (${cat.total_count} tài liệu)`}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
-        );
-      })()}
+        </div>
+      )}
     </div>
   );
 };
