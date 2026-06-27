@@ -310,12 +310,14 @@ const Layout: React.FC = () => {
   const location = useLocation();
 
   const isDocPage = location.pathname.startsWith("/documents/");
+  const isAdminPage = location.pathname.startsWith("/admin");
+  const isFullWidthPage = isDocPage || isAdminPage;
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--bg)", color: "var(--fg)", transition: "background 0.25s ease, color 0.25s ease" }}>
       <Header onOpenSettings={() => setSettingsOpen(true)} onOpenProfile={() => setProfileOpen(true)} />
       <main style={{ flex: 1, width: "100%", display: "flex", flexDirection: "column" }}>
-        {isDocPage ? (
+        {isFullWidthPage ? (
           <Outlet />
         ) : (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 w-full">
@@ -323,7 +325,7 @@ const Layout: React.FC = () => {
           </div>
         )}
       </main>
-      <Footer />
+      {!isAdminPage && <Footer />}
       <UISettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <EditProfileModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} />
     </div>

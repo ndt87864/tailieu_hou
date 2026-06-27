@@ -125,11 +125,10 @@ const AdminPage: React.FC = () => {
       style={{
         display: "flex",
         height: "calc(100vh - 64px)",
-        margin: "-2rem -1.25rem",
         background: "var(--bg)",
         overflow: "hidden",
       }}
-      className="rounded-2xl shadow-sm border border-[var(--border)]"
+      className="shadow-sm border border-[var(--border)]"
     >
       {/* Green Left Sidebar */}
       <aside
