@@ -152,6 +152,11 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenProfile }) => {
                           {user.email}
                         </p>
                       )}
+                      {profile?.phone && (
+                        <p style={{ color: "var(--muted)", fontSize: "0.65rem" }} className="truncate">
+                          📞 {profile.phone}
+                        </p>
+                      )}
                       <span style={{ ...badge.style, fontSize: "0.625rem", fontWeight: 700, padding: "1px 6px", borderRadius: 99, border: "1px solid", borderColor: badge.style.borderColor, marginTop: 4, display: "inline-block" }}>
                         {badge.label}
                       </span>

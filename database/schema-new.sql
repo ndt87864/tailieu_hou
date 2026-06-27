@@ -92,6 +92,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   email text NOT NULL,
   full_name text,
   avatar_url text,
+  phone text,
   role user_role DEFAULT 'free' NOT NULL,
   updated_at timestamptz DEFAULT now()
 );
@@ -101,8 +102,15 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 BEGIN
-  INSERT INTO public.profiles (id, email, full_name, avatar_url, role)
-  VALUES (new.id, new.email, COALESCE(new.raw_user_meta_data->>'full_name', ''), COALESCE(new.raw_user_meta_data->>'avatar_url', ''), 'free');
+  INSERT INTO public.profiles (id, email, full_name, avatar_url, role, phone)
+  VALUES (
+    new.id,
+    new.email,
+    COALESCE(new.raw_user_meta_data->>'full_name', ''),
+    COALESCE(new.raw_user_meta_data->>'avatar_url', ''),
+    'free',
+    COALESCE(new.raw_user_meta_data->>'phone', NULL)
+  );
   
   INSERT INTO public.ui_settings (user_id, theme_mode, primary_color)
   VALUES (new.id, 'system', 'indigo')

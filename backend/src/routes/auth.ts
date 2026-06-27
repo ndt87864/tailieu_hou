@@ -37,13 +37,14 @@ authRouter.put("/profile", async (c) => {
   }
 
   const body = await c.req.json();
-  const { full_name, avatar_url } = body;
+  const { full_name, avatar_url, phone } = body;
 
   const { data, error } = await supabaseAdmin
     .from("profiles")
     .update({
       full_name,
       avatar_url,
+      phone: phone ?? undefined,
       updated_at: new Date().toISOString(),
     })
     .eq("id", user.id)

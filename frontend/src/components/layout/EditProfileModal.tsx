@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, User, Image, Loader2 } from "lucide-react";
+import { X, User, Image, Loader2, Phone } from "lucide-react";
 import { useAuth } from "../../context/AuthContext.js";
 import apiClient from "../../services/client.js";
 import { toast } from "react-toastify";
@@ -13,12 +13,14 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
   const { profile, refreshProfile } = useAuth();
   const [fullName, setFullName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [phone, setPhone] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (isOpen && profile) {
       setFullName(profile.full_name || "");
       setAvatarUrl(profile.avatar_url || "");
+      setPhone(profile.phone || "");
     }
   }, [isOpen, profile]);
 
@@ -31,6 +33,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
       await apiClient.put("/api/v1/auth/profile", {
         full_name: fullName.trim(),
         avatar_url: avatarUrl.trim(),
+        phone: phone.trim(),
       });
       await refreshProfile();
       toast.success("Cập nhật thông tin cá nhân thành công!");
@@ -123,6 +126,31 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="Nhập họ tên của bạn"
                 required
+                className="w-full pl-9 pr-4 py-2 rounded-xl border text-sm transition-all focus:outline-none focus:ring-2"
+                style={{
+                  background: "var(--surface-2)",
+                  border: "1px solid var(--border)",
+                  color: "var(--fg)",
+                }}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label
+              style={{ color: "var(--fg-2)", fontSize: "0.8rem", fontWeight: 600, display: "block", marginBottom: "0.375rem" }}
+            >
+              Số điện thoại
+            </label>
+            <div className="relative">
+              <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[var(--muted)]">
+                <Phone className="w-4 h-4" />
+              </span>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="Nhập số điện thoại của bạn"
                 className="w-full pl-9 pr-4 py-2 rounded-xl border text-sm transition-all focus:outline-none focus:ring-2"
                 style={{
                   background: "var(--surface-2)",
