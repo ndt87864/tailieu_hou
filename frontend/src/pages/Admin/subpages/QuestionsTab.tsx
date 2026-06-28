@@ -162,8 +162,7 @@ const QuestionsTab: React.FC = () => {
           <select
             value={selectedDocId}
             onChange={(e) => setSelectedDocId(e.target.value)}
-            style={{ border: "1px solid var(--border)", background: "var(--surface)", color: "var(--fg)" }}
-            className="w-full px-3 py-2 text-sm rounded-xl outline-none cursor-pointer font-medium"
+            className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none cursor-pointer font-medium"
           >
             {documents.map((d) => (
               <option key={d.id} value={d.id}>
@@ -175,14 +174,13 @@ const QuestionsTab: React.FC = () => {
 
         {/* Search */}
         <div className="relative w-full md:flex-1">
-          <Search className="absolute left-3 top-2.5 w-4 h-4" style={{ color: "var(--meta)" }} />
+          <Search className="absolute left-3 top-2.5 w-4 h-4 input-search-icon" />
           <input
             type="text"
             placeholder="Tìm kiếm nội dung câu hỏi..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{ border: "1px solid var(--border)", background: "var(--surface)", color: "var(--fg)" }}
-            className="w-full pl-9 pr-4 py-2 text-sm rounded-xl outline-none focus:border-brand-500"
+            className="input-themed w-full pl-9 pr-4 py-2 text-sm rounded-xl outline-none focus:border-brand-500"
           />
         </div>
 
@@ -190,16 +188,14 @@ const QuestionsTab: React.FC = () => {
         <div className="flex gap-2 w-full md:w-auto">
           <button
             onClick={() => setShowModal(true)}
-            style={{ background: "var(--brand-600)", color: "#fff" }}
-            className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium rounded-xl hover:bg-brand-700 transition-colors"
+            className="btn-primary flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium rounded-xl hover:bg-brand-700 transition-colors"
           >
             <Plus className="w-4 h-4" />
             Thêm câu hỏi
           </button>
           <button
             onClick={() => fetchQuestions(selectedDocId)}
-            style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--fg-2)" }}
-            className="p-2 rounded-xl hover:bg-[var(--bg-2)] transition-colors shadow-sm"
+            className="btn-secondary p-2 rounded-xl hover:bg-[var(--bg-2)] transition-colors shadow-sm"
           >
             <RefreshCw className="w-4 h-4" />
           </button>
@@ -212,7 +208,7 @@ const QuestionsTab: React.FC = () => {
       ) : (
         <div className="space-y-3">
           {filtered.length === 0 ? (
-            <div className="card p-8 text-center text-sm" style={{ color: "var(--meta)" }}>
+            <div className="card p-8 text-center text-sm card-empty-state">
               Không tìm thấy câu hỏi nào cho tài liệu này.
             </div>
           ) : (
@@ -221,18 +217,17 @@ const QuestionsTab: React.FC = () => {
                 {/* Order Index and Question content */}
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-1">
-                    <span style={{ color: "var(--brand-600)", fontSize: "0.75rem", fontWeight: 700 }}>
+                    <span className="q-label">
                       Câu hỏi #{q.order_index}
                     </span>
-                    <h4 className="font-semibold text-sm" style={{ color: "var(--fg)", lineHeight: "1.5" }}>
+                    <h4 className="q-title font-semibold text-sm">
                       {q.question}
                     </h4>
                   </div>
                   <div className="flex gap-1 shrink-0">
                     <button
                       onClick={() => handleEditClick(q)}
-                      className="p-1.5 hover:bg-[var(--bg-2)] rounded-lg transition-colors"
-                      style={{ color: "var(--fg-2)" }}
+                      className="btn-icon-edit p-1.5 hover:bg-[var(--bg-2)] rounded-lg transition-colors"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
@@ -251,23 +246,14 @@ const QuestionsTab: React.FC = () => {
                     {q.choices.map((choice, i) => (
                       <div
                         key={i}
-                        className="px-3 py-2 rounded-lg border flex items-center gap-2"
-                        style={{
-                          borderColor: choice === q.answer ? "color-mix(in srgb, var(--brand-600) 40%, var(--border))" : "var(--border)",
-                          background: choice === q.answer ? "color-mix(in srgb, var(--brand-600) 8%, var(--surface))" : "var(--surface)",
-                        }}
+                        className={`px-3 py-2 rounded-lg border flex items-center gap-2 choice-item ${choice === q.answer ? 'choice-correct' : 'choice-neutral'}`}
                       >
                         <span
-                          className="font-bold flex items-center justify-center w-5 h-5 rounded-full"
-                          style={{
-                            background: choice === q.answer ? "var(--brand-600)" : "var(--bg-2)",
-                            color: choice === q.answer ? "#fff" : "var(--muted)",
-                            fontSize: "0.625rem",
-                          }}
+                          className={`choice-badge font-bold flex items-center justify-center w-5 h-5 rounded-full ${choice === q.answer ? 'choice-badge-correct' : 'choice-badge-neutral'}`}
                         >
                           {String.fromCharCode(65 + i)}
                         </span>
-                        <span style={{ color: choice === q.answer ? "var(--fg)" : "var(--fg-2)" }}>{choice}</span>
+                        <span className={choice === q.answer ? 'choice-text-correct' : 'choice-text-neutral'}>{choice}</span>
                       </div>
                     ))}
                   </div>
@@ -289,67 +275,62 @@ const QuestionsTab: React.FC = () => {
       {showModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="card w-full max-w-lg p-6 relative max-h-[90vh] overflow-y-auto animate-scale-in">
-            <h3 className="text-base font-bold mb-4" style={{ color: "var(--fg)" }}>
+            <h3 className="modal-heading text-base font-bold mb-4">
               {editingQuestion ? "Cập nhật câu hỏi" : "Tạo câu hỏi mới"}
             </h3>
             <form onSubmit={handleCreateOrUpdate} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold mb-1" style={{ color: "var(--muted)" }}>Nội dung câu hỏi</label>
+                <label className="form-label block text-xs font-semibold mb-1">Nội dung câu hỏi</label>
                 <textarea
                   required
                   placeholder="Nhập câu hỏi..."
                   value={formData.question}
                   onChange={(e) => setFormData({ ...formData, question: e.target.value })}
-                  style={{ border: "1px solid var(--border)", background: "var(--surface)", color: "var(--fg)", height: "80px" }}
-                  className="w-full px-3 py-2 text-sm rounded-xl outline-none focus:border-brand-500 resize-none"
+                  className="textarea-description w-full px-3 py-2 text-sm rounded-xl outline-none focus:border-brand-500 resize-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold mb-1" style={{ color: "var(--muted)" }}>Các lựa chọn (Mỗi dòng một lựa chọn)</label>
+                <label className="form-label block text-xs font-semibold mb-1">Các lựa chọn (Mỗi dòng một lựa chọn)</label>
                 <textarea
                   placeholder="Lựa chọn A&#10;Lựa chọn B&#10;Lựa chọn C&#10;Lựa chọn D"
                   value={formData.choicesText}
                   onChange={(e) => setFormData({ ...formData, choicesText: e.target.value })}
-                  style={{ border: "1px solid var(--border)", background: "var(--surface)", color: "var(--fg)", height: "100px" }}
-                  className="w-full px-3 py-2 text-sm rounded-xl outline-none focus:border-brand-500 font-mono"
+                  className="textarea-choices w-full px-3 py-2 text-sm rounded-xl outline-none focus:border-brand-500 font-mono"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold mb-1" style={{ color: "var(--muted)" }}>Đáp án đúng (Phải trùng khớp hoàn toàn một lựa chọn ở trên)</label>
+                <label className="form-label block text-xs font-semibold mb-1">Đáp án đúng (Phải trùng khớp hoàn toàn một lựa chọn ở trên)</label>
                 <input
                   type="text"
                   required
                   placeholder="Nhập lựa chọn đúng..."
                   value={formData.answer}
                   onChange={(e) => setFormData({ ...formData, answer: e.target.value })}
-                  style={{ border: "1px solid var(--border)", background: "var(--surface)", color: "var(--fg)" }}
-                  className="w-full px-3 py-2 text-sm rounded-xl outline-none focus:border-brand-500"
+                  className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none focus:border-brand-500"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold mb-1" style={{ color: "var(--muted)" }}>Thứ tự hiển thị (STT)</label>
+                  <label className="form-label block text-xs font-semibold mb-1">Thứ tự hiển thị (STT)</label>
                   <input
                     type="number"
                     required
                     value={formData.order_index}
                     onChange={(e) => setFormData({ ...formData, order_index: parseInt(e.target.value, 10) || 1 })}
-                    style={{ border: "1px solid var(--border)", background: "var(--surface)", color: "var(--fg)" }}
-                    className="w-full px-3 py-2 text-sm rounded-xl outline-none focus:border-brand-500"
+                    className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none focus:border-brand-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold mb-1" style={{ color: "var(--muted)" }}>Hình ảnh câu hỏi (URL tùy chọn)</label>
+                  <label className="form-label block text-xs font-semibold mb-1">Hình ảnh câu hỏi (URL tùy chọn)</label>
                   <input
                     type="text"
                     placeholder="Link ảnh nếu có"
                     value={formData.url_question}
                     onChange={(e) => setFormData({ ...formData, url_question: e.target.value })}
-                    style={{ border: "1px solid var(--border)", background: "var(--surface)", color: "var(--fg)" }}
-                    className="w-full px-3 py-2 text-sm rounded-xl outline-none focus:border-brand-500"
+                    className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none focus:border-brand-500"
                   />
                 </div>
               </div>
@@ -358,16 +339,14 @@ const QuestionsTab: React.FC = () => {
                 <button
                   type="button"
                   onClick={closeForm}
-                  style={{ background: "var(--bg-2)", color: "var(--fg-2)" }}
-                  className="px-4 py-2 text-sm font-medium rounded-xl hover:opacity-90"
+                  className="btn-cancel px-4 py-2 text-sm font-medium rounded-xl hover:opacity-90"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  style={{ background: "var(--brand-600)", color: "#fff" }}
-                  className="px-4 py-2 text-sm font-medium rounded-xl hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                  className="btn-primary px-4 py-2 text-sm font-medium rounded-xl hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
                 >
                   {submitting ? (
                     <>

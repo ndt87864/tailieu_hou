@@ -1,0 +1,750 @@
+/* =========================================================
+   components.css — Shared utility classes extracted from
+   inline styles across TSX components
+   ========================================================= */
+
+/* ── Admin Sidebar (AdminPage.tsx) ── */
+.admin-sidebar-bg {
+  background: #008037;
+  color: #fff;
+}
+
+.admin-menu-btn-mobile {
+  color: var(--muted);
+}
+
+/* ── Common Form Controls ── */
+.input-search-icon {
+  color: var(--meta);
+}
+
+.input-themed {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--fg);
+}
+
+.textarea-description {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--fg);
+  height: 80px;
+}
+
+.textarea-choices {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--fg);
+  height: 100px;
+}
+
+.textarea-question {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--fg);
+  height: 80px;
+}
+
+.textarea-import {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--fg);
+  height: 200px;
+}
+
+/* ── Common Buttons ── */
+.btn-primary {
+  background: var(--brand-600);
+  color: #fff;
+}
+
+.btn-cancel {
+  background: var(--bg-2);
+  color: var(--fg-2);
+}
+
+.btn-secondary {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--fg-2);
+}
+
+.btn-import {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  color: var(--fg);
+}
+
+/* ── Table cells ── */
+.th-right {
+  text-align: right;
+}
+
+.td-right {
+  text-align: right;
+}
+
+.td-empty {
+  text-align: center;
+  padding: 2rem;
+  color: var(--meta);
+}
+
+.td-muted {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.td-fg2 {
+  color: var(--fg-2);
+}
+
+.td-fg2-sm {
+  color: var(--fg-2);
+  font-size: 0.825rem;
+}
+
+.td-brand {
+  color: var(--brand-600);
+}
+
+.td-truncate {
+  color: var(--muted);
+  max-width: 250px;
+}
+
+/* ── Modal headings ── */
+.modal-heading {
+  color: var(--fg);
+}
+
+/* ── Form Labels ── */
+.form-label {
+  color: var(--muted);
+}
+
+/* ── Card sub-text ── */
+.card-title {
+  color: var(--fg);
+}
+
+.card-meta {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+/* ── Edit / Action buttons ── */
+.btn-icon-edit {
+  color: var(--fg-2);
+}
+
+/* ── Pagination ── */
+.pagination-wrapper {
+  border-color: var(--border);
+}
+
+.pagination-info {
+  color: var(--muted);
+}
+
+.pagination-page-label {
+  color: var(--muted);
+}
+
+.pagination-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--fg);
+}
+
+.pagination-page-input {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--fg);
+  width: 52px;
+  text-align: center;
+}
+
+.pagination-total {
+  color: var(--muted);
+}
+
+/* ── Student table ── */
+.student-name {
+  color: var(--fg);
+}
+
+.student-meta {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.student-subject {
+  color: var(--fg-2);
+  font-size: 0.825rem;
+}
+
+.student-major-label {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.student-major-value {
+  color: var(--fg-2);
+}
+
+.student-time {
+  color: var(--fg-2);
+  font-size: 0.825rem;
+}
+
+.student-time-sub {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.student-room-cell {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.student-exam-link {
+  color: var(--brand-600);
+  font-size: 0.72rem;
+  text-decoration: underline;
+}
+
+/* ── Question card ── */
+.question-number {
+  color: var(--brand-600);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.question-text {
+  color: var(--fg);
+  line-height: 1.5;
+}
+
+.choice-letter-correct {
+  background: var(--brand-600);
+  color: #fff;
+  font-size: 0.625rem;
+}
+
+.choice-letter-normal {
+  background: var(--bg-2);
+  color: var(--muted);
+  font-size: 0.625rem;
+}
+
+.choice-text-correct {
+  color: var(--fg);
+}
+
+.choice-text-normal {
+  color: var(--fg-2);
+}
+
+/* ── Dashboard ── */
+.dashboard-title {
+  color: var(--fg);
+}
+
+.dashboard-subtitle {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.dashboard-refresh-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--fg-2);
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: 0.5rem;
+  padding: 0.4rem 0.8rem;
+}
+
+.kpi-label {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.kpi-value {
+  color: var(--fg);
+}
+
+.section-title {
+  color: var(--fg);
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.pie-section-title {
+  color: var(--fg);
+  font-weight: 600;
+  font-size: 0.875rem;
+  width: 100%;
+  text-align: left;
+  margin-bottom: 1rem;
+}
+
+.pie-center-value {
+  color: var(--fg);
+}
+
+.pie-center-label {
+  color: var(--muted);
+  font-size: 0.625rem;
+}
+
+.legend-item {
+  color: var(--muted);
+}
+
+.resource-label {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.resource-value {
+  color: var(--fg);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+/* ── MockTabs ── */
+.mock-tab-title {
+  color: var(--fg);
+}
+
+.mock-session-code {
+  color: var(--brand-600);
+}
+
+.mock-session-time {
+  color: var(--fg-2);
+}
+
+.mock-session-note {
+  color: var(--muted);
+}
+
+.mock-room-name {
+  color: var(--fg);
+}
+
+.mock-room-cap {
+  color: var(--fg-2);
+}
+
+.mock-pricing-btn {
+  background: var(--bg-2);
+  color: var(--fg-2);
+}
+
+.mock-pricing-note {
+  color: var(--muted);
+}
+
+.mock-premium-border {
+  border-color: var(--border);
+}
+
+.mock-footer-label {
+  color: var(--muted);
+}
+
+.mock-contacts-empty {
+  color: var(--meta);
+}
+
+.mock-qratio-label {
+  color: var(--fg);
+}
+
+.mock-proxy-empty {
+  color: var(--meta);
+}
+
+/* ── Users tab ── */
+.user-name {
+  color: var(--fg);
+}
+
+.user-email-text {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.user-phone {
+  color: var(--fg-2);
+}
+
+.user-avatar-initial {
+  color: var(--brand-600);
+}
+
+/* ── Categories tab ── */
+.cat-title {
+  color: var(--fg);
+}
+
+.cat-meta {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+/* ── Layout / Header ── */
+.header-root {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  transition: background 0.25s ease, border-color 0.25s ease;
+}
+
+.header-logo-link {
+  color: var(--fg);
+  text-decoration: none;
+}
+
+.header-logo-icon {
+  background: linear-gradient(135deg, var(--brand-700), var(--brand-500));
+}
+
+.header-user-btn {
+  color: var(--fg);
+}
+
+.header-avatar-icon {
+  background: linear-gradient(135deg, var(--brand-700), var(--brand-500));
+}
+
+.header-username {
+  color: var(--fg);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.header-chevron {
+  color: var(--meta);
+}
+
+.header-dropdown {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+}
+
+.header-dropdown-divider {
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.header-dropdown-username {
+  color: var(--fg);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.header-dropdown-muted {
+  color: var(--muted);
+  font-size: 0.65rem;
+}
+
+.header-dropdown-btn {
+  color: var(--fg-2);
+}
+
+.header-icon-meta {
+  color: var(--meta);
+}
+
+.header-settings-btn {
+  color: var(--muted);
+}
+
+.header-mobile-btn {
+  color: var(--muted);
+}
+
+.mobile-nav-root {
+  border-top: 1px solid var(--border);
+}
+
+.mobile-nav-btn {
+  color: var(--fg-2);
+}
+
+/* ── Footer ── */
+.footer-root {
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  transition: background 0.25s ease, border-color 0.25s ease;
+}
+
+.footer-logo-icon {
+  background: linear-gradient(135deg, var(--brand-700), var(--brand-500));
+}
+
+.footer-brand-name {
+  color: var(--fg);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.footer-copy {
+  color: var(--meta);
+  font-size: 0.75rem;
+}
+
+.footer-links {
+  color: var(--muted);
+}
+
+.footer-link {
+  color: var(--muted);
+}
+
+.footer-copy-mobile {
+  color: var(--meta);
+  font-size: 0.75rem;
+}
+
+/* ── LoadingSpinner ── */
+.spinner-track {
+  border-color: color-mix(in srgb, var(--brand-600) 20%, transparent);
+}
+
+.spinner-bar {
+  border-color: var(--brand-600);
+  border-top-color: transparent;
+}
+
+.spinner-label {
+  color: var(--meta);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* ── UISettingsModal ── */
+.ui-modal-backdrop {
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.ui-modal-container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+  color: var(--fg);
+}
+
+.ui-modal-title {
+  color: var(--fg);
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.ui-modal-subtitle {
+  color: var(--muted);
+  font-size: 0.75rem;
+  margin-top: 0.125rem;
+}
+
+.ui-modal-close-btn {
+  color: var(--muted);
+  border-radius: 0.75rem;
+  padding: 0.375rem;
+}
+
+.ui-setting-label {
+  color: var(--fg-2);
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 0.625rem;
+}
+
+.ui-modal-note {
+  color: var(--meta);
+  font-size: 0.7rem;
+  margin-top: 1rem;
+  background: var(--bg-2);
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+}
+
+/* ── LoginPage ── */
+.login-brand-icon {
+  background: linear-gradient(135deg, var(--brand-700), var(--brand-500));
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--brand-600) 30%, transparent);
+}
+
+.login-title {
+  color: var(--fg);
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.login-subtitle {
+  color: var(--muted);
+  font-size: 0.875rem;
+  margin-top: 0.375rem;
+}
+
+.login-brand-accent {
+  color: var(--brand-600);
+}
+
+.login-toggle-wrapper {
+  border-top: 1px solid var(--border-soft);
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  text-align: center;
+}
+
+.login-toggle-btn {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.login-toggle-accent {
+  color: var(--brand-600);
+  font-weight: 600;
+}
+
+.login-back-link {
+  color: var(--meta);
+  font-size: 0.75rem;
+}
+
+.login-icon-meta {
+  color: var(--meta);
+}
+
+.login-forgot-btn {
+  color: var(--brand-600);
+}
+
+.login-eye-btn {
+  color: var(--meta);
+}
+
+.login-label {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.login-pw-label {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.login-sent-icon {
+  color: var(--brand-600);
+}
+
+.login-sent-title {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.login-sent-text {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+/* ── Additional classes used after refactor ── */
+
+/* Question card classes (QuestionsTab) */
+.q-label {
+  color: var(--brand-600);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.q-title {
+  color: var(--fg);
+  line-height: 1.5;
+}
+
+.card-empty-state {
+  color: var(--meta);
+}
+
+/* Choice item states */
+.choice-item {
+  /* base — border/bg set per state below */
+}
+
+.choice-correct {
+  border-color: color-mix(in srgb, var(--brand-600) 40%, var(--border));
+  background: color-mix(in srgb, var(--brand-600) 8%, var(--surface));
+}
+
+.choice-neutral {
+  border-color: var(--border);
+  background: var(--surface);
+}
+
+.choice-badge {
+  font-size: 0.625rem;
+}
+
+.choice-badge-correct {
+  background: var(--brand-600);
+  color: #fff;
+}
+
+.choice-badge-neutral {
+  background: var(--bg-2);
+  color: var(--muted);
+}
+
+.choice-text-neutral {
+  color: var(--fg-2);
+}
+
+/* Student table classes */
+.td-sm-text {
+  color: var(--fg-2);
+  font-size: 0.825rem;
+}
+
+.exam-link {
+  color: var(--brand-600);
+  font-size: 0.72rem;
+  text-decoration: underline;
+}
+
+/* Pagination bar border */
+.pagination-bar {
+  border-color: var(--border);
+}
+
+/* Pagination input fixed width */
+.pagination-input {
+  width: 52px;
+  text-align: center;
+}
+
+/* JSON textarea for import */
+.textarea-json {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--fg);
+  height: 200px;
+}

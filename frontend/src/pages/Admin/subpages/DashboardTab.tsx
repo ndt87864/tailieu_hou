@@ -54,13 +54,12 @@ const DashboardTab: React.FC = () => {
       {/* Tab Title */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold" style={{ color: "var(--fg)" }}>Thống kê người dùng</h2>
-          <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>Số liệu thống kê thời gian thực của hệ thống</p>
+          <h2 className="dashboard-title text-xl font-bold">Thống kê người dùng</h2>
+          <p className="dashboard-subtitle">Số liệu thống kê thời gian thực của hệ thống</p>
         </div>
         <button
           onClick={fetchStats}
-          style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--fg-2)", fontSize: "0.75rem", fontWeight: 500, borderRadius: "0.5rem", padding: "0.4rem 0.8rem" }}
-          className="flex items-center gap-1.5 hover:bg-[var(--bg-2)] transition-colors shadow-sm"
+          className="dashboard-refresh-btn flex items-center gap-1.5 hover:bg-[var(--bg-2)] transition-colors shadow-sm"
         >
           <RefreshCw className="w-3.5 h-3.5" />
           Làm mới
@@ -75,8 +74,8 @@ const DashboardTab: React.FC = () => {
             <Users className="w-5 h-5" />
           </div>
           <div>
-            <p style={{ color: "var(--muted)", fontSize: "0.75rem" }}>Tổng người dùng</p>
-            <h3 style={{ color: "var(--fg)" }} className="text-lg font-bold mt-0.5">{stats.totalUsers}</h3>
+            <p className="kpi-label">Tổng người dùng</p>
+            <h3 className="kpi-value text-lg font-bold mt-0.5">{stats.totalUsers}</h3>
           </div>
         </div>
 
@@ -86,8 +85,8 @@ const DashboardTab: React.FC = () => {
             <Users className="w-5 h-5" />
           </div>
           <div>
-            <p style={{ color: "var(--muted)", fontSize: "0.75rem" }}>Người dùng miễn phí</p>
-            <h3 style={{ color: "var(--fg)" }} className="text-lg font-bold mt-0.5">{stats.roles.free}</h3>
+            <p className="kpi-label">Người dùng miễn phí</p>
+            <h3 className="kpi-value text-lg font-bold mt-0.5">{stats.roles.free}</h3>
           </div>
         </div>
 
@@ -97,8 +96,8 @@ const DashboardTab: React.FC = () => {
             <Users className="w-5 h-5" />
           </div>
           <div>
-            <p style={{ color: "var(--muted)", fontSize: "0.75rem" }}>Người dùng trả phí</p>
-            <h3 style={{ color: "var(--fg)" }} className="text-lg font-bold mt-0.5">{totalPaid}</h3>
+            <p className="kpi-label">Người dùng trả phí</p>
+            <h3 className="kpi-value text-lg font-bold mt-0.5">{totalPaid}</h3>
           </div>
         </div>
 
@@ -108,8 +107,8 @@ const DashboardTab: React.FC = () => {
             <BarChart2 className="w-5 h-5" />
           </div>
           <div>
-            <p style={{ color: "var(--muted)", fontSize: "0.75rem" }}>Đang hoạt động</p>
-            <h3 style={{ color: "var(--fg)" }} className="text-lg font-bold mt-0.5">{stats.activeUsers}</h3>
+            <p className="kpi-label">Đang hoạt động</p>
+            <h3 className="kpi-value text-lg font-bold mt-0.5">{stats.activeUsers}</h3>
           </div>
         </div>
 
@@ -119,8 +118,8 @@ const DashboardTab: React.FC = () => {
             <GraduationCap className="w-5 h-5" />
           </div>
           <div>
-            <p style={{ color: "var(--muted)", fontSize: "0.75rem" }}>Lượt đăng ký môn</p>
-            <h3 style={{ color: "var(--fg)" }} className="text-lg font-bold mt-0.5">{stats.totalStudents}</h3>
+            <p className="kpi-label">Lượt đăng ký môn</p>
+            <h3 className="kpi-value text-lg font-bold mt-0.5">{stats.totalStudents}</h3>
           </div>
         </div>
       </div>
@@ -129,7 +128,7 @@ const DashboardTab: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Pie Chart Representation */}
         <div className="card p-5 flex flex-col items-center justify-center md:col-span-1">
-          <h4 style={{ color: "var(--fg)", fontWeight: 600, fontSize: "0.875rem", width: "100%", textAlign: "left", marginBottom: "1rem" }}>Phân bổ loại người dùng</h4>
+          <h4 className="pie-section-title">Phân bổ loại người dùng</h4>
           
           <div className="relative w-36 h-36 flex items-center justify-center">
             {/* SVG Pie Chart */}
@@ -142,49 +141,49 @@ const DashboardTab: React.FC = () => {
               />
             </svg>
             <div className="absolute flex flex-col items-center justify-center">
-              <span className="text-2xl font-bold" style={{ color: "var(--fg)" }}>{paidPercent}%</span>
-              <span style={{ color: "var(--muted)", fontSize: "0.625rem" }}>Trả phí</span>
+              <span className="pie-center-value text-2xl font-bold">{paidPercent}%</span>
+              <span className="pie-center-label">Trả phí</span>
             </div>
           </div>
 
           <div className="flex gap-4 mt-6 text-xs justify-center w-full">
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-3 rounded-full bg-[var(--brand-600)]"></div>
-              <span style={{ color: "var(--muted)" }}>Trả phí: {totalPaid}</span>
+              <span className="legend-item">Trả phí: {totalPaid}</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--brand-600) 15%, transparent)" }}></div>
-              <span style={{ color: "var(--muted)" }}>Miễn phí: {stats.roles.free}</span>
+              <div className="w-3 h-3 rounded-full legend-item-free"></div>
+              <span className="legend-item">Miễn phí: {stats.roles.free}</span>
             </div>
           </div>
         </div>
 
         {/* Content Statistics Cards */}
         <div className="card p-5 md:col-span-2 space-y-4">
-          <h4 style={{ color: "var(--fg)", fontWeight: 600, fontSize: "0.875rem" }}>Tài nguyên ôn thi</h4>
+          <h4 className="section-title">Tài nguyên ôn thi</h4>
           
           <div className="grid grid-cols-3 gap-4 h-full py-2">
             <div className="p-4 rounded-2xl bg-[var(--bg-2)] flex flex-col justify-between">
               <BookOpen className="w-5 h-5 text-indigo-500 mb-2" />
               <div>
-                <p style={{ color: "var(--muted)", fontSize: "0.75rem" }}>Danh mục</p>
-                <h4 style={{ color: "var(--fg)", fontSize: "1.25rem", fontWeight: 700 }}>{stats.totalCategories}</h4>
+                <p className="resource-label">Danh mục</p>
+                <h4 className="resource-value">{stats.totalCategories}</h4>
               </div>
             </div>
 
             <div className="p-4 rounded-2xl bg-[var(--bg-2)] flex flex-col justify-between">
               <FileText className="w-5 h-5 text-amber-500 mb-2" />
               <div>
-                <p style={{ color: "var(--muted)", fontSize: "0.75rem" }}>Tài liệu</p>
-                <h4 style={{ color: "var(--fg)", fontSize: "1.25rem", fontWeight: 700 }}>{stats.totalDocuments}</h4>
+                <p className="resource-label">Tài liệu</p>
+                <h4 className="resource-value">{stats.totalDocuments}</h4>
               </div>
             </div>
 
             <div className="p-4 rounded-2xl bg-[var(--bg-2)] flex flex-col justify-between">
               <HelpCircle className="w-5 h-5 text-rose-500 mb-2" />
               <div>
-                <p style={{ color: "var(--muted)", fontSize: "0.75rem" }}>Câu hỏi</p>
-                <h4 style={{ color: "var(--fg)", fontSize: "1.25rem", fontWeight: 700 }}>{stats.totalQuestions}</h4>
+                <p className="resource-label">Câu hỏi</p>
+                <h4 className="resource-value">{stats.totalQuestions}</h4>
               </div>
             </div>
           </div>

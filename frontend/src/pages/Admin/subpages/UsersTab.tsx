@@ -96,14 +96,13 @@ const UsersTab: React.FC = () => {
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
         {/* Search */}
         <div className="relative w-full sm:w-80">
-          <Search className="absolute left-3 top-2.5 w-4 h-4" style={{ color: "var(--meta)" }} />
+          <Search className="absolute left-3 top-2.5 w-4 h-4 input-search-icon" />
           <input
             type="text"
             placeholder="Tìm kiếm tài khoản..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ border: "1px solid var(--border)", background: "var(--surface)", color: "var(--fg)" }}
-            className="w-full pl-9 pr-4 py-2 text-sm rounded-xl outline-none focus:border-brand-500 transition-colors"
+            className="input-themed w-full pl-9 pr-4 py-2 text-sm rounded-xl outline-none focus:border-brand-500 transition-colors"
           />
         </div>
 
@@ -111,16 +110,14 @@ const UsersTab: React.FC = () => {
         <div className="flex gap-2 w-full sm:w-auto">
           <button
             onClick={() => setShowAddModal(true)}
-            style={{ background: "var(--brand-600)", color: "#fff" }}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium rounded-xl hover:bg-brand-700 transition-colors shadow-sm"
+            className="btn-primary flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium rounded-xl hover:bg-brand-700 transition-colors shadow-sm"
           >
             <Plus className="w-4 h-4" />
             Thêm tài khoản
           </button>
           <button
             onClick={fetchUsers}
-            style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--fg-2)" }}
-            className="p-2 rounded-xl hover:bg-[var(--bg-2)] transition-colors shadow-sm"
+            className="btn-secondary p-2 rounded-xl hover:bg-[var(--bg-2)] transition-colors shadow-sm"
             title="Làm mới"
           >
             <RefreshCw className="w-4 h-4" />
@@ -137,13 +134,13 @@ const UsersTab: React.FC = () => {
                 <th>Hồ sơ / Email</th>
                 <th>Điện thoại</th>
                 <th>Phân quyền</th>
-                <th style={{ textAlign: "right" }}>Hành động</th>
+                <th className="th-right">Hành động</th>
               </tr>
             </thead>
             <tbody>
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={4} style={{ textAlign: "center", padding: "2rem", color: "var(--meta)" }}>
+                  <td colSpan={4} className="td-empty">
                     Không tìm thấy tài khoản nào.
                   </td>
                 </tr>
@@ -154,7 +151,7 @@ const UsersTab: React.FC = () => {
                     <tr key={u.id}>
                       <td>
                         <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-full bg-brand-500/15 flex items-center justify-center font-bold text-xs" style={{ color: "var(--brand-600)" }}>
+                          <div className="user-avatar-initial w-8 h-8 rounded-full bg-brand-500/15 flex items-center justify-center font-bold text-xs">
                             {u.avatar_url ? (
                               <img src={u.avatar_url} alt="Avatar" className="w-full h-full rounded-full object-cover" />
                             ) : (
@@ -162,21 +159,20 @@ const UsersTab: React.FC = () => {
                             )}
                           </div>
                           <div>
-                            <div className="font-semibold text-sm" style={{ color: "var(--fg)" }}>
+                            <div className="user-name font-semibold text-sm">
                               {u.full_name || "Chưa thiết lập"}
                               {isMe && <span className="ml-1.5 px-1.5 py-0.5 rounded text-[0.625rem] font-bold bg-brand-600/10 text-[var(--brand-600)]">Tôi</span>}
                             </div>
-                            <div style={{ color: "var(--muted)", fontSize: "0.75rem" }}>{u.email}</div>
+                            <div className="user-email-text">{u.email}</div>
                           </div>
                         </div>
                       </td>
-                      <td style={{ color: "var(--fg-2)" }}>{u.phone || "—"}</td>
+                      <td className="user-phone">{u.phone || "—"}</td>
                       <td>
                         <select
                           value={u.role}
                           onChange={(e) => handleUpdateRole(u.id, e.target.value)}
-                          style={{ border: "1px solid var(--border)", background: "var(--surface)", color: "var(--fg)" }}
-                          className="px-2.5 py-1 text-xs rounded-lg outline-none cursor-pointer"
+                          className="input-themed px-2.5 py-1 text-xs rounded-lg outline-none cursor-pointer"
                         >
                           {ROLE_OPTIONS.map((opt) => (
                             <option key={opt} value={opt}>
@@ -185,7 +181,7 @@ const UsersTab: React.FC = () => {
                           ))}
                         </select>
                       </td>
-                      <td style={{ textAlign: "right" }}>
+                      <td className="td-right">
                         <button
                           onClick={() => handleDeleteUser(u.id)}
                           className="p-1.5 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
@@ -207,57 +203,52 @@ const UsersTab: React.FC = () => {
       {showAddModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="card w-full max-w-md p-6 relative animate-scale-in">
-            <h3 className="text-base font-bold mb-4" style={{ color: "var(--fg)" }}>Thêm tài khoản mới</h3>
+            <h3 className="modal-heading text-base font-bold mb-4">Thêm tài khoản mới</h3>
             <form onSubmit={handleAddUser} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold mb-1" style={{ color: "var(--muted)" }}>Email</label>
+                <label className="form-label block text-xs font-semibold mb-1">Email</label>
                 <input
                   type="email"
                   required
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  style={{ border: "1px solid var(--border)", background: "var(--surface)", color: "var(--fg)" }}
-                  className="w-full px-3 py-2 text-sm rounded-xl outline-none focus:border-brand-500"
+                  className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none focus:border-brand-500"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold mb-1" style={{ color: "var(--muted)" }}>Mật khẩu</label>
+                <label className="form-label block text-xs font-semibold mb-1">Mật khẩu</label>
                 <input
                   type="password"
                   required
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  style={{ border: "1px solid var(--border)", background: "var(--surface)", color: "var(--fg)" }}
-                  className="w-full px-3 py-2 text-sm rounded-xl outline-none focus:border-brand-500"
+                  className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none focus:border-brand-500"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold mb-1" style={{ color: "var(--muted)" }}>Họ và tên</label>
+                <label className="form-label block text-xs font-semibold mb-1">Họ và tên</label>
                 <input
                   type="text"
                   value={formData.full_name}
                   onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                  style={{ border: "1px solid var(--border)", background: "var(--surface)", color: "var(--fg)" }}
-                  className="w-full px-3 py-2 text-sm rounded-xl outline-none focus:border-brand-500"
+                  className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none focus:border-brand-500"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold mb-1" style={{ color: "var(--muted)" }}>Số điện thoại</label>
+                <label className="form-label block text-xs font-semibold mb-1">Số điện thoại</label>
                 <input
                   type="text"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  style={{ border: "1px solid var(--border)", background: "var(--surface)", color: "var(--fg)" }}
-                  className="w-full px-3 py-2 text-sm rounded-xl outline-none focus:border-brand-500"
+                  className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none focus:border-brand-500"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold mb-1" style={{ color: "var(--muted)" }}>Phân quyền</label>
+                <label className="form-label block text-xs font-semibold mb-1">Phân quyền</label>
                 <select
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  style={{ border: "1px solid var(--border)", background: "var(--surface)", color: "var(--fg)" }}
-                  className="w-full px-3 py-2 text-sm rounded-xl outline-none cursor-pointer"
+                  className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none cursor-pointer"
                 >
                   {ROLE_OPTIONS.map((opt) => (
                     <option key={opt} value={opt}>
@@ -270,15 +261,13 @@ const UsersTab: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  style={{ background: "var(--bg-2)", color: "var(--fg-2)" }}
-                  className="px-4 py-2 text-sm font-medium rounded-xl hover:opacity-90"
+                  className="btn-cancel px-4 py-2 text-sm font-medium rounded-xl hover:opacity-90"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  style={{ background: "var(--brand-600)", color: "#fff" }}
-                  className="px-4 py-2 text-sm font-medium rounded-xl hover:bg-brand-700"
+                  className="btn-primary px-4 py-2 text-sm font-medium rounded-xl hover:bg-brand-700"
                 >
                   Tạo tài khoản
                 </button>

@@ -13,7 +13,7 @@ export const RoomsTab: React.FC = () => {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-base font-bold" style={{ color: "var(--fg)" }}>Quản lý phòng thi</h3>
+        <h3 className="modal-heading text-base font-bold">Quản lý phòng thi</h3>
         <button className="btn-brand text-xs flex items-center gap-1"><Plus className="w-3.5 h-3.5" /> Thêm phòng</button>
       </div>
       <div className="card overflow-hidden">
@@ -28,8 +28,8 @@ export const RoomsTab: React.FC = () => {
           <tbody>
             {rooms.map((r) => (
               <tr key={r.id}>
-                <td className="font-medium" style={{ color: "var(--fg)" }}>{r.name}</td>
-                <td style={{ color: "var(--fg-2)" }}>{r.capacity} sinh viên</td>
+                <td className="font-medium user-name">{r.name}</td>
+                <td className="td-fg2">{r.capacity} sinh viên</td>
                 <td>
                   <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${r.status === "active" ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-600"}`}>
                     {r.status === "active" ? "HOẠT ĐỘNG" : "KHÓA"}
@@ -56,7 +56,7 @@ export const SessionsTab: React.FC = () => {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-base font-bold" style={{ color: "var(--fg)" }}>Quản lý ca thi</h3>
+        <h3 className="modal-heading text-base font-bold">Quản lý ca thi</h3>
         <button className="btn-brand text-xs flex items-center gap-1"><Plus className="w-3.5 h-3.5" /> Thêm ca thi</button>
       </div>
       <div className="card overflow-hidden">
@@ -71,9 +71,9 @@ export const SessionsTab: React.FC = () => {
           <tbody>
             {sessions.map((s) => (
               <tr key={s.id}>
-                <td className="font-semibold" style={{ color: "var(--brand-600)" }}>{s.code}</td>
-                <td style={{ color: "var(--fg-2)" }}>{s.time}</td>
-                <td style={{ color: "var(--muted)" }}>{s.note}</td>
+                <td className="font-semibold mock-session-code">{s.code}</td>
+                <td className="mock-session-time">{s.time}</td>
+                <td className="mock-session-note">{s.note}</td>
               </tr>
             ))}
           </tbody>
@@ -93,14 +93,14 @@ export const PricingTab: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-base font-bold" style={{ color: "var(--fg)" }}>Quản lý giá & Gói dịch vụ</h3>
+      <h3 className="modal-heading text-base font-bold">Quản lý giá &amp; Gói dịch vụ</h3>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {prices.map((p) => (
           <div key={p.id} className="card p-5 space-y-3 relative overflow-hidden border-t-4 border-t-emerald-500">
-            <h4 className="font-bold text-sm" style={{ color: "var(--fg)" }}>{p.name}</h4>
+            <h4 className="font-bold text-sm card-title">{p.name}</h4>
             <div className="text-2xl font-black text-emerald-600">{p.cost}</div>
-            <p className="text-xs" style={{ color: "var(--muted)" }}>{p.savings}</p>
-            <button style={{ background: "var(--bg-2)", color: "var(--fg-2)" }} className="w-full py-2 text-xs font-semibold rounded-xl hover:opacity-85">Chỉnh sửa gói</button>
+            <p className="text-xs mock-pricing-note">{p.savings}</p>
+            <button className="mock-pricing-btn w-full py-2 text-xs font-semibold rounded-xl hover:opacity-85">Chỉnh sửa gói</button>
           </div>
         ))}
       </div>
@@ -114,8 +114,8 @@ export const RemindersTab: React.FC = () => {
     <div className="card p-6 flex flex-col items-center justify-center text-center space-y-4">
       <div className="p-3 bg-indigo-500/10 text-indigo-500 rounded-2xl"><Calendar className="w-8 h-8" /></div>
       <div className="max-w-sm space-y-1">
-        <h4 className="font-bold text-sm" style={{ color: "var(--fg)" }}>Lịch nhắc ôn thi tự động</h4>
-        <p style={{ color: "var(--muted)", fontSize: "0.75rem" }}>Tự động nhắc nhở ôn luyện cho sinh viên 2 ngày trước ca thi chính thức qua email và hệ thống.</p>
+        <h4 className="font-bold text-sm mock-tab-title">Lịch nhắc ôn thi tự động</h4>
+        <p className="mock-session-note">Tự động nhắc nhở ôn luyện cho sinh viên 2 ngày trước ca thi chính thức qua email và hệ thống.</p>
       </div>
       <button className="btn-brand text-xs">Cấu hình thông báo</button>
     </div>
@@ -128,10 +128,10 @@ export const PremiumTab: React.FC = () => {
     <div className="card p-6 flex flex-col items-center justify-center text-center space-y-4">
       <div className="p-3 bg-purple-500/10 text-purple-500 rounded-2xl"><Lock className="w-8 h-8" /></div>
       <div className="max-w-sm space-y-1">
-        <h4 className="font-bold text-sm" style={{ color: "var(--fg)" }}>Quản lý Đặc quyền Premium</h4>
-        <p style={{ color: "var(--muted)", fontSize: "0.75rem" }}>Cấu hình số câu hỏi tối đa được xem miễn phí, giá nâng cấp tài khoản VIP và các quyền lợi đi kèm.</p>
+        <h4 className="font-bold text-sm mock-tab-title">Quản lý Đặc quyền Premium</h4>
+        <p className="mock-session-note">Cấu hình số câu hỏi tối đa được xem miễn phí, giá nâng cấp tài khoản VIP và các quyền lợi đi kèm.</p>
       </div>
-      <div className="flex gap-4 text-xs font-semibold border-t pt-4 w-full justify-around mt-4" style={{ borderColor: "var(--border)" }}>
+      <div className="flex gap-4 text-xs font-semibold border-t mock-premium-border pt-4 w-full justify-around mt-4">
         <div>Quyền Free: <span className="text-amber-500">10 câu/ngày</span></div>
         <div>Quyền Plus: <span className="text-purple-500">100 câu/ngày</span></div>
         <div>Quyền Pro: <span className="text-emerald-500">Không giới hạn</span></div>
@@ -146,16 +146,15 @@ export const FooterTab: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-base font-bold" style={{ color: "var(--fg)" }}>Cấu hình thông tin Footer</h3>
+      <h3 className="modal-heading text-base font-bold">Cấu hình thông tin Footer</h3>
       <div className="card p-5 space-y-4">
         <div>
-          <label className="block text-xs font-semibold mb-1" style={{ color: "var(--muted)" }}>Bản quyền chân trang</label>
+          <label className="form-label block text-xs font-semibold mb-1">Bản quyền chân trang</label>
           <input
             type="text"
             value={footerText}
             onChange={(e) => setFooterText(e.target.value)}
-            style={{ border: "1px solid var(--border)", background: "var(--surface)", color: "var(--fg)" }}
-            className="w-full px-3 py-2 text-sm rounded-xl outline-none"
+            className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none"
           />
         </div>
         <button className="btn-brand text-xs">Lưu thay đổi</button>
@@ -168,8 +167,8 @@ export const FooterTab: React.FC = () => {
 export const ContactsTab: React.FC = () => {
   return (
     <div className="space-y-4">
-      <h3 className="text-base font-bold" style={{ color: "var(--fg)" }}>Nội dung hỗ trợ & liên hệ</h3>
-      <div className="card p-6 text-center text-xs" style={{ color: "var(--meta)" }}>
+      <h3 className="modal-heading text-base font-bold">Nội dung hỗ trợ &amp; liên hệ</h3>
+      <div className="card p-6 text-center text-xs mock-contacts-empty">
         Hiện chưa có yêu cầu hỗ trợ hoặc tin nhắn liên hệ nào từ người dùng.
       </div>
     </div>
@@ -180,9 +179,9 @@ export const ContactsTab: React.FC = () => {
 export const QuestionRatioTab: React.FC = () => {
   return (
     <div className="space-y-4">
-      <h3 className="text-base font-bold" style={{ color: "var(--fg)" }}>Phân tích tỷ lệ câu hỏi</h3>
+      <h3 className="modal-heading text-base font-bold">Phân tích tỷ lệ câu hỏi</h3>
       <div className="card p-5 space-y-4">
-        <h4 className="font-bold text-xs" style={{ color: "var(--fg)" }}>Tỷ lệ phủ đáp án đúng (A / B / C / D)</h4>
+        <h4 className="font-bold text-xs mock-qratio-label">Tỷ lệ phủ đáp án đúng (A / B / C / D)</h4>
         <div className="space-y-2">
           <div>
             <div className="flex justify-between text-xs mb-1"><span>Đáp án A</span><span>26%</span></div>
@@ -210,8 +209,8 @@ export const QuestionRatioTab: React.FC = () => {
 export const ProxyTab: React.FC = () => {
   return (
     <div className="space-y-4">
-      <h3 className="text-base font-bold" style={{ color: "var(--fg)" }}>Quản lý Đăng ký môn hộ</h3>
-      <div className="card p-6 text-center text-xs" style={{ color: "var(--meta)" }}>
+      <h3 className="modal-heading text-base font-bold">Quản lý Đăng ký môn hộ</h3>
+      <div className="card p-6 text-center text-xs mock-proxy-empty">
         Không có yêu cầu đăng ký môn học hộ nào đang chờ duyệt.
       </div>
     </div>

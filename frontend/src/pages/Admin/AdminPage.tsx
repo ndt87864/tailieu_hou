@@ -135,8 +135,7 @@ const AdminPage: React.FC = () => {
             onClick={() => setMobileOpen(false)}
           />
           <div 
-            className="fixed inset-y-0 left-0 w-64 z-[70] md:hidden shadow-2xl overflow-y-auto flex flex-col animate-slide-right"
-            style={{ background: "#008037", color: "#fff" }}
+            className="admin-sidebar-bg fixed inset-y-0 left-0 w-64 z-[70] md:hidden shadow-2xl overflow-y-auto flex flex-col animate-slide-right"
           >
             <div className="p-4 flex items-center justify-between border-b border-white/10">
               <span className="font-bold flex items-center gap-2 text-white text-sm">
@@ -172,8 +171,7 @@ const AdminPage: React.FC = () => {
 
       {/* 2. Tablet Sidebar - Icons only */}
       <aside 
-        className="hidden md:flex lg:hidden w-16 shrink-0 flex-col items-center py-4 border-r border-[var(--border)]"
-        style={{ background: "#008037", color: "#fff" }}
+        className="admin-sidebar-bg hidden md:flex lg:hidden w-16 shrink-0 flex-col items-center py-4 border-r border-[var(--border)]"
       >
         <div className="mb-6 text-white">
           <Shield className="w-5 h-5" />
@@ -199,8 +197,7 @@ const AdminPage: React.FC = () => {
 
       {/* 3. Desktop Sidebar - Full */}
       <aside 
-        className="hidden lg:flex w-[260px] shrink-0 flex-col border-r border-[var(--border)]"
-        style={{ background: "#008037", color: "#fff" }}
+        className="admin-sidebar-bg hidden lg:flex w-[260px] shrink-0 flex-col border-r border-[var(--border)]"
       >
         <div className="p-4 flex items-center gap-2.5 border-b border-white/10 mb-2">
           <Shield className="w-5 h-5 text-white" />
@@ -232,8 +229,7 @@ const AdminPage: React.FC = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setMobileOpen(true)}
-              className="md:hidden p-1.5 rounded-lg hover:bg-[var(--bg-2)] transition-colors mr-1"
-              style={{ color: "var(--muted)" }}
+              className="admin-menu-btn-mobile md:hidden p-1.5 rounded-lg hover:bg-[var(--bg-2)] transition-colors mr-1"
             >
               <Menu className="w-5 h-5" />
             </button>

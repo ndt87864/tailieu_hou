@@ -135,30 +135,27 @@ const DocumentsTab: React.FC = () => {
       {/* Controls */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="relative w-full sm:w-80">
-          <Search className="absolute left-3 top-2.5 w-4 h-4" style={{ color: "var(--meta)" }} />
+          <Search className="absolute left-3 top-2.5 w-4 h-4 input-search-icon" />
           <input
             type="text"
             placeholder="Tìm kiếm tài liệu..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{ border: "1px solid var(--border)", background: "var(--surface)", color: "var(--fg)" }}
-            className="w-full pl-9 pr-4 py-2 text-sm rounded-xl outline-none focus:border-brand-500"
+            className="input-themed w-full pl-9 pr-4 py-2 text-sm rounded-xl outline-none focus:border-brand-500"
           />
         </div>
 
         <div className="flex gap-2 w-full sm:w-auto">
           <button
             onClick={() => setShowModal(true)}
-            style={{ background: "var(--brand-600)", color: "#fff" }}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium rounded-xl hover:bg-brand-700 transition-colors"
+            className="btn-primary flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium rounded-xl hover:bg-brand-700 transition-colors"
           >
             <Plus className="w-4 h-4" />
             Thêm tài liệu
           </button>
           <button
             onClick={fetchInitialData}
-            style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--fg-2)" }}
-            className="p-2 rounded-xl hover:bg-[var(--bg-2)] transition-colors shadow-sm"
+            className="btn-secondary p-2 rounded-xl hover:bg-[var(--bg-2)] transition-colors shadow-sm"
           >
             <RefreshCw className="w-4 h-4" />
           </button>
@@ -174,30 +171,29 @@ const DocumentsTab: React.FC = () => {
                 <th>Tên tài liệu</th>
                 <th>Danh mục</th>
                 <th>Mô tả</th>
-                <th style={{ textAlign: "right" }}>Hành động</th>
+                <th className="th-right">Hành động</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={4} style={{ textAlign: "center", padding: "2rem", color: "var(--meta)" }}>
+                  <td colSpan={4} className="td-empty">
                     Không tìm thấy tài liệu nào.
                   </td>
                 </tr>
               ) : (
                 filtered.map((doc) => (
                   <tr key={doc.id}>
-                    <td className="font-semibold" style={{ color: "var(--fg)" }}>{doc.title}</td>
-                    <td style={{ color: "var(--brand-600)" }}>{doc.category?.title || "Khác"}</td>
-                    <td style={{ color: "var(--muted)", maxWidth: "250px" }} className="truncate">
+                    <td className="card-title font-semibold">{doc.title}</td>
+                    <td className="td-brand">{doc.category?.title || "Khác"}</td>
+                    <td className="td-truncate truncate">
                       {doc.description || "—"}
                     </td>
-                    <td style={{ textAlign: "right" }}>
+                    <td className="td-right">
                       <div className="flex justify-end gap-1">
                         <button
                           onClick={() => handleEditClick(doc)}
-                          className="p-1.5 hover:bg-[var(--bg-2)] rounded-lg transition-colors"
-                          style={{ color: "var(--fg-2)" }}
+                          className="btn-icon-edit p-1.5 hover:bg-[var(--bg-2)] rounded-lg transition-colors"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
@@ -221,12 +217,12 @@ const DocumentsTab: React.FC = () => {
       {showModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="card w-full max-w-md p-6 relative animate-scale-in">
-            <h3 className="text-base font-bold mb-4" style={{ color: "var(--fg)" }}>
+            <h3 className="modal-heading text-base font-bold mb-4">
               {editingDoc ? "Cập nhật tài liệu" : "Tạo tài liệu mới"}
             </h3>
             <form onSubmit={handleCreateOrUpdate} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold mb-1" style={{ color: "var(--muted)" }}>Tên tài liệu</label>
+                <label className="form-label block text-xs font-semibold mb-1">Tên tài liệu</label>
                 <input
                   type="text"
                   required
@@ -236,28 +232,25 @@ const DocumentsTab: React.FC = () => {
                     setFormData({ ...formData, title: e.target.value });
                     if (!editingDoc) generateSlug(e.target.value);
                   }}
-                  style={{ border: "1px solid var(--border)", background: "var(--surface)", color: "var(--fg)" }}
-                  className="w-full px-3 py-2 text-sm rounded-xl outline-none focus:border-brand-500"
+                  className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none focus:border-brand-500"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold mb-1" style={{ color: "var(--muted)" }}>Đường dẫn tĩnh (Slug)</label>
+                <label className="form-label block text-xs font-semibold mb-1">Đường dẫn tĩnh (Slug)</label>
                 <input
                   type="text"
                   required
                   value={formData.slug}
                   onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                  style={{ border: "1px solid var(--border)", background: "var(--surface)", color: "var(--fg)" }}
-                  className="w-full px-3 py-2 text-sm rounded-xl outline-none focus:border-brand-500"
+                  className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none focus:border-brand-500"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold mb-1" style={{ color: "var(--muted)" }}>Danh mục ôn thi</label>
+                <label className="form-label block text-xs font-semibold mb-1">Danh mục ôn thi</label>
                 <select
                   value={formData.category_id}
                   onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-                  style={{ border: "1px solid var(--border)", background: "var(--surface)", color: "var(--fg)" }}
-                  className="w-full px-3 py-2 text-sm rounded-xl outline-none cursor-pointer"
+                  className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none cursor-pointer"
                 >
                   <option value="">-- Chọn danh mục --</option>
                   {categories.map((c) => (
@@ -268,29 +261,26 @@ const DocumentsTab: React.FC = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-semibold mb-1" style={{ color: "var(--muted)" }}>Mô tả ngắn</label>
+                <label className="form-label block text-xs font-semibold mb-1">Mô tả ngắn</label>
                 <textarea
                   placeholder="Mô tả tóm tắt nội dung tài liệu..."
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  style={{ border: "1px solid var(--border)", background: "var(--surface)", color: "var(--fg)", height: "80px" }}
-                  className="w-full px-3 py-2 text-sm rounded-xl outline-none focus:border-brand-500 resize-none"
+                  className="textarea-description w-full px-3 py-2 text-sm rounded-xl outline-none focus:border-brand-500 resize-none"
                 />
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
                   onClick={closeForm}
-                  style={{ background: "var(--bg-2)", color: "var(--fg-2)" }}
-                  className="px-4 py-2 text-sm font-medium rounded-xl hover:opacity-90"
+                  className="btn-cancel px-4 py-2 text-sm font-medium rounded-xl hover:opacity-90"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  style={{ background: "var(--brand-600)", color: "#fff" }}
-                  className="px-4 py-2 text-sm font-medium rounded-xl hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                  className="btn-primary px-4 py-2 text-sm font-medium rounded-xl hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
                 >
                   {submitting ? (
                     <>
