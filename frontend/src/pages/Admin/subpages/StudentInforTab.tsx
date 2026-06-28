@@ -26,6 +26,7 @@ const StudentInforTab: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [pageInput, setPageInput] = useState("1");
   const [total, setTotal] = useState(0);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -242,6 +243,7 @@ const StudentInforTab: React.FC = () => {
                         <div className="font-semibold" style={{ color: "var(--fg)" }}>{std.fullName}</div>
                         <div style={{ color: "var(--muted)", fontSize: "0.75rem" }}>
                           MSV: {std.studentId} | Khóa: {std.course}
+                          {std.majorCode && <> | Mã ngành: <span style={{ color: "var(--fg-2)" }}>{std.majorCode}</span></>}
                         </div>
                       </td>
                       <td style={{ color: "var(--fg-2)", fontSize: "0.825rem" }}>{std.subject}</td>
@@ -250,7 +252,18 @@ const StudentInforTab: React.FC = () => {
                         <span style={{ color: "var(--muted)", fontSize: "0.75rem" }}>({std.examTime})</span>
                       </td>
                       <td style={{ color: "var(--muted)", fontSize: "0.75rem" }}>
-                        Phòng: {std.examRoom} | Ca: {std.examSession}
+                        <div>Phòng: {std.examRoom} | Ca: {std.examSession}</div>
+                        {std.examLink && (
+                          <a
+                            href={std.examLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ color: "var(--brand-600)", fontSize: "0.72rem", textDecoration: "underline" }}
+                            title={std.examLink}
+                          >
+                            {std.examLink}
+                          </a>
+                        )}
                       </td>
                       <td style={{ textAlign: "right" }}>
                         <div className="flex justify-end gap-1">
@@ -282,18 +295,55 @@ const StudentInforTab: React.FC = () => {
               <span className="text-xs" style={{ color: "var(--muted)" }}>
                 Hiển thị {students.length} trên {total} bản ghi
               </span>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
                 <button
                   disabled={page <= 1}
-                  onClick={() => setPage(page - 1)}
+                  onClick={() => {
+                    const newPage = page - 1;
+                    setPage(newPage);
+                    setPageInput(String(newPage));
+                  }}
                   style={{ border: "1px solid var(--border)", background: "var(--surface)", color: "var(--fg)" }}
                   className="px-3 py-1.5 text-xs rounded-xl disabled:opacity-50"
                 >
                   Trước
                 </button>
+                <span className="text-xs" style={{ color: "var(--muted)" }}>Trang</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={Math.ceil(total / 15)}
+                  value={pageInput}
+                  onChange={(e) => setPageInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      const val = parseInt(pageInput);
+                      const maxPage = Math.ceil(total / 15);
+                      if (!isNaN(val) && val >= 1 && val <= maxPage) {
+                        setPage(val);
+                      } else {
+                        setPageInput(String(page));
+                      }
+                    }
+                  }}
+                  onBlur={() => setPageInput(String(page))}
+                  style={{
+                    border: "1px solid var(--border)",
+                    background: "var(--surface)",
+                    color: "var(--fg)",
+                    width: "52px",
+                    textAlign: "center",
+                  }}
+                  className="py-1.5 text-xs rounded-xl outline-none"
+                />
+                <span className="text-xs" style={{ color: "var(--muted)" }}>/ {Math.ceil(total / 15)}</span>
                 <button
                   disabled={page * 15 >= total}
-                  onClick={() => setPage(page + 1)}
+                  onClick={() => {
+                    const newPage = page + 1;
+                    setPage(newPage);
+                    setPageInput(String(newPage));
+                  }}
                   style={{ border: "1px solid var(--border)", background: "var(--surface)", color: "var(--fg)" }}
                   className="px-3 py-1.5 text-xs rounded-xl disabled:opacity-50"
                 >
