@@ -243,13 +243,16 @@ const StudentInforTab: React.FC = () => {
                         <div className="font-semibold" style={{ color: "var(--fg)" }}>{std.fullName}</div>
                         <div style={{ color: "var(--muted)", fontSize: "0.75rem" }}>
                           MSV: {std.studentId} | Khóa: {std.course}
-                          {std.majorCode && <> | Mã ngành: <span style={{ color: "var(--fg-2)" }}>{std.majorCode}</span></>}
-                        </div>
+                          </div>
                       </td>
-                      <td style={{ color: "var(--fg-2)", fontSize: "0.825rem" }}>{std.subject}</td>
+                      <td style={{ color: "var(--fg-2)", fontSize: "0.825rem" }}>{std.subject}
+                        <div style={{ color: "var(--muted)", fontSize: "0.75rem" }}>
+                          {std.majorCode && <>Ngành: <span style={{ color: "var(--fg-2)" }}>{std.majorCode}</span></>}
+                        </div></td>
                       <td style={{ color: "var(--fg-2)", fontSize: "0.825rem" }}>
                         {std.examDate ? new Date(std.examDate).toLocaleDateString("vi-VN") : "—"}{" "}
                         <span style={{ color: "var(--muted)", fontSize: "0.75rem" }}>({std.examTime})</span>
+                        
                       </td>
                       <td style={{ color: "var(--muted)", fontSize: "0.75rem" }}>
                         <div>Phòng: {std.examRoom} | Ca: {std.examSession}</div>
