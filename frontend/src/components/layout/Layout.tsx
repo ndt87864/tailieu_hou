@@ -6,6 +6,7 @@ import { BookOpen, User, Shield, LogOut, ChevronDown, Menu, X, Settings, Phone, 
 import UISettingsModal from "./UISettingsModal.js";
 import EditProfileModal from "./EditProfileModal.js";
 import { useUI } from "../../context/UIContext.js";
+import DocumentSidebar from "./DocumentSidebar.js";
 
 export interface HeaderProps {
   onOpenSettings: () => void;
@@ -348,7 +349,25 @@ const Layout: React.FC = () => {
     };
   }, []);
 
-  const content = (
+  const hasDocumentSidebar = isDocPage || isPricingPage;
+
+  const content = hasDocumentSidebar ? (
+    <div className={`layout-content-wrapper view-mode-${viewMode} flex flex-row min-h-screen w-full`}>
+      <DocumentSidebar currentDocId={isDocPage ? location.pathname.split("/")[2] : undefined} isContactPage={isPricingPage} />
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen bg-[var(--bg)]">
+        <main
+          className={`flex-1 flex flex-col ${
+            isSimulated && viewMode !== "desktop" ? "layout-main-static-scrollable" : ""
+          }`}
+        >
+          <Outlet />
+        </main>
+        <Footer />
+      </div>
+      <UISettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <EditProfileModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} />
+    </div>
+  ) : (
     <div className={`layout-content-wrapper view-mode-${viewMode}`}>
       {!isDocPage && !isAdminPage && !isPricingPage && (
         <Header onOpenSettings={() => setSettingsOpen(true)} onOpenProfile={() => setProfileOpen(true)} />
@@ -366,7 +385,7 @@ const Layout: React.FC = () => {
           </div>
         )}
       </main>
-      <Footer />
+      {!isAdminPage && <Footer />}
       <UISettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <EditProfileModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} />
     </div>

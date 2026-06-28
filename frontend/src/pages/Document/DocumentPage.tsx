@@ -91,13 +91,7 @@ const DocumentPage: React.FC = () => {
     );
 
   return (
-    <div 
-      className="flex flex-col md:flex-row gap-0 min-h-[calc(100vh/0.9)] w-full doc-bg-muted"
-    >
-      <DocumentSidebar currentDocId={id} />
-
-      {/* Main Content Area */}
-      <div className="flex-1 min-w-0 w-full flex flex-col doc-main-bg">
+    <div className="flex-1 min-w-0 w-full flex flex-col doc-main-bg">
         <Header 
           title={doc.title}
           subtitle={doc.category?.title || ""}
@@ -371,7 +365,6 @@ const DocumentPage: React.FC = () => {
             </p>
           </div>
         )}
-        </div>
       </div>
     </div>
   );
