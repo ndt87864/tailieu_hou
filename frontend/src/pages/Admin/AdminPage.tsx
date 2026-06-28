@@ -38,9 +38,11 @@ import {
   PremiumTab,
   FooterTab,
   ContactsTab,
-  QuestionRatioTab,
   ProxyTab,
 } from "./subpages/MockTabs.js";
+
+// Import component QuestionRatioTab mới
+import { QuestionRatioTab } from "./subpages/QuestionRatioTab.js";
 
 import "../../css/admin.css";
 

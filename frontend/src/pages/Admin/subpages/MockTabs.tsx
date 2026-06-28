@@ -175,35 +175,6 @@ export const ContactsTab: React.FC = () => {
   );
 };
 
-// 8. Tỷ lệ câu hỏi (Question ratio)
-export const QuestionRatioTab: React.FC = () => {
-  return (
-    <div className="space-y-4">
-      <h3 className="modal-heading text-base font-bold">Phân tích tỷ lệ câu hỏi</h3>
-      <div className="card p-5 space-y-4">
-        <h4 className="font-bold text-xs mock-qratio-label">Tỷ lệ phủ đáp án đúng (A / B / C / D)</h4>
-        <div className="space-y-2">
-          <div>
-            <div className="flex justify-between text-xs mb-1"><span>Đáp án A</span><span>26%</span></div>
-            <div className="w-full bg-[var(--bg-2)] h-2 rounded-full overflow-hidden"><div className="bg-brand-500 h-full w-[26%]"></div></div>
-          </div>
-          <div>
-            <div className="flex justify-between text-xs mb-1"><span>Đáp án B</span><span>24%</span></div>
-            <div className="w-full bg-[var(--bg-2)] h-2 rounded-full overflow-hidden"><div className="bg-brand-500 h-full w-[24%]"></div></div>
-          </div>
-          <div>
-            <div className="flex justify-between text-xs mb-1"><span>Đáp án C</span><span>28%</span></div>
-            <div className="w-full bg-[var(--bg-2)] h-2 rounded-full overflow-hidden"><div className="bg-brand-500 h-full w-[28%]"></div></div>
-          </div>
-          <div>
-            <div className="flex justify-between text-xs mb-1"><span>Đáp án D</span><span>22%</span></div>
-            <div className="w-full bg-[var(--bg-2)] h-2 rounded-full overflow-hidden"><div className="bg-brand-500 h-full w-[22%]"></div></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // 9. Quản lý đăng ký môn (Proxy Registrations)
 export const ProxyTab: React.FC = () => {

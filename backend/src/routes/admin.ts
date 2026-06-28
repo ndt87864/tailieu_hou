@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { supabaseAdmin } from "../config/db.js";
 import { requireRole } from "../middlewares/role.js";
-import { cacheGetOrSet, cacheInvalidatePrefix } from "../utils/cache.js";
+import { cacheGetOrSet, cacheInvalidatePrefix, cacheInvalidate } from "../utils/cache.js";
 
 const adminRouter = new Hono();
 
@@ -493,6 +493,60 @@ adminRouter.post("/students/import", async (c) => {
     return c.json({ success: true, count: data?.length || 0 });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
+  }
+});
+
+// =============================================================
+// X. CẤU HÌNH TỶ LỆ CÂU HỎI (QUESTION RATIOS)
+// =============================================================
+
+adminRouter.get("/question-ratios", async (c) => {
+  try {
+    const { data: ratios, error } = await supabaseAdmin
+      .from("question_ratios")
+      .select("*")
+      .order("role", { ascending: true });
+
+    if (error) throw error;
+    return c.json({ ratios: ratios || [] });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+adminRouter.post("/question-ratios", async (c) => {
+  try {
+    const { ratios } = await c.req.json(); // Array of { role: string, ratio_percent: number }
+    if (!Array.isArray(ratios)) {
+      return c.json({ error: "Input 'ratios' must be an array" }, 400);
+    }
+
+    // Thực hiện upsert từng tỷ lệ
+    for (const item of ratios) {
+      if (typeof item.role !== "string" || typeof item.ratio_percent !== "number") {
+        return c.json({ error: "Invalid role or ratio_percent format" }, 400);
+      }
+      if (item.ratio_percent < 0 || item.ratio_percent > 100) {
+        return c.json({ error: "ratio_percent must be between 0 and 100" }, 400);
+      }
+
+      const { error } = await supabaseAdmin
+        .from("question_ratios")
+        .upsert({
+          role: item.role,
+          ratio_percent: item.ratio_percent,
+          updated_at: new Date().toISOString()
+        }, { onConflict: "role" });
+
+      if (error) throw error;
+    }
+
+    // Xoá cache để update ngay lập tức
+    await cacheInvalidate("question:ratios");
+
+    return c.json({ success: true, message: "Question ratios updated successfully" });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
   }
 });
 

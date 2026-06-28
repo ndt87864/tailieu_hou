@@ -1,6 +1,35 @@
 import type { MiddlewareHandler } from "hono";
-import { type UserRole, FREE_QUESTION_LIMIT } from "../types/index.js";
+import { type UserRole } from "../types/index.js";
 import { supabaseAdmin } from "../config/db.js";
+import { cacheGetOrSet } from "../utils/cache.js";
+
+async function getQuestionRatios(): Promise<Record<string, number>> {
+  try {
+    return await cacheGetOrSet(
+      "question:ratios",
+      async () => {
+        const { data, error } = await supabaseAdmin
+          .from("question_ratios")
+          .select("role, ratio_percent");
+
+        if (error || !data) {
+          console.warn("Could not fetch question_ratios from database, using defaults:", error?.message);
+          return { free: 20, plus: 50, pro: 70 };
+        }
+
+        const ratios: Record<string, number> = {};
+        data.forEach((row) => {
+          ratios[row.role] = row.ratio_percent;
+        });
+        return ratios;
+      },
+      300_000 // Cache 5 phút
+    );
+  } catch (err: any) {
+    console.warn("Error getting question ratios, using defaults:", err.message);
+    return { free: 20, plus: 50, pro: 70 };
+  }
+}
 
 export const questionLimitMiddleware: MiddlewareHandler = async (c, next) => {
   await next();
@@ -27,9 +56,6 @@ export const questionLimitMiddleware: MiddlewareHandler = async (c, next) => {
 
   // Pro / plus: kiểm tra quyền premium — chạy 2 queries song song
   if ((role === "pro" || role === "plus") && docId && user) {
-    // Chạy song song: lấy category_id của doc + kiểm tra premium_user
-    // Lần đầu cần doc info trước, nhưng ta có thể tối ưu bằng cách
-    // fetch doc + premium check theo document_id luôn (tránh waterfall)
     if (role === "plus") {
       // Plus: kiểm tra theo document_id trực tiếp (không cần category_id)
       const { data: premiumAccess } = await supabaseAdmin
@@ -84,8 +110,13 @@ export const questionLimitMiddleware: MiddlewareHandler = async (c, next) => {
     }
   }
 
-  // Tài khoản khách/free được xem tối thiểu 1 câu, tối đa 20% tổng số câu
-  const limitCount = Math.max(1, Math.round(questions.length * 0.2));
+  // Lấy cấu hình tỷ lệ câu hỏi từ DB/cache
+  const ratios = await getQuestionRatios();
+  const targetRole = role === "guest" ? "free" : role;
+  const limitRatio = ratios[targetRole] !== undefined ? ratios[targetRole] : 20;
+
+  // Tính số câu được xem theo tỷ lệ đã cấu hình
+  const limitCount = Math.max(1, Math.round(questions.length * (limitRatio / 100)));
 
   const limited = questions.slice(0, limitCount).map((q: any) => ({ ...q, isPremiumLocked: false }));
   const locked = questions.slice(limitCount).map((q: any) => ({
