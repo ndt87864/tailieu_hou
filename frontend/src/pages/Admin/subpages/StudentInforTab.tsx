@@ -241,7 +241,7 @@ const StudentInforTab: React.FC = () => {
                       <td>
                         <div className="font-semibold" style={{ color: "var(--fg)" }}>{std.fullName}</div>
                         <div style={{ color: "var(--muted)", fontSize: "0.75rem" }}>
-                          MSV: {std.studentId} | Lớp: {std.course}
+                          MSV: {std.studentId} | Khóa: {std.course}
                         </div>
                       </td>
                       <td style={{ color: "var(--fg-2)", fontSize: "0.825rem" }}>{std.subject}</td>
@@ -362,7 +362,7 @@ const StudentInforTab: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold mb-1" style={{ color: "var(--muted)" }}>Lớp/Khóa</label>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: "var(--muted)" }}>Khóa</label>
                   <input
                     type="text"
                     value={formData.course}
