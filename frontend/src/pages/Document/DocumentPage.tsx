@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import apiClient from "../../services/client.js";
 import LoadingSpinner from "../../components/common/LoadingSpinner.js";
 import { useAuth } from "../../context/AuthContext.js";
-import { Lock, ChevronDown, ChevronRight, Menu, Search, BookOpen } from "lucide-react";
+import { Lock, ChevronDown, ChevronRight, Menu, Search, BookOpen, X } from "lucide-react";
 
 interface Question {
   id: string;
@@ -44,6 +44,7 @@ const DocumentPage: React.FC = () => {
   const [sidebarCategories, setSidebarCategories] = useState<SidebarCategory[]>([]);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [activeTabletPopover, setActiveTabletPopover] = useState<string | null>(null);
 
   // Search State
   const [searchQuery, setSearchQuery] = useState("");
@@ -104,6 +105,15 @@ const DocumentPage: React.FC = () => {
       });
   }, [id]);
 
+  // Click outside to close tablet popover
+  useEffect(() => {
+    const handleOutsideClick = () => {
+      setActiveTabletPopover(null);
+    };
+    document.addEventListener("click", handleOutsideClick);
+    return () => document.removeEventListener("click", handleOutsideClick);
+  }, []);
+
   if (loading) return <LoadingSpinner />;
   if (error || !doc)
     return (
@@ -125,37 +135,175 @@ const DocumentPage: React.FC = () => {
   // Determine if user has premium/unlimited access
   const isPremiumUser = ["admin", "ultra", "pro", "plus"].includes(role);
 
+  const getCategoryInfo = (catId: string, customTitle?: string | null) => {
+    const CATEGORIES_ICONS: Record<string, (className: string) => React.ReactNode> = {
+      exam:     (className) => <ChevronRight className={className} />,
+      theory:   (className) => <ChevronRight className={className} />,
+      practice: (className) => <ChevronRight className={className} />,
+    };
+
+    const title = customTitle || (catId === "other" ? "Khác" : "Chuyên mục");
+    return {
+      label: title,
+      icon: (className: string) => <BookOpen className={className} />
+    };
+  };
+
   return (
     <div 
-      className="flex flex-col md:flex-row gap-0 min-h-[calc(100vh/0.9-4rem)]"
+      className="flex flex-col md:flex-row gap-0 min-h-[calc(100vh/0.9-4rem)] w-full"
       style={{ background: "var(--bg-2)", color: "var(--fg)" }}
     >
-      {/* Sidebar - Solid Green */}
+      {/* Mobile Toggle Bar */}
       <div 
-        className="w-full md:w-64 lg:w-72 shrink-0 flex flex-col border-r md:sticky md:top-16 md:h-[calc(100vh/0.9-4rem)] md:overflow-y-auto z-10"
+        className="p-4 md:hidden flex items-center justify-between border-b w-full shrink-0"
         style={{ background: "var(--brand-700)", borderColor: "var(--brand-800)", color: "#fff" }}
       >
-        {/* Mobile/Tablet Header / Toggle */}
-        <div 
-          className="p-4 md:hidden flex items-center justify-between border-b"
-          style={{ borderColor: "var(--brand-800)" }}
+        <span className="font-bold flex items-center gap-2 text-white">
+          <BookOpen className="w-5 h-5 text-white" /> Danh mục tài liệu
+        </span>
+        <button
+          onClick={() => setMobileOpen(!mobileOpen)}
+          className="p-1 rounded transition-colors"
+          style={{ color: "#fff" }}
         >
-          <span className="font-bold flex items-center gap-2 text-white">
-            <BookOpen className="w-5 h-5 text-white" /> Danh mục tài liệu
-          </span>
-          <button
-            onClick={() => setMobileOpen(!mobileOpen)}
-            className="p-1 rounded transition-colors"
-            style={{ color: "#fff" }}
-          >
-            <Menu className="w-6 h-6" />
-          </button>
-        </div>
+          <Menu className="w-6 h-6" />
+        </button>
+      </div>
 
-        {/* Sidebar Navigation */}
-        <div className={`w-full md:block ${mobileOpen ? "block" : "hidden"} flex-1 p-4 pb-24 space-y-4`}>
+      {/* 1. Mobile Drawer (Overlay) */}
+      {mobileOpen && (
+        <>
           <div 
-            className="hidden md:flex items-center gap-2.5 font-bold text-lg mb-6 pb-2 border-b text-white"
+            className="fixed inset-0 bg-black/60 z-[60] md:hidden backdrop-blur-sm"
+            onClick={() => setMobileOpen(false)}
+          />
+          <div 
+            className="fixed inset-y-0 left-0 w-72 z-[70] md:hidden shadow-2xl overflow-y-auto flex flex-col animate-slide-right"
+            style={{ background: "var(--brand-700)", color: "#fff" }}
+          >
+            <div className="p-4 flex items-center justify-between border-b" style={{ borderColor: "var(--brand-800)" }}>
+              <span className="font-bold flex items-center gap-2 text-white">
+                <BookOpen className="w-5 h-5 text-white" /> Tài liệu HOU
+              </span>
+              <button onClick={() => setMobileOpen(false)} className="p-1 rounded text-white/80 hover:text-white">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-4 space-y-4 pb-24">
+              {sidebarCategories.map((cat) => {
+                const isExpanded = !!expandedCategories[cat.id];
+                return (
+                  <div key={cat.id} className="space-y-1">
+                    <button
+                      onClick={() => setExpandedCategories((prev) => ({ ...prev, [cat.id]: !prev[cat.id] }))}
+                      className="w-full flex items-center justify-between p-2 rounded-lg transition-colors text-left text-white/90 hover:bg-[rgba(255,255,255,0.08)]"
+                    >
+                      <span className="font-semibold text-sm truncate">{cat.title}</span>
+                      {isExpanded ? <ChevronDown className="w-4 h-4 text-white/70" /> : <ChevronRight className="w-4 h-4 text-white/70" />}
+                    </button>
+                    {isExpanded && (
+                      <div className="pl-3 border-l ml-2 space-y-1 py-1" style={{ borderColor: "rgba(255,255,255,0.15)" }}>
+                        {cat.documents.map((d) => {
+                          const isActive = d.id === id;
+                          return (
+                            <Link
+                              key={d.id}
+                              to={`/documents/${d.id}`}
+                              onClick={() => setMobileOpen(false)}
+                              className={`block p-2 rounded-md text-xs transition-all ${
+                                isActive ? "text-white font-bold" : "text-white/70 hover:text-white hover:bg-[rgba(255,255,255,0.08)]"
+                              }`}
+                              style={isActive ? { background: "var(--brand-800)", borderLeft: "2px solid var(--brand-300)" } : {}}
+                            >
+                              {d.title}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* 2. Tablet Sidebar (Icons-only) */}
+      <div 
+        className="hidden md:flex lg:hidden w-20 shrink-0 flex-col items-center py-6 border-r md:sticky md:top-16 md:h-[calc(100vh/0.9-4rem)] z-20"
+        style={{ background: "var(--brand-700)", borderColor: "var(--brand-800)" }}
+      >
+        <div className="mb-8 text-white">
+          <BookOpen className="w-6 h-6" />
+        </div>
+        <div className="flex-1 w-full space-y-4 px-2 flex flex-col items-center">
+          {sidebarCategories.map((cat) => {
+            const catInfo = getCategoryInfo(cat.id, cat.title);
+            const isPopoverOpen = activeTabletPopover === cat.id;
+            return (
+              <div 
+                key={cat.id} 
+                className="relative"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveTabletPopover(isPopoverOpen ? null : cat.id);
+                }}
+              >
+                <button 
+                  title={cat.title}
+                  className={`w-12 h-12 rounded-xl flex items-center justify-center text-white/90 hover:bg-[rgba(255,255,255,0.08)] transition-colors ${
+                    isPopoverOpen ? "bg-[rgba(255,255,255,0.12)] text-white" : ""
+                  }`}
+                >
+                  {catInfo.icon("w-5 h-5")}
+                </button>
+
+                {/* Flyout list */}
+                {isPopoverOpen && (
+                  <div 
+                    className="absolute left-14 top-0 w-64 rounded-xl shadow-xl p-3 border animate-scale-in z-[100]"
+                    style={{ background: "var(--brand-800)", borderColor: "var(--brand-900)", color: "#fff" }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="font-bold text-xs border-b pb-1.5 mb-2 border-white/10 text-white/90 truncate">
+                      {cat.title}
+                    </div>
+                    <div className="max-h-60 overflow-y-auto space-y-1 scrollbar-thin">
+                      {cat.documents.map((d) => {
+                        const isActive = d.id === id;
+                        return (
+                          <Link
+                            key={d.id}
+                            to={`/documents/${d.id}`}
+                            onClick={() => setActiveTabletPopover(null)}
+                            className={`block p-2 rounded-md text-xs transition-all ${
+                              isActive ? "text-white font-bold" : "text-white/70 hover:text-white hover:bg-[rgba(255,255,255,0.08)]"
+                            }`}
+                            style={isActive ? { background: "var(--brand-900)" } : {}}
+                          >
+                            {d.title}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 3. Desktop Sidebar (Full layout) */}
+      <div 
+        className="hidden lg:flex w-72 shrink-0 flex-col border-r lg:sticky lg:top-16 lg:h-[calc(100vh/0.9-4rem)] lg:overflow-y-auto z-10 animate-fade-in"
+        style={{ background: "var(--brand-700)", borderColor: "var(--brand-800)", color: "#fff" }}
+      >
+        <div className="p-4 pb-24 space-y-4">
+          <div 
+            className="flex items-center gap-2.5 font-bold text-lg mb-6 pb-2 border-b text-white"
             style={{ borderColor: "var(--brand-800)" }}
           >
             <BookOpen className="w-5 h-5 text-white" />
@@ -171,36 +319,21 @@ const DocumentPage: React.FC = () => {
                     onClick={() => setExpandedCategories((prev) => ({ ...prev, [cat.id]: !prev[cat.id] }))}
                     className="w-full flex items-center justify-between p-2 rounded-lg transition-colors text-left text-white/90 hover:bg-[rgba(255,255,255,0.08)]"
                   >
-                    <span className="font-semibold text-sm truncate">
-                      {cat.title}
-                    </span>
-                    {isExpanded ? (
-                      <ChevronDown className="w-4 h-4 text-white/70 shrink-0" />
-                    ) : (
-                      <ChevronRight className="w-4 h-4 text-white/70 shrink-0" />
-                    )}
+                    <span className="font-semibold text-sm truncate">{cat.title}</span>
+                    {isExpanded ? <ChevronDown className="w-4 h-4 text-white/70" /> : <ChevronRight className="w-4 h-4 text-white/70" />}
                   </button>
                   {isExpanded && (
-                    <div 
-                      className="pl-3 border-l ml-2 space-y-1 py-1"
-                      style={{ borderColor: "rgba(255,255,255,0.15)" }}
-                    >
+                    <div className="pl-3 border-l ml-2 space-y-1 py-1" style={{ borderColor: "rgba(255,255,255,0.15)" }}>
                       {cat.documents.map((d) => {
                         const isActive = d.id === id;
                         return (
                           <Link
-                             key={d.id}
+                            key={d.id}
                             to={`/documents/${d.id}`}
-                            onClick={() => setMobileOpen(false)}
                             className={`block p-2 rounded-md text-xs transition-all ${
-                              isActive
-                                ? "text-white font-bold border-l-2"
-                                : "text-white/70 hover:text-white hover:bg-[rgba(255,255,255,0.08)]"
+                              isActive ? "text-white font-bold border-l-2" : "text-white/70 hover:text-white hover:bg-[rgba(255,255,255,0.08)]"
                             }`}
-                            style={isActive ? { 
-                              background: "var(--brand-800)",
-                              borderLeftColor: "var(--brand-300)"
-                            } : {}}
+                            style={isActive ? { background: "var(--brand-800)", borderLeftColor: "var(--brand-300)" } : {}}
                           >
                             {d.title}
                           </Link>

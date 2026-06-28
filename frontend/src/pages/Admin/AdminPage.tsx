@@ -16,6 +16,8 @@ import {
   PieChart,
   UserCheck,
   Shield,
+  Menu,
+  X
 } from "lucide-react";
 
 // Import actual subpages
@@ -66,6 +68,7 @@ interface MenuItem {
 
 const AdminPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabId>("stats");
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const menuItems: MenuItem[] = [
     { id: "stats", label: "Thống kê", icon: <BarChart2 className="w-4 h-4" /> },
@@ -123,26 +126,98 @@ const AdminPage: React.FC = () => {
   };
 
   return (
-    <div className="admin-layout shadow-sm border border-[var(--border)]">
-      {/* Green Left Sidebar */}
-      <aside className="admin-sidebar hidden md:flex">
-        {/* Sidebar Header */}
-        <div className="admin-sidebar-header">
-          <Shield className="w-5 h-5 text-white" />
-          <span className="font-bold text-sm tracking-wide">QUẢN TRỊ HOU</span>
-        </div>
+    <div className="admin-layout shadow-sm border border-[var(--border)] relative">
+      {/* 1. Mobile Drawer Overlay */}
+      {mobileOpen && (
+        <>
+          <div 
+            className="fixed inset-0 bg-black/60 z-[60] md:hidden backdrop-blur-sm"
+            onClick={() => setMobileOpen(false)}
+          />
+          <div 
+            className="fixed inset-y-0 left-0 w-64 z-[70] md:hidden shadow-2xl overflow-y-auto flex flex-col animate-slide-right"
+            style={{ background: "#008037", color: "#fff" }}
+          >
+            <div className="p-4 flex items-center justify-between border-b border-white/10">
+              <span className="font-bold flex items-center gap-2 text-white text-sm">
+                <Shield className="w-5 h-5 text-white" /> QUẢN TRỊ HOU
+              </span>
+              <button onClick={() => setMobileOpen(false)} className="p-1 rounded text-white/80 hover:text-white">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <nav className="p-3 space-y-1">
+              {menuItems.map((item) => {
+                const isActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setActiveTab(item.id);
+                      setMobileOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-xs font-semibold transition-colors text-left ${
+                      isActive ? "bg-white/20 text-white" : "text-white/80 hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    {item.icon}
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+        </>
+      )}
 
-        {/* Navigation Items */}
-        <nav className="admin-sidebar-nav space-y-0.5">
+      {/* 2. Tablet Sidebar - Icons only */}
+      <aside 
+        className="hidden md:flex lg:hidden w-16 shrink-0 flex-col items-center py-4 border-r border-[var(--border)]"
+        style={{ background: "#008037", color: "#fff" }}
+      >
+        <div className="mb-6 text-white">
+          <Shield className="w-5 h-5" />
+        </div>
+        <nav className="w-full flex flex-col items-center gap-2 px-2">
           {menuItems.map((item) => {
             const isActive = activeTab === item.id;
             return (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`admin-nav-btn hover:bg-white/10 hover:text-white ${isActive ? "active" : ""}`}
+                title={item.label}
+                className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
+                  isActive ? "bg-white/20 text-white" : "text-white/80 hover:bg-white/10 hover:text-white"
+                }`}
               >
-                <span className="shrink-0">{item.icon}</span>
+                {item.icon}
+              </button>
+            );
+          })}
+        </nav>
+      </aside>
+
+      {/* 3. Desktop Sidebar - Full */}
+      <aside 
+        className="hidden lg:flex w-[260px] shrink-0 flex-col border-r border-[var(--border)]"
+        style={{ background: "#008037", color: "#fff" }}
+      >
+        <div className="p-4 flex items-center gap-2.5 border-b border-white/10 mb-2">
+          <Shield className="w-5 h-5 text-white" />
+          <span className="font-bold text-sm tracking-wide text-white">QUẢN TRỊ HOU</span>
+        </div>
+        <nav className="flex-1 p-3 overflow-y-auto space-y-1">
+          {menuItems.map((item) => {
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-xs font-semibold transition-colors text-left ${
+                  isActive ? "bg-white/20 text-white" : "text-white/80 hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                {item.icon}
                 <span className="truncate">{item.label}</span>
               </button>
             );
@@ -155,6 +230,13 @@ const AdminPage: React.FC = () => {
         {/* Topbar for mobile navigation or route preview */}
         <header className="admin-header w-full flex items-center justify-between">
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setMobileOpen(true)}
+              className="md:hidden p-1.5 rounded-lg hover:bg-[var(--bg-2)] transition-colors mr-1"
+              style={{ color: "var(--muted)" }}
+            >
+              <Menu className="w-5 h-5" />
+            </button>
             <span className="admin-breadcrumb-muted">Tài liệu HOU</span>
             <span className="admin-breadcrumb-separator">/</span>
             <span className="admin-breadcrumb-active">
