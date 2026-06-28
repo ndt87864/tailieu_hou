@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   BarChart2,
   Users,
@@ -67,8 +68,47 @@ interface MenuItem {
 }
 
 const AdminPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<TabId>("stats");
+  const navigate = useNavigate();
+  const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const getTabFromPath = (): TabId => {
+    const pathParts = location.pathname.split("/").filter(Boolean);
+    if (pathParts.length > 1) {
+      const subpath = pathParts[1];
+      const validTabIds: TabId[] = [
+        "stats",
+        "users",
+        "categories",
+        "documents",
+        "questions",
+        "students",
+        "rooms",
+        "sessions",
+        "pricing",
+        "calendar",
+        "premium",
+        "footer",
+        "contacts",
+        "ratio",
+        "proxy",
+      ];
+      if (validTabIds.includes(subpath as TabId)) {
+        return subpath as TabId;
+      }
+    }
+    return "stats";
+  };
+
+  const activeTab = getTabFromPath();
+
+  const handleTabChange = (tabId: TabId) => {
+    if (tabId === "stats") {
+      navigate("/admin");
+    } else {
+      navigate(`/admin/${tabId}`);
+    }
+  };
 
   const menuItems: MenuItem[] = [
     { id: "stats", label: "Thống kê", icon: <BarChart2 className="w-4 h-4" /> },
@@ -152,7 +192,7 @@ const AdminPage: React.FC = () => {
                   <button
                     key={item.id}
                     onClick={() => {
-                      setActiveTab(item.id);
+                      handleTabChange(item.id);
                       setMobileOpen(false);
                     }}
                     className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-xs font-semibold transition-colors text-left ${
@@ -182,7 +222,7 @@ const AdminPage: React.FC = () => {
             return (
               <button
                 key={item.id}
-                onClick={() => setActiveTab(item.id)}
+                onClick={() => handleTabChange(item.id)}
                 title={item.label}
                 className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
                   isActive ? "bg-white/20 text-white" : "text-white/80 hover:bg-white/10 hover:text-white"
@@ -209,7 +249,7 @@ const AdminPage: React.FC = () => {
             return (
               <button
                 key={item.id}
-                onClick={() => setActiveTab(item.id)}
+                onClick={() => handleTabChange(item.id)}
                 className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-xs font-semibold transition-colors text-left ${
                   isActive ? "bg-white/20 text-white" : "text-white/80 hover:bg-white/10 hover:text-white"
                 }`}
@@ -244,7 +284,7 @@ const AdminPage: React.FC = () => {
           <div className="md:hidden">
             <select
               value={activeTab}
-              onChange={(e) => setActiveTab(e.target.value as TabId)}
+              onChange={(e) => handleTabChange(e.target.value as TabId)}
               className="admin-mobile-select text-xs px-2.5 py-1.5 rounded-lg outline-none"
             >
               {menuItems.map((item) => (
