@@ -217,7 +217,7 @@ export const PricingTab: React.FC = () => {
       {/* Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/60 z-[999] flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-scale-up">
+          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-scale-up">
             <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
               <h3 className="modal-heading text-base font-bold">Chỉnh sửa Gói dịch vụ</h3>
               <button
