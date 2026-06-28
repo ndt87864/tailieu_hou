@@ -92,6 +92,13 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
     return () => document.removeEventListener("change", handleOutsideClick);
   }, []);
 
+  // Listen to custom event to open the sidebar on mobile/tablet
+  useEffect(() => {
+    const handleOpenSidebar = () => setMobileOpen(true);
+    window.addEventListener("open-doc-sidebar", handleOpenSidebar);
+    return () => window.removeEventListener("open-doc-sidebar", handleOpenSidebar);
+  }, []);
+
   const getCategoryInfo = (catId: string, customTitle?: string | null, logoName?: string | null) => {
     const title = customTitle || (catId === "other" ? "Khác" : "Chuyên mục");
     let icon = (className: string) => <Icons.BookOpen className={className} />;
@@ -120,20 +127,7 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
 
   return (
     <>
-      {/* Mobile Toggle Bar */}
-      <div 
-        className="p-4 md:hidden flex items-center justify-between border-b w-full shrink-0 doc-brand-header"
-      >
-        <span className="font-bold flex items-center gap-2 text-white">
-          <BookOpen className="w-5 h-5 text-white" /> Danh mục tài liệu
-        </span>
-        <button
-          onClick={() => setMobileOpen(!mobileOpen)}
-          className="p-1 rounded transition-colors doc-text-white"
-        >
-          <Menu className="w-6 h-6" />
-        </button>
-      </div>
+      {/* Redundant Mobile Toggle Bar removed to avoid double headers */}
 
       {/* 1. Mobile Drawer (Overlay) */}
       {mobileOpen && (

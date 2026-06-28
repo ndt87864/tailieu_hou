@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Outlet } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.js";
-import { BookOpen, User, Shield, LogOut, ChevronDown, Menu, X, Settings, Phone } from "lucide-react";
+import { BookOpen, User, Shield, LogOut, ChevronDown, Menu, X, Settings, Phone, Wifi, Battery, Signal } from "lucide-react";
 import UISettingsModal from "./UISettingsModal.js";
 import EditProfileModal from "./EditProfileModal.js";
 import { useUI } from "../../context/UIContext.js";
@@ -319,7 +319,19 @@ const Layout: React.FC = () => {
   const isPricingPage = location.pathname === "/pricing";
   const isFullWidthPage = isDocPage || isAdminPage || isPricingPage;
 
-  const isSimulated = viewMode !== "responsive";
+  // Only simulate if viewMode is not responsive and this is the top window context
+  const isSimulated = viewMode !== "responsive" && window.self === window.top;
+
+  // Sync child URL changes back to parent address bar
+  useEffect(() => {
+    if (window.self !== window.top) {
+      const currentUrl = location.pathname + location.search + location.hash;
+      const parentUrl = window.parent.location.pathname + window.parent.location.search + window.parent.location.hash;
+      if (parentUrl !== currentUrl) {
+        window.parent.history.replaceState(null, "", currentUrl);
+      }
+    }
+  }, [location]);
 
   useEffect(() => {
     const handleOpenSettings = () => setSettingsOpen(true);
@@ -361,7 +373,24 @@ const Layout: React.FC = () => {
   if (isSimulated) {
     return (
       <div className={`layout-simulated-container view-mode-${viewMode}`}>
-        {content}
+        <div className={`layout-simulated-device view-mode-${viewMode}`}>
+          {viewMode !== "desktop" && (
+            <div className="layout-simulated-device-header">
+              <span className="layout-simulated-device-status-time">09:41</span>
+              <div className="layout-simulated-device-notch" />
+              <div className="layout-simulated-device-icons">
+                <Wifi className="w-3.5 h-3.5" />
+                <Signal className="w-3.5 h-3.5" />
+                <Battery className="w-3.5 h-3.5" />
+              </div>
+            </div>
+          )}
+          <iframe
+            src={location.pathname + location.search + location.hash}
+            className="layout-simulated-iframe"
+            title="Device Simulation"
+          />
+        </div>
       </div>
     );
   }

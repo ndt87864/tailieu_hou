@@ -51,10 +51,32 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   });
 
   const [viewMode, setViewModeState] = useState<ViewMode>(() => {
+    if (window.self !== window.top) {
+      return "responsive";
+    }
     return (localStorage.getItem("ui-view-mode") as ViewMode) || "responsive";
   });
 
   const [loadingSettings, setLoadingSettings] = useState<boolean>(true);
+
+  // Sync settings when receiving messages from iframe
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (!event.data) return;
+
+      if (event.data.type === "SYNC_VIEW_MODE") {
+        setViewModeState(event.data.mode);
+      } else if (event.data.type === "SYNC_UI_SETTINGS") {
+        const { themeMode: newTheme, primaryColor: newColor } = event.data;
+        if (newTheme) setThemeModeState(newTheme);
+        if (newColor) setPrimaryColorState(newColor);
+        applyToDom(newTheme || themeMode, newColor || primaryColor);
+      }
+    };
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [themeMode, primaryColor]);
 
   // Đồng bộ DOM khi state thay đổi (bao gồm lần đầu mount)
   useEffect(() => {
@@ -119,6 +141,10 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     localStorage.setItem("ui-theme-mode", mode);
     applyToDom(mode, primaryColor); // áp dụng NGAY LẬP TỨC
 
+    if (window.self !== window.top) {
+      window.parent.postMessage({ type: "SYNC_UI_SETTINGS", themeMode: mode, primaryColor }, window.location.origin);
+    }
+
     if (user) {
       localStorage.setItem("ui-settings-synced", user.id);
       try {
@@ -138,6 +164,10 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     localStorage.setItem("ui-primary-color", color);
     applyToDom(themeMode, color); // áp dụng NGAY LẬP TỨC
 
+    if (window.self !== window.top) {
+      window.parent.postMessage({ type: "SYNC_UI_SETTINGS", themeMode, primaryColor: color }, window.location.origin);
+    }
+
     if (user) {
       localStorage.setItem("ui-settings-synced", user.id);
       try {
@@ -155,6 +185,10 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const setViewMode = useCallback((mode: ViewMode) => {
     setViewModeState(mode);
     localStorage.setItem("ui-view-mode", mode);
+
+    if (window.self !== window.top) {
+      window.parent.postMessage({ type: "SYNC_VIEW_MODE", mode }, window.location.origin);
+    }
   }, []);
 
   return (
