@@ -29,6 +29,23 @@ questionsRouter.get("/document/:documentId", questionLimitMiddleware, async (c) 
   }
 });
 
+questionsRouter.get("/by-documents", requireRole("management"), async (c) => {
+  const ids = c.req.query("ids");
+  if (!ids) {
+    return c.json({ error: "Missing ids query parameter" }, 400);
+  }
+  const docIds = ids.split(",").filter(Boolean);
+  if (docIds.length === 0) {
+    return c.json({ questions: [] });
+  }
+  try {
+    const questions = await questionService.getQuestionsByMultipleDocuments(docIds);
+    return c.json({ questions });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 questionsRouter.post("/", requireRole("management"), async (c) => {
   try {
     const body = await c.req.json();

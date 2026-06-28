@@ -25,6 +25,15 @@ export const getQuestionsByDocument = async (documentId: string): Promise<Questi
   );
 };
 
+export const getQuestionsByMultipleDocuments = async (documentIds: string[]): Promise<Question[]> => {
+  if (documentIds.length === 0) return [];
+  const results = await Promise.all(
+    documentIds.map((id) => getQuestionsByDocument(id))
+  );
+  return results.flat();
+};
+
+
 export const createQuestion = async (
   q: Omit<Question, "id">
 ): Promise<Question> => {
