@@ -44,6 +44,7 @@ const DocumentPage: React.FC = () => {
   const { role } = useAuth();
   const [doc, setDoc] = useState<Document | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [limitApplied, setLimitApplied] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,6 +67,7 @@ const DocumentPage: React.FC = () => {
       .then(([docRes, questRes]) => {
         setDoc(docRes.data.document);
         setQuestions(questRes.data.questions || []);
+        setLimitApplied(!!questRes.data.limitApplied);
         setLoading(false);
       })
       .catch((err) => {
@@ -148,7 +150,11 @@ const DocumentPage: React.FC = () => {
   const filteredCount = filteredQuestions.length;
 
   // Determine if user has premium/unlimited access
-  const isPremiumUser = ["admin", "ultra", "pro", "plus"].includes(role);
+  const isPremiumUser = ["admin", "ultra"].includes(role) || (["pro", "plus"].includes(role) && !limitApplied);
+
+  const visibleQuestions = filteredQuestions.filter(
+    (q) => !(q.isPremiumLocked && !isPremiumUser)
+  );
 
   const getCategoryInfo = (catId: string, customTitle?: string | null, logoName?: string | null) => {
     const title = customTitle || (catId === "other" ? "Khác" : "Chuyên mục");
@@ -415,11 +421,19 @@ const DocumentPage: React.FC = () => {
           >
             <span className="w-5 h-5 bg-amber-500 text-white rounded-full flex items-center justify-center shrink-0 font-bold">!</span>
             <p>
-              Bạn đang xem bản giới hạn (50% câu hỏi). Vui lòng{" "}
-              <Link to="/admin" className="font-bold underline text-amber-600 hover:text-amber-700">
-                nâng cấp Premium
-              </Link>{" "}
-              để truy cập đầy đủ tất cả câu hỏi học tập.
+              {["pro", "plus"].includes(role) ? (
+                <span className="font-bold text-amber-800 dark:text-amber-200">
+                  Vui lòng đăng ký bộ câu hỏi này để mở khóa toàn bộ câu hỏi.
+                </span>
+              ) : (
+                <>
+                  Bạn đang xem bản giới hạn (20% câu hỏi). Vui lòng{" "}
+                  <Link to="/admin" className="font-bold underline text-amber-600 hover:text-amber-700">
+                    nâng cấp Premium
+                  </Link>{" "}
+                  để truy cập đầy đủ tất cả câu hỏi học tập.
+                </>
+              )}
             </p>
           </div>
         )}
@@ -442,14 +456,14 @@ const DocumentPage: React.FC = () => {
               <tbody 
                 className="divide-y text-sm doc-border-soft-text-fg2"
               >
-                {filteredQuestions.length === 0 ? (
+                {visibleQuestions.length === 0 ? (
                   <tr>
                     <td colSpan={3} className="py-8 text-center text-xs doc-text-meta">
                       Không tìm thấy câu hỏi phù hợp.
                     </td>
                   </tr>
                 ) : (
-                  filteredQuestions.map((q, idx) => {
+                  visibleQuestions.map((q, idx) => {
                     const isLocked = q.isPremiumLocked && !isPremiumUser;
                     return (
                       <tr 
@@ -490,12 +504,18 @@ const DocumentPage: React.FC = () => {
                               <span className="text-amber-600 font-bold text-xs flex items-center gap-1">
                                 <Lock className="w-3.5 h-3.5" /> Bị khóa
                               </span>
-                              <Link
-                                to="/admin"
-                                className="text-[10px] bg-amber-500 hover:bg-amber-600 text-white font-semibold px-2 py-1 rounded text-center transition"
-                              >
-                                Nâng cấp Premium
-                              </Link>
+                              {["pro", "plus"].includes(role) ? (
+                                <span className="text-[10px] text-amber-600 font-semibold">
+                                  Vui lòng đăng ký
+                                </span>
+                              ) : (
+                                <Link
+                                  to="/admin"
+                                  className="text-[10px] bg-amber-500 hover:bg-amber-600 text-white font-semibold px-2 py-1 rounded text-center transition"
+                                >
+                                  Nâng cấp Premium
+                                </Link>
+                              )}
                             </div>
                           ) : (
                             <div className="space-y-1.5">
@@ -525,12 +545,12 @@ const DocumentPage: React.FC = () => {
 
         {/* Questions Cards (Mobile view < 768px) */}
         <div className="block md:hidden space-y-4">
-          {filteredQuestions.length === 0 ? (
+          {visibleQuestions.length === 0 ? (
             <div className="card p-8 text-center text-xs doc-empty-card">
               Không tìm thấy câu hỏi phù hợp.
             </div>
           ) : (
-            filteredQuestions.map((q, idx) => {
+            visibleQuestions.map((q, idx) => {
               const isLocked = q.isPremiumLocked && !isPremiumUser;
               return (
                 <div 
@@ -568,12 +588,18 @@ const DocumentPage: React.FC = () => {
 
                   <div className="pt-2 border-t doc-border-brand">
                     {isLocked ? (
-                      <Link
-                        to="/admin"
-                        className="block text-center text-xs bg-amber-500 hover:bg-amber-600 text-white font-semibold py-1.5 rounded-lg transition"
-                      >
-                        Nâng cấp Premium để xem đáp án
-                      </Link>
+                      ["pro", "plus"].includes(role) ? (
+                        <div className="text-center text-xs text-amber-600 font-semibold py-1.5 bg-amber-500/10 rounded-lg">
+                          Vui lòng đăng ký bộ câu hỏi này
+                        </div>
+                      ) : (
+                        <Link
+                          to="/admin"
+                          className="block text-center text-xs bg-amber-500 hover:bg-amber-600 text-white font-semibold py-1.5 rounded-lg transition"
+                        >
+                          Nâng cấp Premium để xem đáp án
+                        </Link>
+                      )
                     ) : (
                       <div className="space-y-2">
                         <div className="text-[10px] uppercase font-semibold doc-text-muted">Đáp án đúng:</div>
@@ -597,6 +623,28 @@ const DocumentPage: React.FC = () => {
             })
           )}
         </div>
+
+        {/* Bottom Lock Notice if not premium */}
+        {!isPremiumUser && totalCount > visibleQuestions.length && (
+          <div className="mt-6 border border-dashed border-amber-300 dark:border-amber-700 bg-amber-500/5 rounded-xl p-6 text-center space-y-3">
+            <div className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+              🔒 Có {totalCount - visibleQuestions.length} câu hỏi khác đang bị ẩn trong bộ tài liệu này
+            </div>
+            <p className="text-xs text-muted-foreground max-w-md mx-auto">
+              {["pro", "plus"].includes(role) ? (
+                "Vui lòng đăng ký bộ câu hỏi này để mở khóa toàn bộ câu hỏi học tập."
+              ) : (
+                <>
+                  Vui lòng{" "}
+                  <Link to="/admin" className="font-bold underline text-amber-600 hover:text-amber-700">
+                    nâng cấp Premium
+                  </Link>{" "}
+                  để xem và luyện tập đầy đủ tất cả câu hỏi.
+                </>
+              )}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
