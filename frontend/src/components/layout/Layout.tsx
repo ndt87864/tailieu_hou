@@ -40,11 +40,13 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenProfile }) => {
     ? [
         { to: "/", label: "Trang chủ" },
         { to: "/lich-thi", label: "Lịch thi" },
+        { to: "/pricing", label: "Liên hệ" },
         ...(role === "admin" ? [{ to: "/admin", label: "Quản trị" }] : []),
       ]
     : [
         { to: "/", label: "Trang chủ" },
         { to: "/lich-thi", label: "Lịch thi" },
+        { to: "/pricing", label: "Liên hệ" },
       ];
 
   const roleBadge: Record<string, { label: string; className: string }> = {
@@ -265,7 +267,7 @@ const Footer: React.FC = () => (
         <div className="flex items-center gap-6 text-xs layout-footer-links">
           <a href="#" className="hover:text-[var(--fg)] transition-colors layout-footer-link">Điều khoản</a>
           <a href="#" className="hover:text-[var(--fg)] transition-colors layout-footer-link">Hỗ trợ</a>
-          <a href="#" className="hover:text-[var(--fg)] transition-colors layout-footer-link">Liên hệ</a>
+          <Link to="/pricing" className="hover:text-[var(--fg)] transition-colors layout-footer-link">Liên hệ</Link>
         </div>
       </div>
       <p className="text-center sm:hidden mt-3 layout-footer-copyright">
@@ -283,7 +285,8 @@ const Layout: React.FC = () => {
 
   const isDocPage = location.pathname.startsWith("/documents/");
   const isAdminPage = location.pathname.startsWith("/admin");
-  const isFullWidthPage = isDocPage || isAdminPage;
+  const isPricingPage = location.pathname === "/pricing";
+  const isFullWidthPage = isDocPage || isAdminPage || isPricingPage;
 
   const isSimulated = viewMode !== "responsive";
 

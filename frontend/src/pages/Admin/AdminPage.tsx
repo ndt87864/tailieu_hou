@@ -11,7 +11,6 @@ import {
   Clock,
   DollarSign,
   Calendar,
-  Lock,
   Compass,
   Mail,
   PieChart,
@@ -35,9 +34,11 @@ import {
   PricingTab,
   RemindersTab,
   FooterTab,
-  ContactsTab,
   ProxyTab,
 } from "./subpages/MockTabs.js";
+
+// Import component ContactsTab mới
+import { ContactsTab } from "./subpages/ContactsTab.js";
 
 // Import component QuestionRatioTab mới
 import { QuestionRatioTab } from "./subpages/QuestionRatioTab.js";

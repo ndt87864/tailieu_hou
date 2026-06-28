@@ -1,0 +1,46 @@
+/* css for contacts tab management */
+
+.contacts-tab-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.contacts-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.contacts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.contact-step-card {
+  padding: 1.25rem;
+  border-radius: 0.75rem;
+  transition: all 0.2s ease;
+}
+
+.contact-step-number {
+  min-width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+.contact-step-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.link-input-group {
+  padding: 1rem;
+  border-radius: 0.5rem;
+}

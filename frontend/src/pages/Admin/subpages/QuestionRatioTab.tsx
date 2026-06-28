@@ -3,10 +3,6 @@ import apiClient from "../../../services/client.js";
 import { toast } from "react-toastify";
 import { Save, Loader2, RefreshCw } from "lucide-react";
 
-interface QuestionRatio {
-  role: string;
-  ratio_percent: number;
-}
 
 export const QuestionRatioTab: React.FC = () => {
   const [ratios, setRatios] = useState<{ free: number; plus: number; pro: number }>({

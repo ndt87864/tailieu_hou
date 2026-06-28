@@ -190,7 +190,7 @@ const DashboardTab: React.FC = () => {
           <div className="card db-content-card">
             <div className="db-section-head">
               <FolderOpen className="w-4 h-4 db-section-icon" />
-              <span className="db-section-title">Tài nguyên ôn thi</span>
+              <span className="db-section-title">Tài liệu câu hỏi</span>
             </div>
             <div className="db-content-grid">
               {contentItems.map((ci) => (

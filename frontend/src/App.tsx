@@ -9,6 +9,7 @@ import LoginPage from "./pages/Login/LoginPage.js";
 import DocumentPage from "./pages/Document/DocumentPage.js";
 import AdminPage from "./pages/Admin/AdminPage.js";
 import ExamSchedulePage from "./pages/ExamSchedule/ExamSchedulePage.js";
+import PricingPage from "./pages/Pricing/PricingPage.js";
 import LoadingSpinner from "./components/common/LoadingSpinner.js";
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode; roles?: string[] }> = ({
@@ -39,6 +40,7 @@ const App: React.FC = () => {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/lich-thi" element={<ExamSchedulePage />} />
           <Route path="/documents/:id" element={<DocumentPage />} />
+          <Route path="/pricing" element={<PricingPage />} />
           <Route
             path="/admin/*"
             element={

@@ -10,6 +10,8 @@ import docsRouter from "./routes/docs.js";
 import questionsRouter from "./routes/questions.js";
 import adminRouter from "./routes/admin.js";
 import examRouter from "./routes/exam.js";
+import pricingRouter from "./routes/pricingContent.js";
+import pricingPackagesRouter from "./routes/pricingPackages.js";
 import { authMiddleware } from "./middlewares/auth.js";
 import { securityHeaders } from "./middlewares/security.js";
 import { timeout } from "./middlewares/timeout.js";
@@ -51,6 +53,8 @@ app.route("/api/v1/documents", docsRouter);
 app.route("/api/v1/questions", questionsRouter);
 app.route("/api/v1/admin", adminRouter);
 app.route("/api/v1/exam", examRouter);
+app.route("/api/v1/pricing-content", pricingRouter);
+app.route("/api/v1/pricing-packages", pricingPackagesRouter);
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 

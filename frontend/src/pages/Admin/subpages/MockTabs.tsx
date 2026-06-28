@@ -1,5 +1,7 @@
-import React, { useState } from "react";
-import { Plus, Calendar, Lock } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Plus, Calendar, Lock, X, Loader2 } from "lucide-react";
+import apiClient from "../../../services/client.js";
+import { toast } from "react-toastify";
 
 // 1. Quản lý phòng thi (Rooms)
 export const RoomsTab: React.FC = () => {
@@ -83,27 +85,254 @@ export const SessionsTab: React.FC = () => {
   );
 };
 
+interface PricingPackage {
+  id: string;
+  name: string;
+  price: string;
+  savings: string;
+  icon: string;
+  features: string[];
+  display_order: number;
+}
+
 // 3. Quản lý giá môn học (Pricing)
 export const PricingTab: React.FC = () => {
-  const [prices] = useState([
-    { id: 1, name: "Gói ôn thi 1 Tháng", cost: "99.000đ", savings: "Cơ bản" },
-    { id: 2, name: "Gói ôn thi 3 Tháng", cost: "249.000đ", savings: "Tiết kiệm 20%" },
-    { id: 3, name: "Gói ôn thi 6 Tháng", cost: "399.000đ", savings: "Bán chạy nhất (Tiết kiệm 33%)" },
-  ]);
+  const [packages, setPackages] = useState<PricingPackage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingPkg, setEditingPkg] = useState<PricingPackage | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Form fields
+  const [name, setName] = useState("");
+  const [price, setPrice] = useState("");
+  const [savings, setSavings] = useState("");
+  const [icon, setIcon] = useState("free");
+  const [featuresText, setFeaturesText] = useState("");
+  const [displayOrder, setDisplayOrder] = useState(1);
+
+  const fetchPackages = async () => {
+    setLoading(true);
+    try {
+      const res = await apiClient.get("/api/v1/pricing-packages/admin");
+      setPackages(res.data.packages || []);
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Không thể tải danh sách gói dịch vụ.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPackages();
+  }, []);
+
+  const openEditModal = (pkg: PricingPackage) => {
+    setEditingPkg(pkg);
+    setName(pkg.name);
+    setPrice(pkg.price);
+    setSavings(pkg.savings || "");
+    setIcon(pkg.icon || "free");
+    setFeaturesText(Array.isArray(pkg.features) ? pkg.features.join("\n") : "");
+    setDisplayOrder(pkg.display_order || 1);
+    setShowModal(true);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name || !price) {
+      toast.error("Vui lòng điền đầy đủ Tên gói và Giá.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const features = featuresText
+        .split("\n")
+        .map((f) => f.trim())
+        .filter((f) => f.length > 0);
+
+      const payload = {
+        name,
+        price,
+        savings,
+        icon,
+        features,
+        display_order: displayOrder,
+      };
+
+      if (editingPkg) {
+        await apiClient.put(`/api/v1/pricing-packages/admin/${editingPkg.id}`, payload);
+        toast.success("Cập nhật gói thành công!");
+      }
+      setShowModal(false);
+      fetchPackages();
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Lỗi khi lưu thông tin gói.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
-      <h3 className="modal-heading text-base font-bold">Quản lý giá &amp; Gói dịch vụ</h3>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {prices.map((p) => (
-          <div key={p.id} className="card p-5 space-y-3 relative overflow-hidden border-t-4 border-t-emerald-500">
-            <h4 className="font-bold text-sm card-title">{p.name}</h4>
-            <div className="text-2xl font-black text-emerald-600">{p.cost}</div>
-            <p className="text-xs mock-pricing-note">{p.savings}</p>
-            <button className="mock-pricing-btn w-full py-2 text-xs font-semibold rounded-xl hover:opacity-85">Chỉnh sửa gói</button>
-          </div>
-        ))}
+      <div className="flex items-center justify-between">
+        <h3 className="modal-heading text-base font-bold">Quản lý giá &amp; Gói dịch vụ</h3>
       </div>
+
+      {loading ? (
+        <div className="flex justify-center items-center py-10">
+          <Loader2 className="w-6 h-6 animate-spin text-[#008037]" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {packages.map((p) => (
+            <div key={p.id} className="card p-5 space-y-3 relative overflow-hidden border-t-4 border-t-emerald-500 flex flex-col justify-between">
+              <div className="space-y-2">
+                <h4 className="font-bold text-sm card-title">{p.name}</h4>
+                <div className="text-2xl font-black text-emerald-600">{p.price}</div>
+                <p className="text-xs mock-pricing-note">{p.savings}</p>
+                <div className="mt-2 space-y-1">
+                  <span className="text-[10px] font-bold text-muted block uppercase">Tính năng:</span>
+                  {p.features && p.features.map((f, idx) => (
+                    <div key={idx} className="text-[11px] text-[var(--fg-2)] flex items-start gap-1">
+                      <span className="text-emerald-500">•</span>
+                      <span>{f}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <button
+                onClick={() => openEditModal(p)}
+                className="mock-pricing-btn w-full mt-4 py-2 text-xs font-semibold rounded-xl hover:opacity-85"
+              >
+                Chỉnh sửa gói
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/60 z-[999] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-scale-up">
+            <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
+              <h3 className="modal-heading text-base font-bold">Chỉnh sửa Gói dịch vụ</h3>
+              <button
+                onClick={() => setShowModal(false)}
+                className="p-1 rounded-lg hover:bg-red-500/10 text-muted hover:text-red-500 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSave} className="p-4 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="form-label block text-xs font-semibold mb-1 text-[var(--fg)]">
+                    Tên gói
+                  </label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="form-label block text-xs font-semibold mb-1 text-[var(--fg)]">
+                    Giá hiển thị
+                  </label>
+                  <input
+                    type="text"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none"
+                    placeholder="VD: 99.000đ"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="form-label block text-xs font-semibold mb-1 text-[var(--fg)]">
+                  Mô tả / Tiết kiệm (savings)
+                </label>
+                <input
+                  type="text"
+                  value={savings}
+                  onChange={(e) => setSavings(e.target.value)}
+                  className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none"
+                  placeholder="VD: Phù hợp ôn tập nhanh (30 ngày)"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="form-label block text-xs font-semibold mb-1 text-[var(--fg)]">
+                    Biểu tượng (icon)
+                  </label>
+                  <select
+                    value={icon}
+                    onChange={(e) => setIcon(e.target.value)}
+                    className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none"
+                  >
+                    <option value="free">Lá cây (free)</option>
+                    <option value="plus">Tia sét (plus)</option>
+                    <option value="pro">Vương miện (pro)</option>
+                    <option value="ultra">Kim cương (ultra)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label block text-xs font-semibold mb-1 text-[var(--fg)]">
+                    Thứ tự hiển thị
+                  </label>
+                  <input
+                    type="number"
+                    value={displayOrder}
+                    onChange={(e) => setDisplayOrder(parseInt(e.target.value, 10))}
+                    className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none"
+                    min="1"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="form-label block text-xs font-semibold mb-1 text-[var(--fg)]">
+                  Danh sách tính năng (Mỗi dòng một tính năng)
+                </label>
+                <textarea
+                  value={featuresText}
+                  onChange={(e) => setFeaturesText(e.target.value)}
+                  className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none min-h-[120px] resize-y"
+                  placeholder="Nhập mỗi tính năng trên một dòng..."
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-[var(--border)]">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="px-4 py-2 text-sm font-semibold rounded-xl border border-[var(--border)] hover:bg-[var(--bg-2)] text-[var(--fg-2)]"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-4 py-2 text-sm font-semibold rounded-xl bg-[#008037] text-white hover:opacity-90 flex items-center gap-1.5"
+                >
+                  {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  Lưu thay đổi
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -163,17 +392,7 @@ export const FooterTab: React.FC = () => {
   );
 };
 
-// 7. Quản lý nội dung liên hệ (Contacts)
-export const ContactsTab: React.FC = () => {
-  return (
-    <div className="space-y-4">
-      <h3 className="modal-heading text-base font-bold">Nội dung hỗ trợ &amp; liên hệ</h3>
-      <div className="card p-6 text-center text-xs mock-contacts-empty">
-        Hiện chưa có yêu cầu hỗ trợ hoặc tin nhắn liên hệ nào từ người dùng.
-      </div>
-    </div>
-  );
-};
+
 
 
 // 9. Quản lý đăng ký môn (Proxy Registrations)
