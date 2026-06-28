@@ -137,7 +137,7 @@ const DashboardTab: React.FC = () => {
               <circle cx="18" cy="18" r="15.915" fill="none" stroke="var(--brand-600)" strokeWidth="4.2"
                 strokeDasharray={`${paidPercent} ${freePercent}`}
                 strokeDashoffset="0"
-                style={{ transition: "stroke-dasharray 0.5s ease" }}
+                className="admin-pie-circle"
               />
             </svg>
             <div className="absolute flex flex-col items-center justify-center">

@@ -117,8 +117,7 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenProfile }) => {
                   className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-all duration-200 hover:bg-[var(--bg-2)]"
                 >
                   <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm shrink-0 overflow-hidden"
-                    style={{ background: "linear-gradient(135deg, var(--brand-700), var(--brand-500))" }}
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm shrink-0 overflow-hidden layout-avatar-bg"
                   >
                     {profile?.avatar_url ? (
                       <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
@@ -127,67 +126,64 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenProfile }) => {
                     )}
                   </div>
                   <div className="hidden sm:flex flex-col items-start min-w-0">
-                    <span style={{ color: "var(--fg)", fontSize: "0.75rem", fontWeight: 500 }} className="truncate max-w-[120px]">
+                    <span className="truncate max-w-[120px] layout-user-name">
                       {profile?.full_name || user.email}
                     </span>
                     <span
-                      style={{ ...badge.style, fontSize: "0.625rem", fontWeight: 700, padding: "1px 6px", borderRadius: 99, border: "1px solid", borderColor: badge.style.borderColor }}
+                      className="layout-user-badge"
+                      style={badge.style}
                     >
                       {badge.label}
                     </span>
                   </div>
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${dropdownOpen ? "rotate-180" : ""}`} style={{ color: "var(--meta)" }} />
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${dropdownOpen ? "rotate-180" : ""} layout-icon-meta`} />
                 </button>
 
                 {dropdownOpen && (
                   <div
-                    style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-md)" }}
-                    className="absolute right-0 mt-2 w-56 rounded-2xl py-1.5 animate-scale-in origin-top-right z-50"
+                    className="absolute right-0 mt-2 w-56 rounded-2xl py-1.5 animate-scale-in origin-top-right z-50 layout-dropdown"
                   >
                     <div style={{ borderBottom: "1px solid var(--border-soft)" }} className="px-4 py-2.5">
                       <p style={{ color: "var(--fg)", fontSize: "0.75rem", fontWeight: 500 }} className="truncate">
                         {profile?.full_name || user.email}
                       </p>
                       {profile?.full_name && (
-                        <p style={{ color: "var(--muted)", fontSize: "0.65rem" }} className="truncate">
+                        <p className="truncate layout-profile-email">
                           {user.email}
                         </p>
                       )}
                       {profile?.phone && (
-                        <p style={{ color: "var(--muted)", fontSize: "0.65rem" }} className="truncate">
+                        <p className="truncate layout-profile-phone">
                           📞 {profile.phone}
                         </p>
                       )}
-                      <span style={{ ...badge.style, fontSize: "0.625rem", fontWeight: 700, padding: "1px 6px", borderRadius: 99, border: "1px solid", borderColor: badge.style.borderColor, marginTop: 4, display: "inline-block" }}>
+                      <span className="layout-user-badge mt-1" style={badge.style}>
                         {badge.label}
                       </span>
                     </div>
                     <div className="py-1">
                       <button
                         onClick={() => { setDropdownOpen(false); onOpenProfile(); }}
-                        style={{ color: "var(--fg-2)" }}
-                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] transition-colors text-left"
+                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] transition-colors text-left layout-text-fg2"
                       >
-                        <User className="w-4 h-4" style={{ color: "var(--meta)" }} />
+                        <User className="w-4 h-4 layout-icon-meta" />
                         Chỉnh sửa hồ sơ
                       </button>
                       {role === "admin" && (
                         <Link
                           to="/admin"
                           onClick={() => setDropdownOpen(false)}
-                          style={{ color: "var(--fg-2)" }}
-                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] transition-colors"
+                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] transition-colors layout-text-fg2"
                         >
-                          <Shield className="w-4 h-4" style={{ color: "var(--meta)" }} />
+                          <Shield className="w-4 h-4 layout-icon-meta" />
                           Quản trị hệ thống
                         </Link>
                       )}
                       <button
                         onClick={() => { setDropdownOpen(false); onOpenSettings(); }}
-                        style={{ color: "var(--fg-2)" }}
-                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] transition-colors text-left"
+                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] transition-colors text-left layout-text-fg2"
                       >
-                        <Settings className="w-4 h-4" style={{ color: "var(--meta)" }} />
+                        <Settings className="w-4 h-4 layout-icon-meta" />
                         Giao diện hệ thống
                       </button>
                       <button
@@ -205,8 +201,7 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenProfile }) => {
               <div className="flex items-center gap-2">
                 <button
                   onClick={onOpenSettings}
-                  style={{ color: "var(--muted)" }}
-                  className="p-2 rounded-xl hover:bg-[var(--bg-2)] transition-colors"
+                  className="p-2 rounded-xl hover:bg-[var(--bg-2)] transition-colors layout-icon-muted"
                   aria-label="Tùy chỉnh giao diện"
                 >
                   <Settings className="w-4 h-4" />
@@ -221,8 +216,7 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenProfile }) => {
             {/* Mobile toggle */}
             <button
               onClick={() => setMobileOpen((p) => !p)}
-              style={{ color: "var(--muted)" }}
-              className="md:hidden p-2 rounded-lg hover:bg-[var(--bg-2)] transition-colors"
+              className="md:hidden p-2 rounded-lg hover:bg-[var(--bg-2)] transition-colors layout-icon-muted"
               aria-label="Toggle menu"
             >
               {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -232,7 +226,7 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenProfile }) => {
 
         {/* Mobile Nav */}
         {mobileOpen && (
-          <nav style={{ borderTop: "1px solid var(--border)" }} className="md:hidden py-3 pb-4 animate-slide-up">
+          <nav className="md:hidden py-3 pb-4 animate-slide-up layout-mobile-nav">
             {navLinks.map((link) => (
               <Link
                 key={link.to}
@@ -249,18 +243,16 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenProfile }) => {
             ))}
             <button
               onClick={() => { setMobileOpen(false); onOpenProfile(); }}
-              style={{ color: "var(--fg-2)" }}
-              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] rounded-xl transition-colors text-left"
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] rounded-xl transition-colors text-left layout-text-fg2"
             >
-              <User className="w-4 h-4" style={{ color: "var(--meta)" }} />
+              <User className="w-4 h-4 layout-icon-meta" />
               Chỉnh sửa hồ sơ
             </button>
             <button
               onClick={() => { setMobileOpen(false); onOpenSettings(); }}
-              style={{ color: "var(--fg-2)" }}
-              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] rounded-xl transition-colors"
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] rounded-xl transition-colors layout-text-fg2"
             >
-              <Settings className="w-4 h-4" style={{ color: "var(--meta)" }} />
+              <Settings className="w-4 h-4 layout-icon-meta" />
               Giao diện hệ thống
             </button>
             {user && (
@@ -280,25 +272,25 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenProfile }) => {
 };
 
 const Footer: React.FC = () => (
-  <footer style={{ borderTop: "1px solid var(--border)", background: "var(--surface)", transition: "background 0.25s ease, border-color 0.25s ease" }}>
+  <footer className="layout-footer">
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-2.5">
-          <div style={{ background: "linear-gradient(135deg, var(--brand-700), var(--brand-500))" }} className="w-7 h-7 rounded-lg flex items-center justify-center shadow-sm">
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shadow-sm layout-footer-logo">
             <BookOpen className="w-3.5 h-3.5 text-white" />
           </div>
-          <span style={{ color: "var(--fg)", fontSize: "0.875rem", fontWeight: 600 }}>Tài liệu HOU</span>
-          <span style={{ color: "var(--meta)", fontSize: "0.75rem" }} className="hidden sm:inline ml-2">
+          <span className="layout-footer-title">Tài liệu HOU</span>
+          <span className="hidden sm:inline ml-2 layout-footer-copyright">
             &copy; {new Date().getFullYear()} — Nền tảng ôn thi trực tuyến
           </span>
         </div>
-        <div className="flex items-center gap-6 text-xs" style={{ color: "var(--muted)" }}>
-          <a href="#" style={{ color: "var(--muted)" }} className="hover:text-[var(--fg)] transition-colors">Điều khoản</a>
-          <a href="#" style={{ color: "var(--muted)" }} className="hover:text-[var(--fg)] transition-colors">Hỗ trợ</a>
-          <a href="#" style={{ color: "var(--muted)" }} className="hover:text-[var(--fg)] transition-colors">Liên hệ</a>
+        <div className="flex items-center gap-6 text-xs layout-footer-links">
+          <a href="#" className="hover:text-[var(--fg)] transition-colors layout-footer-link">Điều khoản</a>
+          <a href="#" className="hover:text-[var(--fg)] transition-colors layout-footer-link">Hỗ trợ</a>
+          <a href="#" className="hover:text-[var(--fg)] transition-colors layout-footer-link">Liên hệ</a>
         </div>
       </div>
-      <p style={{ color: "var(--meta)", fontSize: "0.75rem" }} className="text-center sm:hidden mt-3">
+      <p className="text-center sm:hidden mt-3 layout-footer-copyright">
         &copy; {new Date().getFullYear()} — Nền tảng ôn thi trực tuyến
       </p>
     </div>
@@ -365,19 +357,15 @@ const Layout: React.FC = () => {
 
   const content = (
     <div 
+      className="layout-content-wrapper"
       style={{ 
         minHeight: isSimulated ? undefined : "100vh", 
         height: isSimulated && viewMode !== "desktop" ? "100%" : undefined,
-        display: "flex", 
-        flexDirection: "column", 
-        background: "var(--bg)", 
-        color: "var(--fg)", 
-        transition: "background 0.25s ease, color 0.25s ease",
         ...simulatedStyle
       }}
     >
       <Header onOpenSettings={() => setSettingsOpen(true)} onOpenProfile={() => setProfileOpen(true)} />
-      <main style={{ flex: 1, width: "100%", display: "flex", flexDirection: "column", overflowY: isSimulated && viewMode !== "desktop" ? "auto" : undefined }}>
+      <main className="layout-main-static" style={{ overflowY: isSimulated && viewMode !== "desktop" ? "auto" : undefined }}>
         {isFullWidthPage ? (
           <Outlet />
         ) : (
@@ -395,14 +383,9 @@ const Layout: React.FC = () => {
   if (isSimulated) {
     return (
       <div 
+        className="layout-simulated-container"
         style={{ 
-          minHeight: "100vh", 
-          background: "color-mix(in srgb, var(--bg-2) 60%, var(--bg))", 
           padding: viewMode === "desktop" ? 0 : "20px 10px", 
-          display: "flex", 
-          alignItems: "center", 
-          justifyContent: "center",
-          overflowX: "auto"
         }}
       >
         {content}

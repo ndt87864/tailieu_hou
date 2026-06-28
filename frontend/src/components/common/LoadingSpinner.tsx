@@ -5,15 +5,13 @@ const LoadingSpinner: React.FC<{ label?: string }> = ({ label = "Đang tải..."
     <div className="flex flex-col items-center justify-center min-h-[40vh] gap-4 animate-fade-in">
       <div className="relative">
         <div
-          className="w-10 h-10 rounded-full border-[3px]"
-          style={{ borderColor: "color-mix(in srgb, var(--brand-600) 20%, transparent)" }}
+          className="w-10 h-10 rounded-full border-[3px] spinner-outer"
         />
         <div
-          className="absolute inset-0 w-10 h-10 rounded-full border-[3px] border-t-transparent animate-spin"
-          style={{ borderColor: "var(--brand-600)", borderTopColor: "transparent" }}
+          className="absolute inset-0 w-10 h-10 rounded-full border-[3px] border-t-transparent animate-spin spinner-inner"
         />
       </div>
-      <span style={{ color: "var(--meta)", fontSize: "0.875rem", fontWeight: 500 }}>{label}</span>
+      <span className="spinner-label">{label}</span>
     </div>
   );
 };

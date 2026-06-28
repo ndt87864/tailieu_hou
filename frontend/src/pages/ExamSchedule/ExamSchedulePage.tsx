@@ -2,6 +2,8 @@ import React, { useState, useCallback } from "react";
 import { Search, Calendar, Clock, MapPin, BookOpen, User, Download, AlertCircle, CheckCircle, XCircle, HelpCircle, ChevronDown, ChevronUp, Loader2, ClipboardList } from "lucide-react";
 import apiClient from "../../services/client.js";
 import { toast } from "react-toastify";
+import "../../css/examschedule.css";
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ExamRow {
@@ -80,11 +82,10 @@ async function searchStudent(query: string): Promise<ExamRow[]> {
 // ─── Stat Badge ──────────────────────────────────────────────────────────────
 const StatBadge: React.FC<{ label: string; value: string | number }> = ({ label, value }) => (
   <div
-    className="flex flex-col items-center justify-center p-3 rounded-xl"
-    style={{ background: "var(--bg-2)", border: "1px solid var(--border-soft)" }}
+    className="flex flex-col items-center justify-center p-3 rounded-xl exam-stat-card"
   >
-    <span style={{ color: "var(--brand-600)", fontSize: "1.5rem", fontWeight: 800, lineHeight: 1 }}>{value}</span>
-    <span style={{ color: "var(--muted)", fontSize: "0.7rem", marginTop: 4 }}>{label}</span>
+    <span className="exam-stat-value">{value}</span>
+    <span className="exam-stat-label">{label}</span>
   </div>
 );
 
@@ -146,50 +147,38 @@ const ExamSchedulePage: React.FC = () => {
     Array.isArray(m) ? m.join(", ") : m || "–";
 
   return (
-    <div style={{ minHeight: "60vh" }}>
+    <div className="exam-outer-container">
       {/* ── Hero Search ── */}
-      <div
-        className="rounded-2xl p-8 mb-6 text-center"
-        style={{
-          background: "linear-gradient(135deg, color-mix(in srgb, var(--brand-600) 8%, transparent), color-mix(in srgb, var(--brand-400) 4%, transparent))",
-          border: "1px solid color-mix(in srgb, var(--brand-600) 20%, transparent)",
-        }}
-      >
+      <div className="exam-hero-container">
         {/* Icon */}
-        <div
-          className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg"
-          style={{ background: "linear-gradient(135deg, var(--brand-700), var(--brand-500))" }}
-        >
+        <div className="exam-hero-icon-container">
           <Calendar className="w-8 h-8 text-white" />
         </div>
 
-        <h1 style={{ color: "var(--fg)", fontSize: "2rem", fontWeight: 800, marginBottom: 8 }}>
+        <h1 className="exam-hero-title">
           Tra Cứu Lịch Thi
         </h1>
-        <p style={{ color: "var(--muted)", marginBottom: 28, maxWidth: 480, margin: "0 auto 28px" }}>
+        <p className="exam-hero-subtitle">
           Tra cứu lịch thi sinh viên nhanh chóng theo mã sinh viên hoặc tài khoản học.
         </p>
 
         {/* Search Form */}
-        <form onSubmit={handleSearch} className="max-w-xl mx-auto flex gap-3">
+        <form onSubmit={handleSearch} className="exam-search-form">
           <div className="relative flex-1">
-            <Search
-              className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5"
-              style={{ color: "var(--muted)" }}
-            />
+            <Search className="exam-search-icon" />
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Nhập mã sinh viên hoặc tài khoản học..."
-              className="input w-full pl-12 pr-4 py-4 text-base font-medium"
+              className="exam-search-input"
               autoFocus
             />
           </div>
           <button
             type="submit"
             disabled={loading}
-            className="btn-brand px-6 py-4 flex items-center gap-2 font-bold text-base shrink-0"
+            className="exam-search-btn"
           >
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
             <span className="hidden sm:inline">Tra Cứu</span>
@@ -199,15 +188,12 @@ const ExamSchedulePage: React.FC = () => {
 
       {/* ── Not found ── */}
       {searched && rows.length === 0 && !loading && (
-        <div
-          className="rounded-2xl p-8 text-center"
-          style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-        >
-          <AlertCircle className="w-12 h-12 mx-auto mb-3" style={{ color: "var(--muted)" }} />
-          <p style={{ color: "var(--fg)", fontWeight: 600, fontSize: "1.1rem" }}>
+        <div className="exam-not-found-container">
+          <AlertCircle className="w-12 h-12 mx-auto mb-3 exam-icon-muted" />
+          <p className="exam-not-found-title">
             Không tìm thấy kết quả
           </p>
-          <p style={{ color: "var(--muted)", marginTop: 6, fontSize: "0.875rem" }}>
+          <p className="exam-not-found-desc">
             Vui lòng kiểm tra lại mã sinh viên hoặc tài khoản học.
           </p>
         </div>
@@ -217,41 +203,35 @@ const ExamSchedulePage: React.FC = () => {
       {student && rows.length > 0 && (
         <div className="space-y-5">
           {/* Student Info Card */}
-          <div
-            className="rounded-2xl p-6"
-            style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-          >
+          <div className="exam-student-card">
             <div className="flex flex-col md:flex-row md:items-center gap-5">
               {/* Avatar + Info */}
               <div className="flex items-center gap-4 flex-1 min-w-0">
-                <div
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-xl font-bold shrink-0 shadow"
-                  style={{ background: "linear-gradient(135deg, var(--brand-700), var(--brand-500))" }}
-                >
+                <div className="exam-student-avatar">
                   {student.fullName?.charAt(0)?.toUpperCase() ?? "?"}
                 </div>
                 <div className="min-w-0">
-                  <h2 style={{ color: "var(--fg)", fontSize: "1.25rem", fontWeight: 700 }} className="truncate">
+                  <h2 className="exam-student-name">
                     {student.fullName}
                   </h2>
                   <div className="flex flex-wrap gap-3 mt-1">
-                    <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
-                      <strong style={{ color: "var(--fg-2)" }}>Mã SV:</strong> {student.studentId || "–"}
+                    <span className="exam-student-meta">
+                      <strong className="exam-student-meta-label">Mã SV:</strong> {student.studentId || "–"}
                     </span>
-                    <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
-                      <strong style={{ color: "var(--fg-2)" }}>Tài khoản:</strong> {student.username || "–"}
+                    <span className="exam-student-meta">
+                      <strong className="exam-student-meta-label">Tài khoản:</strong> {student.username || "–"}
                     </span>
-                    <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
-                      <strong style={{ color: "var(--fg-2)" }}>Mã ngành:</strong> {majorStr(student.major)}
+                    <span className="exam-student-meta">
+                      <strong className="exam-student-meta-label">Mã ngành:</strong> {majorStr(student.major)}
                     </span>
                     {student.course && (
-                      <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
-                        <strong style={{ color: "var(--fg-2)" }}>Khóa:</strong> {student.course}
+                      <span className="exam-student-meta">
+                        <strong className="exam-student-meta-label">Khóa:</strong> {student.course}
                       </span>
                     )}
                   </div>
                   {student.matchedBy && (
-                    <p style={{ color: "var(--meta)", fontSize: "0.7rem", marginTop: 4 }}>
+                    <p className="exam-matched-by">
                       Khớp theo: {student.matchedBy === "studentId" ? "Mã sinh viên" : "Tài khoản học"}
                     </p>
                   )}
@@ -268,30 +248,20 @@ const ExamSchedulePage: React.FC = () => {
           </div>
 
           {/* Desktop Table */}
-          <div
-            className="rounded-2xl overflow-hidden hidden md:block"
-            style={{ border: "1px solid var(--border)" }}
-          >
-            <div
-              style={{ background: "var(--surface-2)", borderBottom: "1px solid var(--border)", padding: "14px 20px" }}
-              className="flex items-center justify-between"
-            >
-              <h3 style={{ color: "var(--fg)", fontWeight: 700, fontSize: "0.95rem" }} className="flex items-center gap-2">
+          <div className="exam-desktop-table-container">
+            <div className="exam-table-header">
+              <h3 className="exam-table-header-title">
                 <ClipboardList className="w-4 h-4 text-[var(--brand-600)]" />
                 Danh sách môn thi
               </h3>
-              <span style={{ color: "var(--muted)", fontSize: "0.75rem" }}>{rows.length} môn</span>
+              <span className="exam-table-header-count">{rows.length} môn</span>
             </div>
-            <div style={{ background: "var(--surface)", overflowX: "auto" }}>
+            <div className="exam-table-body-container">
               <table className="w-full text-sm">
                 <thead>
-                  <tr style={{ borderBottom: "1px solid var(--border-soft)" }}>
+                  <tr className="exam-table-header-row">
                     {["#", "Môn Thi", "Mã ngành", "Ngày Thi", "Ca Thi", "Hình thức", "Giờ Thi", "Phòng", "Điều kiện"].map((h) => (
-                      <th
-                        key={h}
-                        className="px-4 py-3 text-center whitespace-nowrap"
-                        style={{ color: "var(--meta)", fontWeight: 600, fontSize: "0.75rem", letterSpacing: "0.05em" }}
-                      >
+                      <th key={h} className="exam-table-th">
                         {h}
                       </th>
                     ))}
@@ -302,38 +272,34 @@ const ExamSchedulePage: React.FC = () => {
                     const { key, label } = parseStatus(row.status);
                     const cfg = STATUS_CONFIG[key];
                     return (
-                      <tr
-                        key={row.id ?? idx}
-                        style={{ borderBottom: "1px solid var(--border-soft)" }}
-                        className="hover:bg-[var(--bg-2)] transition-colors"
-                      >
-                        <td className="px-4 py-4 text-center" style={{ color: "var(--meta)", fontWeight: 600 }}>
+                      <tr key={row.id ?? idx} className="exam-table-row">
+                        <td className="exam-table-td text-center font-semibold text-[var(--meta)]">
                           {idx + 1}
                         </td>
-                        <td className="px-4 py-4 font-semibold text-center" style={{ color: "var(--fg)" }}>
+                        <td className="exam-table-td font-semibold text-center text-[var(--fg)]">
                           {row.subject}
                         </td>
-                        <td className="px-4 py-4 text-center" style={{ color: "var(--fg-2)" }}>
+                        <td className="exam-table-td text-center text-[var(--fg-2)]">
                           {majorStr(row.majorCode)}
                         </td>
-                        <td className="px-4 py-4 text-center whitespace-nowrap" style={{ color: "var(--fg-2)" }}>
+                        <td className="exam-table-td text-center text-[var(--fg-2)] whitespace-nowrap">
                           {formatDate(row.examDate)}
                         </td>
-                        <td className="px-4 py-4 text-center" style={{ color: "var(--fg-2)" }}>
+                        <td className="exam-table-td text-center text-[var(--fg-2)]">
                           {row.examSession || "–"}
                         </td>
-                        <td className="px-4 py-4 text-center" style={{ color: "var(--fg-2)" }}>
+                        <td className="exam-table-td text-center text-[var(--fg-2)]">
                           {row.examForm || "–"}
                         </td>
-                        <td className="px-4 py-4 text-center whitespace-nowrap" style={{ color: "var(--fg-2)" }}>
+                        <td className="exam-table-td text-center text-[var(--fg-2)] whitespace-nowrap">
                           {row.examTime || "–"}
                         </td>
-                        <td className="px-4 py-4 text-center font-semibold" style={{ color: "var(--fg)" }}>
+                        <td className="exam-table-td text-center font-semibold text-[var(--fg)]">
                           {row.examRoom || "–"}
                         </td>
-                        <td className="px-4 py-4 text-center">
+                        <td className="exam-table-td text-center">
                           <span
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap"
+                            className="exam-status-badge"
                             style={{ ...cfg.bgStyle, ...cfg.textStyle }}
                           >
                             {cfg.icon}
@@ -355,43 +321,36 @@ const ExamSchedulePage: React.FC = () => {
               const cfg = STATUS_CONFIG[key];
               const isOpen = expandedRow === (row.id ?? idx);
               return (
-                <div
-                  key={row.id ?? idx}
-                  className="rounded-2xl overflow-hidden"
-                  style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-                >
+                <div key={row.id ?? idx} className="exam-mobile-card">
                   <button
-                    className="w-full flex items-center justify-between p-4 text-left"
+                    className="exam-mobile-card-btn"
                     onClick={() => setExpandedRow(isOpen ? null : (row.id ?? idx))}
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div
-                        className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 text-white"
-                        style={{ background: "var(--brand-600)" }}
-                      >
+                      <div className="exam-mobile-index">
                         {idx + 1}
                       </div>
                       <div className="min-w-0">
-                        <p style={{ color: "var(--fg)", fontWeight: 700 }} className="truncate">{row.subject}</p>
-                        <p style={{ color: "var(--muted)", fontSize: "0.75rem" }}>
+                        <p className="exam-mobile-subject">{row.subject}</p>
+                        <p className="exam-mobile-datetime">
                           {formatDate(row.examDate)} {row.examTime ? `| ${row.examTime}` : ""}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold"
+                        className="exam-status-badge"
                         style={{ ...cfg.bgStyle, ...cfg.textStyle }}
                       >
                         {cfg.icon}
                         {label}
                       </span>
-                      {isOpen ? <ChevronUp className="w-4 h-4" style={{ color: "var(--muted)" }} /> : <ChevronDown className="w-4 h-4" style={{ color: "var(--muted)" }} />}
+                      {isOpen ? <ChevronUp className="w-4 h-4 exam-icon-muted" /> : <ChevronDown className="w-4 h-4 exam-icon-muted" />}
                     </div>
                   </button>
 
                   {isOpen && (
-                    <div style={{ borderTop: "1px solid var(--border-soft)", padding: "12px 16px" }} className="grid grid-cols-2 gap-3">
+                    <div className="exam-mobile-expanded-content">
                       {[
                         { icon: <MapPin className="w-3.5 h-3.5" />, label: "Phòng", value: row.examRoom || "–" },
                         { icon: <Clock className="w-3.5 h-3.5" />, label: "Ca thi", value: row.examSession || "–" },
@@ -399,10 +358,10 @@ const ExamSchedulePage: React.FC = () => {
                         { icon: <User className="w-3.5 h-3.5" />, label: "Mã ngành", value: majorStr(row.majorCode) },
                       ].map((item) => (
                         <div key={item.label}>
-                          <div className="flex items-center gap-1 mb-0.5" style={{ color: "var(--meta)", fontSize: "0.7rem" }}>
+                          <div className="exam-mobile-detail-label">
                             {item.icon} {item.label}
                           </div>
-                          <p style={{ color: "var(--fg-2)", fontSize: "0.85rem", fontWeight: 600 }}>{item.value}</p>
+                          <p className="exam-mobile-detail-value">{item.value}</p>
                         </div>
                       ))}
                     </div>
@@ -414,11 +373,10 @@ const ExamSchedulePage: React.FC = () => {
 
           {/* Export Note */}
           <div
-            className="rounded-xl p-4 flex items-center gap-3"
-            style={{ background: "var(--bg-2)", border: "1px solid var(--border-soft)" }}
+            className="rounded-xl p-4 flex items-center gap-3 exam-download-bar"
           >
-            <Download className="w-4 h-4 shrink-0" style={{ color: "var(--brand-600)" }} />
-            <p style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
+            <Download className="w-4 h-4 shrink-0 exam-download-icon" />
+            <p className="exam-download-text">
               Dữ liệu lịch thi được cập nhật từ hệ thống. Hãy kiểm tra lại trên cổng thông tin chính thức trước ngày thi.
             </p>
           </div>

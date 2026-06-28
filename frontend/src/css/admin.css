@@ -98,3 +98,9 @@
   background: var(--bg);
   overflow-y: auto;
 }
+
+/* ── SVG Pie Chart ── */
+.admin-pie-circle {
+  transition: stroke-dasharray 0.5s ease;
+}
+

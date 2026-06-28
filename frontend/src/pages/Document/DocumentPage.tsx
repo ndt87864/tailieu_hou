@@ -4,6 +4,7 @@ import apiClient from "../../services/client.js";
 import LoadingSpinner from "../../components/common/LoadingSpinner.js";
 import { useAuth } from "../../context/AuthContext.js";
 import * as Icons from "lucide-react";
+import "../../css/document.css";
 
 const { Lock, ChevronDown, ChevronRight, Menu, Search, BookOpen, X } = Icons;
 
@@ -131,7 +132,7 @@ const DocumentPage: React.FC = () => {
   if (loading) return <LoadingSpinner />;
   if (error || !doc)
     return (
-      <div style={{ color: "#ef4444", textAlign: "center", padding: "2rem" }}>
+      <div className="doc-error-message">
         {error || "Tài liệu không tồn tại."}
       </div>
     );
@@ -177,21 +178,18 @@ const DocumentPage: React.FC = () => {
 
   return (
     <div 
-      className="flex flex-col md:flex-row gap-0 min-h-[calc(100vh/0.9-4rem)] w-full"
-      style={{ background: "var(--bg-2)", color: "var(--fg)" }}
+      className="flex flex-col md:flex-row gap-0 min-h-[calc(100vh/0.9-4rem)] w-full doc-bg-muted"
     >
       {/* Mobile Toggle Bar */}
       <div 
-        className="p-4 md:hidden flex items-center justify-between border-b w-full shrink-0"
-        style={{ background: "var(--brand-700)", borderColor: "var(--brand-800)", color: "#fff" }}
+        className="p-4 md:hidden flex items-center justify-between border-b w-full shrink-0 doc-brand-header"
       >
         <span className="font-bold flex items-center gap-2 text-white">
           <BookOpen className="w-5 h-5 text-white" /> Danh mục tài liệu
         </span>
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
-          className="p-1 rounded transition-colors"
-          style={{ color: "#fff" }}
+          className="p-1 rounded transition-colors doc-text-white"
         >
           <Menu className="w-6 h-6" />
         </button>
@@ -205,10 +203,9 @@ const DocumentPage: React.FC = () => {
             onClick={() => setMobileOpen(false)}
           />
           <div 
-            className="fixed inset-y-0 left-0 w-72 z-[70] md:hidden shadow-2xl overflow-y-auto flex flex-col animate-slide-right"
-            style={{ background: "var(--brand-700)", color: "#fff" }}
+            className="fixed inset-y-0 left-0 w-72 z-[70] md:hidden shadow-2xl overflow-y-auto flex flex-col animate-slide-right doc-brand-header"
           >
-            <div className="p-4 flex items-center justify-between border-b" style={{ borderColor: "var(--brand-800)" }}>
+            <div className="p-4 flex items-center justify-between border-b doc-border-brand">
               <span className="font-bold flex items-center gap-2 text-white">
                 <BookOpen className="w-5 h-5 text-white" /> Tài liệu HOU
               </span>
@@ -232,7 +229,7 @@ const DocumentPage: React.FC = () => {
                       {isExpanded ? <ChevronDown className="w-4 h-4 text-white/70" /> : <ChevronRight className="w-4 h-4 text-white/70" />}
                     </button>
                     {isExpanded && (
-                      <div className="pl-3 border-l ml-2 space-y-1 py-1" style={{ borderColor: "rgba(255,255,255,0.15)" }}>
+                      <div className="pl-3 border-l ml-2 space-y-1 py-1 doc-border-light">
                         {cat.documents.map((d) => {
                           const isActive = d.id === id;
                           return (
@@ -241,9 +238,8 @@ const DocumentPage: React.FC = () => {
                               to={`/documents/${d.id}`}
                               onClick={() => setMobileOpen(false)}
                               className={`block p-2 rounded-md text-xs transition-all ${
-                                isActive ? "text-white font-bold" : "text-white/70 hover:text-white hover:bg-[rgba(255,255,255,0.08)]"
+                                isActive ? "text-white font-bold doc-sidebar-item-active" : "text-white/70 hover:text-white hover:bg-[rgba(255,255,255,0.08)]"
                               }`}
-                              style={isActive ? { background: "var(--brand-800)", borderLeft: "2px solid var(--brand-300)" } : {}}
                             >
                               {d.title}
                             </Link>
@@ -261,8 +257,7 @@ const DocumentPage: React.FC = () => {
 
       {/* 2. Tablet Sidebar (Icons-only) */}
       <div 
-        className="hidden md:flex lg:hidden w-20 shrink-0 flex-col items-center py-6 border-r md:sticky md:top-16 md:h-[calc(100vh/0.9-4rem)] z-20"
-        style={{ background: "var(--brand-700)", borderColor: "var(--brand-800)" }}
+        className="hidden md:flex lg:hidden w-20 shrink-0 flex-col items-center py-6 border-r md:sticky md:top-16 md:h-[calc(100vh/0.9-4rem)] z-20 doc-brand-header"
       >
         <div className="mb-8 text-white">
           <BookOpen className="w-6 h-6" />
@@ -292,8 +287,7 @@ const DocumentPage: React.FC = () => {
                 {/* Flyout list */}
                 {isPopoverOpen && (
                   <div 
-                    className="absolute left-14 top-0 w-64 rounded-xl shadow-xl p-3 border animate-scale-in z-[100]"
-                    style={{ background: "var(--brand-800)", borderColor: "var(--brand-900)", color: "#fff" }}
+                    className="absolute left-14 top-0 w-64 rounded-xl shadow-xl p-3 border animate-scale-in z-[100] doc-brand-dark-btn"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="font-bold text-xs border-b pb-1.5 mb-2 border-white/10 text-white/90 truncate">
@@ -308,9 +302,8 @@ const DocumentPage: React.FC = () => {
                             to={`/documents/${d.id}`}
                             onClick={() => setActiveTabletPopover(null)}
                             className={`block p-2 rounded-md text-xs transition-all ${
-                              isActive ? "text-white font-bold" : "text-white/70 hover:text-white hover:bg-[rgba(255,255,255,0.08)]"
+                              isActive ? "text-white font-bold doc-popover-item-active" : "text-white/70 hover:text-white hover:bg-[rgba(255,255,255,0.08)]"
                             }`}
-                            style={isActive ? { background: "var(--brand-900)" } : {}}
                           >
                             {d.title}
                           </Link>
@@ -327,13 +320,11 @@ const DocumentPage: React.FC = () => {
 
       {/* 3. Desktop Sidebar (Full layout) */}
       <div 
-        className="hidden lg:flex w-72 shrink-0 flex-col border-r lg:sticky lg:top-16 lg:h-[calc(100vh/0.9-4rem)] lg:overflow-y-auto z-10 animate-fade-in"
-        style={{ background: "var(--brand-700)", borderColor: "var(--brand-800)", color: "#fff" }}
+        className="hidden lg:flex w-72 shrink-0 flex-col border-r lg:sticky lg:top-16 lg:h-[calc(100vh/0.9-4rem)] lg:overflow-y-auto z-10 animate-fade-in doc-brand-header"
       >
         <div className="p-4 pb-24 space-y-4">
           <div 
-            className="flex items-center gap-2.5 font-bold text-lg mb-6 pb-2 border-b text-white"
-            style={{ borderColor: "var(--brand-800)" }}
+            className="flex items-center gap-2.5 font-bold text-lg mb-6 pb-2 border-b text-white doc-border-brand"
           >
             <BookOpen className="w-5 h-5 text-white" />
             <span>Tài liệu HOU</span>
@@ -355,7 +346,7 @@ const DocumentPage: React.FC = () => {
                     {isExpanded ? <ChevronDown className="w-4 h-4 text-white/70" /> : <ChevronRight className="w-4 h-4 text-white/70" />}
                   </button>
                   {isExpanded && (
-                    <div className="pl-3 border-l ml-2 space-y-1 py-1" style={{ borderColor: "rgba(255,255,255,0.15)" }}>
+                    <div className="pl-3 border-l ml-2 space-y-1 py-1 doc-border-light">
                       {cat.documents.map((d) => {
                         const isActive = d.id === id;
                         return (
@@ -363,9 +354,8 @@ const DocumentPage: React.FC = () => {
                             key={d.id}
                             to={`/documents/${d.id}`}
                             className={`block p-2 rounded-md text-xs transition-all ${
-                              isActive ? "text-white font-bold border-l-2" : "text-white/70 hover:text-white hover:bg-[rgba(255,255,255,0.08)]"
+                              isActive ? "text-white font-bold border-l-2 doc-sidebar-item-active" : "text-white/70 hover:text-white hover:bg-[rgba(255,255,255,0.08)]"
                             }`}
-                            style={isActive ? { background: "var(--brand-800)", borderLeftColor: "var(--brand-300)" } : {}}
                           >
                             {d.title}
                           </Link>
@@ -381,45 +371,39 @@ const DocumentPage: React.FC = () => {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 p-6 min-w-0 w-full flex flex-col gap-6" style={{ background: "var(--bg)" }}>
+      <div className="flex-1 p-6 min-w-0 w-full flex flex-col gap-6 doc-main-bg">
         {/* Title Header */}
         <div 
-          className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4"
-          style={{ borderColor: "var(--border)" }}
+          className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4 doc-border-themed"
         >
           <div>
-            <h1 className="text-xl font-bold" style={{ color: "var(--fg)" }}>
+            <h1 className="text-xl font-bold doc-text-fg">
               {doc.category?.title ? `${doc.category.title} - ` : ""}{doc.title}
             </h1>
-            <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>{doc.description}</p>
+            <p className="text-xs mt-1 doc-text-muted">{doc.description}</p>
           </div>
-          <div className="text-xs" style={{ color: "var(--meta)" }}>
-            Quyền: <span className="font-semibold" style={{ color: "var(--fg-2)" }}>{role.toUpperCase()}</span>
+          <div className="text-xs doc-text-meta">
+            Quyền: <span className="font-semibold doc-text-fg2">{role.toUpperCase()}</span>
           </div>
         </div>
 
         {/* Info & Search Row */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="text-xs" style={{ color: "var(--muted)" }}>
-            Hiển thị từ <span className="font-semibold" style={{ color: "var(--fg-2)" }}>{filteredCount > 0 ? 1 : 0}</span> đến{" "}
-            <span className="font-semibold" style={{ color: "var(--fg-2)" }}>{filteredCount}</span> trong tổng số{" "}
-            <span className="font-semibold" style={{ color: "var(--fg-2)" }}>{totalCount}</span> câu hỏi
+          <div className="text-xs doc-text-muted">
+            Hiển thị từ <span className="font-semibold doc-text-fg2">{filteredCount > 0 ? 1 : 0}</span> đến{" "}
+            <span className="font-semibold doc-text-fg2">{filteredCount}</span> trong tổng số{" "}
+            <span className="font-semibold doc-text-fg2">{totalCount}</span> câu hỏi
           </div>
 
           {/* Search box */}
           <div className="relative w-full md:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--meta)" }} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 doc-text-meta" />
             <input
               type="text"
               placeholder="Tìm kiếm câu hỏi..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 rounded-lg border text-xs focus:outline-none focus:ring-1 focus:ring-[var(--brand-500)]"
-              style={{ 
-                borderColor: "var(--border)", 
-                background: "var(--surface)", 
-                color: "var(--fg)" 
-              }}
+              className="w-full pl-9 pr-3 py-1.5 rounded-lg border text-xs focus:outline-none focus:ring-1 focus:ring-[var(--brand-500)] doc-card-themed"
             />
           </div>
         </div>
@@ -427,12 +411,7 @@ const DocumentPage: React.FC = () => {
         {/* Warning Alert Banner (If not premium/logged in) */}
         {!isPremiumUser && (
           <div 
-            className="border rounded-xl p-4 flex items-center gap-3 text-xs"
-            style={{ 
-              background: "color-mix(in srgb, var(--warn) 8%, var(--surface))", 
-              borderColor: "color-mix(in srgb, var(--warn) 20%, var(--border))",
-              color: "var(--fg)"
-            }}
+            className="border rounded-xl p-4 flex items-center gap-3 text-xs doc-warn-banner"
           >
             <span className="w-5 h-5 bg-amber-500 text-white rounded-full flex items-center justify-center shrink-0 font-bold">!</span>
             <p>
@@ -447,15 +426,13 @@ const DocumentPage: React.FC = () => {
 
         {/* Questions Table (Desktop & Tablet) */}
         <div 
-          className="hidden md:block rounded-xl shadow-sm border overflow-x-auto"
-          style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+          className="hidden md:block rounded-xl shadow-sm border overflow-x-auto doc-card-themed"
         >
           <div className="min-w-full">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr 
-                  className="border-b text-xs font-semibold uppercase"
-                  style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--muted)" }}
+                  className="border-b text-xs font-semibold uppercase doc-surface-muted"
                 >
                   <th className="py-3 px-4 w-16 text-center">STT</th>
                   <th className="py-3 px-4">Câu hỏi</th>
@@ -463,12 +440,11 @@ const DocumentPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody 
-                className="divide-y text-sm"
-                style={{ borderColor: "var(--border-soft)", color: "var(--fg-2)" }}
+                className="divide-y text-sm doc-border-soft-text-fg2"
               >
                 {filteredQuestions.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="py-8 text-center text-xs" style={{ color: "var(--meta)" }}>
+                    <td colSpan={3} className="py-8 text-center text-xs doc-text-meta">
                       Không tìm thấy câu hỏi phù hợp.
                     </td>
                   </tr>
@@ -478,22 +454,20 @@ const DocumentPage: React.FC = () => {
                     return (
                       <tr 
                         key={q.id || idx} 
-                        className="transition-colors hover:bg-[var(--bg-2)]"
-                        style={{ borderBottom: "1px solid var(--border-soft)" }}
+                        className="transition-colors hover:bg-[var(--bg-2)] doc-border-soft"
                       >
-                        <td className="py-4 px-4 text-center font-medium text-xs align-top" style={{ color: "var(--meta)" }}>
+                        <td className="py-4 px-4 text-center font-medium text-xs align-top doc-text-meta">
                           {idx + 1}
                         </td>
                         <td className="py-4 px-4 align-top space-y-2">
-                          <div className="font-medium" style={{ color: "var(--fg)" }}>{q.question}</div>
+                          <div className="font-medium doc-text-fg">{q.question}</div>
                           
                           {/* Options choices list */}
                           <div 
-                            className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2 pl-2 border-l"
-                            style={{ borderColor: "var(--border)" }}
+                            className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2 pl-2 border-l doc-border-themed"
                           >
                             {(q.choices || []).map((opt, oIdx) => (
-                              <div key={oIdx} className="text-xs" style={{ color: "var(--muted)" }}>
+                              <div key={oIdx} className="text-xs doc-text-muted">
                                 <span className="font-semibold mr-1">{String.fromCharCode(65 + oIdx)}.</span>
                                 {opt}
                               </div>
@@ -502,8 +476,7 @@ const DocumentPage: React.FC = () => {
 
                           {q.url_question && (
                             <div 
-                              className="mt-2 border rounded-lg p-1 max-w-sm inline-block"
-                              style={{ background: "var(--surface-2)", borderColor: "var(--border)" }}
+                              className="mt-2 border rounded-lg p-1 max-w-sm inline-block doc-option-card"
                             >
                               <img src={q.url_question} alt={`Ảnh câu hỏi ${idx + 1}`} className="max-h-40 object-contain" />
                             </div>
@@ -512,11 +485,7 @@ const DocumentPage: React.FC = () => {
                         <td className="py-4 px-4 align-top">
                           {isLocked ? (
                             <div 
-                              className="flex flex-col gap-1.5 border rounded-lg p-2.5 max-w-xs"
-                              style={{ 
-                                background: "color-mix(in srgb, var(--warn) 6%, var(--surface))", 
-                                borderColor: "color-mix(in srgb, var(--warn) 15%, var(--border))"
-                              }}
+                              className="flex flex-col gap-1.5 border rounded-lg p-2.5 max-w-xs doc-locked-card"
                             >
                               <span className="text-amber-600 font-bold text-xs flex items-center gap-1">
                                 <Lock className="w-3.5 h-3.5" /> Bị khóa
@@ -531,19 +500,13 @@ const DocumentPage: React.FC = () => {
                           ) : (
                             <div className="space-y-1.5">
                               <div 
-                                className="font-semibold rounded-lg px-2.5 py-1.5 inline-block text-xs border"
-                                style={{ 
-                                  background: "color-mix(in srgb, var(--brand-600) 8%, var(--surface))", 
-                                  color: "var(--brand-700)",
-                                  borderColor: "color-mix(in srgb, var(--brand-600) 20%, var(--border))"
-                                }}
+                                className="font-semibold rounded-lg px-2.5 py-1.5 inline-block text-xs border doc-answer-badge"
                               >
                                 {q.answer}
                               </div>
                               {q.url_answer && (
                                 <div 
-                                  className="border rounded-lg p-1 max-w-xs mt-1.5"
-                                  style={{ background: "var(--surface-2)", borderColor: "var(--border)" }}
+                                  className="border rounded-lg p-1 max-w-xs mt-1.5 doc-option-card"
                                 >
                                   <img src={q.url_answer} alt={`Ảnh đáp án ${idx + 1}`} className="max-h-40 object-contain" />
                                 </div>
@@ -563,7 +526,7 @@ const DocumentPage: React.FC = () => {
         {/* Questions Cards (Mobile view < 768px) */}
         <div className="block md:hidden space-y-4">
           {filteredQuestions.length === 0 ? (
-            <div className="card p-8 text-center text-xs" style={{ color: "var(--meta)", background: "var(--surface)" }}>
+            <div className="card p-8 text-center text-xs doc-empty-card">
               Không tìm thấy câu hỏi phù hợp.
             </div>
           ) : (
@@ -572,11 +535,10 @@ const DocumentPage: React.FC = () => {
               return (
                 <div 
                   key={q.id || idx}
-                  className="card p-4 space-y-3"
-                  style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "12px" }}
+                  className="card p-4 space-y-3 doc-question-card"
                 >
-                  <div className="flex items-center justify-between border-b pb-2" style={{ borderColor: "var(--border-soft)" }}>
-                    <span className="font-bold text-xs" style={{ color: "var(--brand-600)" }}>Câu {idx + 1}</span>
+                  <div className="flex items-center justify-between border-b pb-2 doc-border-brand">
+                    <span className="font-bold text-xs doc-question-num">Câu {idx + 1}</span>
                     {isLocked && (
                       <span className="text-amber-600 font-bold text-[10px] flex items-center gap-0.5">
                         <Lock className="w-3 h-3" /> Premium
@@ -584,12 +546,12 @@ const DocumentPage: React.FC = () => {
                     )}
                   </div>
                   
-                  <div className="text-sm font-medium" style={{ color: "var(--fg)" }}>{q.question}</div>
+                  <div className="text-sm font-medium doc-text-fg">{q.question}</div>
                   
                   {/* Choices list */}
-                  <div className="space-y-1.5 pl-2 border-l" style={{ borderColor: "var(--border)" }}>
+                  <div className="space-y-1.5 pl-2 border-l doc-border-themed">
                     {(q.choices || []).map((opt, oIdx) => (
-                      <div key={oIdx} className="text-xs" style={{ color: "var(--muted)" }}>
+                      <div key={oIdx} className="text-xs doc-text-muted">
                         <span className="font-semibold mr-1">{String.fromCharCode(65 + oIdx)}.</span>
                         {opt}
                       </div>
@@ -598,14 +560,13 @@ const DocumentPage: React.FC = () => {
 
                   {q.url_question && (
                     <div 
-                      className="border rounded-lg p-1 max-w-full"
-                      style={{ background: "var(--surface-2)", borderColor: "var(--border)" }}
+                      className="border rounded-lg p-1 max-w-full doc-option-card"
                     >
                       <img src={q.url_question} alt={`Ảnh câu hỏi ${idx + 1}`} className="max-h-40 w-full object-contain" />
                     </div>
                   )}
 
-                  <div className="pt-2 border-t" style={{ borderColor: "var(--border-soft)" }}>
+                  <div className="pt-2 border-t doc-border-brand">
                     {isLocked ? (
                       <Link
                         to="/admin"
@@ -615,21 +576,15 @@ const DocumentPage: React.FC = () => {
                       </Link>
                     ) : (
                       <div className="space-y-2">
-                        <div className="text-[10px] uppercase font-semibold" style={{ color: "var(--muted)" }}>Đáp án đúng:</div>
+                        <div className="text-[10px] uppercase font-semibold doc-text-muted">Đáp án đúng:</div>
                         <div 
-                          className="font-semibold rounded-lg px-2.5 py-1.5 inline-block text-xs border"
-                          style={{ 
-                            background: "color-mix(in srgb, var(--brand-600) 8%, var(--surface))", 
-                            color: "var(--brand-700)",
-                            borderColor: "color-mix(in srgb, var(--brand-600) 20%, var(--border))"
-                          }}
+                          className="font-semibold rounded-lg px-2.5 py-1.5 inline-block text-xs border doc-answer-badge"
                         >
                           {q.answer}
                         </div>
                         {q.url_answer && (
                           <div 
-                            className="border rounded-lg p-1 max-w-full"
-                            style={{ background: "var(--surface-2)", borderColor: "var(--border)" }}
+                            className="border rounded-lg p-1 max-w-full doc-option-card"
                           >
                             <img src={q.url_answer} alt={`Ảnh đáp án ${idx + 1}`} className="max-h-40 w-full object-contain" />
                           </div>

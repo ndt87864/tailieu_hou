@@ -3,16 +3,8 @@ import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "../../context/AuthContext.js";
 import { toast } from "react-toastify";
 import { BookOpen, Mail, Lock, Eye, EyeOff, ArrowRight, LogIn, UserPlus, KeyRound, CheckCircle, User, Phone } from "lucide-react";
+import "../../css/login.css";
 
-const LABEL_STYLE = {
-  color: "var(--muted)",
-  fontSize: "0.7rem",
-  fontWeight: 600,
-  textTransform: "uppercase" as const,
-  letterSpacing: "0.06em",
-  display: "block",
-  marginBottom: "0.5rem",
-};
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState<string>("");
@@ -104,15 +96,14 @@ const LoginPage: React.FC = () => {
         <div className="w-full max-w-md animate-fade-up">
           <div className="text-center mb-8">
             <div
-              className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-5"
-              style={{ background: "linear-gradient(135deg, var(--brand-700), var(--brand-500))", boxShadow: "0 8px 24px color-mix(in srgb, var(--brand-600) 30%, transparent)" }}
+              className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-5 login-brand-logo-container"
             >
               <KeyRound className="w-7 h-7 text-white" />
             </div>
-            <h1 style={{ color: "var(--fg)", fontSize: "1.5rem", fontWeight: 800, letterSpacing: "-0.02em" }}>
+            <h1 className="login-title">
               Đặt lại mật khẩu
             </h1>
-            <p style={{ color: "var(--muted)", fontSize: "0.875rem", marginTop: "0.375rem" }}>
+            <p className="login-subtitle">
               Nhập email để nhận liên kết đặt lại mật khẩu
             </p>
           </div>
@@ -120,9 +111,9 @@ const LoginPage: React.FC = () => {
           <div className="card p-6 sm:p-8">
             {forgotSent ? (
               <div className="text-center py-4 space-y-4">
-                <CheckCircle className="w-12 h-12 mx-auto" style={{ color: "var(--brand-600)" }} />
-                <p style={{ color: "var(--fg)", fontWeight: 600 }}>Email đã được gửi!</p>
-                <p style={{ color: "var(--muted)", fontSize: "0.875rem" }}>
+                <CheckCircle className="w-12 h-12 mx-auto login-icon-brand" />
+                <p className="font-semibold">Email đã được gửi!</p>
+                <p className="login-subtitle">
                   Kiểm tra hộp thư <strong>{email}</strong> và làm theo hướng dẫn để đặt lại mật khẩu.
                 </p>
                 <button
@@ -135,9 +126,9 @@ const LoginPage: React.FC = () => {
             ) : (
               <form onSubmit={handleForgotPassword} className="space-y-5">
                 <div>
-                  <label style={LABEL_STYLE}>Email</label>
+                  <label className="login-label-style">Email</label>
                   <div className="relative">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--meta)" }} />
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 login-icon-meta" />
                     <input
                       type="email"
                       value={email}
@@ -166,8 +157,7 @@ const LoginPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsForgotPassword(false)}
-                  className="w-full text-sm text-center py-2 transition-colors"
-                  style={{ color: "var(--muted)" }}
+                  className="w-full text-sm text-center py-2 transition-colors login-btn-back"
                 >
                   ← Quay lại đăng nhập
                 </button>
@@ -188,15 +178,14 @@ const LoginPage: React.FC = () => {
         <div className="text-center mb-8">
           <Link
             to="/"
-            className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-5"
-            style={{ background: "linear-gradient(135deg, var(--brand-700), var(--brand-500))", boxShadow: "0 8px 24px color-mix(in srgb, var(--brand-600) 30%, transparent)" }}
+            className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-5 login-brand-logo-container"
           >
             <BookOpen className="w-7 h-7 text-white" />
           </Link>
-          <h1 style={{ color: "var(--fg)", fontSize: "1.5rem", fontWeight: 800, letterSpacing: "-0.02em" }}>
+          <h1 className="login-title">
             {isSignUp ? "Tạo tài khoản mới" : "Chào mừng trở lại"}
           </h1>
-          <p style={{ color: "var(--muted)", fontSize: "0.875rem", marginTop: "0.375rem" }}>
+          <p className="login-subtitle">
             {isSignUp
               ? "Đăng ký để truy cập kho tài liệu ôn thi HOU"
               : "Đăng nhập để tiếp tục hành trình ôn thi của bạn"}
@@ -210,11 +199,11 @@ const LoginPage: React.FC = () => {
             {/* 1. Họ và tên - chỉ hiện khi đăng ký */}
             {isSignUp && (
               <div>
-                <label style={LABEL_STYLE}>
-                  Họ và tên <span style={{ color: "var(--brand-600)" }}>*</span>
+                <label className="login-label-style">
+                  Họ và tên <span className="login-label-required">*</span>
                 </label>
                 <div className="relative">
-                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--meta)" }} />
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 login-icon-meta" />
                   <input
                     type="text"
                     value={fullName}
@@ -229,11 +218,11 @@ const LoginPage: React.FC = () => {
 
             {/* 2. Email */}
             <div>
-              <label style={LABEL_STYLE}>
-                Email {isSignUp && <span style={{ color: "var(--brand-600)" }}>*</span>}
+              <label className="login-label-style">
+                Email {isSignUp && <span className="login-label-required">*</span>}
               </label>
               <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--meta)" }} />
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 login-icon-meta" />
                 <input
                   type="email"
                   value={email}
@@ -247,14 +236,14 @@ const LoginPage: React.FC = () => {
             {/* 3. Số điện thoại - chỉ hiện khi đăng ký */}
             {isSignUp && (
               <div>
-                <label style={LABEL_STYLE}>
+                <label className="login-label-style">
                   Số điện thoại{" "}
-                  <span style={{ color: "var(--meta)", fontSize: "0.65rem", fontWeight: 400, textTransform: "none" }}>
+                  <span className="login-label-optional">
                     (tùy chọn)
                   </span>
                 </label>
                 <div className="relative">
-                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--meta)" }} />
+                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 login-icon-meta" />
                   <input
                     type="tel"
                     value={phone}
@@ -269,22 +258,21 @@ const LoginPage: React.FC = () => {
             {/* 4. Mật khẩu */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label style={{ color: "var(--muted)", fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                  Mật khẩu {isSignUp && <span style={{ color: "var(--brand-600)" }}>*</span>}
+                <label className="login-label-style !mb-0">
+                  Mật khẩu {isSignUp && <span className="login-label-required">*</span>}
                 </label>
                 {!isSignUp && (
                   <button
                     type="button"
                     onClick={() => setIsForgotPassword(true)}
-                    className="text-xs transition-colors hover:underline"
-                    style={{ color: "var(--brand-600)" }}
+                    className="text-xs transition-colors hover:underline login-btn-forgot"
                   >
                     Quên mật khẩu?
                   </button>
                 )}
               </div>
               <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--meta)" }} />
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 login-icon-meta" />
                 <input
                   type={showPassword ? "text" : "password"}
                   value={password}
@@ -295,8 +283,7 @@ const LoginPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowPassword((p) => !p)}
-                  style={{ color: "var(--meta)" }}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 hover:text-[var(--fg)] transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 hover:text-[var(--fg)] transition-colors login-icon-meta"
                   tabIndex={-1}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -307,30 +294,28 @@ const LoginPage: React.FC = () => {
             {/* 5. Nhập lại mật khẩu - chỉ hiện khi đăng ký */}
             {isSignUp && (
               <div>
-                <label style={LABEL_STYLE}>
-                  Nhập lại mật khẩu <span style={{ color: "var(--brand-600)" }}>*</span>
+                <label className="login-label-style">
+                  Nhập lại mật khẩu <span className="login-label-required">*</span>
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--meta)" }} />
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 login-icon-meta" />
                   <input
                     type={showConfirmPassword ? "text" : "password"}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="input pl-11 pr-12"
-                    placeholder="Nhập lại mật khẩu"
-                    style={{
-                      borderColor: confirmPassword
+                    className={`input pl-11 pr-12 ${
+                      confirmPassword
                         ? confirmPassword === password
-                          ? "var(--brand-500)"
-                          : "rgb(239 68 68)"
-                        : undefined,
-                    }}
+                          ? "login-border-match"
+                          : "login-border-mismatch"
+                        : ""
+                    }`}
+                    placeholder="Nhập lại mật khẩu"
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword((p) => !p)}
-                    style={{ color: "var(--meta)" }}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 hover:text-[var(--fg)] transition-colors"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 hover:text-[var(--fg)] transition-colors login-icon-meta"
                     tabIndex={-1}
                   >
                     {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -338,11 +323,7 @@ const LoginPage: React.FC = () => {
                 </div>
                 {/* Gợi ý khớp/không khớp */}
                 {confirmPassword && (
-                  <p style={{
-                    fontSize: "0.75rem",
-                    marginTop: "0.375rem",
-                    color: confirmPassword === password ? "var(--brand-600)" : "rgb(239 68 68)",
-                  }}>
+                  <p className={confirmPassword === password ? "login-feedback-match" : "login-feedback-mismatch"}>
                     {confirmPassword === password ? "✓ Mật khẩu khớp" : "✗ Mật khẩu không khớp"}
                   </p>
                 )}
@@ -396,22 +377,21 @@ const LoginPage: React.FC = () => {
           </form>
 
           {/* Toggle sign up / login */}
-          <div style={{ borderTop: "1px solid var(--border-soft)", marginTop: "1.5rem", paddingTop: "1.25rem", textAlign: "center" }}>
+          <div className="login-toggle-container">
             <button
               onClick={handleToggleMode}
-              style={{ color: "var(--muted)", fontSize: "0.875rem" }}
-              className="inline-flex items-center gap-1.5 hover:text-[var(--brand-600)] transition-colors group"
+              className="inline-flex items-center gap-1.5 hover:text-[var(--brand-600)] transition-colors group login-toggle-text"
             >
               {isSignUp ? (
                 <>
                   Đã có tài khoản?
-                  <span style={{ color: "var(--brand-600)", fontWeight: 600 }} className="group-hover:underline">Đăng nhập ngay</span>
+                  <span className="group-hover:underline login-toggle-link">Đăng nhập ngay</span>
                   <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
                 </>
               ) : (
                 <>
                   Chưa có tài khoản?
-                  <span style={{ color: "var(--brand-600)", fontWeight: 600 }} className="group-hover:underline">Đăng ký mới</span>
+                  <span className="group-hover:underline login-toggle-link">Đăng ký mới</span>
                   <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
                 </>
               )}
@@ -421,7 +401,7 @@ const LoginPage: React.FC = () => {
 
         {/* Back */}
         <p className="text-center mt-6">
-          <Link to="/" style={{ color: "var(--meta)", fontSize: "0.75rem" }} className="hover:text-[var(--fg)] transition-colors">
+          <Link to="/" className="hover:text-[var(--fg)] transition-colors login-back-home">
             ← Quay lại trang chủ
           </Link>
         </p>

@@ -243,7 +243,7 @@ const StudentInforTab: React.FC = () => {
                       </td>
                       <td className="td-sm-text">{std.subject}
                         <div className="cat-meta">
-                          {std.majorCode && <>Ngành: <span className="user-email-text">{std.majorCode}</span></>}}
+                          {std.majorCode && <>Ngành: <span className="user-email-text">{std.majorCode}</span></>}
                         </div></td>
                       <td className="td-sm-text">
                         {std.examDate ? new Date(std.examDate).toLocaleDateString("vi-VN") : "—"}{" "}

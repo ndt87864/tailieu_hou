@@ -63,3 +63,39 @@
   color: var(--fg-2);
   border: 1px solid var(--border);
 }
+
+/* UI Settings Modal Specific Styles */
+.ui-settings-modal-label {
+  color: var(--fg-2);
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 0.625rem;
+}
+
+.ui-settings-btn-option {
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.ui-settings-btn-option-active {
+  border: 2px solid var(--brand-600);
+  background: rgba(var(--brand-rgb), 0.08);
+  color: var(--brand-600);
+}
+
+.ui-settings-color-active {
+  color: var(--fg);
+  background: rgba(var(--brand-rgb, 17, 141, 5), 0.06);
+}
+
+.ui-settings-note {
+  color: var(--meta);
+  font-size: 0.7rem;
+  margin-top: 1rem;
+  background: var(--bg-2);
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+}
+

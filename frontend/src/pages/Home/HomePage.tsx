@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import apiClient from "../../services/client.js";
 import { SkeletonCard } from "../../components/common/LoadingSpinner.js";
 import * as Icons from "lucide-react";
+import "../../css/home.css";
 
 const { BookOpen, Search, FileText, ChevronRight, Filter, X } = Icons;
 
@@ -176,15 +177,12 @@ const HomePage: React.FC = () => {
     <div>
       {/* ── Hero ── */}
       <section
-        style={{ background: "linear-gradient(135deg, var(--brand-950) 0%, var(--brand-800) 45%, var(--brand-600) 100%)" }}
-        className="relative overflow-hidden rounded-3xl mb-8"
+        className="relative overflow-hidden rounded-3xl mb-8 home-hero-container"
       >
-        <div className="absolute inset-0 opacity-30"
-          style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23fff' fill-opacity='0.05'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")" }}
+        <div className="absolute inset-0 opacity-30 home-hero-mesh"
         />
         <div className="relative px-6 py-10 sm:px-10 sm:py-14 flex flex-col items-center text-center">
-          <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full text-white/80 text-xs font-medium mb-5"
-            style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)", backdropFilter: "blur(8px)" }}>
+          <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full text-white/80 text-xs font-medium mb-5 home-hero-search-card">
             <BookOpen className="w-3.5 h-3.5" />
             Nền tảng ôn thi trực tuyến
           </div>
@@ -202,8 +200,7 @@ const HomePage: React.FC = () => {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Tìm kiếm tài liệu..."
-                className="w-full pl-10 pr-10 py-3 rounded-xl text-white placeholder:text-white/40 text-sm focus:outline-none transition-all duration-250"
-                style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)" }}
+                className="w-full pl-10 pr-10 py-3 rounded-xl text-white placeholder:text-white/40 text-sm focus:outline-none transition-all duration-250 home-hero-stat-card"
               />
               {search && (
                 <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80 transition-colors">
@@ -255,7 +252,7 @@ const HomePage: React.FC = () => {
 
       {/* ── Error ── */}
       {error && (
-        <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: "1rem" }} className="p-6 text-center animate-fade-in">
+        <div className="p-6 text-center animate-fade-in home-error-container">
           <p className="text-red-600 text-sm font-medium">{error}</p>
           <button onClick={() => window.location.reload()} className="mt-3 text-xs text-red-500 hover:text-red-700 underline">
             Thử lại
@@ -273,20 +270,19 @@ const HomePage: React.FC = () => {
       {/* ── Empty ── */}
       {!loading && !error && activeCategories.length === 0 && (
         <div className="flex flex-col items-center justify-center py-20 animate-fade-in">
-          <div style={{ background: "var(--bg-2)", borderRadius: "1.5rem" }} className="w-16 h-16 flex items-center justify-center mb-4">
-            <FileText className="w-7 h-7" style={{ color: "var(--border)" }} />
+          <div className="w-16 h-16 flex items-center justify-center mb-4 home-empty-icon-wrapper">
+            <FileText className="w-7 h-7 home-empty-icon" />
           </div>
-          <h3 style={{ color: "var(--fg-2)" }} className="text-base font-semibold mb-1">
+          <h3 className="text-base font-semibold mb-1 home-empty-title">
             {!isSearchActive ? "Chưa có tài liệu nào" : "Không tìm thấy tài liệu"}
           </h3>
-          <p style={{ color: "var(--meta)" }} className="text-sm max-w-xs text-center">
+          <p className="text-sm max-w-xs text-center home-empty-text">
             {!isSearchActive ? "Hệ thống đang cập nhật tài liệu. Vui lòng quay lại sau." : "Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm."}
           </p>
           {search && (
             <button
               onClick={() => { setSearch(""); setSelectedCategory(null); }}
-              style={{ color: "var(--brand-600)" }}
-              className="mt-4 text-sm hover:opacity-80 font-medium transition-opacity"
+              className="mt-4 text-sm hover:opacity-80 font-medium transition-opacity home-text-brand"
             >
               Xóa bộ lọc
             </button>
@@ -298,9 +294,9 @@ const HomePage: React.FC = () => {
       {!loading && !error && activeCategories.length > 0 && (
         <div>
           <div className="flex items-baseline justify-between mb-4">
-            <p style={{ color: "var(--meta)" }} className="text-sm">
-              Hiển thị <span style={{ color: "var(--fg-2)", fontWeight: 600 }}>{activeCategories.length}</span> chuyên mục
-              {search && <span style={{ color: "var(--meta)" }}> — kết quả tìm kiếm cho "<span style={{ color: "var(--fg-2)" }}>{search}</span>"</span>}
+            <p className="text-sm home-text-meta">
+              Hiển thị <span className="font-semibold home-text-fg2">{activeCategories.length}</span> chuyên mục
+              {search && <span className="home-text-meta"> — kết quả tìm kiếm cho "<span className="home-text-fg2">{search}</span>"</span>}
             </p>
           </div>
 
@@ -318,22 +314,21 @@ const HomePage: React.FC = () => {
               return (
                 <div
                   key={cat.id}
-                  className="card flex flex-col animate-fade-up"
-                  style={{ padding: "1.5rem", animationDelay: `${i * 50}ms` }}
+                  className="card flex flex-col animate-fade-up p-6"
+                  style={{ animationDelay: `${i * 50}ms` }}
                 >
                   {/* Category Header */}
-                  <div className="flex items-center gap-3 mb-4 pb-3" style={{ borderBottom: "1px solid var(--border-soft)" }}>
+                  <div className="flex items-center gap-3 mb-4 pb-3 home-card-header">
                     <div
-                      style={{ background: "color-mix(in srgb, var(--brand-600) 12%, transparent)", borderRadius: "0.75rem" }}
-                      className="w-10 h-10 flex items-center justify-center shrink-0"
+                      className="w-10 h-10 flex items-center justify-center shrink-0 home-card-icon-wrapper"
                     >
                       {catInfo.icon("w-5 h-5 text-[var(--brand-600)]")}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h3 style={{ color: "var(--fg)" }} className="font-bold text-base leading-snug">
+                      <h3 className="font-bold text-base leading-snug home-card-title">
                         {catInfo.label}
                       </h3>
-                      <p style={{ color: "var(--meta)" }} className="text-xs">
+                      <p className="text-xs home-card-meta">
                         {cat.total_count || docs.length} tài liệu
                       </p>
                     </div>
@@ -345,8 +340,7 @@ const HomePage: React.FC = () => {
                       <Link
                         key={doc.id}
                         to={`/documents/${doc.id}`}
-                        className="group/item flex items-center justify-between p-2.5 rounded-xl hover:bg-[var(--bg-2)] transition-colors duration-200"
-                        style={{ border: "1px solid transparent" }}
+                        className="group/item flex items-center justify-between p-2.5 rounded-xl hover:bg-[var(--bg-2)] transition-colors duration-200 home-border-transparent"
                       >
                         <div className="flex items-center gap-2.5 min-w-0 flex-1">
                           <FileText className="w-4 h-4 text-[var(--muted)] group-hover/item:text-[var(--brand-600)] shrink-0 transition-colors" />
@@ -367,12 +361,9 @@ const HomePage: React.FC = () => {
                     <button
                       onClick={() => handleExpand(cat.id)}
                       disabled={isCatLoading}
-                      className="mt-auto w-full py-2.5 px-4 rounded-xl text-xs font-semibold text-center border transition-all duration-200"
-                      style={{
-                        background: isExpanded ? "var(--bg-2)" : "var(--surface)",
-                        borderColor: "var(--border)",
-                        color: "var(--fg-2)"
-                      }}
+                      className={`mt-auto w-full py-2.5 px-4 rounded-xl text-xs font-semibold text-center border transition-all duration-200 home-expand-btn ${
+                        isExpanded ? "home-expand-btn-expanded" : "home-expand-btn-collapsed"
+                      }`}
                     >
                       {isExpanded ? "Thu gọn" : `Xem tất cả (${cat.total_count} tài liệu)`}
                     </button>

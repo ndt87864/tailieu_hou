@@ -1,6 +1,8 @@
 import React from "react";
 import { X, Sun, Moon, Laptop, Check, Monitor, Tablet, Smartphone, Maximize } from "lucide-react";
 import { useUI, type ThemeMode, type PrimaryColor, type ViewMode } from "../../context/UIContext.js";
+import "../../css/modal.css";
+
 
 interface UISettingsModalProps {
   isOpen: boolean;
@@ -40,35 +42,27 @@ const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) =>
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 backdrop-blur-sm transition-opacity duration-300"
-        style={{ background: "rgba(0,0,0,0.65)" }}
+        className="absolute inset-0 backdrop-blur-sm transition-opacity duration-300 modal-backdrop"
         onClick={onClose}
       />
 
       {/* Modal */}
       <div
-        className="relative w-full max-w-sm rounded-2xl p-6 overflow-hidden animate-scale-in"
-        style={{
-          background: "var(--surface)",
-          border: "1px solid var(--border)",
-          boxShadow: "var(--shadow-md)",
-          color: "var(--fg)",
-        }}
+        className="relative w-full max-w-sm rounded-2xl p-6 overflow-hidden animate-scale-in modal-container"
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 style={{ color: "var(--fg)", fontSize: "1.125rem", fontWeight: 700 }}>
+            <h2 className="modal-title">
               Tùy chỉnh giao diện
             </h2>
-            <p style={{ color: "var(--muted)", fontSize: "0.75rem", marginTop: "0.125rem" }}>
+            <p className="modal-subtitle">
               Cá nhân hóa trải nghiệm của bạn
             </p>
           </div>
           <button
             onClick={onClose}
-            style={{ color: "var(--muted)", borderRadius: "0.75rem", padding: "0.375rem" }}
-            className="hover:bg-[var(--bg-2)] transition-colors"
+            className="hover:bg-[var(--bg-2)] transition-colors modal-close-btn"
           >
             <X className="w-5 h-5" />
           </button>
@@ -76,7 +70,7 @@ const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) =>
 
         {/* Chế độ hiển thị */}
         <div className="mb-5">
-          <label style={{ color: "var(--fg-2)", fontSize: "0.8rem", fontWeight: 600, display: "block", marginBottom: "0.625rem" }}>
+          <label className="ui-settings-modal-label">
             Chế độ hiển thị
           </label>
           <div className="grid grid-cols-3 gap-2">
@@ -86,20 +80,9 @@ const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) =>
                 <button
                   key={t.value}
                   onClick={() => setThemeMode(t.value)}
-                  className="flex flex-col items-center gap-1.5 p-3 rounded-xl text-xs font-medium transition-all duration-200"
-                  style={
-                    active
-                      ? {
-                          border: `2px solid var(--brand-600)`,
-                          background: `rgba(var(--brand-rgb), 0.08)`,
-                          color: "var(--brand-600)",
-                        }
-                      : {
-                          border: "1px solid var(--border)",
-                          background: "var(--surface-2)",
-                          color: "var(--muted)",
-                        }
-                  }
+                  className={`flex flex-col items-center gap-1.5 p-3 rounded-xl text-xs font-medium transition-all duration-200 ${
+                    active ? "ui-settings-btn-option-active" : "ui-settings-btn-option"
+                  }`}
                 >
                   {t.icon}
                   <span>{t.label}</span>
@@ -111,7 +94,7 @@ const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) =>
 
         {/* Chế độ hiển thị (Thiết bị) */}
         <div className="mb-5">
-          <label style={{ color: "var(--fg-2)", fontSize: "0.8rem", fontWeight: 600, display: "block", marginBottom: "0.625rem" }}>
+          <label className="ui-settings-modal-label">
             Mô phỏng thiết bị
           </label>
           <div className="grid grid-cols-4 gap-2">
@@ -121,20 +104,9 @@ const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) =>
                 <button
                   key={v.value}
                   onClick={() => setViewMode(v.value)}
-                  className="flex flex-col items-center gap-1.5 p-2 rounded-xl text-[10px] font-medium transition-all duration-200"
-                  style={
-                    active
-                      ? {
-                          border: `2px solid var(--brand-600)`,
-                          background: `rgba(var(--brand-rgb), 0.08)`,
-                          color: "var(--brand-600)",
-                        }
-                      : {
-                          border: "1px solid var(--border)",
-                          background: "var(--surface-2)",
-                          color: "var(--muted)",
-                        }
-                  }
+                  className={`flex flex-col items-center gap-1.5 p-2 rounded-xl text-[10px] font-medium transition-all duration-200 ${
+                    active ? "ui-settings-btn-option-active" : "ui-settings-btn-option"
+                  }`}
                 >
                   {v.icon}
                   <span className="truncate w-full text-center">{v.label}</span>
@@ -146,7 +118,7 @@ const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) =>
 
         {/* Màu chủ đạo */}
         <div>
-          <label style={{ color: "var(--fg-2)", fontSize: "0.8rem", fontWeight: 600, display: "block", marginBottom: "0.625rem" }}>
+          <label className="ui-settings-modal-label">
             Màu hệ thống
           </label>
           <div className="grid grid-cols-4 gap-2">
@@ -157,20 +129,10 @@ const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) =>
                   key={c.value}
                   onClick={() => setPrimaryColor(c.value)}
                   title={c.label}
-                  className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl text-xs font-medium transition-all duration-200"
-                  style={
-                    active
-                      ? {
-                          border: `2px solid ${c.hex}`,
-                          background: `rgba(var(--brand-rgb, 17,141,5), 0.06)`,
-                          color: "var(--fg)",
-                        }
-                      : {
-                          border: "1px solid var(--border)",
-                          background: "var(--surface-2)",
-                          color: "var(--muted)",
-                        }
-                  }
+                  className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl text-xs font-medium transition-all duration-200 ${
+                    active ? "ui-settings-color-active" : "ui-settings-btn-option"
+                  }`}
+                  style={active ? { border: `2px solid ${c.hex}` } : undefined}
                 >
                   <span
                     className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
@@ -186,9 +148,7 @@ const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) =>
         </div>
 
         {/* Note */}
-        <p
-          style={{ color: "var(--meta)", fontSize: "0.7rem", marginTop: "1rem", background: "var(--bg-2)", padding: "0.5rem 0.75rem", borderRadius: "0.5rem" }}
-        >
+        <p className="ui-settings-note">
           Thiết lập được lưu tự động. Tài khoản khách lưu trên trình duyệt.
         </p>
       </div>
