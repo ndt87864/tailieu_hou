@@ -1,26 +1,47 @@
 import { supabaseAdmin } from "../config/db.js";
 import type { Document } from "../types/index.js";
+import { cacheGetOrSet, cacheInvalidatePrefix } from "../utils/cache.js";
+
+// TTL cho các loại cache
+const TTL_GROUPED = 60_000;   // 60 giây
+const TTL_ALL_DOCS = 60_000;  // 60 giây
+
+// Prefix dùng để invalidate hàng loạt
+const CACHE_PREFIX = "docs";
 
 export const listDocuments = async (categoryId?: string): Promise<Document[]> => {
-  let query = supabaseAdmin
-    .from("documents")
-    .select("*, category:categories(title, logo, stt)")
-    .order("created_at", { ascending: false });
+  const fetcher = async () => {
+    let query = supabaseAdmin
+      .from("documents")
+      .select("*, category:categories(title, logo, stt)")
+      .order("created_at", { ascending: false });
 
-  if (categoryId) {
-    if (categoryId === "other") {
-      query = query.is("category_id", null);
-    } else {
-      query = query.eq("category_id", categoryId);
+    if (categoryId) {
+      if (categoryId === "other") {
+        query = query.is("category_id", null);
+      } else {
+        query = query.eq("category_id", categoryId);
+      }
     }
-  }
 
-  const { data, error } = await query;
-  if (error) throw error;
-  return data as any ?? [];
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data as any) ?? [];
+  };
+
+  // Chỉ cache khi không có filter (dùng cho sidebar)
+  if (!categoryId) {
+    return cacheGetOrSet<Document[]>(`${CACHE_PREFIX}:all`, fetcher, TTL_ALL_DOCS);
+  }
+  return fetcher();
 };
 
 export const getGroupedDocumentsPreview = async (): Promise<any[]> => {
+  return cacheGetOrSet(`${CACHE_PREFIX}:grouped`, _fetchGroupedDocuments, TTL_GROUPED);
+};
+
+/** Hàm thực thi fetch (tách ra để dùng trong cacheGetOrSet) */
+async function _fetchGroupedDocuments(): Promise<any[]> {
   // 1. Lấy tất cả categories
   const { data: categories, error: catError } = await supabaseAdmin
     .from("categories")
@@ -100,7 +121,7 @@ export const getGroupedDocumentsPreview = async (): Promise<any[]> => {
   }
 
   return result;
-};
+}
 
 export const getDocumentById = async (id: string): Promise<Document | null> => {
   const { data, error } = await supabaseAdmin
@@ -123,6 +144,8 @@ export const createDocument = async (
     .single();
 
   if (error) throw error;
+  // Invalidate cache sau khi thêm mới
+  cacheInvalidatePrefix(CACHE_PREFIX);
   return data;
 };
 
@@ -138,6 +161,8 @@ export const updateDocument = async (
     .single();
 
   if (error) return null;
+  // Invalidate cache sau khi cập nhật
+  cacheInvalidatePrefix(CACHE_PREFIX);
   return data;
 };
 
@@ -147,5 +172,9 @@ export const deleteDocument = async (id: string): Promise<boolean> => {
     .delete()
     .eq("id", id);
 
+  if (!error) {
+    // Invalidate cache sau khi xóa
+    cacheInvalidatePrefix(CACHE_PREFIX);
+  }
   return !error;
 };

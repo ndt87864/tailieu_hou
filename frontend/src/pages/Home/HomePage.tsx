@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import apiClient from "../../services/client.js";
+import { cachedGet } from "../../utils/apiCache.js";
 import { SkeletonCard } from "../../components/common/LoadingSpinner.js";
 import * as Icons from "lucide-react";
 import "../../css/home.css";
@@ -43,8 +43,7 @@ const HomePage: React.FC = () => {
   const [loadingCategory, setLoadingCategory] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    apiClient
-      .get("/api/v1/documents/grouped")
+    cachedGet<{ categories: GroupedCategory[] }>("/api/v1/documents/grouped")
       .then((res) => {
         setGroupedCategories(res.data.categories || []);
         setLoading(false);
@@ -59,7 +58,7 @@ const HomePage: React.FC = () => {
   // Fetch all documents on-demand when user is searching
   useEffect(() => {
     if (search && !allDocumentsLoaded) {
-      apiClient.get("/api/v1/documents")
+      cachedGet<{ documents: Document[] }>("/api/v1/documents")
         .then(res => {
           setAllDocuments(res.data.documents || []);
           setAllDocumentsLoaded(true);

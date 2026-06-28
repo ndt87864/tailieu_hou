@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import apiClient from "../../services/client.js";
+import { cachedGet } from "../../utils/apiCache.js";
 import LoadingSpinner from "../../components/common/LoadingSpinner.js";
 import { useAuth } from "../../context/AuthContext.js";
 import * as Icons from "lucide-react";
@@ -78,8 +79,9 @@ const DocumentPage: React.FC = () => {
   }, [id]);
 
   // Load and Group documents for the sidebar
+  // Dùng cachedGet: navigate giữa các document không re-fetch, instant từ cache
   useEffect(() => {
-    apiClient.get("/api/v1/documents")
+    cachedGet<{ documents: Document[] }>("/api/v1/documents")
       .then((res) => {
         const docs: Document[] = res.data.documents || [];
         const groups: Record<string, SidebarCategory> = {};

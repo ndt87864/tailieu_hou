@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { supabaseAdmin } from "../config/db.js";
 import { requireRole } from "../middlewares/role.js";
+import { cacheGetOrSet, cacheInvalidatePrefix } from "../utils/cache.js";
 
 const adminRouter = new Hono();
 
@@ -12,71 +13,57 @@ adminRouter.use("*", requireRole("admin"));
 // =============================================================
 adminRouter.get("/stats", async (c) => {
   try {
-    // 1. Count users by role
-    const { data: users, error: uError } = await supabaseAdmin
-      .from("profiles")
-      .select("role");
-    if (uError) throw uError;
+    const stats = await cacheGetOrSet(
+      "admin:stats",
+      async () => {
+        // Chạy song song: users + 4 count queries cùng 1 lúc
+        const [
+          usersResult,
+          catResult,
+          docResult,
+          qResult,
+          stdResult,
+        ] = await Promise.all([
+          supabaseAdmin.from("profiles").select("role"),
+          supabaseAdmin.from("categories").select("*", { count: "exact", head: true }),
+          supabaseAdmin.from("documents").select("*", { count: "exact", head: true }),
+          supabaseAdmin.from("questions").select("*", { count: "exact", head: true }),
+          supabaseAdmin.from("student_infor").select("*", { count: "exact", head: true }),
+        ]);
 
-    let totalUsers = users?.length || 0;
-    let freeCount = 0;
-    let plusCount = 0;
-    let proCount = 0;
-    let ultraCount = 0;
-    let managementCount = 0;
-    let adminCount = 0;
+        if (usersResult.error) throw usersResult.error;
+        if (catResult.error) throw catResult.error;
+        if (docResult.error) throw docResult.error;
+        if (qResult.error) throw qResult.error;
+        if (stdResult.error) throw stdResult.error;
 
-    users?.forEach((u) => {
-      if (u.role === "admin") adminCount++;
-      else if (u.role === "management") managementCount++;
-      else if (u.role === "ultra") ultraCount++;
-      else if (u.role === "pro") proCount++;
-      else if (u.role === "plus") plusCount++;
-      else freeCount++;
-    });
+        let totalUsers = usersResult.data?.length || 0;
+        let freeCount = 0, plusCount = 0, proCount = 0;
+        let ultraCount = 0, managementCount = 0, adminCount = 0;
 
-    // 2. Count categories
-    const { count: catCount, error: catError } = await supabaseAdmin
-      .from("categories")
-      .select("*", { count: "exact", head: true });
-    if (catError) throw catError;
+        usersResult.data?.forEach((u) => {
+          if (u.role === "admin") adminCount++;
+          else if (u.role === "management") managementCount++;
+          else if (u.role === "ultra") ultraCount++;
+          else if (u.role === "pro") proCount++;
+          else if (u.role === "plus") plusCount++;
+          else freeCount++;
+        });
 
-    // 3. Count documents
-    const { count: docCount, error: docError } = await supabaseAdmin
-      .from("documents")
-      .select("*", { count: "exact", head: true });
-    if (docError) throw docError;
-
-    // 4. Count questions
-    const { count: qCount, error: qError } = await supabaseAdmin
-      .from("questions")
-      .select("*", { count: "exact", head: true });
-    if (qError) throw qError;
-
-    // 5. Count students
-    const { count: stdCount, error: stdError } = await supabaseAdmin
-      .from("student_infor")
-      .select("*", { count: "exact", head: true });
-    if (stdError) throw stdError;
-
-    return c.json({
-      stats: {
-        totalUsers,
-        roles: {
-          free: freeCount,
-          plus: plusCount,
-          pro: proCount,
-          ultra: ultraCount,
-          management: managementCount,
-          admin: adminCount,
-        },
-        totalCategories: catCount || 0,
-        totalDocuments: docCount || 0,
-        totalQuestions: qCount || 0,
-        totalStudents: stdCount || 0,
-        activeUsers: Math.floor(Math.random() * 10) + 5, // Mock active users count
+        return {
+          totalUsers,
+          roles: { free: freeCount, plus: plusCount, pro: proCount, ultra: ultraCount, management: managementCount, admin: adminCount },
+          totalCategories: catResult.count || 0,
+          totalDocuments: docResult.count || 0,
+          totalQuestions: qResult.count || 0,
+          totalStudents: stdResult.count || 0,
+          activeUsers: Math.floor(Math.random() * 10) + 5,
+        };
       },
-    });
+      30_000 // cache 30 giây
+    );
+
+    return c.json({ stats });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }

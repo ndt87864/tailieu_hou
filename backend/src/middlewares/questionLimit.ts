@@ -19,53 +19,70 @@ export const questionLimitMiddleware: MiddlewareHandler = async (c, next) => {
 
   let questions = data.questions;
 
-  //console.log("questionLimitMiddleware: eval start", { role, docId, userId: user?.id });
-
+  // Admin / management / ultra: bypass hoàn toàn
   if (role === "admin" || role === "management" || role === "ultra") {
-    //console.log("questionLimitMiddleware: admin/management/ultra bypass");
     c.res = c.json({ ...data, questions, limitApplied: false }, 200);
     return;
   }
 
+  // Pro / plus: kiểm tra quyền premium — chạy 2 queries song song
   if ((role === "pro" || role === "plus") && docId && user) {
-    const { data: docData } = await supabaseAdmin
-      .from("documents")
-      .select("category_id")
-      .eq("id", docId)
-      .maybeSingle();
-
-    //console.log("questionLimitMiddleware: docData fetched", docData);
-
-    if (docData) {
-      const categoryId = docData.category_id;
-      let query = supabaseAdmin
+    // Chạy song song: lấy category_id của doc + kiểm tra premium_user
+    // Lần đầu cần doc info trước, nhưng ta có thể tối ưu bằng cách
+    // fetch doc + premium check theo document_id luôn (tránh waterfall)
+    if (role === "plus") {
+      // Plus: kiểm tra theo document_id trực tiếp (không cần category_id)
+      const { data: premiumAccess } = await supabaseAdmin
         .from("premium_user")
         .select("id")
-        .eq("profile_id", user.id);
-
-      if (role === "plus") {
-        query = query.eq("document_id", docId);
-        //console.log("questionLimitMiddleware: checking plus document-level access", { userId: user.id, docId });
-      } else {
-        query = query.eq("category_id", categoryId);
-        //console.log("questionLimitMiddleware: checking pro category-level access", { userId: user.id, categoryId });
-      }
-
-      const { data: premiumAccess, error: accessError } = await query.maybeSingle();
-      if (accessError) {
-        console.error("questionLimitMiddleware: access check error", accessError);
-      }
-      //console.log("questionLimitMiddleware: premiumAccess result", premiumAccess);
+        .eq("profile_id", user.id)
+        .eq("document_id", docId)
+        .maybeSingle();
 
       if (premiumAccess) {
-        //console.log("questionLimitMiddleware: access granted via premium_user");
         c.res = c.json({ ...data, questions, limitApplied: false }, 200);
         return;
       }
+    } else {
+      // Pro: cần category_id của doc → chạy song song cả 2 queries
+      const [docResult, premiumByDocResult] = await Promise.all([
+        supabaseAdmin
+          .from("documents")
+          .select("category_id")
+          .eq("id", docId)
+          .maybeSingle(),
+        // Thử luôn theo document_id (fallback nếu không có category)
+        supabaseAdmin
+          .from("premium_user")
+          .select("id, category_id")
+          .eq("profile_id", user.id)
+          .maybeSingle(),
+      ]);
+
+      const categoryId = docResult.data?.category_id;
+
+      if (categoryId && premiumByDocResult.data) {
+        // Kiểm tra category match
+        if (premiumByDocResult.data.category_id === categoryId) {
+          c.res = c.json({ ...data, questions, limitApplied: false }, 200);
+          return;
+        }
+      } else if (categoryId) {
+        // Fallback: query cụ thể theo category_id
+        const { data: premiumAccess } = await supabaseAdmin
+          .from("premium_user")
+          .select("id")
+          .eq("profile_id", user.id)
+          .eq("category_id", categoryId)
+          .maybeSingle();
+
+        if (premiumAccess) {
+          c.res = c.json({ ...data, questions, limitApplied: false }, 200);
+          return;
+        }
+      }
     }
   }
-
-  //console.log("questionLimitMiddleware: applying limits");
 
   // Tài khoản khách/free được xem tối thiểu 1 câu, tối đa 20% tổng số câu
   const limitCount = Math.max(1, Math.round(questions.length * 0.2));
@@ -77,7 +94,7 @@ export const questionLimitMiddleware: MiddlewareHandler = async (c, next) => {
     order_index: q.order_index,
     question: "Nội dung câu hỏi này đã bị khóa. Vui lòng nâng cấp tài khoản để xem tiếp.",
     answer: "",
-    choices: ["Khóa","Khóa","Khóa","Khóa"],
+    choices: ["Khóa", "Khóa", "Khóa", "Khóa"],
     url_question: null,
     url_answer: null,
     isPremiumLocked: true,
