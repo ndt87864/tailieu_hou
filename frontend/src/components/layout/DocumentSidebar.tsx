@@ -137,9 +137,9 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
             onClick={() => setMobileOpen(false)}
           />
           <div 
-            className="fixed inset-y-0 left-0 w-72 z-[70] md:hidden shadow-2xl overflow-y-auto flex flex-col animate-slide-right doc-brand-header"
+            className="fixed inset-y-0 left-0 w-72 z-[70] md:hidden shadow-2xl flex flex-col animate-slide-right doc-brand-header"
           >
-            <div className="p-4 flex items-center justify-between border-b doc-border-brand">
+            <div className="p-4 flex items-center justify-between border-b doc-border-brand shrink-0">
               <Link 
                 to="/" 
                 className="font-bold flex items-center gap-2 text-white hover:opacity-80 transition-opacity"
@@ -150,7 +150,7 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
                 <X className="w-6 h-6" />
               </button>
             </div>
-            <div className="p-4 space-y-4 pb-24">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
               {sidebarCategories.map((cat) => {
                 const isExpanded = !!expandedCategories[cat.id];
                 return (
@@ -283,17 +283,19 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
 
       {/* 3. Desktop Sidebar (Full layout) */}
       <div 
-        className="hidden lg:flex w-72 shrink-0 flex-col border-r lg:sticky lg:top-0 lg:h-[calc(100vh/0.9)] lg:overflow-y-auto z-10 animate-fade-in doc-brand-header"
+        className="hidden lg:flex w-72 shrink-0 flex-col border-r lg:sticky lg:top-0 lg:h-[calc(100vh/0.9)] z-10 animate-fade-in doc-brand-header"
       >
-        <div className="p-4 pb-24 space-y-4">
+        <div className="p-4 pb-0 shrink-0">
           <Link 
             to="/"
-            className="flex items-center gap-2.5 font-bold text-lg mb-6 pb-2 border-b text-white doc-border-brand hover:opacity-80 transition-opacity"
+            className="flex items-center gap-2.5 font-bold text-lg mb-4 pb-2 border-b text-white doc-border-brand hover:opacity-80 transition-opacity"
           >
             <BookOpen className="w-5 h-5 text-white" />
             <span>Tài liệu HOU</span>
           </Link>
+        </div>
 
+        <div className="flex-1 overflow-y-auto p-4 pt-2 pb-24 space-y-4">
           <div className="space-y-2">
             {sidebarCategories.map((cat) => {
               const isExpanded = !!expandedCategories[cat.id];

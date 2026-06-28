@@ -48,7 +48,7 @@ const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) =>
 
       {/* Modal */}
       <div
-        className="relative w-full max-w-sm rounded-2xl p-6 overflow-hidden animate-scale-in modal-container"
+        className="relative w-full max-w-sm rounded-2xl p-6 animate-scale-in modal-container"
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-5">

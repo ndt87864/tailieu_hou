@@ -95,7 +95,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose }) 
       {/* Modal */}
       <form
         onSubmit={handleSubmit}
-        className="relative w-full max-w-md rounded-2xl p-6 overflow-hidden animate-scale-in modal-container"
+        className="relative w-full max-w-md rounded-2xl p-6 animate-scale-in modal-container"
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
