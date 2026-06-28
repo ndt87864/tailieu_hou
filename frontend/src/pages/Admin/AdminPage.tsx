@@ -39,10 +39,8 @@ import {
 
 // Import component ContactsTab mới
 import { ContactsTab } from "./subpages/ContactsTab.js";
-
-// Import component QuestionRatioTab mới
 import { QuestionRatioTab } from "./subpages/QuestionRatioTab.js";
-
+import { Header } from "../../components/layout/Layout.js";
 import "../../css/admin.css";
 
 type TabId =
@@ -315,37 +313,40 @@ const AdminPage: React.FC = () => {
 
       {/* Main Content Area */}
       <div className="admin-main-container">
-        {/* Topbar for mobile navigation or route preview */}
-        <header className="admin-header w-full flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setMobileOpen(true)}
-              className="admin-menu-btn-mobile md:hidden p-1.5 rounded-lg hover:bg-[var(--bg-2)] transition-colors mr-1"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-            <span className="admin-breadcrumb-muted">Tài liệu HOU</span>
-            <span className="admin-breadcrumb-separator">/</span>
-            <span className="admin-breadcrumb-active">
-              {menuItems.find((m) => m.id === activeTab)?.label}
-            </span>
-          </div>
-
-          {/* Mobile Select dropdown for menu */}
-          <div className="md:hidden">
-            <select
-              value={activeTab}
-              onChange={(e) => handleTabChange(e.target.value as TabId)}
-              className="admin-mobile-select text-xs px-2.5 py-1.5 rounded-lg outline-none"
-            >
-              {menuItems.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </header>
+        <Header 
+          onOpenSettings={() => window.dispatchEvent(new Event("open-settings"))}
+          onOpenProfile={() => window.dispatchEvent(new Event("open-profile"))}
+          leftElement={
+            <div className="flex items-center gap-2 min-w-0">
+              <button
+                onClick={() => setMobileOpen(true)}
+                className="admin-menu-btn-mobile md:hidden p-1.5 rounded-lg hover:bg-[var(--bg-2)] transition-colors mr-1 shrink-0"
+              >
+                <Menu className="w-5 h-5 text-[var(--fg)]" />
+              </button>
+              <span className="admin-breadcrumb-muted shrink-0">Quản trị</span>
+              <span className="admin-breadcrumb-separator shrink-0">/</span>
+              <span className="admin-breadcrumb-active truncate">
+                {menuItems.find((m) => m.id === activeTab)?.label}
+              </span>
+            </div>
+          }
+          rightElement={
+            <div className="md:hidden shrink-0">
+              <select
+                value={activeTab}
+                onChange={(e) => handleTabChange(e.target.value as TabId)}
+                className="admin-mobile-select text-xs px-2.5 py-1.5 rounded-lg outline-none border border-[var(--border)] bg-[var(--surface)] text-[var(--fg)]"
+              >
+                {menuItems.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          }
+        />
 
         {/* Tab Content container */}
         <main className="admin-main-content">

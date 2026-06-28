@@ -3,6 +3,7 @@ import apiClient from "../../services/client.js";
 import { useUI } from "../../context/UIContext.js";
 import { Check, Link2, Leaf, Zap, Crown, Gem, Sparkles, FileText, Files, GraduationCap, FileSignature, BarChart3, Briefcase, Star, Heart, Gift, Award, Shield, Flame, Rocket } from "lucide-react";
 import DocumentSidebar from "../../components/layout/DocumentSidebar.js";
+import { Header } from "../../components/layout/Layout.js";
 import "../../css/pricing-page.css";
 
 interface ContactLink {
@@ -209,11 +210,18 @@ export const PricingPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col md:flex-row gap-0 min-h-[calc(100vh/0.9-4rem)] w-full doc-bg-muted">
+    <div className="flex flex-col md:flex-row gap-0 min-h-[calc(100vh/0.9)] w-full doc-bg-muted">
       <DocumentSidebar isContactPage={true} />
       
       {/* Main Content Area */}
-      <div className="flex-1 p-6 min-w-0 w-full flex flex-col gap-6 doc-main-bg overflow-y-auto">
+      <div className="flex-1 min-w-0 w-full flex flex-col doc-main-bg">
+        <Header 
+          title="Liên hệ"
+          hideLogo={true}
+          onOpenSettings={() => window.dispatchEvent(new Event("open-settings"))}
+          onOpenProfile={() => window.dispatchEvent(new Event("open-profile"))}
+        />
+        <div className="flex-1 p-6 gap-6 flex flex-col overflow-y-auto">
         <div className={`pricing-page ${isDark ? "dark" : "light"} bg-transparent min-h-0`}>
           <main className="pricing-main-content !p-0">
             <div className="max-w-7xl mx-auto px-4">
@@ -384,6 +392,7 @@ export const PricingPage: React.FC = () => {
 
             </div>
           </main>
+        </div>
         </div>
       </div>
     </div>

@@ -201,7 +201,7 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
                   }`}
                 >
                   <Heart className="w-4 h-4 text-rose-400 shrink-0" />
-                  <span>Ủng hộ tôi / Liên hệ</span>
+                  <span>Liên hệ</span>
                 </Link>
               </div>
             </div>
@@ -211,7 +211,7 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
 
       {/* 2. Tablet Sidebar (Icons-only) */}
       <div 
-        className="hidden md:flex lg:hidden w-20 shrink-0 flex-col items-center py-6 border-r md:sticky md:top-16 md:h-[calc(100vh/0.9-4rem)] z-20 doc-brand-header"
+        className="hidden md:flex lg:hidden w-20 shrink-0 flex-col items-center py-6 border-r md:sticky md:top-0 md:h-[calc(100vh/0.9)] z-20 doc-brand-header"
       >
         <div className="mb-8 text-white">
           <BookOpen className="w-6 h-6" />
@@ -276,7 +276,7 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
                   ? "bg-[rgba(255,255,255,0.12)] text-rose-300" 
                   : "text-rose-400 hover:bg-[rgba(255,255,255,0.08)] hover:text-rose-300"
               }`}
-              title="Ủng hộ tôi / Liên hệ"
+              title="Liên hệ"
             >
               <Heart className="w-5 h-5" />
             </Link>
@@ -286,7 +286,7 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
 
       {/* 3. Desktop Sidebar (Full layout) */}
       <div 
-        className="hidden lg:flex w-72 shrink-0 flex-col border-r lg:sticky lg:top-16 lg:h-[calc(100vh/0.9-4rem)] lg:overflow-y-auto z-10 animate-fade-in doc-brand-header"
+        className="hidden lg:flex w-72 shrink-0 flex-col border-r lg:sticky lg:top-0 lg:h-[calc(100vh/0.9)] lg:overflow-y-auto z-10 animate-fade-in doc-brand-header"
       >
         <div className="p-4 pb-24 space-y-4">
           <div 
@@ -342,7 +342,7 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
                 }`}
               >
                 <Heart className="w-4 h-4 text-rose-400 shrink-0" />
-                <span>Ủng hộ tôi / Liên hệ</span>
+                <span>Liên hệ</span>
               </Link>
             </div>
           </div>

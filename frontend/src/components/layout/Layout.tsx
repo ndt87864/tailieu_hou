@@ -7,12 +7,27 @@ import UISettingsModal from "./UISettingsModal.js";
 import EditProfileModal from "./EditProfileModal.js";
 import { useUI } from "../../context/UIContext.js";
 
-interface HeaderProps {
+export interface HeaderProps {
   onOpenSettings: () => void;
   onOpenProfile: () => void;
+  title?: React.ReactNode;
+  subtitle?: React.ReactNode;
+  leftElement?: React.ReactNode;
+  rightElement?: React.ReactNode;
+  hideNavLinks?: boolean;
+  hideLogo?: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenProfile }) => {
+export const Header: React.FC<HeaderProps> = ({
+  onOpenSettings,
+  onOpenProfile,
+  title,
+  subtitle,
+  leftElement,
+  rightElement,
+  hideNavLinks = false,
+  hideLogo = false,
+}) => {
   const { user, role, profile, logout } = useAuth();
   const location = useLocation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -63,36 +78,52 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenProfile }) => {
     <header className="layout-header">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link
-            to="/"
-            className="flex items-center gap-2.5 font-bold text-lg shrink-0 hover:opacity-80 transition-opacity layout-logo-link"
-          >
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-sm layout-logo-icon-wrapper">
-              <BookOpen className="w-4 h-4 text-white" />
-            </div>
-            <span className="hidden sm:inline">Tài liệu HOU</span>
-          </Link>
+          {/* Logo or custom left element */}
+          {leftElement ? (
+            leftElement
+          ) : hideLogo ? (
+            null
+          ) : (
+            <Link
+              to="/"
+              className="flex items-center gap-2.5 font-bold text-lg shrink-0 hover:opacity-80 transition-opacity layout-logo-link"
+            >
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-sm layout-logo-icon-wrapper">
+                <BookOpen className="w-4 h-4 text-white" />
+              </div>
+              <span className="hidden sm:inline">Tài liệu HOU</span>
+            </Link>
+          )}
 
-          {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-1">
-            {navLinks.map((link) => (
-              <Link
-                key={link.to}
-                to={link.to}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:opacity-100 ${
-                  isActive(link.to)
-                    ? "layout-nav-link-active"
-                    : "layout-nav-link-inactive hover:bg-[var(--bg-2)] hover:text-[var(--fg)]"
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
+          {/* Title or Desktop Nav */}
+          {title ? (
+            <div className="flex flex-col min-w-0 max-w-[50%] md:max-w-none text-center">
+              <h1 className="text-xs md:text-sm font-bold text-[var(--fg)] truncate">{title}</h1>
+              {subtitle && <p className="text-[9px] md:text-[10px] text-[var(--muted)] truncate">{subtitle}</p>}
+            </div>
+          ) : (
+            !hideNavLinks && (
+              <nav className="hidden md:flex items-center gap-1">
+                {navLinks.map((link) => (
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:opacity-100 ${
+                      isActive(link.to)
+                        ? "layout-nav-link-active"
+                        : "layout-nav-link-inactive hover:bg-[var(--bg-2)] hover:text-[var(--fg)]"
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </nav>
+            )
+          )}
 
           {/* Right side */}
           <div className="flex items-center gap-3">
+            {rightElement}
             {user ? (
               <div className="relative" ref={dropdownRef}>
                 <button
@@ -290,9 +321,24 @@ const Layout: React.FC = () => {
 
   const isSimulated = viewMode !== "responsive";
 
+  useEffect(() => {
+    const handleOpenSettings = () => setSettingsOpen(true);
+    const handleOpenProfile = () => setProfileOpen(true);
+
+    window.addEventListener("open-settings", handleOpenSettings);
+    window.addEventListener("open-profile", handleOpenProfile);
+
+    return () => {
+      window.removeEventListener("open-settings", handleOpenSettings);
+      window.removeEventListener("open-profile", handleOpenProfile);
+    };
+  }, []);
+
   const content = (
     <div className={`layout-content-wrapper view-mode-${viewMode}`}>
-      <Header onOpenSettings={() => setSettingsOpen(true)} onOpenProfile={() => setProfileOpen(true)} />
+      {!isDocPage && !isAdminPage && !isPricingPage && (
+        <Header onOpenSettings={() => setSettingsOpen(true)} onOpenProfile={() => setProfileOpen(true)} />
+      )}
       <main
         className={`layout-main-static ${
           isSimulated && viewMode !== "desktop" ? "layout-main-static-scrollable" : ""

@@ -5,6 +5,7 @@ import LoadingSpinner from "../../components/common/LoadingSpinner.js";
 import { useAuth } from "../../context/AuthContext.js";
 import * as Icons from "lucide-react";
 import DocumentSidebar from "../../components/layout/DocumentSidebar.js";
+import { Header } from "../../components/layout/Layout.js";
 import "../../css/document.css";
 
 const { Lock, Search } = Icons;
@@ -91,26 +92,21 @@ const DocumentPage: React.FC = () => {
 
   return (
     <div 
-      className="flex flex-col md:flex-row gap-0 min-h-[calc(100vh/0.9-4rem)] w-full doc-bg-muted"
+      className="flex flex-col md:flex-row gap-0 min-h-[calc(100vh/0.9)] w-full doc-bg-muted"
     >
       <DocumentSidebar currentDocId={id} />
 
       {/* Main Content Area */}
-      <div className="flex-1 p-6 min-w-0 w-full flex flex-col gap-6 doc-main-bg">
-        {/* Title Header */}
-        <div 
-          className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4 doc-border-themed"
-        >
-          <div>
-            <h1 className="text-xl font-bold doc-text-fg">
-              {doc.category?.title ? `${doc.category.title} - ` : ""}{doc.title}
-            </h1>
-            <p className="text-xs mt-1 doc-text-muted">{doc.description}</p>
-          </div>
-          <div className="text-xs doc-text-meta">
-            Quyền: <span className="font-semibold doc-text-fg2">{role.toUpperCase()}</span>
-          </div>
-        </div>
+      <div className="flex-1 min-w-0 w-full flex flex-col doc-main-bg">
+        <Header 
+          title={doc.title}
+          subtitle={doc.category?.title || ""}
+          hideLogo={true}
+          onOpenSettings={() => window.dispatchEvent(new Event("open-settings"))}
+          onOpenProfile={() => window.dispatchEvent(new Event("open-profile"))}
+        />
+        
+        <div className="p-6 flex flex-col gap-6">
 
         {/* Info & Search Row */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -365,6 +361,7 @@ const DocumentPage: React.FC = () => {
             </p>
           </div>
         )}
+        </div>
       </div>
     </div>
   );
