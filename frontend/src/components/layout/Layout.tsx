@@ -386,7 +386,7 @@ const Layout: React.FC = () => {
           </div>
         )}
       </main>
-      {!isAdminPage && <Footer />}
+      <Footer />
       <UISettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <EditProfileModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} />
     </div>

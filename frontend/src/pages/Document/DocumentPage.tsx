@@ -136,11 +136,6 @@ const DocumentPage: React.FC = () => {
   const isPremiumUser = ["admin", "ultra", "pro", "plus"].includes(role);
 
   const getCategoryInfo = (catId: string, customTitle?: string | null) => {
-    const CATEGORIES_ICONS: Record<string, (className: string) => React.ReactNode> = {
-      exam:     (className) => <ChevronRight className={className} />,
-      theory:   (className) => <ChevronRight className={className} />,
-      practice: (className) => <ChevronRight className={className} />,
-    };
 
     const title = customTitle || (catId === "other" ? "Khác" : "Chuyên mục");
     return {
