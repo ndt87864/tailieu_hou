@@ -14,7 +14,7 @@ export const listDocuments = async (categoryId?: string): Promise<Document[]> =>
     let query = supabaseAdmin
       .from("documents")
       .select("*, category:categories(title, logo, stt)")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: true });
 
     if (categoryId) {
       if (categoryId === "other") {
@@ -59,7 +59,7 @@ async function _fetchGroupedDocuments(): Promise<any[]> {
         .from("documents")
         .select("*, category:categories(title, logo)")
         .eq("category_id", cat.id)
-        .order("created_at", { ascending: false })
+        .order("created_at", { ascending: true })
         .limit(10),
       supabaseAdmin
         .from("documents")
@@ -90,7 +90,7 @@ async function _fetchGroupedDocuments(): Promise<any[]> {
       .from("documents")
       .select("*, category:categories(title, logo)")
       .is("category_id", null)
-      .order("created_at", { ascending: false })
+      .order("created_at", { ascending: true })
       .limit(10),
     supabaseAdmin
       .from("documents")
