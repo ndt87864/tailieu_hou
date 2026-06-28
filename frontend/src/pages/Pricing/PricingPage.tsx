@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import apiClient from "../../services/client.js";
 import { useUI } from "../../context/UIContext.js";
-import { Check, Link2, Leaf, Zap, Crown, Gem, Sparkles, FileText, Files, GraduationCap, FileSignature, BarChart3, Briefcase } from "lucide-react";
+import { Check, Link2, Leaf, Zap, Crown, Gem, Sparkles, FileText, Files, GraduationCap, FileSignature, BarChart3, Briefcase, Star, Heart, Gift, Award, Shield, Flame, Rocket } from "lucide-react";
 import DocumentSidebar from "../../components/layout/DocumentSidebar.js";
 import "../../css/pricing-page.css";
 
@@ -105,7 +105,12 @@ export const PricingPage: React.FC = () => {
       try {
         const res = await apiClient.get("/api/v1/pricing-packages");
         if (res.data.packages && res.data.packages.length > 0) {
-          setTiers(res.data.packages);
+          // Sort by price ascending
+          const sorted = [...res.data.packages].sort((a: any, b: any) => {
+            const getPriceVal = (p: string) => parseInt(p.replace(/\D/g, "") || "0", 10);
+            return getPriceVal(a.price) - getPriceVal(b.price);
+          });
+          setTiers(sorted);
         }
       } catch (err) {
         console.error("Lỗi khi tải danh sách gói từ db (sử dụng mặc định):", err);
@@ -153,6 +158,22 @@ export const PricingPage: React.FC = () => {
         return <Crown className="w-8 h-8 text-amber-500" />;
       case "ultra":
         return <Gem className="w-8 h-8 text-blue-500" />;
+      case "star":
+        return <Star className="w-8 h-8 text-yellow-500" />;
+      case "heart":
+        return <Heart className="w-8 h-8 text-rose-500" />;
+      case "gift":
+        return <Gift className="w-8 h-8 text-pink-500" />;
+      case "award":
+        return <Award className="w-8 h-8 text-emerald-500" />;
+      case "shield":
+        return <Shield className="w-8 h-8 text-teal-500" />;
+      case "flame":
+        return <Flame className="w-8 h-8 text-orange-500" />;
+      case "rocket":
+        return <Rocket className="w-8 h-8 text-indigo-500" />;
+      case "sparkles":
+        return <Sparkles className="w-8 h-8 text-emerald-500" />;
       default:
         return <Sparkles className="w-8 h-8 text-emerald-500" />;
     }

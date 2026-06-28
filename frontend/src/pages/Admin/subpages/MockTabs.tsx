@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Calendar, Lock, X, Loader2 } from "lucide-react";
+import { Plus, Calendar, Lock, X, Loader2, Trash2, Leaf, Zap, Crown, Gem, Star, Heart, Gift, Award, Shield, Flame, Rocket, Sparkles } from "lucide-react";
 import apiClient from "../../../services/client.js";
 import { toast } from "react-toastify";
 
@@ -96,6 +96,20 @@ interface PricingPackage {
 }
 
 // 3. Quản lý giá môn học (Pricing)
+const iconOptions = [
+  { value: "free", label: "Lá cây", component: Leaf },
+  { value: "plus", label: "Tia sét", component: Zap },
+  { value: "pro", label: "Vương miện", component: Crown },
+  { value: "ultra", label: "Kim cương", component: Gem },
+  { value: "star", label: "Ngôi sao", component: Star },
+  { value: "heart", label: "Trái tim", component: Heart },
+  { value: "gift", label: "Hộp quà", component: Gift },
+  { value: "award", label: "Cúp / Giải thưởng", component: Award },
+  { value: "shield", label: "Khiên bảo vệ", component: Shield },
+  { value: "flame", label: "Ngọn lửa", component: Flame },
+  { value: "rocket", label: "Tên lửa", component: Rocket },
+  { value: "sparkles", label: "Lấp lánh", component: Sparkles },
+];
 export const PricingTab: React.FC = () => {
   const [packages, setPackages] = useState<PricingPackage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -128,6 +142,17 @@ export const PricingTab: React.FC = () => {
     fetchPackages();
   }, []);
 
+  const openCreateModal = () => {
+    setEditingPkg(null);
+    setName("");
+    setPrice("");
+    setSavings("");
+    setIcon("free");
+    setFeaturesText("");
+    setDisplayOrder(packages.length + 1);
+    setShowModal(true);
+  };
+
   const openEditModal = (pkg: PricingPackage) => {
     setEditingPkg(pkg);
     setName(pkg.name);
@@ -137,6 +162,18 @@ export const PricingTab: React.FC = () => {
     setFeaturesText(Array.isArray(pkg.features) ? pkg.features.join("\n") : "");
     setDisplayOrder(pkg.display_order || 1);
     setShowModal(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa gói dịch vụ này?")) return;
+    try {
+      await apiClient.delete(`/api/v1/pricing-packages/admin/${id}`);
+      toast.success("Xóa gói dịch vụ thành công!");
+      fetchPackages();
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Lỗi khi xóa gói dịch vụ.");
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -164,6 +201,9 @@ export const PricingTab: React.FC = () => {
       if (editingPkg) {
         await apiClient.put(`/api/v1/pricing-packages/admin/${editingPkg.id}`, payload);
         toast.success("Cập nhật gói thành công!");
+      } else {
+        await apiClient.post("/api/v1/pricing-packages/admin", payload);
+        toast.success("Thêm gói mới thành công!");
       }
       setShowModal(false);
       fetchPackages();
@@ -179,6 +219,12 @@ export const PricingTab: React.FC = () => {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="modal-heading text-base font-bold">Quản lý giá &amp; Gói dịch vụ</h3>
+        <button
+          onClick={openCreateModal}
+          className="btn-brand text-xs flex items-center gap-1"
+        >
+          <Plus className="w-3.5 h-3.5" /> Thêm gói mới
+        </button>
       </div>
 
       {loading ? (
@@ -187,39 +233,57 @@ export const PricingTab: React.FC = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {packages.map((p) => (
-            <div key={p.id} className="card p-5 space-y-3 relative overflow-hidden border-t-4 border-t-emerald-500 flex flex-col justify-between">
-              <div className="space-y-2">
-                <h4 className="font-bold text-sm card-title">{p.name}</h4>
-                <div className="text-2xl font-black text-emerald-600">{p.price}</div>
-                <p className="text-xs mock-pricing-note">{p.savings}</p>
-                <div className="mt-2 space-y-1">
-                  <span className="text-[10px] font-bold text-muted block uppercase">Tính năng:</span>
-                  {p.features && p.features.map((f, idx) => (
-                    <div key={idx} className="text-[11px] text-[var(--fg-2)] flex items-start gap-1">
-                      <span className="text-emerald-500">•</span>
-                      <span>{f}</span>
-                    </div>
-                  ))}
+          {packages.map((p) => {
+            const matchedIcon = iconOptions.find((opt) => opt.value === p.icon);
+            const IconComponent = matchedIcon ? matchedIcon.component : Sparkles;
+            return (
+              <div key={p.id} className="card p-5 space-y-3 relative overflow-hidden border-t-4 border-t-emerald-500 flex flex-col justify-between">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-sm card-title">{p.name}</h4>
+                    <IconComponent className="w-5 h-5 text-emerald-500 shrink-0" />
+                  </div>
+                  <div className="text-2xl font-black text-emerald-600">{p.price}</div>
+                  <p className="text-xs mock-pricing-note">{p.savings}</p>
+                  <div className="mt-2 space-y-1">
+                    <span className="text-[10px] font-bold text-muted block uppercase">Tính năng:</span>
+                    {p.features && p.features.map((f, idx) => (
+                      <div key={idx} className="text-[11px] text-[var(--fg-2)] flex items-start gap-1">
+                        <span className="text-emerald-500">•</span>
+                        <span>{f}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-4">
+                  <button
+                    onClick={() => openEditModal(p)}
+                    className="mock-pricing-btn flex-1 py-2 text-xs font-semibold rounded-xl hover:opacity-85"
+                  >
+                    Chỉnh sửa gói
+                  </button>
+                  <button
+                    onClick={() => handleDelete(p.id)}
+                    className="p-2 border border-red-500/25 rounded-xl hover:bg-red-500/10 text-red-500 transition-colors"
+                    title="Xóa gói"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
-              <button
-                onClick={() => openEditModal(p)}
-                className="mock-pricing-btn w-full mt-4 py-2 text-xs font-semibold rounded-xl hover:opacity-85"
-              >
-                Chỉnh sửa gói
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
       {/* Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/60 z-[999] flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-scale-up">
-            <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
-              <h3 className="modal-heading text-base font-bold">Chỉnh sửa Gói dịch vụ</h3>
+          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-scale-up">
+            <div className="flex items-center justify-between p-4 border-b border-[var(--border)] shrink-0">
+              <h3 className="modal-heading text-base font-bold">
+                {editingPkg ? "Chỉnh sửa Gói dịch vụ" : "Thêm Gói dịch vụ mới"}
+              </h3>
               <button
                 onClick={() => setShowModal(false)}
                 className="p-1 rounded-lg hover:bg-red-500/10 text-muted hover:text-red-500 transition-colors"
@@ -228,7 +292,7 @@ export const PricingTab: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="p-4 space-y-4">
+            <form onSubmit={handleSave} className="p-4 space-y-4 overflow-y-auto flex-1">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="form-label block text-xs font-semibold mb-1 text-[var(--fg)]">
@@ -270,21 +334,32 @@ export const PricingTab: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-4">
                 <div>
                   <label className="form-label block text-xs font-semibold mb-1 text-[var(--fg)]">
                     Biểu tượng (icon)
                   </label>
-                  <select
-                    value={icon}
-                    onChange={(e) => setIcon(e.target.value)}
-                    className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none"
-                  >
-                    <option value="free">Lá cây (free)</option>
-                    <option value="plus">Tia sét (plus)</option>
-                    <option value="pro">Vương miện (pro)</option>
-                    <option value="ultra">Kim cương (ultra)</option>
-                  </select>
+                  <div className="grid grid-cols-6 gap-2 p-2 border border-[var(--border)] rounded-xl bg-[var(--surface-2)]">
+                    {iconOptions.map((opt) => {
+                      const IconComponent = opt.component;
+                      const isSelected = icon === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setIcon(opt.value)}
+                          title={opt.label}
+                          className={`p-2 rounded-lg flex items-center justify-center border transition-all ${
+                            isSelected
+                              ? "bg-emerald-500/10 border-emerald-500 text-emerald-500 scale-105"
+                              : "border-transparent text-[var(--fg-2)] hover:bg-[var(--bg-2)]"
+                          }`}
+                        >
+                          <IconComponent className="w-5 h-5" />
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
                 <div>
                   <label className="form-label block text-xs font-semibold mb-1 text-[var(--fg)]">
@@ -326,7 +401,7 @@ export const PricingTab: React.FC = () => {
                   className="px-4 py-2 text-sm font-semibold rounded-xl bg-[#008037] text-white hover:opacity-90 flex items-center gap-1.5"
                 >
                   {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  Lưu thay đổi
+                  {editingPkg ? "Lưu thay đổi" : "Thêm mới"}
                 </button>
               </div>
             </form>
