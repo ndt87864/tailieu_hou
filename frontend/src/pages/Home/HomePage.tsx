@@ -2,7 +2,9 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import apiClient from "../../services/client.js";
 import { SkeletonCard } from "../../components/common/LoadingSpinner.js";
-import { BookOpen, Search, FileText, ChevronRight, Filter, X, GraduationCap, Book, PenTool, File } from "lucide-react";
+import * as Icons from "lucide-react";
+
+const { BookOpen, Search, FileText, ChevronRight, Filter, X } = Icons;
 
 interface Document {
   id: string;
@@ -12,19 +14,14 @@ interface Document {
   created_at: string;
   category?: {
     title: string;
+    logo?: string | null;
   } | null;
 }
-
-const CATEGORIES: Record<string, { label: string; icon: (className: string) => React.ReactNode }> = {
-  exam:     { label: "Đề thi",    icon: (className) => <GraduationCap className={className} /> },
-  theory:   { label: "Lý thuyết", icon: (className) => <Book className={className} /> },
-  practice: { label: "Bài tập",   icon: (className) => <PenTool className={className} /> },
-  other:    { label: "Khác",      icon: (className) => <File className={className} /> },
-};
 
 interface GroupedCategory {
   id: string;
   title: string;
+  logo?: string | null;
   documents: Document[];
   total_count: number;
 }
@@ -92,28 +89,48 @@ const HomePage: React.FC = () => {
     }
   };
 
-  const getCategoryInfo = (catId: string, customTitle?: string | null) => {
-    if (CATEGORIES[catId]) {
-      return CATEGORIES[catId];
+  const getCategoryInfo = (catId: string, customTitle?: string | null, logoName?: string | null) => {
+    const title = customTitle || (
+      catId === "exam" ? "Đề thi" :
+      catId === "theory" ? "Lý thuyết" :
+      catId === "practice" ? "Bài tập" :
+      catId === "other" ? "Khác" : "Chuyên mục"
+    );
+
+    let icon = (className: string) => <Icons.File className={className} />;
+
+    if (logoName) {
+      const IconComponent = (Icons as any)[logoName];
+      if (IconComponent) {
+        icon = (className: string) => <IconComponent className={className} />;
+      }
+    } else {
+      if (catId === "exam") {
+        icon = (className: string) => <Icons.GraduationCap className={className} />;
+      } else if (catId === "theory") {
+        icon = (className: string) => <Icons.Book className={className} />;
+      } else if (catId === "practice") {
+        icon = (className: string) => <Icons.PenTool className={className} />;
+      } else {
+        const normalized = title.toLowerCase();
+        if (normalized.includes("thi") || normalized.includes("khảo sát") || normalized.includes("đề")) {
+          icon = (className: string) => <Icons.GraduationCap className={className} />;
+        } else if (normalized.includes("thuyết") || normalized.includes("sách") || normalized.includes("tài liệu") || normalized.includes("bài giảng") || normalized.includes("giáo trình")) {
+          icon = (className: string) => <Icons.Book className={className} />;
+        } else if (normalized.includes("tập") || normalized.includes("hành")) {
+          icon = (className: string) => <Icons.PenTool className={className} />;
+        }
+      }
     }
-    const title = customTitle || (catId === "other" ? "Khác" : "Chuyên mục");
-    const normalized = title.toLowerCase();
-    let icon = (className: string) => <File className={className} />;
-    if (normalized.includes("thi") || normalized.includes("khảo sát") || normalized.includes("đề")) {
-      icon = (className: string) => <GraduationCap className={className} />;
-    } else if (normalized.includes("thuyết") || normalized.includes("sách") || normalized.includes("tài liệu") || normalized.includes("bài giảng") || normalized.includes("giáo trình")) {
-      icon = (className: string) => <Book className={className} />;
-    } else if (normalized.includes("tập") || normalized.includes("hành")) {
-      icon = (className: string) => <PenTool className={className} />;
-    }
+
     return { label: title, icon };
   };
 
   // Derive categories list from loaded groupedCategories
   const uniqueCategoryMap = groupedCategories.reduce((acc, cat) => {
-    acc[cat.id] = cat.title;
+    acc[cat.id] = { title: cat.title, logo: cat.logo };
     return acc;
-  }, {} as Record<string, string>);
+  }, {} as Record<string, { title: string; logo?: string | null }>);
 
   const categories = Object.keys(uniqueCategoryMap);
 
@@ -136,6 +153,7 @@ const HomePage: React.FC = () => {
       acc[cat] = {
         id: cat,
         title: catTitle,
+        logo: doc.category?.logo || null,
         documents: [],
         total_count: 0
       };
@@ -143,7 +161,7 @@ const HomePage: React.FC = () => {
     acc[cat].documents.push(doc);
     acc[cat].total_count++;
     return acc;
-  }, {} as Record<string, { id: string; title: string; documents: Document[]; total_count: number }>);
+  }, {} as Record<string, { id: string; title: string; logo?: string | null; documents: Document[]; total_count: number }>);
 
   const searchGroupedCategories = Object.values(searchGrouped);
 
@@ -213,7 +231,8 @@ const HomePage: React.FC = () => {
             Tất cả
           </button>
           {categories.map((cat) => {
-            const info = getCategoryInfo(cat, uniqueCategoryMap[cat]);
+            const titleObj = uniqueCategoryMap[cat] || { title: "Chuyên mục", logo: null };
+            const info = getCategoryInfo(cat, titleObj.title, titleObj.logo);
             const active = selectedCategory === cat;
             return (
               <button
@@ -293,7 +312,7 @@ const HomePage: React.FC = () => {
               // If expanded, use cached full docs, otherwise use the preview/search documents
               const docs = (isExpanded && expandedDocs[cat.id]) ? expandedDocs[cat.id] : cat.documents;
               
-              const catInfo = getCategoryInfo(cat.id, cat.title);
+              const catInfo = getCategoryInfo(cat.id, cat.title, cat.logo);
               const showExpandButton = !isSearchActive && cat.total_count > 10;
 
               return (

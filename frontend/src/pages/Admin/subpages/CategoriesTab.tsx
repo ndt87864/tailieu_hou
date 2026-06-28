@@ -2,7 +2,26 @@ import React, { useEffect, useState } from "react";
 import apiClient from "../../../services/client.js";
 import LoadingSpinner from "../../../components/common/LoadingSpinner.js";
 import { toast } from "react-toastify";
-import { Search, Plus, Trash2, Edit2, RefreshCw } from "lucide-react";
+import * as Icons from "lucide-react";
+
+const { Search, Plus, Trash2, Edit2, RefreshCw } = Icons;
+
+const PRESET_ICONS = [
+  "GraduationCap", "Book", "BookOpen", "PenTool", "FileText", "File",
+  "Code", "Calculator", "Compass", "Database", "Globe", "Award",
+  "Briefcase", "Brain", "Cpu", "Heart", "Music", "Layers", "Folder"
+];
+
+const renderCategoryIcon = (logo: string | null, title: string, className = "w-5 h-5") => {
+  if (!logo) {
+    return <span className="text-sm font-semibold">{title.slice(0, 2).toUpperCase()}</span>;
+  }
+  const IconComponent = (Icons as any)[logo];
+  if (IconComponent) {
+    return <IconComponent className={className} />;
+  }
+  return <span className="text-lg leading-none">{logo}</span>;
+};
 
 interface Category {
   id: string;
@@ -140,12 +159,8 @@ const CategoriesTab: React.FC = () => {
         {filtered.map((cat) => (
           <div key={cat.id} className="card p-4 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 font-bold">
-                {cat.logo ? (
-                  <span className="text-lg">{cat.logo}</span>
-                ) : (
-                  cat.title.slice(0, 2).toUpperCase()
-                )}
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 font-semibold shrink-0">
+                {renderCategoryIcon(cat.logo, cat.title, "w-5 h-5")}
               </div>
               <div>
                 <h4 className="font-semibold text-sm" style={{ color: "var(--fg)" }}>{cat.title}</h4>
@@ -208,15 +223,46 @@ const CategoriesTab: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold mb-1" style={{ color: "var(--muted)" }}>Biểu tượng (Emoji)</label>
-                <input
-                  type="text"
-                  placeholder="Ví dụ: 📚"
-                  value={formData.logo}
-                  onChange={(e) => setFormData({ ...formData, logo: e.target.value })}
-                  style={{ border: "1px solid var(--border)", background: "var(--surface)", color: "var(--fg)" }}
-                  className="w-full px-3 py-2 text-sm rounded-xl outline-none focus:border-brand-500"
-                />
+                <label className="block text-xs font-semibold mb-1" style={{ color: "var(--muted)" }}>Biểu tượng (Lucide Icon hoặc Emoji)</label>
+                <div className="flex gap-2 mb-2">
+                  <input
+                    type="text"
+                    placeholder="Tên Lucide Icon hoặc Emoji"
+                    value={formData.logo}
+                    onChange={(e) => setFormData({ ...formData, logo: e.target.value })}
+                    style={{ border: "1px solid var(--border)", background: "var(--surface)", color: "var(--fg)" }}
+                    className="flex-1 px-3 py-2 text-sm rounded-xl outline-none focus:border-brand-500"
+                  />
+                  <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 shrink-0 border border-indigo-500/20">
+                    {renderCategoryIcon(formData.logo, formData.title || "DM", "w-5 h-5")}
+                  </div>
+                </div>
+                
+                {/* Previews grid of common icons */}
+                <div className="p-2 rounded-xl border border-[var(--border)] bg-[var(--bg-2)] max-h-32 overflow-y-auto">
+                  <div className="text-[10px] font-bold text-[var(--muted)] mb-1.5 px-1 uppercase tracking-wider">Danh sách gợi ý</div>
+                  <div className="grid grid-cols-6 gap-1">
+                    {PRESET_ICONS.map((iconName) => {
+                      const IconComp = (Icons as any)[iconName];
+                      const isSelected = formData.logo === iconName;
+                      return (
+                        <button
+                          key={iconName}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, logo: iconName })}
+                          title={iconName}
+                          className={`p-1.5 rounded-lg flex items-center justify-center transition-colors ${
+                            isSelected 
+                              ? "bg-indigo-600 text-white" 
+                              : "hover:bg-[var(--surface)] text-[var(--fg-2)]"
+                          }`}
+                        >
+                          {IconComp ? <IconComp className="w-4 h-4" /> : iconName.slice(0, 2)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
               <div>
                 <label className="block text-xs font-semibold mb-1" style={{ color: "var(--muted)" }}>Thứ tự sắp xếp (STT)</label>

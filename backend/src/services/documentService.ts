@@ -4,7 +4,7 @@ import type { Document } from "../types/index.js";
 export const listDocuments = async (categoryId?: string): Promise<Document[]> => {
   let query = supabaseAdmin
     .from("documents")
-    .select("*, category:categories(title)")
+    .select("*, category:categories(title, logo)")
     .order("created_at", { ascending: false });
 
   if (categoryId) {
@@ -35,7 +35,7 @@ export const getGroupedDocumentsPreview = async (): Promise<any[]> => {
     // Get top 10 documents
     const { data: docs, error: docsError } = await supabaseAdmin
       .from("documents")
-      .select("*, category:categories(title)")
+      .select("*, category:categories(title, logo)")
       .eq("category_id", cat.id)
       .order("created_at", { ascending: false })
       .limit(10);
@@ -54,6 +54,7 @@ export const getGroupedDocumentsPreview = async (): Promise<any[]> => {
       result.push({
         id: cat.id,
         title: cat.title,
+        logo: cat.logo,
         documents: docs,
         total_count: count ?? docs.length
       });
@@ -63,7 +64,7 @@ export const getGroupedDocumentsPreview = async (): Promise<any[]> => {
   // Also handle documents with no category (category_id IS NULL)
   const { data: noCatDocs, error: noCatError } = await supabaseAdmin
     .from("documents")
-    .select("*, category:categories(title)")
+    .select("*, category:categories(title, logo)")
     .is("category_id", null)
     .order("created_at", { ascending: false })
     .limit(10);

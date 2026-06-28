@@ -3,7 +3,9 @@ import { useParams, Link } from "react-router-dom";
 import apiClient from "../../services/client.js";
 import LoadingSpinner from "../../components/common/LoadingSpinner.js";
 import { useAuth } from "../../context/AuthContext.js";
-import { Lock, ChevronDown, ChevronRight, Menu, Search, BookOpen, X } from "lucide-react";
+import * as Icons from "lucide-react";
+
+const { Lock, ChevronDown, ChevronRight, Menu, Search, BookOpen, X } = Icons;
 
 interface Question {
   id: string;
@@ -23,12 +25,14 @@ interface Document {
   category_id?: string | null;
   category?: {
     title: string;
+    logo?: string | null;
   } | null;
 }
 
 interface SidebarCategory {
   id: string;
   title: string;
+  logo?: string | null;
   documents: Document[];
 }
 
@@ -78,10 +82,12 @@ const DocumentPage: React.FC = () => {
         docs.forEach((d) => {
           const catId = d.category_id || "other";
           const catTitle = d.category?.title || "Khác";
+          const catLogo = d.category?.logo || null;
           if (!groups[catId]) {
             groups[catId] = {
               id: catId,
               title: catTitle,
+              logo: catLogo,
               documents: []
             };
           }
@@ -135,12 +141,29 @@ const DocumentPage: React.FC = () => {
   // Determine if user has premium/unlimited access
   const isPremiumUser = ["admin", "ultra", "pro", "plus"].includes(role);
 
-  const getCategoryInfo = (catId: string, customTitle?: string | null) => {
-
+  const getCategoryInfo = (catId: string, customTitle?: string | null, logoName?: string | null) => {
     const title = customTitle || (catId === "other" ? "Khác" : "Chuyên mục");
+    let icon = (className: string) => <Icons.BookOpen className={className} />;
+
+    if (logoName) {
+      const IconComponent = (Icons as any)[logoName];
+      if (IconComponent) {
+        icon = (className: string) => <IconComponent className={className} />;
+      }
+    } else {
+      const normalized = title.toLowerCase();
+      if (normalized.includes("thi") || normalized.includes("khảo sát") || normalized.includes("đề")) {
+        icon = (className: string) => <Icons.GraduationCap className={className} />;
+      } else if (normalized.includes("thuyết") || normalized.includes("sách") || normalized.includes("tài liệu") || normalized.includes("bài giảng") || normalized.includes("giáo trình")) {
+        icon = (className: string) => <Icons.Book className={className} />;
+      } else if (normalized.includes("tập") || normalized.includes("hành")) {
+        icon = (className: string) => <Icons.PenTool className={className} />;
+      }
+    }
+
     return {
       label: title,
-      icon: (className: string) => <BookOpen className={className} />
+      icon
     };
   };
 
@@ -194,7 +217,10 @@ const DocumentPage: React.FC = () => {
                       onClick={() => setExpandedCategories((prev) => ({ ...prev, [cat.id]: !prev[cat.id] }))}
                       className="w-full flex items-center justify-between p-2 rounded-lg transition-colors text-left text-white/90 hover:bg-[rgba(255,255,255,0.08)]"
                     >
-                      <span className="font-semibold text-sm truncate">{cat.title}</span>
+                      <span className="font-semibold text-sm truncate flex items-center gap-2">
+                        {getCategoryInfo(cat.id, cat.title, cat.logo).icon("w-4 h-4 text-white/80 shrink-0")}
+                        {cat.title}
+                      </span>
                       {isExpanded ? <ChevronDown className="w-4 h-4 text-white/70" /> : <ChevronRight className="w-4 h-4 text-white/70" />}
                     </button>
                     {isExpanded && (
@@ -235,7 +261,7 @@ const DocumentPage: React.FC = () => {
         </div>
         <div className="flex-1 w-full space-y-4 px-2 flex flex-col items-center">
           {sidebarCategories.map((cat) => {
-            const catInfo = getCategoryInfo(cat.id, cat.title);
+            const catInfo = getCategoryInfo(cat.id, cat.title, cat.logo);
             const isPopoverOpen = activeTabletPopover === cat.id;
             return (
               <div 
@@ -314,7 +340,10 @@ const DocumentPage: React.FC = () => {
                     onClick={() => setExpandedCategories((prev) => ({ ...prev, [cat.id]: !prev[cat.id] }))}
                     className="w-full flex items-center justify-between p-2 rounded-lg transition-colors text-left text-white/90 hover:bg-[rgba(255,255,255,0.08)]"
                   >
-                    <span className="font-semibold text-sm truncate">{cat.title}</span>
+                    <span className="font-semibold text-sm truncate flex items-center gap-2">
+                      {getCategoryInfo(cat.id, cat.title, cat.logo).icon("w-4 h-4 text-white/80 shrink-0")}
+                      {cat.title}
+                    </span>
                     {isExpanded ? <ChevronDown className="w-4 h-4 text-white/70" /> : <ChevronRight className="w-4 h-4 text-white/70" />}
                   </button>
                   {isExpanded && (
