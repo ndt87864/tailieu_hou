@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { cachedGet } from "../../utils/apiCache.js";
+import apiClient from "../../services/client.js";
 import * as Icons from "lucide-react";
 
-const { BookOpen, ChevronDown, ChevronRight, X, Heart } = Icons;
+const { BookOpen, ChevronDown, ChevronRight, X, Heart, Crown } = Icons;
 
 interface Document {
   id: string;
   title: string;
   description: string;
+  premium?: boolean;
   category_id?: string | null;
   category?: {
     title: string;
@@ -40,41 +41,20 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
   const [activeTabletPopover, setActiveTabletPopover] = useState<string | null>(null);
 
   useEffect(() => {
-    cachedGet<{ documents: Document[] }>("/api/v1/documents")
+    // Dùng endpoint /grouped?full=true — backend lọc active+premium, trả đầy đủ tài liệu (không giới hạn 10)
+    apiClient.get<{ categories: SidebarCategory[] }>("/api/v1/documents/grouped?full=true")
       .then((res) => {
-        const docs: Document[] = res.data.documents || [];
-        const groups: Record<string, SidebarCategory> = {};
+        const cats: SidebarCategory[] = res.data.categories || [];
 
-        docs.forEach((d) => {
-          const catId = d.category_id || "other";
-          const catTitle = d.category?.title || "Khác";
-          const catLogo = d.category?.logo || null;
-          const catStt = d.category?.stt ?? 9999;
-          if (!groups[catId]) {
-            groups[catId] = {
-              id: catId,
-              title: catTitle,
-              logo: catLogo,
-              stt: catStt,
-              documents: []
-            };
-          }
-          groups[catId].documents.push(d);
-        });
+        setSidebarCategories(cats);
 
-        const groupedArray = Object.values(groups).sort((a, b) => {
-          if (a.id === "other") return 1;
-          if (b.id === "other") return -1;
-          return (a.stt ?? 0) - (b.stt ?? 0);
-        });
-        setSidebarCategories(groupedArray);
-
-        // Auto-expand category of current active document
+        // Auto-expand category của tài liệu đang xem
         if (currentDocId) {
-          const currentDoc = docs.find((d) => d.id === currentDocId);
-          if (currentDoc) {
-            const activeCatId = currentDoc.category_id || "other";
-            setExpandedCategories((prev) => ({ ...prev, [activeCatId]: true }));
+          const activeCat = cats.find((cat) =>
+            cat.documents.some((d) => d.id === currentDocId)
+          );
+          if (activeCat) {
+            setExpandedCategories((prev) => ({ ...prev, [activeCat.id]: true }));
           }
         }
       })
@@ -178,7 +158,10 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
                                 isActive ? "text-white font-bold doc-sidebar-item-active" : "text-white/70 hover:text-white hover:bg-[rgba(255,255,255,0.08)]"
                               }`}
                             >
-                              {d.title}
+                              <span className="flex items-center gap-1.5">
+                                {d.title}
+                                {d.premium && <Crown className="w-2.5 h-2.5 text-amber-400 shrink-0" />}
+                              </span>
                             </Link>
                           );
                         })}
@@ -255,7 +238,10 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
                               isActive ? "text-white font-bold doc-popover-item-active" : "text-white/70 hover:text-white hover:bg-[rgba(255,255,255,0.08)]"
                             }`}
                           >
-                            {d.title}
+                            <span className="flex items-center gap-1.5">
+                              {d.title}
+                              {d.premium && <Crown className="w-2.5 h-2.5 text-amber-400 shrink-0" />}
+                            </span>
                           </Link>
                         );
                       })}
@@ -323,7 +309,10 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
                               isActive ? "text-white font-bold border-l-2 doc-sidebar-item-active" : "text-white/70 hover:text-white hover:bg-[rgba(255,255,255,0.08)]"
                             }`}
                           >
-                            {d.title}
+                            <span className="flex items-center gap-1.5">
+                              {d.title}
+                              {d.premium && <Crown className="w-2.5 h-2.5 text-amber-400 shrink-0" />}
+                            </span>
                           </Link>
                         );
                       })}

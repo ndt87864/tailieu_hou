@@ -323,10 +323,17 @@ adminRouter.get("/categories", async (c) => {
 adminRouter.post("/categories", async (c) => {
   try {
     const body = await c.req.json();
-    const { title, slug, logo, stt } = body;
+    const { title, slug, logo, stt, active, premium } = body;
     const { data: category, error } = await supabaseAdmin
       .from("categories")
-      .insert({ title, slug, logo, stt: stt || 0 })
+      .insert({
+        title,
+        slug,
+        logo,
+        stt: stt || 0,
+        active: active !== undefined ? active : true,
+        premium: premium !== undefined ? premium : false,
+      })
       .select()
       .single();
 
@@ -341,10 +348,13 @@ adminRouter.put("/categories/:id", async (c) => {
   const id = c.req.param("id");
   try {
     const body = await c.req.json();
-    const { title, slug, logo, stt } = body;
+    const { title, slug, logo, stt, active, premium } = body;
+    const updates: Record<string, any> = { title, slug, logo, stt, updated_at: new Date().toISOString() };
+    if (active !== undefined) updates.active = active;
+    if (premium !== undefined) updates.premium = premium;
     const { data: category, error } = await supabaseAdmin
       .from("categories")
-      .update({ title, slug, logo, stt, updated_at: new Date().toISOString() })
+      .update(updates)
       .eq("id", id)
       .select()
       .single();
@@ -385,6 +395,76 @@ adminRouter.delete("/categories/:id", async (c) => {
   return c.json({ success: true, message: "Category deleted" });
 });
 
+
+// =============================================================
+// 3b. QUẢN LÝ TÀI LIỆU (DOCUMENTS CRUD) — Admin toàn quyền
+// =============================================================
+
+// Admin lấy TẤT CẢ tài liệu (kể cả inactive / premium)
+adminRouter.get("/documents", async (c) => {
+  try {
+    const { data: documents, error } = await supabaseAdmin
+      .from("documents")
+      .select("*, category:categories(title, logo, stt)")
+      .order("created_at", { ascending: true });
+
+    if (error) throw error;
+    return c.json({ documents: documents || [] });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Admin cập nhật tài liệu (bao gồm active / premium)
+adminRouter.put("/documents/:id", async (c) => {
+  const id = c.req.param("id");
+  try {
+    const body = await c.req.json();
+    const { title, description, category_id, slug, active, premium } = body;
+    const updates: Record<string, any> = { updated_at: new Date().toISOString() };
+    if (title !== undefined) updates.title = title;
+    if (description !== undefined) updates.description = description;
+    if (category_id !== undefined) updates.category_id = category_id || null;
+    if (slug !== undefined) updates.slug = slug;
+    if (active !== undefined) updates.active = active;
+    if (premium !== undefined) updates.premium = premium;
+
+    const { data: document, error } = await supabaseAdmin
+      .from("documents")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    cacheInvalidatePrefix("docs");
+    return c.json({ document });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+// Admin patch tài liệu (quick toggle active / premium)
+adminRouter.patch("/documents/:id", async (c) => {
+  const id = c.req.param("id");
+  try {
+    const body = await c.req.json();
+    const updates = { ...body, updated_at: new Date().toISOString() };
+
+    const { data: document, error } = await supabaseAdmin
+      .from("documents")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    cacheInvalidatePrefix("docs");
+    return c.json({ document });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
 
 // =============================================================
 // 4. QUẢN LÝ THÔNG TIN SINH VIÊN (STUDENT_INFOR CRUD)

@@ -14,6 +14,8 @@ export interface Document {
   description: string;
   category_id: string;
   created_at: string;
+  active: boolean;
+  premium: boolean;
   category?: {
     title: string;
   } | null;

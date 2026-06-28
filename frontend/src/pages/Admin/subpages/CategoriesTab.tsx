@@ -5,7 +5,7 @@ import { toast } from "react-toastify";
 import * as Icons from "lucide-react";
 import { useConfirm } from "../../../context/ConfirmContext.js";
 
-const { Search, Plus, Trash2, Edit2, RefreshCw, Loader2 } = Icons;
+const { Search, Plus, Trash2, Edit2, RefreshCw, Loader2, Eye, EyeOff, Crown } = Icons;
 
 const PRESET_ICONS = [
   { name: "GraduationCap", label: "Mũ tốt nghiệp (NEU, Học phần chuyên ngành)" },
@@ -51,7 +51,32 @@ interface Category {
   slug: string;
   logo: string | null;
   stt: number;
+  active: boolean;
+  premium: boolean;
 }
+
+const ToggleSwitch: React.FC<{
+  checked: boolean;
+  onChange: (val: boolean) => void;
+  label: string;
+  colorClass?: string;
+}> = ({ checked, onChange, label, colorClass = "bg-brand-600" }) => (
+  <label className="flex items-center gap-2 cursor-pointer select-none">
+    <div
+      onClick={() => onChange(!checked)}
+      className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${
+        checked ? colorClass : "bg-[var(--border)]"
+      }`}
+    >
+      <span
+        className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${
+          checked ? "translate-x-4" : "translate-x-0"
+        }`}
+      />
+    </div>
+    <span className="text-xs text-[var(--fg-2)]">{label}</span>
+  </label>
+);
 
 const CategoriesTab: React.FC = () => {
   const confirm = useConfirm();
@@ -60,8 +85,16 @@ const CategoriesTab: React.FC = () => {
   const [search, setSearch] = useState("");
   const [editingCat, setEditingCat] = useState<Category | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({ title: "", slug: "", logo: "", stt: 0 });
+  const [formData, setFormData] = useState({
+    title: "",
+    slug: "",
+    logo: "",
+    stt: 0,
+    active: true,
+    premium: false,
+  });
   const [submitting, setSubmitting] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const fetchCategories = () => {
     setLoading(true);
@@ -105,8 +138,32 @@ const CategoriesTab: React.FC = () => {
 
   const handleEditClick = (cat: Category) => {
     setEditingCat(cat);
-    setFormData({ title: cat.title, slug: cat.slug || "", logo: cat.logo || "", stt: cat.stt });
+    setFormData({
+      title: cat.title,
+      slug: cat.slug || "",
+      logo: cat.logo || "",
+      stt: cat.stt,
+      active: cat.active !== false,
+      premium: cat.premium === true,
+    });
     setShowModal(true);
+  };
+
+  const handleQuickToggle = async (cat: Category, field: "active" | "premium", value: boolean) => {
+    setTogglingId(cat.id + field);
+    try {
+      const res = await apiClient.patch(`/api/v1/admin/categories/${cat.id}`, { [field]: value });
+      setCategories((prev) => prev.map((c) => (c.id === cat.id ? res.data.category : c)));
+      toast.success(
+        field === "active"
+          ? value ? "Đã bật hiển thị danh mục." : "Đã ẩn danh mục."
+          : value ? "Đã bật chế độ Premium." : "Đã tắt chế độ Premium."
+      );
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Cập nhật thất bại.");
+    } finally {
+      setTogglingId(null);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -123,7 +180,7 @@ const CategoriesTab: React.FC = () => {
 
   const closeForm = () => {
     setEditingCat(null);
-    setFormData({ title: "", slug: "", logo: "", stt: 0 });
+    setFormData({ title: "", slug: "", logo: "", stt: 0, active: true, premium: false });
     setShowModal(false);
   };
 
@@ -182,30 +239,68 @@ const CategoriesTab: React.FC = () => {
       {/* Grid view */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map((cat) => (
-          <div key={cat.id} className="card p-4 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 font-semibold shrink-0">
-                {renderCategoryIcon(cat.logo, cat.title, "w-5 h-5")}
+          <div
+            key={cat.id}
+            className={`card p-4 flex flex-col gap-3 transition-opacity ${!cat.active ? "opacity-55" : ""}`}
+          >
+            {/* Top row: icon + info + actions */}
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 font-semibold shrink-0 relative">
+                  {renderCategoryIcon(cat.logo, cat.title, "w-5 h-5")}
+                  {cat.premium && (
+                    <Crown className="w-3 h-3 text-amber-400 absolute -top-1 -right-1" />
+                  )}
+                </div>
+                <div>
+                  <h4 className="cat-title font-semibold text-sm">{cat.title}</h4>
+                  <p className="cat-meta">
+                    STT: {cat.stt} | {cat.slug}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h4 className="cat-title font-semibold text-sm">{cat.title}</h4>
-                <p className="cat-meta">
-                  Thứ tự: {cat.stt} | Slug: {cat.slug}
-                </p>
+              <div className="flex gap-1 shrink-0">
+                <button
+                  onClick={() => handleEditClick(cat)}
+                  className="btn-icon-edit p-1.5 hover:bg-[var(--bg-2)] rounded-lg transition-colors"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => handleDelete(cat.id)}
+                  className="p-1.5 hover:bg-red-500/10 text-red-500 rounded-lg transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
-            <div className="flex gap-1 shrink-0">
+
+            {/* Bottom row: toggle switches */}
+            <div className="flex items-center gap-4 pt-1 border-t border-[var(--border)]">
               <button
-                onClick={() => handleEditClick(cat)}
-                className="btn-icon-edit p-1.5 hover:bg-[var(--bg-2)] rounded-lg transition-colors"
+                disabled={togglingId === cat.id + "active"}
+                onClick={() => handleQuickToggle(cat, "active", !cat.active)}
+                className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg transition-colors ${
+                  cat.active
+                    ? "text-emerald-600 bg-emerald-500/10 hover:bg-emerald-500/20"
+                    : "text-[var(--muted)] bg-[var(--bg-2)] hover:bg-[var(--border)]"
+                }`}
               >
-                <Edit2 className="w-3.5 h-3.5" />
+                {cat.active ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                {cat.active ? "Hiển thị" : "Đã ẩn"}
               </button>
+
               <button
-                onClick={() => handleDelete(cat.id)}
-                className="p-1.5 hover:bg-red-500/10 text-red-500 rounded-lg transition-colors"
+                disabled={togglingId === cat.id + "premium"}
+                onClick={() => handleQuickToggle(cat, "premium", !cat.premium)}
+                className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg transition-colors ${
+                  cat.premium
+                    ? "text-amber-600 bg-amber-500/10 hover:bg-amber-500/20"
+                    : "text-[var(--muted)] bg-[var(--bg-2)] hover:bg-[var(--border)]"
+                }`}
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <Crown className="w-3.5 h-3.5" />
+                {cat.premium ? "Premium" : "Miễn phí"}
               </button>
             </div>
           </div>
@@ -258,7 +353,7 @@ const CategoriesTab: React.FC = () => {
                     {renderCategoryIcon(formData.logo, formData.title || "DM", "w-5 h-5")}
                   </div>
                 </div>
-                
+
                 {/* Previews grid of common icons */}
                 <div className="p-2 rounded-xl border border-[var(--border)] bg-[var(--bg-2)] max-h-32 overflow-y-auto">
                   <div className="text-[10px] font-bold text-[var(--muted)] mb-1.5 px-1 uppercase tracking-wider">Danh sách gợi ý</div>
@@ -273,8 +368,8 @@ const CategoriesTab: React.FC = () => {
                           onClick={() => setFormData({ ...formData, logo: item.name })}
                           title={item.label}
                           className={`p-1.5 rounded-lg flex items-center justify-center transition-colors ${
-                            isSelected 
-                              ? "bg-indigo-600 text-white" 
+                            isSelected
+                              ? "bg-indigo-600 text-white"
                               : "hover:bg-[var(--surface)] text-[var(--fg-2)]"
                           }`}
                         >
@@ -295,6 +390,23 @@ const CategoriesTab: React.FC = () => {
                   className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none focus:border-brand-500"
                 />
               </div>
+
+              {/* Active & Premium toggles */}
+              <div className="flex items-center gap-6 p-3 rounded-xl bg-[var(--bg-2)] border border-[var(--border)]">
+                <ToggleSwitch
+                  checked={formData.active}
+                  onChange={(val) => setFormData({ ...formData, active: val })}
+                  label="Hiển thị (Active)"
+                  colorClass="bg-emerald-500"
+                />
+                <ToggleSwitch
+                  checked={formData.premium}
+                  onChange={(val) => setFormData({ ...formData, premium: val })}
+                  label="Chỉ Premium"
+                  colorClass="bg-amber-500"
+                />
+              </div>
+
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"

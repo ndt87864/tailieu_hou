@@ -1,13 +1,20 @@
 import { Hono } from "hono";
 import { requireRole } from "../middlewares/role.js";
 import * as docService from "../services/documentService.js";
+import type { UserRole } from "../types/index.js";
 
 const docsRouter = new Hono();
+
+/** Trả về true nếu role là premium (plus/pro/ultra/management/admin) */
+const isPremium = (role?: string): boolean =>
+  ["plus", "pro", "ultra", "management", "admin"].includes(role ?? "");
 
 docsRouter.get("/", async (c) => {
   try {
     const categoryId = c.req.query("category_id");
-    const documents = await docService.listDocuments(categoryId);
+    // Lấy role từ JWT payload (được gắn bởi requireRole middleware hoặc middleware auth)
+    const userRole = (c.get("role") as UserRole | undefined);
+    const documents = await docService.listDocuments(categoryId, isPremium(userRole));
     return c.json({ documents });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
@@ -16,7 +23,11 @@ docsRouter.get("/", async (c) => {
 
 docsRouter.get("/grouped", async (c) => {
   try {
-    const categories = await docService.getGroupedDocumentsPreview();
+    const userRole = (c.get("role") as UserRole | undefined);
+    const full = c.req.query("full") === "true";
+    const categories = full
+      ? await docService.getGroupedDocumentsFull(isPremium(userRole))
+      : await docService.getGroupedDocumentsPreview(isPremium(userRole));
     return c.json({ categories });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
@@ -47,8 +58,8 @@ docsRouter.put("/:id", requireRole("management"), async (c) => {
   try {
     const id = c.req.param("id");
     const body = await c.req.json();
-    const { title, description, category_id } = body;
-    const document = await docService.updateDocument(id, { title, description, category_id });
+    const { title, description, category_id, active, premium } = body;
+    const document = await docService.updateDocument(id, { title, description, category_id, active, premium });
     if (!document) {
       return c.json({ error: "Document not found or update failed" }, 404);
     }

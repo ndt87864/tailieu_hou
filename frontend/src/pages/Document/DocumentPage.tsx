@@ -7,7 +7,7 @@ import * as Icons from "lucide-react";
 import { Header } from "../../components/layout/Layout.js";
 import "../../css/document.css";
 
-const { Lock, Search } = Icons;
+const { Lock, Search, Crown } = Icons;
 
 interface Question {
   id: string;
@@ -25,6 +25,8 @@ interface Document {
   title: string;
   description: string;
   category_id?: string | null;
+  active?: boolean;
+  premium?: boolean;
   category?: {
     title: string;
     logo?: string | null;
@@ -75,10 +77,11 @@ const DocumentPage: React.FC = () => {
   const filteredCount = filteredQuestions.length;
 
   // Determine if user has premium/unlimited access
-  const isPremiumUser = ["admin", "ultra"].includes(role) || (["pro", "plus"].includes(role) && !limitApplied);
+  const isPremiumUser = ["admin", "management", "ultra", "pro", "plus"].includes(role);
+  const hasFullAccess = ["admin", "ultra"].includes(role) || (["pro", "plus", "management"].includes(role) && !limitApplied);
 
   const visibleQuestions = filteredQuestions.filter(
-    (q) => !(q.isPremiumLocked && !isPremiumUser)
+    (q) => !(q.isPremiumLocked && !hasFullAccess)
   );
 
   if (loading) return <LoadingSpinner />;
@@ -88,6 +91,70 @@ const DocumentPage: React.FC = () => {
         {error || "Tài liệu không tồn tại."}
       </div>
     );
+
+  // Gate: Document là premium nhưng user chưa có quyền premium
+  if (doc.premium && !isPremiumUser) {
+    return (
+      <div className="flex-1 min-w-0 w-full flex flex-col doc-main-bg">
+        <Header
+          title={doc.title}
+          subtitle={doc.category?.title || ""}
+          hideLogo={true}
+          leftElement={
+            <Link
+              to="/"
+              className="md:hidden p-2 -ml-2 rounded-lg hover:bg-[var(--bg-2)] transition-colors text-[var(--muted)] flex items-center justify-center"
+              aria-label="Về trang chủ"
+            >
+              <Icons.BookOpen className="w-5 h-5 text-[var(--brand-600)]" />
+            </Link>
+          }
+          onMobileMenuClick={() => window.dispatchEvent(new Event("open-doc-sidebar"))}
+          onOpenSettings={() => window.dispatchEvent(new Event("open-settings"))}
+          onOpenProfile={() => window.dispatchEvent(new Event("open-profile"))}
+        />
+        <div className="flex flex-1 items-center justify-center p-8">
+          <div className="max-w-sm w-full text-center space-y-5">
+            <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-500/10 flex items-center justify-center">
+              <Crown className="w-8 h-8 text-amber-500" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold doc-text-fg mb-1">Tài liệu Premium</h2>
+              <p className="text-sm doc-text-muted">
+                Bộ tài liệu này chỉ dành cho tài khoản đã nâng cấp Premium. Nâng cấp để truy cập toàn bộ bộ câu hỏi học tập chất lượng cao.
+              </p>
+            </div>
+            <Link
+              to="/pricing"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold text-sm transition-colors"
+            >
+              <Crown className="w-4 h-4" />
+              Nâng cấp Premium
+            </Link>
+            <div>
+              <Link to="/" className="text-xs doc-text-muted hover:underline">
+                ← Quay lại trang chủ
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Gate: Tài liệu đã bị ẩn (inactive)
+  if (doc.active === false) {
+    return (
+      <div className="flex-1 min-w-0 w-full flex flex-col doc-main-bg">
+        <div className="flex flex-1 items-center justify-center p-8">
+          <div className="text-center space-y-3">
+            <p className="text-sm doc-text-muted">Tài liệu này hiện không có sẵn.</p>
+            <Link to="/" className="text-xs text-[var(--brand-600)] hover:underline">← Quay lại</Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 min-w-0 w-full flex flex-col doc-main-bg">
@@ -133,7 +200,7 @@ const DocumentPage: React.FC = () => {
         </div>
 
         {/* Warning Alert Banner (If not premium/logged in) */}
-        {!isPremiumUser && (
+        {!hasFullAccess && (
           <div 
             className="border rounded-xl p-4 flex items-center gap-3 text-xs doc-warn-banner"
           >
@@ -182,7 +249,7 @@ const DocumentPage: React.FC = () => {
                   </tr>
                 ) : (
                   visibleQuestions.map((q, idx) => {
-                    const isLocked = q.isPremiumLocked && !isPremiumUser;
+                    const isLocked = q.isPremiumLocked && !hasFullAccess;
                     return (
                       <tr 
                         key={q.id || idx} 
@@ -269,7 +336,7 @@ const DocumentPage: React.FC = () => {
             </div>
           ) : (
             visibleQuestions.map((q, idx) => {
-              const isLocked = q.isPremiumLocked && !isPremiumUser;
+              const isLocked = q.isPremiumLocked && !hasFullAccess;
               return (
                 <div 
                   key={q.id || idx}
@@ -343,7 +410,7 @@ const DocumentPage: React.FC = () => {
         </div>
 
         {/* Bottom Lock Notice if not premium */}
-        {!isPremiumUser && totalCount > visibleQuestions.length && (
+        {!hasFullAccess && totalCount > visibleQuestions.length && (
           <div className="mt-6 border border-dashed border-amber-300 dark:border-amber-700 bg-amber-500/5 rounded-xl p-6 text-center space-y-3">
             <div className="text-sm font-semibold text-amber-700 dark:text-amber-300 flex items-center justify-center gap-1.5">
               <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400" />

@@ -3,10 +3,11 @@ import { Link } from "react-router-dom";
 import apiClient from "../../services/client.js";
 import { cachedGet } from "../../utils/apiCache.js";
 import { SkeletonCard } from "../../components/common/LoadingSpinner.js";
+import { useAuth } from "../../context/AuthContext.js";
 import * as Icons from "lucide-react";
 import "../../css/home.css";
 
-const { BookOpen, Search, FileText, ChevronRight, Filter, X } = Icons;
+const { BookOpen, Search, FileText, ChevronRight, Filter, X, Crown } = Icons;
 
 interface Document {
   id: string;
@@ -14,6 +15,7 @@ interface Document {
   description: string;
   category_id: string;
   created_at: string;
+  premium?: boolean;
   category?: {
     title: string;
     logo?: string | null;
@@ -29,6 +31,8 @@ interface GroupedCategory {
 }
 
 const HomePage: React.FC = () => {
+  const { role } = useAuth();
+  const isPremiumUser = ["admin", "management", "ultra", "pro", "plus"].includes(role);
   const [groupedCategories, setGroupedCategories] = useState<GroupedCategory[]>([]);
   const [allDocuments, setAllDocuments] = useState<Document[]>([]);
   const [allDocumentsLoaded, setAllDocumentsLoaded] = useState(false);
@@ -340,6 +344,9 @@ const HomePage: React.FC = () => {
                           <span className="text-sm text-[var(--fg-2)] group-hover/item:text-[var(--brand-600)] font-medium truncate transition-colors">
                             {doc.title}
                           </span>
+                          {doc.premium && (
+                            <Crown className="w-3 h-3 text-amber-400 shrink-0" title="Tài liệu Premium" />
+                          )}
                         </div>
                         <ChevronRight className="w-4 h-4 text-[var(--meta)] opacity-0 group-hover/item:opacity-100 group-hover/item:translate-x-0.5 transition-all shrink-0 duration-200" />
                       </Link>

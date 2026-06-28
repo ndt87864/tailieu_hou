@@ -9,12 +9,21 @@ const TTL_ALL_DOCS = 60_000;  // 60 giây
 // Prefix dùng để invalidate hàng loạt
 const CACHE_PREFIX = "docs";
 
-export const listDocuments = async (categoryId?: string): Promise<Document[]> => {
+export const listDocuments = async (
+  categoryId?: string,
+  isPremiumUser = false
+): Promise<Document[]> => {
   const fetcher = async () => {
     let query = supabaseAdmin
       .from("documents")
       .select("*, category:categories(title, logo, stt)")
+      .eq("active", true)
       .order("created_at", { ascending: true });
+
+    // Nếu không phải premium, ẩn các tài liệu premium
+    if (!isPremiumUser) {
+      query = query.eq("premium", false);
+    }
 
     if (categoryId) {
       if (categoryId === "other") {
@@ -29,24 +38,52 @@ export const listDocuments = async (categoryId?: string): Promise<Document[]> =>
     return (data as any) ?? [];
   };
 
-  // Chỉ cache khi không có filter (dùng cho sidebar)
-  if (!categoryId) {
+  // Chỉ cache khi không có filter và không phải premium (để tránh leak data)
+  if (!categoryId && !isPremiumUser) {
     return cacheGetOrSet<Document[]>(`${CACHE_PREFIX}:all`, fetcher, TTL_ALL_DOCS);
+  }
+  if (!categoryId && isPremiumUser) {
+    return cacheGetOrSet<Document[]>(`${CACHE_PREFIX}:all:premium`, fetcher, TTL_ALL_DOCS);
   }
   return fetcher();
 };
 
-export const getGroupedDocumentsPreview = async (): Promise<any[]> => {
-  return cacheGetOrSet(`${CACHE_PREFIX}:grouped`, _fetchGroupedDocuments, TTL_GROUPED);
+
+export const getGroupedDocumentsPreview = async (
+  isPremiumUser = false
+): Promise<any[]> => {
+  const cacheKey = isPremiumUser
+    ? `${CACHE_PREFIX}:grouped:premium`
+    : `${CACHE_PREFIX}:grouped`;
+  return cacheGetOrSet(cacheKey, () => _fetchGroupedDocuments(isPremiumUser, true), TTL_GROUPED);
 };
 
+/** Không giới hạn số tài liệu — dùng cho sidebar cần hiển thị đầy đủ */
+export const getGroupedDocumentsFull = async (
+  isPremiumUser = false
+): Promise<any[]> => {
+  const cacheKey = isPremiumUser
+    ? `${CACHE_PREFIX}:grouped:full:premium`
+    : `${CACHE_PREFIX}:grouped:full`;
+  return cacheGetOrSet(cacheKey, () => _fetchGroupedDocuments(isPremiumUser, false), TTL_GROUPED);
+};
+
+
 /** Hàm thực thi fetch (tách ra để dùng trong cacheGetOrSet) */
-async function _fetchGroupedDocuments(): Promise<any[]> {
-  // 1. Lấy tất cả categories
-  const { data: categories, error: catError } = await supabaseAdmin
+async function _fetchGroupedDocuments(isPremiumUser = false, preview = true): Promise<any[]> {
+  // 1. Lấy tất cả categories đang active
+  let catQuery = supabaseAdmin
     .from("categories")
     .select("*")
+    .eq("active", true)
     .order("stt", { ascending: true });
+
+  // Nếu không phải premium, ẩn category premium
+  if (!isPremiumUser) {
+    catQuery = catQuery.eq("premium", false);
+  }
+
+  const { data: categories, error: catError } = await catQuery;
 
   if (catError) throw catError;
   if (!categories) return [];
@@ -54,18 +91,30 @@ async function _fetchGroupedDocuments(): Promise<any[]> {
   // 2. Chạy song song: mỗi category lấy docs + count cùng 1 lúc
   //    Dùng Promise.all thay vì for-loop tuần tự (tránh N+1 query)
   const categoryPromises = categories.map(async (cat) => {
-    const [docsResult, countResult] = await Promise.all([
-      supabaseAdmin
-        .from("documents")
-        .select("*, category:categories(title, logo)")
-        .eq("category_id", cat.id)
-        .order("created_at", { ascending: true })
-        .limit(10),
-      supabaseAdmin
-        .from("documents")
-        .select("*", { count: "exact", head: true })
-        .eq("category_id", cat.id),
-    ]);
+    let docQuery = supabaseAdmin
+      .from("documents")
+      .select("*, category:categories(title, logo)")
+      .eq("category_id", cat.id)
+      .eq("active", true)
+      .order("created_at", { ascending: true });
+
+    // Chỉ giới hạn 10 khi ở chế độ preview (homepage)
+    if (preview) {
+      docQuery = docQuery.limit(10);
+    }
+
+    let cntQuery = supabaseAdmin
+      .from("documents")
+      .select("*", { count: "exact", head: true })
+      .eq("category_id", cat.id)
+      .eq("active", true);
+
+    if (!isPremiumUser) {
+      docQuery = docQuery.eq("premium", false);
+      cntQuery = cntQuery.eq("premium", false);
+    }
+
+    const [docsResult, countResult] = await Promise.all([docQuery, cntQuery]);
 
     if (docsResult.error) throw docsResult.error;
     if (countResult.error) throw countResult.error;
@@ -85,18 +134,29 @@ async function _fetchGroupedDocuments(): Promise<any[]> {
   });
 
   // 3. Chạy song song cả "no category" cùng lúc với các category khác
-  const noCatPromise = Promise.all([
-    supabaseAdmin
-      .from("documents")
-      .select("*, category:categories(title, logo)")
-      .is("category_id", null)
-      .order("created_at", { ascending: true })
-      .limit(10),
-    supabaseAdmin
-      .from("documents")
-      .select("*", { count: "exact", head: true })
-      .is("category_id", null),
-  ]);
+  let noCatDocQuery = supabaseAdmin
+    .from("documents")
+    .select("*, category:categories(title, logo)")
+    .is("category_id", null)
+    .eq("active", true)
+    .order("created_at", { ascending: true });
+
+  if (preview) {
+    noCatDocQuery = noCatDocQuery.limit(10);
+  }
+
+  let noCatCntQuery = supabaseAdmin
+    .from("documents")
+    .select("*", { count: "exact", head: true })
+    .is("category_id", null)
+    .eq("active", true);
+
+  if (!isPremiumUser) {
+    noCatDocQuery = noCatDocQuery.eq("premium", false);
+    noCatCntQuery = noCatCntQuery.eq("premium", false);
+  }
+
+  const noCatPromise = Promise.all([noCatDocQuery, noCatCntQuery]);
 
   // 4. Chờ tất cả hoàn thành song song
   const [categoryResults, [noCatDocsResult, noCatCountResult]] =
@@ -151,7 +211,7 @@ export const createDocument = async (
 
 export const updateDocument = async (
   id: string,
-  updates: Partial<Pick<Document, "title" | "description" | "category_id">>
+  updates: Partial<Pick<Document, "title" | "description" | "category_id" | "active" | "premium">>
 ): Promise<Document | null> => {
   const { data, error } = await supabaseAdmin
     .from("documents")
