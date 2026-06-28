@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS public.documents (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   title text NOT NULL,
   description text DEFAULT '',
-  category_id uuid REFERENCES public.categories(id) ON DELETE SET NULL,
+  category_id uuid REFERENCES public.categories(id) ON DELETE CASCADE,
   slug text,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
