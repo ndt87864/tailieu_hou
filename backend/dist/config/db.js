@@ -13,5 +13,28 @@ export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRole || su
         persistSession: false,
         autoRefreshToken: false,
     },
+    global: {
+        fetch: (url, init) => {
+            const headers = new Headers(init?.headers);
+            headers.set("Connection", "close");
+            return fetch(url, {
+                ...init,
+                keepalive: false,
+                headers,
+            });
+        },
+    },
 });
-export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+    global: {
+        fetch: (url, init) => {
+            const headers = new Headers(init?.headers);
+            headers.set("Connection", "close");
+            return fetch(url, {
+                ...init,
+                keepalive: false,
+                headers,
+            });
+        },
+    },
+});

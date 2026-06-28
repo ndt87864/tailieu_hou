@@ -10,3 +10,4 @@ backend/.env
 frontend/.od-skills/web-prototype-d0e6390673/open-design.json
 .agents/AGENTS.md
 /frontend/dist
+/backend/dist
