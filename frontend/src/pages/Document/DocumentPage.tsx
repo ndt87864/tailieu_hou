@@ -26,6 +26,7 @@ interface Document {
   category?: {
     title: string;
     logo?: string | null;
+    stt?: number | null;
   } | null;
 }
 
@@ -33,6 +34,7 @@ interface SidebarCategory {
   id: string;
   title: string;
   logo?: string | null;
+  stt?: number | null;
   documents: Document[];
 }
 
@@ -83,18 +85,24 @@ const DocumentPage: React.FC = () => {
           const catId = d.category_id || "other";
           const catTitle = d.category?.title || "Khác";
           const catLogo = d.category?.logo || null;
+          const catStt = d.category?.stt ?? 9999;
           if (!groups[catId]) {
             groups[catId] = {
               id: catId,
               title: catTitle,
               logo: catLogo,
+              stt: catStt,
               documents: []
             };
           }
           groups[catId].documents.push(d);
         });
 
-        const groupedArray = Object.values(groups);
+        const groupedArray = Object.values(groups).sort((a, b) => {
+          if (a.id === "other") return 1;
+          if (b.id === "other") return -1;
+          return (a.stt ?? 0) - (b.stt ?? 0);
+        });
         setSidebarCategories(groupedArray);
 
         // Auto-expand category of current active document

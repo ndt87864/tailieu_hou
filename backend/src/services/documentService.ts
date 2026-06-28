@@ -4,7 +4,7 @@ import type { Document } from "../types/index.js";
 export const listDocuments = async (categoryId?: string): Promise<Document[]> => {
   let query = supabaseAdmin
     .from("documents")
-    .select("*, category:categories(title, logo)")
+    .select("*, category:categories(title, logo, stt)")
     .order("created_at", { ascending: false });
 
   if (categoryId) {
