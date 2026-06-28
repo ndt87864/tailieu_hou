@@ -180,3 +180,27 @@ CREATE POLICY "user_all_own_ui" ON public.ui_settings FOR ALL USING (user_id = a
 
 DROP TRIGGER IF EXISTS ui_settings_set_updated_at ON public.ui_settings;
 CREATE TRIGGER ui_settings_set_updated_at BEFORE UPDATE ON public.ui_settings FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- 7. PREMIUM USER
+CREATE TABLE IF NOT EXISTS public.premium_user (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  profile_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE,
+  category_id uuid REFERENCES public.categories(id) ON DELETE CASCADE,
+  document_id uuid REFERENCES public.documents(id) ON DELETE CASCADE,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  CONSTRAINT unique_profile_document UNIQUE (profile_id, document_id),
+  CONSTRAINT unique_profile_category UNIQUE (profile_id, category_id)
+);
+
+ALTER TABLE public.premium_user ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "admin_all_premium_user" ON public.premium_user;
+CREATE POLICY "admin_all_premium_user" ON public.premium_user FOR ALL USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('admin','management'));
+
+DROP POLICY IF EXISTS "user_read_own_premium_user" ON public.premium_user;
+CREATE POLICY "user_read_own_premium_user" ON public.premium_user FOR SELECT USING (profile_id = auth.uid());
+
+DROP TRIGGER IF EXISTS premium_user_set_updated_at ON public.premium_user;
+CREATE TRIGGER premium_user_set_updated_at BEFORE UPDATE ON public.premium_user FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+

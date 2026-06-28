@@ -226,6 +226,98 @@ adminRouter.put("/users/:userId/role", async (c) => {
   return c.json({ success: true, profile });
 });
 
+// Lấy danh sách phân quyền (danh mục/tài liệu) của user từ premium_user
+adminRouter.get("/users/:userId/premium-access", async (c) => {
+  const userId = c.req.param("userId");
+  const { data, error } = await supabaseAdmin
+    .from("premium_user")
+    .select("category_id, document_id")
+    .eq("profile_id", userId);
+  
+  if (error) return c.json({ error: error.message }, 400);
+
+  const categoryIds = data?.map((d) => d.category_id).filter(Boolean) || [];
+  const documentIds = data?.map((d) => d.document_id).filter(Boolean) || [];
+
+  return c.json({ categoryIds, documentIds });
+});
+
+// Cập nhật phân quyền (danh mục/tài liệu) của user vào premium_user
+adminRouter.put("/users/:userId/premium-access", async (c) => {
+  const userId = c.req.param("userId");
+  const { categoryIds, documentIds } = await c.req.json();
+  console.log("PUT premium-access:", { userId, categoryIds, documentIds });
+
+  if (categoryIds && !Array.isArray(categoryIds)) {
+    console.error("Invalid categoryIds format:", categoryIds);
+    return c.json({ error: "categoryIds must be an array" }, 400);
+  }
+  if (documentIds && !Array.isArray(documentIds)) {
+    console.error("Invalid documentIds format:", documentIds);
+    return c.json({ error: "documentIds must be an array" }, 400);
+  }
+
+  // Xóa toàn bộ phân quyền cũ của user này
+  console.log("Deleting old premium_user records for user:", userId);
+  const { error: deleteError } = await supabaseAdmin
+    .from("premium_user")
+    .delete()
+    .eq("profile_id", userId);
+
+  if (deleteError) {
+    console.error("Delete old premium_user records error:", deleteError);
+    return c.json({ error: deleteError.message }, 400);
+  }
+
+  const records: any[] = [];
+
+  // 1. Phân quyền theo category (dành cho pro)
+  if (categoryIds && categoryIds.length > 0) {
+    categoryIds.forEach((catId: string) => {
+      records.push({
+        profile_id: userId,
+        category_id: catId,
+        document_id: null,
+      });
+    });
+  }
+
+  // 2. Phân quyền theo document (dành cho plus), kèm theo category_id của document đó
+  if (documentIds && documentIds.length > 0) {
+    console.log("Fetching documents category IDs for documentIds:", documentIds);
+    const { data: docs, error: docError } = await supabaseAdmin
+      .from("documents")
+      .select("id, category_id")
+      .in("id", documentIds);
+
+    if (docError) {
+      console.error("Fetch documents category error:", docError);
+      return c.json({ error: docError.message }, 400);
+    }
+
+    docs?.forEach((doc) => {
+      records.push({
+        profile_id: userId,
+        category_id: doc.category_id,
+        document_id: doc.id,
+      });
+    });
+  }
+
+  console.log("Inserting new premium_user records:", records);
+  if (records.length > 0) {
+    const { error: insertError } = await supabaseAdmin
+      .from("premium_user")
+      .insert(records);
+    if (insertError) {
+      console.error("Insert premium_user records error:", insertError);
+      return c.json({ error: insertError.message }, 400);
+    }
+  }
+
+  console.log("Successfully updated premium-access for user:", userId);
+  return c.json({ success: true });
+});
 
 // =============================================================
 // 3. QUẢN LÝ DANH MỤC (CATEGORIES CRUD)

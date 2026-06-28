@@ -16,13 +16,29 @@ export const questionLimitMiddleware = async (c, next) => {
         c.res = c.json({ ...data, questions, limitApplied: false }, 200);
         return;
     }
-    if (role === "pro" && docId && user) {
-        const { data: purchase } = await supabaseAdmin
-            .from("user_purchases").select("id")
-            .eq("user_id", user.id).eq("document_id", docId).maybeSingle();
-        if (purchase) {
-            c.res = c.json({ ...data, questions, limitApplied: false }, 200);
-            return;
+    if ((role === "pro" || role === "plus") && docId && user) {
+        const { data: docData } = await supabaseAdmin
+            .from("documents")
+            .select("category_id")
+            .eq("id", docId)
+            .maybeSingle();
+        if (docData) {
+            const categoryId = docData.category_id;
+            let query = supabaseAdmin
+                .from("premium_user")
+                .select("id")
+                .eq("profile_id", user.id);
+            if (role === "plus") {
+                query = query.eq("document_id", docId);
+            }
+            else {
+                query = query.eq("category_id", categoryId);
+            }
+            const { data: premiumAccess } = await query.maybeSingle();
+            if (premiumAccess) {
+                c.res = c.json({ ...data, questions, limitApplied: false }, 200);
+                return;
+            }
         }
     }
     // Tài khoản khách/free được xem tối thiểu 1 câu, tối đa 20% tổng số câu
