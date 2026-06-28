@@ -4,6 +4,7 @@ import apiClient from "../services/client.js";
 
 export type ThemeMode = "light" | "dark" | "system";
 export type PrimaryColor = "green" | "blue" | "red" | "purple" | "yellow" | "brown" | "black";
+export type ViewMode = "responsive" | "desktop" | "tablet" | "mobile";
 
 const COLOR_CLASSES = [
   "theme-green", "theme-blue", "theme-red",
@@ -28,8 +29,10 @@ function applyToDom(mode: ThemeMode, color: PrimaryColor) {
 interface UIContextType {
   themeMode: ThemeMode;
   primaryColor: PrimaryColor;
+  viewMode: ViewMode;
   setThemeMode: (mode: ThemeMode) => Promise<void>;
   setPrimaryColor: (color: PrimaryColor) => Promise<void>;
+  setViewMode: (mode: ViewMode) => void;
   loadingSettings: boolean;
 }
 
@@ -45,6 +48,10 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
   const [primaryColor, setPrimaryColorState] = useState<PrimaryColor>(() => {
     return (localStorage.getItem("ui-primary-color") as PrimaryColor) || "green";
+  });
+
+  const [viewMode, setViewModeState] = useState<ViewMode>(() => {
+    return (localStorage.getItem("ui-view-mode") as ViewMode) || "responsive";
   });
 
   const [loadingSettings, setLoadingSettings] = useState<boolean>(true);
@@ -144,8 +151,14 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     }
   }, [user, themeMode]);
 
+  // Setter: thay đổi view mode (desktop, tablet, mobile)
+  const setViewMode = useCallback((mode: ViewMode) => {
+    setViewModeState(mode);
+    localStorage.setItem("ui-view-mode", mode);
+  }, []);
+
   return (
-    <UIContext.Provider value={{ themeMode, primaryColor, setThemeMode, setPrimaryColor, loadingSettings }}>
+    <UIContext.Provider value={{ themeMode, primaryColor, viewMode, setThemeMode, setPrimaryColor, setViewMode, loadingSettings }}>
       {children}
     </UIContext.Provider>
   );

@@ -5,6 +5,7 @@ import { useAuth } from "../../context/AuthContext.js";
 import { BookOpen, User, Shield, LogOut, ChevronDown, Menu, X, Settings } from "lucide-react";
 import UISettingsModal from "./UISettingsModal.js";
 import EditProfileModal from "./EditProfileModal.js";
+import { useUI } from "../../context/UIContext.js";
 
 interface HeaderProps {
   onOpenSettings: () => void;
@@ -305,6 +306,7 @@ const Footer: React.FC = () => (
 );
 
 const Layout: React.FC = () => {
+  const { viewMode } = useUI();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const location = useLocation();
@@ -313,10 +315,69 @@ const Layout: React.FC = () => {
   const isAdminPage = location.pathname.startsWith("/admin");
   const isFullWidthPage = isDocPage || isAdminPage;
 
-  return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--bg)", color: "var(--fg)", transition: "background 0.25s ease, color 0.25s ease" }}>
+  // View mode simulation styling
+  const getSimulatedStyle = (): React.CSSProperties => {
+    switch (viewMode) {
+      case "desktop":
+        return {
+          width: "1280px",
+          maxWidth: "100%",
+          margin: "0 auto",
+          borderLeft: "1px solid var(--border)",
+          borderRight: "1px solid var(--border)",
+          boxShadow: "0 0 40px rgba(0, 0, 0, 0.1)",
+        };
+      case "tablet":
+        return {
+          width: "768px",
+          maxWidth: "100%",
+          margin: "20px auto",
+          borderRadius: "24px",
+          border: "8px solid #1a1a1a",
+          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+          overflow: "hidden",
+          height: "1024px",
+          maxHeight: "90dvh",
+          display: "flex",
+          flexDirection: "column",
+        };
+      case "mobile":
+        return {
+          width: "375px",
+          maxWidth: "100%",
+          margin: "20px auto",
+          borderRadius: "36px",
+          border: "10px solid #1a1a1a",
+          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+          overflow: "hidden",
+          height: "812px",
+          maxHeight: "85dvh",
+          display: "flex",
+          flexDirection: "column",
+        };
+      default:
+        return {};
+    }
+  };
+
+  const simulatedStyle = getSimulatedStyle();
+  const isSimulated = viewMode !== "responsive";
+
+  const content = (
+    <div 
+      style={{ 
+        minHeight: isSimulated ? undefined : "100vh", 
+        height: isSimulated && viewMode !== "desktop" ? "100%" : undefined,
+        display: "flex", 
+        flexDirection: "column", 
+        background: "var(--bg)", 
+        color: "var(--fg)", 
+        transition: "background 0.25s ease, color 0.25s ease",
+        ...simulatedStyle
+      }}
+    >
       <Header onOpenSettings={() => setSettingsOpen(true)} onOpenProfile={() => setProfileOpen(true)} />
-      <main style={{ flex: 1, width: "100%", display: "flex", flexDirection: "column" }}>
+      <main style={{ flex: 1, width: "100%", display: "flex", flexDirection: "column", overflowY: isSimulated && viewMode !== "desktop" ? "auto" : undefined }}>
         {isFullWidthPage ? (
           <Outlet />
         ) : (
@@ -330,6 +391,26 @@ const Layout: React.FC = () => {
       <EditProfileModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} />
     </div>
   );
+
+  if (isSimulated) {
+    return (
+      <div 
+        style={{ 
+          minHeight: "100vh", 
+          background: "color-mix(in srgb, var(--bg-2) 60%, var(--bg))", 
+          padding: viewMode === "desktop" ? 0 : "20px 10px", 
+          display: "flex", 
+          alignItems: "center", 
+          justifyContent: "center",
+          overflowX: "auto"
+        }}
+      >
+        {content}
+      </div>
+    );
+  }
+
+  return content;
 };
 
 export default Layout;

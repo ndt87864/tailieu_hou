@@ -127,17 +127,17 @@ const DocumentPage: React.FC = () => {
 
   return (
     <div 
-      className="flex flex-col lg:flex-row gap-0 min-h-[calc(100vh/0.9-4rem)]"
+      className="flex flex-col md:flex-row gap-0 min-h-[calc(100vh/0.9-4rem)]"
       style={{ background: "var(--bg-2)", color: "var(--fg)" }}
     >
       {/* Sidebar - Solid Green */}
       <div 
-        className="w-full lg:w-72 shrink-0 flex flex-col border-r lg:sticky lg:top-16 lg:h-[calc(100vh/0.9-4rem)] lg:overflow-y-auto z-10"
+        className="w-full md:w-64 lg:w-72 shrink-0 flex flex-col border-r md:sticky md:top-16 md:h-[calc(100vh/0.9-4rem)] md:overflow-y-auto z-10"
         style={{ background: "var(--brand-700)", borderColor: "var(--brand-800)", color: "#fff" }}
       >
-        {/* Mobile Header / Toggle */}
+        {/* Mobile/Tablet Header / Toggle */}
         <div 
-          className="p-4 lg:hidden flex items-center justify-between border-b"
+          className="p-4 md:hidden flex items-center justify-between border-b"
           style={{ borderColor: "var(--brand-800)" }}
         >
           <span className="font-bold flex items-center gap-2 text-white">
@@ -153,9 +153,9 @@ const DocumentPage: React.FC = () => {
         </div>
 
         {/* Sidebar Navigation */}
-        <div className={`w-full lg:block ${mobileOpen ? "block" : "hidden"} flex-1 p-4 pb-24 space-y-4`}>
+        <div className={`w-full md:block ${mobileOpen ? "block" : "hidden"} flex-1 p-4 pb-24 space-y-4`}>
           <div 
-            className="hidden lg:flex items-center gap-2.5 font-bold text-lg mb-6 pb-2 border-b text-white"
+            className="hidden md:flex items-center gap-2.5 font-bold text-lg mb-6 pb-2 border-b text-white"
             style={{ borderColor: "var(--brand-800)" }}
           >
             <BookOpen className="w-5 h-5 text-white" />
@@ -280,9 +280,9 @@ const DocumentPage: React.FC = () => {
           </div>
         )}
 
-        {/* Questions Table */}
+        {/* Questions Table (Desktop & Tablet) */}
         <div 
-          className="rounded-xl shadow-sm border overflow-x-auto"
+          className="hidden md:block rounded-xl shadow-sm border overflow-x-auto"
           style={{ background: "var(--surface)", borderColor: "var(--border)" }}
         >
           <div className="min-w-full">
@@ -393,6 +393,89 @@ const DocumentPage: React.FC = () => {
               </tbody>
             </table>
           </div>
+        </div>
+
+        {/* Questions Cards (Mobile view < 768px) */}
+        <div className="block md:hidden space-y-4">
+          {filteredQuestions.length === 0 ? (
+            <div className="card p-8 text-center text-xs" style={{ color: "var(--meta)", background: "var(--surface)" }}>
+              Không tìm thấy câu hỏi phù hợp.
+            </div>
+          ) : (
+            filteredQuestions.map((q, idx) => {
+              const isLocked = q.isPremiumLocked && !isPremiumUser;
+              return (
+                <div 
+                  key={q.id || idx}
+                  className="card p-4 space-y-3"
+                  style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "12px" }}
+                >
+                  <div className="flex items-center justify-between border-b pb-2" style={{ borderColor: "var(--border-soft)" }}>
+                    <span className="font-bold text-xs" style={{ color: "var(--brand-600)" }}>Câu {idx + 1}</span>
+                    {isLocked && (
+                      <span className="text-amber-600 font-bold text-[10px] flex items-center gap-0.5">
+                        <Lock className="w-3 h-3" /> Premium
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="text-sm font-medium" style={{ color: "var(--fg)" }}>{q.question}</div>
+                  
+                  {/* Choices list */}
+                  <div className="space-y-1.5 pl-2 border-l" style={{ borderColor: "var(--border)" }}>
+                    {(q.choices || []).map((opt, oIdx) => (
+                      <div key={oIdx} className="text-xs" style={{ color: "var(--muted)" }}>
+                        <span className="font-semibold mr-1">{String.fromCharCode(65 + oIdx)}.</span>
+                        {opt}
+                      </div>
+                    ))}
+                  </div>
+
+                  {q.url_question && (
+                    <div 
+                      className="border rounded-lg p-1 max-w-full"
+                      style={{ background: "var(--surface-2)", borderColor: "var(--border)" }}
+                    >
+                      <img src={q.url_question} alt={`Ảnh câu hỏi ${idx + 1}`} className="max-h-40 w-full object-contain" />
+                    </div>
+                  )}
+
+                  <div className="pt-2 border-t" style={{ borderColor: "var(--border-soft)" }}>
+                    {isLocked ? (
+                      <Link
+                        to="/admin"
+                        className="block text-center text-xs bg-amber-500 hover:bg-amber-600 text-white font-semibold py-1.5 rounded-lg transition"
+                      >
+                        Nâng cấp Premium để xem đáp án
+                      </Link>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="text-[10px] uppercase font-semibold" style={{ color: "var(--muted)" }}>Đáp án đúng:</div>
+                        <div 
+                          className="font-semibold rounded-lg px-2.5 py-1.5 inline-block text-xs border"
+                          style={{ 
+                            background: "color-mix(in srgb, var(--brand-600) 8%, var(--surface))", 
+                            color: "var(--brand-700)",
+                            borderColor: "color-mix(in srgb, var(--brand-600) 20%, var(--border))"
+                          }}
+                        >
+                          {q.answer}
+                        </div>
+                        {q.url_answer && (
+                          <div 
+                            className="border rounded-lg p-1 max-w-full"
+                            style={{ background: "var(--surface-2)", borderColor: "var(--border)" }}
+                          >
+                            <img src={q.url_answer} alt={`Ảnh đáp án ${idx + 1}`} className="max-h-40 w-full object-contain" />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
     </div>
