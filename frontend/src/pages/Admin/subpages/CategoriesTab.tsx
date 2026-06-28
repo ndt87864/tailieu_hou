@@ -4,7 +4,7 @@ import LoadingSpinner from "../../../components/common/LoadingSpinner.js";
 import { toast } from "react-toastify";
 import * as Icons from "lucide-react";
 
-const { Search, Plus, Trash2, Edit2, RefreshCw } = Icons;
+const { Search, Plus, Trash2, Edit2, RefreshCw, Loader2 } = Icons;
 
 const PRESET_ICONS = [
   { name: "GraduationCap", label: "Mũ tốt nghiệp (NEU, Học phần chuyên ngành)" },
@@ -59,6 +59,7 @@ const CategoriesTab: React.FC = () => {
   const [editingCat, setEditingCat] = useState<Category | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({ title: "", slug: "", logo: "", stt: 0 });
+  const [submitting, setSubmitting] = useState(false);
 
   const fetchCategories = () => {
     setLoading(true);
@@ -81,6 +82,7 @@ const CategoriesTab: React.FC = () => {
 
   const handleCreateOrUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitting(true);
     try {
       if (editingCat) {
         const res = await apiClient.put(`/api/v1/admin/categories/${editingCat.id}`, formData);
@@ -94,6 +96,8 @@ const CategoriesTab: React.FC = () => {
       closeForm();
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Lưu thất bại.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -307,10 +311,18 @@ const CategoriesTab: React.FC = () => {
                 </button>
                 <button
                   type="submit"
+                  disabled={submitting}
                   style={{ background: "var(--brand-600)", color: "#fff" }}
-                  className="px-4 py-2 text-sm font-medium rounded-xl hover:bg-brand-700"
+                  className="px-4 py-2 text-sm font-medium rounded-xl hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
                 >
-                  Lưu lại
+                  {submitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Đang lưu...
+                    </>
+                  ) : (
+                    "Lưu lại"
+                  )}
                 </button>
               </div>
             </form>

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import apiClient from "../../../services/client.js";
 import LoadingSpinner from "../../../components/common/LoadingSpinner.js";
 import { toast } from "react-toastify";
-import { Search, Plus, Trash2, Edit2, Upload, RefreshCw } from "lucide-react";
+import { Search, Plus, Trash2, Edit2, Upload, RefreshCw, Loader2 } from "lucide-react";
 
 interface Student {
   id: string;
@@ -46,6 +46,8 @@ const StudentInforTab: React.FC = () => {
     examLink: "",
     status: "verified",
   });
+  const [submitting, setSubmitting] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const fetchStudents = () => {
     setLoading(true);
@@ -69,6 +71,7 @@ const StudentInforTab: React.FC = () => {
 
   const handleCreateOrUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitting(true);
     const payload = {
       ...formData,
       examDate: formData.examDate || null,
@@ -86,6 +89,8 @@ const StudentInforTab: React.FC = () => {
       closeForm();
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Lưu thất bại.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -128,7 +133,7 @@ const StudentInforTab: React.FC = () => {
         toast.error("Dữ liệu JSON nhập vào phải là một mảng danh sách!");
         return;
       }
-      
+      setImporting(true);
       const res = await apiClient.post("/api/v1/admin/students/import", { list: parsed });
       toast.success(`Nhập thành công ${res.data.count} sinh viên!`);
       setShowImportModal(false);
@@ -136,6 +141,8 @@ const StudentInforTab: React.FC = () => {
       fetchStudents();
     } catch (err: any) {
       toast.error(err.message || "Định dạng JSON không hợp lệ.");
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -460,10 +467,18 @@ const StudentInforTab: React.FC = () => {
                 </button>
                 <button
                   type="submit"
+                  disabled={submitting}
                   style={{ background: "var(--brand-600)", color: "#fff" }}
-                  className="px-4 py-2 text-sm font-medium rounded-xl hover:bg-brand-700"
+                  className="px-4 py-2 text-sm font-medium rounded-xl hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
                 >
-                  Lưu lại
+                  {submitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Đang lưu...
+                    </>
+                  ) : (
+                    "Lưu lại"
+                  )}
                 </button>
               </div>
             </form>
@@ -501,10 +516,18 @@ const StudentInforTab: React.FC = () => {
               <button
                 type="button"
                 onClick={handleImport}
+                disabled={importing}
                 style={{ background: "var(--brand-600)", color: "#fff" }}
-                className="px-4 py-2 text-sm font-medium rounded-xl hover:bg-brand-700"
+                className="px-4 py-2 text-sm font-medium rounded-xl hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
               >
-                Nhập danh sách
+                {importing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Đang nhập...
+                  </>
+                ) : (
+                  "Nhập danh sách"
+                )}
               </button>
             </div>
           </div>
