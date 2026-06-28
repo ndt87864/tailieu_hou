@@ -395,6 +395,9 @@ adminRouter.get("/students", async (c) => {
     const search = c.req.query("search") || "";
     const page = parseInt(c.req.query("page") || "1", 10);
     const limit = parseInt(c.req.query("limit") || "50", 10);
+    const course = c.req.query("course") || "";
+    const subject = c.req.query("subject") || "";
+    const majorCode = c.req.query("majorCode") || "";
     const offset = (page - 1) * limit;
 
     let query = supabaseAdmin
@@ -405,6 +408,16 @@ adminRouter.get("/students", async (c) => {
       query = query.or(`studentId.ilike.%${search}%,fullName.ilike.%${search}%,username.ilike.%${search}%,subject.ilike.%${search}%`);
     }
 
+    if (course.trim()) {
+      query = query.eq("course", course.trim());
+    }
+    if (subject.trim()) {
+      query = query.ilike("subject", `%${subject.trim()}%`);
+    }
+    if (majorCode.trim()) {
+      query = query.eq("majorCode", majorCode.trim());
+    }
+
     const { data: students, count, error } = await query
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
@@ -413,6 +426,24 @@ adminRouter.get("/students", async (c) => {
     return c.json({ students: students || [], total: count || 0, page, limit });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
+  }
+});
+
+adminRouter.post("/students/bulk-delete", async (c) => {
+  try {
+    const { ids } = await c.req.json();
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return c.json({ error: "Invalid or empty ids array" }, 400);
+    }
+    const { error } = await supabaseAdmin
+      .from("student_infor")
+      .delete()
+      .in("id", ids);
+
+    if (error) throw error;
+    return c.json({ success: true, message: `Deleted ${ids.length} students` });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
   }
 });
 
@@ -427,6 +458,27 @@ adminRouter.post("/students", async (c) => {
 
     if (error) throw error;
     return c.json({ student: data }, 201);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+// Import sinh viên hàng loạt (bulk import/upsert) — must be before /:id
+adminRouter.post("/students/import", async (c) => {
+  try {
+    const { list } = await c.req.json();
+    if (!Array.isArray(list)) {
+      return c.json({ error: "Input 'list' must be an array of students" }, 400);
+    }
+
+    // Thực hiện insert/upsert hàng loạt
+    const { data, error } = await supabaseAdmin
+      .from("student_infor")
+      .insert(list)
+      .select();
+
+    if (error) throw error;
+    return c.json({ success: true, count: data?.length || 0 });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }
@@ -473,27 +525,6 @@ adminRouter.delete("/students/:id", async (c) => {
   const { error } = await supabaseAdmin.from("student_infor").delete().eq("id", id);
   if (error) return c.json({ error: error.message }, 400);
   return c.json({ success: true, message: "Student record deleted" });
-});
-
-// Import sinh viên hàng loạt (bulk import/upsert)
-adminRouter.post("/students/import", async (c) => {
-  try {
-    const { list } = await c.req.json();
-    if (!Array.isArray(list)) {
-      return c.json({ error: "Input 'list' must be an array of students" }, 400);
-    }
-
-    // Thực hiện insert/upsert hàng loạt
-    const { data, error } = await supabaseAdmin
-      .from("student_infor")
-      .insert(list)
-      .select();
-
-    if (error) throw error;
-    return c.json({ success: true, count: data?.length || 0 });
-  } catch (error: any) {
-    return c.json({ error: error.message }, 400);
-  }
 });
 
 // =============================================================

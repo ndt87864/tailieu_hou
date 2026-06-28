@@ -25,6 +25,10 @@ const StudentInforTab: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [courseFilter, setCourseFilter] = useState("");
+  const [subjectFilter, setSubjectFilter] = useState("");
+  const [majorCodeFilter, setMajorCodeFilter] = useState("");
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [pageInput, setPageInput] = useState("1");
   const [total, setTotal] = useState(0);
@@ -32,6 +36,7 @@ const StudentInforTab: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importText, setImportText] = useState("");
+  const [isDeletingBulk, setIsDeletingBulk] = useState(false);
   const [formData, setFormData] = useState({
     studentId: "",
     fullName: "",
@@ -53,7 +58,16 @@ const StudentInforTab: React.FC = () => {
   const fetchStudents = () => {
     setLoading(true);
     apiClient
-      .get("/api/v1/admin/students", { params: { search, page, limit: 15 } })
+      .get("/api/v1/admin/students", {
+        params: {
+          search,
+          page,
+          limit: 15,
+          course: courseFilter,
+          subject: subjectFilter,
+          majorCode: majorCodeFilter
+        }
+      })
       .then((res) => {
         setStudents(res.data.students || []);
         setTotal(res.data.total || 0);
@@ -68,7 +82,7 @@ const StudentInforTab: React.FC = () => {
 
   useEffect(() => {
     fetchStudents();
-  }, [page, search]);
+  }, [page, search, courseFilter, subjectFilter, majorCodeFilter]);
 
   const handleCreateOrUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,9 +135,43 @@ const StudentInforTab: React.FC = () => {
       await apiClient.delete(`/api/v1/admin/students/${id}`);
       toast.success("Xóa thành công!");
       setStudents((prev) => prev.filter((s) => s.id !== id));
+      setSelectedStudentIds((prev) => prev.filter((item) => item !== id));
       setTotal((prev) => prev - 1);
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Xóa thất bại.");
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedStudentIds.length === 0) return;
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${selectedStudentIds.length} sinh viên đã chọn?`)) return;
+
+    setIsDeletingBulk(true);
+    try {
+      await apiClient.post("/api/v1/admin/students/bulk-delete", { ids: selectedStudentIds });
+      toast.success(`Xóa thành công ${selectedStudentIds.length} sinh viên!`);
+      setSelectedStudentIds([]);
+      fetchStudents();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Xóa hàng loạt thất bại.");
+    } finally {
+      setIsDeletingBulk(false);
+    }
+  };
+
+  const handleToggleSelectStudent = (id: string) => {
+    setSelectedStudentIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleToggleSelectAll = () => {
+    const currentPageIds = students.map((s) => s.id);
+    const allSelected = currentPageIds.every((id) => selectedStudentIds.includes(id));
+    if (allSelected) {
+      setSelectedStudentIds((prev) => prev.filter((id) => !currentPageIds.includes(id)));
+    } else {
+      setSelectedStudentIds((prev) => Array.from(new Set([...prev, ...currentPageIds])));
     }
   };
 
@@ -167,45 +215,99 @@ const StudentInforTab: React.FC = () => {
     setShowModal(false);
   };
 
+  const allSelectedOnPage = students.length > 0 && students.every((s) => selectedStudentIds.includes(s.id));
+
   return (
     <div className="space-y-4">
       {/* Controls */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="relative w-full sm:w-80">
-          <Search className="absolute left-3 top-2.5 w-4 h-4 input-search-icon" />
-          <input
-            type="text"
-            placeholder="Tìm kiếm mã SV, tên, ca thi..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            className="input-themed w-full pl-9 pr-4 py-2 text-sm rounded-xl outline-none focus:border-brand-500"
-          />
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="relative w-full sm:w-80">
+            <Search className="absolute left-3 top-2.5 w-4 h-4 input-search-icon" />
+            <input
+              type="text"
+              placeholder="Tìm kiếm mã SV, tên, ca thi..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              className="input-themed w-full pl-9 pr-4 py-2 text-sm rounded-xl outline-none focus:border-brand-500"
+            />
+          </div>
+
+          <div className="flex gap-2 w-full sm:w-auto shrink-0">
+            {selectedStudentIds.length > 0 && (
+              <button
+                onClick={handleBulkDelete}
+                disabled={isDeletingBulk}
+                className="btn-danger flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium rounded-xl text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                Xóa ({selectedStudentIds.length})
+              </button>
+            )}
+            <button
+              onClick={() => setShowImportModal(true)}
+              className="btn-secondary flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl hover:opacity-90 transition-colors shadow-sm"
+            >
+              <Upload className="w-4 h-4" />
+              Nhập JSON
+            </button>
+            <button
+              onClick={() => setShowModal(true)}
+              className="btn-primary flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium rounded-xl hover:bg-brand-700 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Thêm sinh viên
+            </button>
+            <button
+              onClick={fetchStudents}
+              className="btn-secondary p-2 rounded-xl hover:bg-[var(--bg-2)] transition-colors shadow-sm"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
-        <div className="flex gap-2 w-full sm:w-auto">
-          <button
-            onClick={() => setShowImportModal(true)}
-            className="btn-secondary flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl hover:opacity-90 transition-colors shadow-sm"
-          >
-            <Upload className="w-4 h-4" />
-            Nhập JSON
-          </button>
-          <button
-            onClick={() => setShowModal(true)}
-            className="btn-primary flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium rounded-xl hover:bg-brand-700 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Thêm sinh viên
-          </button>
-          <button
-            onClick={fetchStudents}
-            className="btn-secondary p-2 rounded-xl hover:bg-[var(--bg-2)] transition-colors shadow-sm"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
+        {/* Filter Bar */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <input
+              type="text"
+              placeholder="Lọc theo khóa (VD: K19)..."
+              value={courseFilter}
+              onChange={(e) => {
+                setCourseFilter(e.target.value);
+                setPage(1);
+              }}
+              className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none"
+            />
+          </div>
+          <div>
+            <input
+              type="text"
+              placeholder="Lọc theo môn thi..."
+              value={subjectFilter}
+              onChange={(e) => {
+                setSubjectFilter(e.target.value);
+                setPage(1);
+              }}
+              className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none"
+            />
+          </div>
+          <div>
+            <input
+              type="text"
+              placeholder="Lọc theo mã ngành..."
+              value={majorCodeFilter}
+              onChange={(e) => {
+                setMajorCodeFilter(e.target.value);
+                setPage(1);
+              }}
+              className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none"
+            />
+          </div>
         </div>
       </div>
 
@@ -218,6 +320,14 @@ const StudentInforTab: React.FC = () => {
             <table className="table-themed">
               <thead>
                 <tr>
+                  <th className="w-10">
+                    <input
+                      type="checkbox"
+                      checked={allSelectedOnPage}
+                      onChange={handleToggleSelectAll}
+                      className="w-4 h-4 rounded cursor-pointer"
+                    />
+                  </th>
                   <th>Sinh viên</th>
                   <th>Môn thi</th>
                   <th>Thời gian thi</th>
@@ -228,7 +338,7 @@ const StudentInforTab: React.FC = () => {
               <tbody>
                 {students.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="td-empty">
+                    <td colSpan={6} className="td-empty">
                       Không tìm thấy lịch thi nào.
                     </td>
                   </tr>
@@ -236,10 +346,18 @@ const StudentInforTab: React.FC = () => {
                   students.map((std) => (
                     <tr key={std.id}>
                       <td>
+                        <input
+                          type="checkbox"
+                          checked={selectedStudentIds.includes(std.id)}
+                          onChange={() => handleToggleSelectStudent(std.id)}
+                          className="w-4 h-4 rounded cursor-pointer"
+                        />
+                      </td>
+                      <td>
                         <div className="user-name font-semibold">{std.fullName}</div>
                         <div className="cat-meta">
                           MSV: {std.studentId} | Khóa: {std.course}
-                          </div>
+                        </div>
                       </td>
                       <td className="td-sm-text">{std.subject}
                         <div className="cat-meta">
@@ -248,7 +366,6 @@ const StudentInforTab: React.FC = () => {
                       <td className="td-sm-text">
                         {std.examDate ? new Date(std.examDate).toLocaleDateString("vi-VN") : "—"}{" "}
                         <span className="cat-meta">({std.examTime})</span>
-                        
                       </td>
                       <td className="cat-meta">
                         <div>Phòng: {std.examRoom} | Ca: {std.examSession}</div>

@@ -5,6 +5,20 @@ import * as questionService from "../services/questionService.js";
 
 const questionsRouter = new Hono();
 
+questionsRouter.post("/bulk-delete", requireRole("management"), async (c) => {
+  try {
+    const { ids } = await c.req.json();
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return c.json({ error: "Invalid or empty ids array" }, 400);
+    }
+    const ok = await questionService.deleteMultipleQuestions(ids);
+    if (!ok) return c.json({ error: "Bulk delete failed" }, 400);
+    return c.json({ success: true, message: `Deleted ${ids.length} questions` });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
 questionsRouter.get("/document/:documentId", questionLimitMiddleware, async (c) => {
   const documentId = c.req.param("documentId");
   try {

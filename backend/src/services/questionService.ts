@@ -76,6 +76,29 @@ export const deleteQuestion = async (id: string): Promise<boolean> => {
   return !error;
 };
 
+export const deleteMultipleQuestions = async (ids: string[]): Promise<boolean> => {
+  if (!ids || ids.length === 0) return true;
+  
+  // Lấy danh sách các document_id liên quan để invalidate cache
+  const { data: questions, error: fetchError } = await supabaseAdmin
+    .from("questions")
+    .select("document_id")
+    .in("id", ids);
+
+  const { error } = await supabaseAdmin
+    .from("questions")
+    .delete()
+    .in("id", ids);
+
+  if (!error && questions) {
+    const docIds = Array.from(new Set(questions.map((q) => q.document_id).filter(Boolean)));
+    for (const docId of docIds) {
+      cacheInvalidatePrefix(`${CACHE_PREFIX}:${docId}`);
+    }
+  }
+  return !error;
+};
+
 export const getQuestionById = async (id: string): Promise<Question | null> => {
   const { data, error } = await supabaseAdmin
     .from("questions")
