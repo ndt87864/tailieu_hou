@@ -7,9 +7,30 @@ import * as Icons from "lucide-react";
 const { Search, Plus, Trash2, Edit2, RefreshCw } = Icons;
 
 const PRESET_ICONS = [
-  "GraduationCap", "Book", "BookOpen", "PenTool", "FileText", "File",
-  "Code", "Calculator", "Compass", "Database", "Globe", "Award",
-  "Briefcase", "Brain", "Cpu", "Heart", "Music", "Layers", "Folder"
+  { name: "GraduationCap", label: "Mũ tốt nghiệp (NEU, Học phần chuyên ngành)" },
+  { name: "Book", label: "Sách đóng (Giáo trình, Tài liệu chung)" },
+  { name: "BookOpen", label: "Sách mở (Bài giảng, Tài liệu học tập, Môn đại cương)" },
+  { name: "PenTool", label: "Bút vẽ (Thực hành, Vẽ, Thiết kế, Kỹ năng)" },
+  { name: "FileText", label: "Văn bản (Đề cương, Tiểu luận, Tài liệu đọc)" },
+  { name: "File", label: "Tệp tin (Tài liệu chung)" },
+  { name: "Code", label: "Lập trình (Công nghệ thông tin, Tin học)" },
+  { name: "Calculator", label: "Máy tính (Kế toán, Kiểm toán, Toán học)" },
+  { name: "Scale", label: "Cán cân (Luật, Pháp lý, Luật kinh tế)" },
+  { name: "Landmark", label: "Tòa nhà cổ kính (Ngân hàng, Tài chính, Viện học)" },
+  { name: "Coins", label: "Đồng xu (Tài chính, Ngân hàng, Tiền tệ)" },
+  { name: "TrendingUp", label: "Biểu đồ đi lên (Kinh tế, Quản trị, Đầu tư)" },
+  { name: "School", label: "Ngôi trường (Đại học, NEU, Trường học)" },
+  { name: "Briefcase", label: "Cặp tài liệu (Quản trị kinh doanh, Kinh tế, Khởi nghiệp)" },
+  { name: "Database", label: "Cơ sở dữ liệu (Hệ thống thông tin, Lưu trữ)" },
+  { name: "Globe", label: "Quả địa cầu (Tiếng Anh, Ngoại ngữ, Du lịch)" },
+  { name: "Award", label: "Huy hiệu (Thành tích, Chứng chỉ, Đồ án xuất sắc)" },
+  { name: "Brain", label: "Não bộ (Triết học, Logic, Tư duy, Tâm lý)" },
+  { name: "Cpu", label: "Chip xử lý (Kỹ thuật điện tử, Công nghệ, AI)" },
+  { name: "Heart", label: "Trái tim (Y học, Sức khỏe, Tâm lý, Xã hội)" },
+  { name: "Shield", label: "Khiên bảo vệ (Bảo mật, Luật, An toàn)" },
+  { name: "Music", label: "Nốt nhạc (Nghệ thuật, Âm nhạc)" },
+  { name: "Layers", label: "Lớp chồng (Tổng hợp, Khác, Kiến trúc)" },
+  { name: "Folder", label: "Thư mục (Tổng hợp tài liệu)" }
 ];
 
 const renderCategoryIcon = (logo: string | null, title: string, className = "w-5 h-5") => {
@@ -242,22 +263,22 @@ const CategoriesTab: React.FC = () => {
                 <div className="p-2 rounded-xl border border-[var(--border)] bg-[var(--bg-2)] max-h-32 overflow-y-auto">
                   <div className="text-[10px] font-bold text-[var(--muted)] mb-1.5 px-1 uppercase tracking-wider">Danh sách gợi ý</div>
                   <div className="grid grid-cols-6 gap-1">
-                    {PRESET_ICONS.map((iconName) => {
-                      const IconComp = (Icons as any)[iconName];
-                      const isSelected = formData.logo === iconName;
+                    {PRESET_ICONS.map((item) => {
+                      const IconComp = (Icons as any)[item.name];
+                      const isSelected = formData.logo === item.name;
                       return (
                         <button
-                          key={iconName}
+                          key={item.name}
                           type="button"
-                          onClick={() => setFormData({ ...formData, logo: iconName })}
-                          title={iconName}
+                          onClick={() => setFormData({ ...formData, logo: item.name })}
+                          title={item.label}
                           className={`p-1.5 rounded-lg flex items-center justify-center transition-colors ${
                             isSelected 
                               ? "bg-indigo-600 text-white" 
                               : "hover:bg-[var(--surface)] text-[var(--fg-2)]"
                           }`}
                         >
-                          {IconComp ? <IconComp className="w-4 h-4" /> : iconName.slice(0, 2)}
+                          {IconComp ? <IconComp className="w-4 h-4" /> : item.name.slice(0, 2)}
                         </button>
                       );
                     })}
