@@ -7,8 +7,9 @@ import {
   Plus,
   Trash2,
   RefreshCw,
-  CheckSquare,
   Filter,
+  FileText,
+  FileSpreadsheet,
 } from "lucide-react";
 import FilterQuestionModal from "./FilterQuestionModal.js";
 import QuestionFormModal from "./QuestionFormModal.js";
@@ -308,9 +309,103 @@ const QuestionsTab: React.FC = () => {
     filtered.length > 0 &&
     filtered.every((q) => selectedQuestionIds.includes(q.id));
 
-  const filteredDocs = documents.filter(
-    (d) => d.category_id === selectedCategoryId
-  );
+  const handleDownload = (type: "word" | "excel") => {
+    if (filtered.length === 0) {
+      toast.warning("Không có câu hỏi nào để tải xuống.");
+      return;
+    }
+
+    if (type === "excel") {
+      // Create CSV content with UTF-8 BOM to prevent Vietnamese font corruption in Excel
+      const headers = ["STT", "Câu hỏi", "Lựa chọn A", "Lựa chọn B", "Lựa chọn C", "Lựa chọn D", "Đáp án đúng", "Tài liệu"];
+      const rows = filtered.map((q, idx) => {
+        const docTitle = documents.find((d) => d.id === q.document_id)?.title || "";
+        const choices = q.choices || [];
+        return [
+          idx + 1,
+          q.question,
+          choices[0] || "",
+          choices[1] || "",
+          choices[2] || "",
+          choices[3] || "",
+          q.answer,
+          docTitle
+        ];
+      });
+
+      const csvContent = [headers, ...rows]
+        .map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(","))
+        .join("\n");
+
+      const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `Danh_sach_cau_hoi_${new Date().getTime()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success("Xuất file Excel thành công!");
+    } else if (type === "word") {
+      // Create simplified HTML document that Word can open natively as .doc
+      let htmlContent = `
+        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+        <head>
+          <title>Danh sách câu hỏi</title>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1.5; }
+            .question-block { margin-bottom: 20px; }
+            .question-title { font-weight: bold; margin-bottom: 5px; }
+            .choices { margin-left: 20px; margin-bottom: 5px; }
+            .choice { margin-bottom: 3px; }
+            .answer { font-style: italic; color: #10b981; font-weight: bold; margin-top: 5px; }
+            .doc-info { font-size: 10pt; color: #666; margin-bottom: 10px; }
+          </style>
+        </head>
+        <body>
+          <h2 style="text-align: center;">DANH SÁCH CÂU HỎI</h2>
+      `;
+
+      filtered.forEach((q, idx) => {
+        const docTitle = documents.find((d) => d.id === q.document_id)?.title || "";
+        htmlContent += `
+          <div class="question-block">
+            <div class="question-title">Câu ${idx + 1}: ${q.question}</div>
+            <div class="doc-info">Tài liệu: ${docTitle}</div>
+            <div class="choices">
+        `;
+
+        (q.choices || []).forEach((choice, cIdx) => {
+          htmlContent += `
+            <div class="choice">${String.fromCharCode(65 + cIdx)}. ${choice}</div>
+          `;
+        });
+
+        htmlContent += `
+            </div>
+            <div class="answer">Đáp án đúng: ${q.answer}</div>
+          </div>
+          <hr/>
+        `;
+      });
+
+      htmlContent += `
+        </body>
+        </html>
+      `;
+
+      const blob = new Blob(["\uFEFF" + htmlContent], { type: "application/msword;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `Danh_sach_cau_hoi_${new Date().getTime()}.doc`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success("Xuất file Word thành công!");
+    }
+  };
 
   if (loadingDocs) return <LoadingSpinner />;
 
@@ -318,102 +413,85 @@ const QuestionsTab: React.FC = () => {
     <div className="space-y-4">
       {/* Selection & Search Bar */}
       <div className="flex flex-col lg:flex-row items-center gap-3">
-        {/* Category Selection */}
-        <div className="w-full lg:w-48">
-          <select
-            value={selectedCategoryId}
-            onChange={(e) => setSelectedCategoryId(e.target.value)}
-            className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none cursor-pointer font-medium"
-          >
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.title}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Document Selection */}
-        <div className="w-full lg:w-64">
-          <select
-            value={selectedDocId}
-            onChange={(e) => {
-              setSelectedDocId(e.target.value);
-              setSelectedDocIds(e.target.value ? [e.target.value] : []);
-            }}
-            className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none cursor-pointer font-medium"
-          >
-            <option value="">-- Chọn tài liệu --</option>
-            {filteredDocs.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.title}
-              </option>
-            ))}
-          </select>
-        </div>
-
         {/* Filter Modal Trigger */}
-        <div className="w-full lg:w-auto shrink-0">
+        <div className="shrink-0">
           <button
             type="button"
             onClick={() => setShowFilterModal(true)}
-            className="btn-secondary flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl hover:opacity-95 transition-colors shadow-sm w-full"
+            title="Lọc tài liệu"
+            className="btn-secondary flex items-center justify-center p-2.5 rounded-xl hover:opacity-95 transition-colors shadow-sm"
           >
-            <Filter className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-            <span>Lọc nhiều</span>
+            <Filter className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
           </button>
         </div>
 
         {/* Search */}
         <div className="relative w-full lg:flex-1">
-          <Search className="absolute left-3 top-2.5 w-4 h-4 input-search-icon" />
+          <Search className="absolute left-3 top-3 w-4 h-4 input-search-icon" />
           <input
             type="text"
             placeholder="Tìm theo câu hỏi, câu trả lời, hoặc tài liệu..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="input-themed w-full pl-9 pr-4 py-2 text-sm rounded-xl outline-none focus:border-brand-500"
+            className="input-themed w-full pl-9 pr-4 py-2.5 text-sm rounded-xl outline-none focus:border-brand-500"
           />
         </div>
 
         {/* Action buttons */}
-        <div className="flex gap-2 w-full lg:w-auto shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Download Word */}
+          <button
+            onClick={() => handleDownload("word")}
+            title="Tải Word"
+            className="btn-secondary p-2.5 rounded-xl hover:bg-[var(--bg-2)] transition-colors shadow-sm"
+          >
+            <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+          </button>
+
+          {/* Download Excel */}
+          <button
+            onClick={() => handleDownload("excel")}
+            title="Tải Excel"
+            className="btn-secondary p-2.5 rounded-xl hover:bg-[var(--bg-2)] transition-colors shadow-sm"
+          >
+            <FileSpreadsheet className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+          </button>
+
+          {/* Refresh */}
+          <button
+            onClick={() => fetchQuestions(selectedDocIds)}
+            title="Tải lại danh sách"
+            className="btn-secondary p-2.5 rounded-xl hover:bg-[var(--bg-2)] transition-colors shadow-sm"
+          >
+            <RefreshCw className="w-5 h-5" />
+          </button>
+
+          {/* Bulk delete */}
           {selectedQuestionIds.length > 0 && (
             <button
               onClick={handleBulkDelete}
               disabled={isDeletingBulk}
-              className="btn-danger flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium rounded-xl text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 transition-colors"
+              title={`Xóa ${selectedQuestionIds.length} câu hỏi đã chọn`}
+              className="btn-danger flex items-center justify-center p-2.5 rounded-xl text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 transition-colors"
             >
-              <Trash2 className="w-4 h-4" />
-              Xóa ({selectedQuestionIds.length})
+              <Trash2 className="w-5 h-5" />
             </button>
           )}
-          <button
-            onClick={handleToggleSelectAll}
-            className="btn-secondary flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl hover:opacity-90 transition-colors shadow-sm"
-          >
-            <CheckSquare className="w-4 h-4" />
-            {isAllSelected ? "Bỏ chọn" : "Chọn hết"}
-          </button>
+
+          {/* Add Question */}
           <button
             disabled={selectedDocIds.length === 0}
             onClick={openAddClick}
-            className="btn-primary flex-1 lg:flex-none flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium rounded-xl hover:bg-brand-700 disabled:opacity-50 transition-colors"
+            title="Thêm câu hỏi mới"
+            className="btn-primary flex items-center justify-center p-2.5 rounded-xl hover:bg-brand-700 disabled:opacity-50 transition-colors"
           >
-            <Plus className="w-4 h-4" />
-            Thêm câu hỏi
-          </button>
-          <button
-            onClick={() => fetchQuestions(selectedDocIds)}
-            className="btn-secondary p-2 rounded-xl hover:bg-[var(--bg-2)] transition-colors shadow-sm"
-          >
-            <RefreshCw className="w-4 h-4" />
+            <Plus className="w-5 h-5" />
           </button>
         </div>
       </div>
 
       {/* Multi-document Selection Status */}
-      {selectedDocIds.length > 1 && (
+      {selectedDocIds.length > 0 && (
         <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 text-xs text-emerald-700 dark:text-emerald-300 flex flex-wrap gap-2 items-center">
           <span className="font-semibold">Đang lọc ({selectedDocIds.length}) tài liệu:</span>
           {selectedDocIds.map((id) => {
@@ -440,18 +518,34 @@ const QuestionsTab: React.FC = () => {
               Không tìm thấy câu hỏi nào cho tài liệu đã chọn.
             </div>
           ) : (
-            filtered.map((q) => (
-              <QuestionCard
-                key={q.id}
-                q={q}
-                documents={documents}
-                selectedDocIds={selectedDocIds}
-                selectedQuestionIds={selectedQuestionIds}
-                toggleSelectQuestion={toggleSelectQuestion}
-                handleEditClick={handleEditClick}
-                handleDelete={handleDelete}
-              />
-            ))
+            <>
+              {/* Select All Checkbox Container */}
+              <div className="flex items-center gap-3 px-5 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-[var(--bg-1)] shadow-sm">
+                <input
+                  type="checkbox"
+                  checked={isAllSelected}
+                  onChange={handleToggleSelectAll}
+                  className="w-4 h-4 rounded cursor-pointer shrink-0 accent-emerald-600"
+                  id="select-all-checkbox"
+                />
+                <label htmlFor="select-all-checkbox" className="text-xs font-semibold text-slate-500 cursor-pointer select-none">
+                  {isAllSelected ? "Bỏ chọn tất cả" : "Chọn tất cả"} ({selectedQuestionIds.length}/{filtered.length} câu hỏi)
+                </label>
+              </div>
+
+              {filtered.map((q) => (
+                <QuestionCard
+                  key={q.id}
+                  q={q}
+                  documents={documents}
+                  selectedDocIds={selectedDocIds}
+                  selectedQuestionIds={selectedQuestionIds}
+                  toggleSelectQuestion={toggleSelectQuestion}
+                  handleEditClick={handleEditClick}
+                  handleDelete={handleDelete}
+                />
+              ))}
+            </>
           )}
         </div>
       )}
