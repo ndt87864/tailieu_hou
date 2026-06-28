@@ -29,13 +29,11 @@ import DocumentsTab from "./subpages/DocumentsTab.js";
 import QuestionsTab from "./subpages/QuestionsTab.js";
 import StudentInforTab from "./subpages/StudentInforTab.js";
 
-// Import mock subpages
 import {
   RoomsTab,
   SessionsTab,
   PricingTab,
   RemindersTab,
-  PremiumTab,
   FooterTab,
   ContactsTab,
   ProxyTab,
@@ -57,7 +55,6 @@ type TabId =
   | "sessions"
   | "pricing"
   | "calendar"
-  | "premium"
   | "footer"
   | "contacts"
   | "ratio"
@@ -94,7 +91,6 @@ const AdminPage: React.FC = () => {
         "sessions",
         "pricing",
         "calendar",
-        "premium",
         "footer",
         "contacts",
         "ratio",
@@ -125,6 +121,12 @@ const AdminPage: React.FC = () => {
       ],
     },
     {
+      label: "Người dùng",
+      items: [
+        { id: "users",    label: "Tài khoản",    icon: <Users className="w-4 h-4" /> },
+      ],
+    },
+    {
       label: "Nội dung",
       items: [
         { id: "categories", label: "Danh mục", icon: <FolderOpen className="w-4 h-4" /> },
@@ -134,26 +136,24 @@ const AdminPage: React.FC = () => {
       ],
     },
     {
-      label: "Người dùng",
+      label: "Thi cử",
       items: [
-        { id: "users",    label: "Tài khoản",    icon: <Users className="w-4 h-4" /> },
-        { id: "premium",  label: "Tài khoản Plus", icon: <Lock className="w-4 h-4" /> },
         { id: "students", label: "Sinh viên",    icon: <GraduationCap className="w-4 h-4" /> },
-        { id: "proxy",    label: "Đăng ký môn",  icon: <UserCheck className="w-4 h-4" /> },
+        { id: "rooms",    label: "Phòng thi",    icon: <Home className="w-4 h-4" /> },
+        { id: "sessions", label: "Ca thi",       icon: <Clock className="w-4 h-4" /> },
       ],
     },
     {
-      label: "Thi cử",
-      items: [
-        { id: "rooms",    label: "Phòng thi",    icon: <Home className="w-4 h-4" /> },
-        { id: "sessions", label: "Ca thi",       icon: <Clock className="w-4 h-4" /> },
+      label: "Đăng kí môn",
+       items: [
+        { id: "proxy",    label: "Đăng ký môn",  icon: <UserCheck className="w-4 h-4" /> },
         { id: "pricing",  label: "Giá môn học",  icon: <DollarSign className="w-4 h-4" /> },
-        { id: "calendar", label: "Lịch",         icon: <Calendar className="w-4 h-4" /> },
       ],
     },
     {
       label: "Hệ thống",
       items: [
+        { id: "calendar", label: "Lịch",         icon: <Calendar className="w-4 h-4" /> },
         { id: "footer",   label: "Footer",       icon: <Compass className="w-4 h-4" /> },
         { id: "contacts", label: "Liên hệ",      icon: <Mail className="w-4 h-4" /> },
       ],
@@ -185,8 +185,6 @@ const AdminPage: React.FC = () => {
         return <PricingTab />;
       case "calendar":
         return <RemindersTab />;
-      case "premium":
-        return <PremiumTab />;
       case "footer":
         return <FooterTab />;
       case "contacts":
