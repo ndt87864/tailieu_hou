@@ -12,6 +12,17 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION public.get_user_role(user_id uuid)
+RETURNS text AS $$
+DECLARE
+  u_role text;
+BEGIN
+  SELECT role::text INTO u_role FROM public.profiles WHERE id = user_id;
+  RETURN COALESCE(u_role, 'free');
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+
 -- 1. CATEGORIES
 CREATE TABLE IF NOT EXISTS public.categories (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -127,29 +138,37 @@ CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXEC
 DROP POLICY IF EXISTS "anon_select_categories" ON public.categories;
 CREATE POLICY "anon_select_categories" ON public.categories FOR SELECT USING (true);
 DROP POLICY IF EXISTS "admin_all_categories" ON public.categories;
-CREATE POLICY "admin_all_categories" ON public.categories FOR ALL USING ((SELECT role FROM profiles WHERE id = auth.uid()) IN ('admin','management'));
+CREATE POLICY "admin_all_categories" ON public.categories FOR ALL USING (public.get_user_role(auth.uid()) IN ('admin','management'));
 
 DROP POLICY IF EXISTS "anon_select_documents" ON public.documents;
 CREATE POLICY "anon_select_documents" ON public.documents FOR SELECT USING (true);
 DROP POLICY IF EXISTS "admin_all_documents" ON public.documents;
-CREATE POLICY "admin_all_documents" ON public.documents FOR ALL USING ((SELECT role FROM profiles WHERE id = auth.uid()) IN ('admin','management'));
+CREATE POLICY "admin_all_documents" ON public.documents FOR ALL USING (public.get_user_role(auth.uid()) IN ('admin','management'));
 
 DROP POLICY IF EXISTS "anon_select_questions" ON public.questions;
 CREATE POLICY "anon_select_questions" ON public.questions FOR SELECT USING (true);
 DROP POLICY IF EXISTS "admin_all_questions" ON public.questions;
-CREATE POLICY "admin_all_questions" ON public.questions FOR ALL USING ((SELECT role FROM profiles WHERE id = auth.uid()) IN ('admin','management'));
+CREATE POLICY "admin_all_questions" ON public.questions FOR ALL USING (public.get_user_role(auth.uid()) IN ('admin','management'));
 
 DROP POLICY IF EXISTS "student_read_own" ON public.student_infor;
 CREATE POLICY "student_read_own" ON public.student_infor FOR SELECT USING (true);
 DROP POLICY IF EXISTS "admin_all_student" ON public.student_infor;
-CREATE POLICY "admin_all_student" ON public.student_infor FOR ALL USING ((SELECT role FROM profiles WHERE id = auth.uid()) = 'admin');
+DROP POLICY IF EXISTS "insert_student_infor_admin" ON public.student_infor;
+CREATE POLICY "insert_student_infor_admin" ON public.student_infor FOR INSERT WITH CHECK (public.get_user_role(auth.uid()) = 'admin');
+DROP POLICY IF EXISTS "update_student_infor_admin" ON public.student_infor;
+CREATE POLICY "update_student_infor_admin" ON public.student_infor FOR UPDATE USING (public.get_user_role(auth.uid()) = 'admin') WITH CHECK (public.get_user_role(auth.uid()) = 'admin');
+DROP POLICY IF EXISTS "delete_student_infor_admin" ON public.student_infor;
+CREATE POLICY "delete_student_infor_admin" ON public.student_infor FOR DELETE USING (public.get_user_role(auth.uid()) = 'admin');
 
+DROP POLICY IF EXISTS "select_profiles_rules" ON public.profiles;
+CREATE POLICY "select_profiles_rules" ON public.profiles FOR SELECT USING (id = auth.uid() OR (SELECT role::text FROM public.profiles WHERE id = auth.uid()) = 'admin');
 DROP POLICY IF EXISTS "admin_all_profiles" ON public.profiles;
-CREATE POLICY "admin_all_profiles" ON public.profiles FOR ALL USING ((SELECT role FROM profiles WHERE id = auth.uid()) = 'admin');
 DROP POLICY IF EXISTS "user_read_own_profile" ON public.profiles;
-CREATE POLICY "user_read_own_profile" ON public.profiles FOR SELECT USING (id = auth.uid());
 DROP POLICY IF EXISTS "user_update_own_profile" ON public.profiles;
-CREATE POLICY "user_update_own_profile" ON public.profiles FOR UPDATE USING (id = auth.uid()) WITH CHECK (id = auth.uid());
+DROP POLICY IF EXISTS "update_profiles_rules" ON public.profiles;
+CREATE POLICY "update_profiles_rules" ON public.profiles FOR UPDATE USING (id = auth.uid() OR public.get_user_role(auth.uid()) = 'admin') WITH CHECK (id = auth.uid() OR public.get_user_role(auth.uid()) = 'admin');
+DROP POLICY IF EXISTS "delete_profiles_rules" ON public.profiles;
+CREATE POLICY "delete_profiles_rules" ON public.profiles FOR DELETE USING (public.get_user_role(auth.uid()) = 'admin');
 
 -- Triggers updated_at
 DROP TRIGGER IF EXISTS categories_set_updated_at ON public.categories;
@@ -196,11 +215,85 @@ CREATE TABLE IF NOT EXISTS public.premium_user (
 ALTER TABLE public.premium_user ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "admin_all_premium_user" ON public.premium_user;
-CREATE POLICY "admin_all_premium_user" ON public.premium_user FOR ALL USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('admin','management'));
+CREATE POLICY "admin_all_premium_user" ON public.premium_user FOR ALL USING (public.get_user_role(auth.uid()) IN ('admin','management'));
 
 DROP POLICY IF EXISTS "user_read_own_premium_user" ON public.premium_user;
 CREATE POLICY "user_read_own_premium_user" ON public.premium_user FOR SELECT USING (profile_id = auth.uid());
 
 DROP TRIGGER IF EXISTS premium_user_set_updated_at ON public.premium_user;
 CREATE TRIGGER premium_user_set_updated_at BEFORE UPDATE ON public.premium_user FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- 8. SUBJECT_PRICES
+CREATE TABLE IF NOT EXISTS public.subject_prices (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  subject text NOT NULL UNIQUE,
+  price numeric NOT NULL DEFAULT 100000,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE public.subject_prices ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "select_subject_prices_all" ON public.subject_prices;
+CREATE POLICY "select_subject_prices_all" ON public.subject_prices FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "admin_all_subject_prices" ON public.subject_prices;
+CREATE POLICY "admin_all_subject_prices" ON public.subject_prices FOR ALL USING (public.get_user_role(auth.uid()) = 'admin');
+
+DROP TRIGGER IF EXISTS subject_prices_set_updated_at ON public.subject_prices;
+CREATE TRIGGER subject_prices_set_updated_at BEFORE UPDATE ON public.subject_prices FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- 9. PROXY_REGISTRATIONS
+CREATE TABLE IF NOT EXISTS public.proxy_registrations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id text NOT NULL UNIQUE,
+  selected_ids text,
+  bill_url text,
+  status text DEFAULT 'pending',
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE public.proxy_registrations ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "select_proxy_registrations_all" ON public.proxy_registrations;
+CREATE POLICY "select_proxy_registrations_all" ON public.proxy_registrations FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "admin_all_proxy_registrations" ON public.proxy_registrations;
+CREATE POLICY "admin_all_proxy_registrations" ON public.proxy_registrations FOR ALL USING (public.get_user_role(auth.uid()) = 'admin');
+
+DROP TRIGGER IF EXISTS proxy_registrations_set_updated_at ON public.proxy_registrations;
+CREATE TRIGGER proxy_registrations_set_updated_at BEFORE UPDATE ON public.proxy_registrations FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- 10. REGISTRATION_QUEUE
+CREATE TABLE IF NOT EXISTS public.registration_queue (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id text,
+  selected_ids text,
+  full_name text,
+  username text,
+  bill_url text,
+  quantity integer,
+  total_amount numeric,
+  status text DEFAULT 'pending',
+  retry_count integer DEFAULT 0,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE public.registration_queue ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "select_registration_queue_all" ON public.registration_queue;
+CREATE POLICY "select_registration_queue_all" ON public.registration_queue FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "insert_registration_queue_all" ON public.registration_queue;
+CREATE POLICY "insert_registration_queue_all" ON public.registration_queue FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "admin_all_registration_queue" ON public.registration_queue;
+CREATE POLICY "admin_all_registration_queue" ON public.registration_queue FOR ALL USING (public.get_user_role(auth.uid()) = 'admin');
+
+DROP TRIGGER IF EXISTS registration_queue_set_updated_at ON public.registration_queue;
+CREATE TRIGGER registration_queue_set_updated_at BEFORE UPDATE ON public.registration_queue FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+
 

@@ -1,16 +1,8 @@
 -- =============================================================
--- FULL ROW LEVEL SECURITY (RLS) POLICIES FOR SUPABASE
+-- FIX RLS INFINITE RECURSION FOR PROFILES TABLE
 -- =============================================================
 
--- Ensure RLS is enabled on all tables
-ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.documents ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.questions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.student_infor ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.ui_settings ENABLE ROW LEVEL SECURITY;
-
--- Helper function with SECURITY DEFINER to bypass RLS recursion
+-- 1. Helper function with SECURITY DEFINER to bypass RLS recursion
 CREATE OR REPLACE FUNCTION public.get_user_role(user_id uuid)
 RETURNS text AS $$
 DECLARE
@@ -21,11 +13,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
--- 1. CATEGORIES POLICIES
-DROP POLICY IF EXISTS "select_categories_all" ON public.categories;
-CREATE POLICY "select_categories_all" ON public.categories 
-  FOR SELECT USING (true);
-
+-- 2. Update CATEGORIES POLICIES
 DROP POLICY IF EXISTS "insert_categories_admin" ON public.categories;
 CREATE POLICY "insert_categories_admin" ON public.categories 
   FOR INSERT WITH CHECK (public.get_user_role(auth.uid()) IN ('admin', 'management'));
@@ -40,11 +28,7 @@ CREATE POLICY "delete_categories_admin" ON public.categories
   FOR DELETE USING (public.get_user_role(auth.uid()) IN ('admin', 'management'));
 
 
--- 2. DOCUMENTS POLICIES
-DROP POLICY IF EXISTS "select_documents_all" ON public.documents;
-CREATE POLICY "select_documents_all" ON public.documents 
-  FOR SELECT USING (true);
-
+-- 3. Update DOCUMENTS POLICIES
 DROP POLICY IF EXISTS "insert_documents_admin" ON public.documents;
 CREATE POLICY "insert_documents_admin" ON public.documents 
   FOR INSERT WITH CHECK (public.get_user_role(auth.uid()) IN ('admin', 'management'));
@@ -59,11 +43,7 @@ CREATE POLICY "delete_documents_admin" ON public.documents
   FOR DELETE USING (public.get_user_role(auth.uid()) IN ('admin', 'management'));
 
 
--- 3. QUESTIONS POLICIES
-DROP POLICY IF EXISTS "select_questions_all" ON public.questions;
-CREATE POLICY "select_questions_all" ON public.questions 
-  FOR SELECT USING (true);
-
+-- 4. Update QUESTIONS POLICIES
 DROP POLICY IF EXISTS "insert_questions_admin" ON public.questions;
 CREATE POLICY "insert_questions_admin" ON public.questions 
   FOR INSERT WITH CHECK (public.get_user_role(auth.uid()) IN ('admin', 'management'));
@@ -78,11 +58,7 @@ CREATE POLICY "delete_questions_admin" ON public.questions
   FOR DELETE USING (public.get_user_role(auth.uid()) IN ('admin', 'management'));
 
 
--- 4. STUDENT_INFOR POLICIES
-DROP POLICY IF EXISTS "select_student_infor_all" ON public.student_infor;
-CREATE POLICY "select_student_infor_all" ON public.student_infor 
-  FOR SELECT USING (true); -- Cho phép tra cứu lịch thi tự do hoặc lọc theo mã sinh viên
-
+-- 5. Update STUDENT_INFOR POLICIES
 DROP POLICY IF EXISTS "insert_student_infor_admin" ON public.student_infor;
 CREATE POLICY "insert_student_infor_admin" ON public.student_infor 
   FOR INSERT WITH CHECK (public.get_user_role(auth.uid()) = 'admin');
@@ -97,14 +73,10 @@ CREATE POLICY "delete_student_infor_admin" ON public.student_infor
   FOR DELETE USING (public.get_user_role(auth.uid()) = 'admin');
 
 
--- 5. PROFILES POLICIES
+-- 6. Update PROFILES POLICIES
 DROP POLICY IF EXISTS "select_profiles_rules" ON public.profiles;
 CREATE POLICY "select_profiles_rules" ON public.profiles 
   FOR SELECT USING (id = auth.uid() OR (SELECT role::text FROM public.profiles WHERE id = auth.uid()) = 'admin');
-
-DROP POLICY IF EXISTS "insert_profiles_rules" ON public.profiles;
-CREATE POLICY "insert_profiles_rules" ON public.profiles 
-  FOR INSERT WITH CHECK (true); -- Cho phép tạo mới profile khi đăng ký (hoặc qua trigger chạy definer)
 
 DROP POLICY IF EXISTS "update_profiles_rules" ON public.profiles;
 CREATE POLICY "update_profiles_rules" ON public.profiles 
@@ -114,46 +86,3 @@ CREATE POLICY "update_profiles_rules" ON public.profiles
 DROP POLICY IF EXISTS "delete_profiles_rules" ON public.profiles;
 CREATE POLICY "delete_profiles_rules" ON public.profiles 
   FOR DELETE USING (public.get_user_role(auth.uid()) = 'admin');
-
-
--- 6. UI_SETTINGS POLICIES
-DROP POLICY IF EXISTS "select_ui_settings_rules" ON public.ui_settings;
-CREATE POLICY "select_ui_settings_rules" ON public.ui_settings 
-  FOR SELECT USING (user_id = auth.uid());
-
-DROP POLICY IF EXISTS "all_ui_settings_rules" ON public.ui_settings;
-CREATE POLICY "all_ui_settings_rules" ON public.ui_settings 
-  FOR ALL USING (user_id = auth.uid())
-  WITH CHECK (user_id = auth.uid());
-
--- 7. SUBJECT_PRICES POLICIES
-DROP POLICY IF EXISTS "select_subject_prices_all" ON public.subject_prices;
-CREATE POLICY "select_subject_prices_all" ON public.subject_prices 
-  FOR SELECT USING (true);
-
-DROP POLICY IF EXISTS "admin_all_subject_prices" ON public.subject_prices;
-CREATE POLICY "admin_all_subject_prices" ON public.subject_prices 
-  FOR ALL USING (public.get_user_role(auth.uid()) = 'admin');
-
--- 8. PROXY_REGISTRATIONS POLICIES
-DROP POLICY IF EXISTS "select_proxy_registrations_all" ON public.proxy_registrations;
-CREATE POLICY "select_proxy_registrations_all" ON public.proxy_registrations 
-  FOR SELECT USING (true);
-
-DROP POLICY IF EXISTS "admin_all_proxy_registrations" ON public.proxy_registrations;
-CREATE POLICY "admin_all_proxy_registrations" ON public.proxy_registrations 
-  FOR ALL USING (public.get_user_role(auth.uid()) = 'admin');
-
--- 9. REGISTRATION_QUEUE POLICIES
-DROP POLICY IF EXISTS "select_registration_queue_all" ON public.registration_queue;
-CREATE POLICY "select_registration_queue_all" ON public.registration_queue 
-  FOR SELECT USING (true);
-
-DROP POLICY IF EXISTS "insert_registration_queue_all" ON public.registration_queue;
-CREATE POLICY "insert_registration_queue_all" ON public.registration_queue 
-  FOR INSERT WITH CHECK (true);
-
-DROP POLICY IF EXISTS "admin_all_registration_queue" ON public.registration_queue;
-CREATE POLICY "admin_all_registration_queue" ON public.registration_queue 
-  FOR ALL USING (public.get_user_role(auth.uid()) = 'admin');
-

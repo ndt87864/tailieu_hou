@@ -1,377 +1,727 @@
-import React, { useState, useCallback } from "react";
-import { Search, Calendar, Clock, MapPin, BookOpen, User, Download, AlertCircle, CheckCircle, XCircle, HelpCircle, ChevronDown, ChevronUp, Loader2, ClipboardList } from "lucide-react";
-import apiClient from "../../services/client.js";
-import { toast } from "react-toastify";
+import React, { useState, useEffect } from "react";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { useUI } from "../../context/UIContext.js";
+import { supabase } from "../../context/AuthContext.js";
+import {
+  searchStudentInfor,
+  getStudentsBySessionsOptimized,
+  getAllSubjectPrices,
+} from "../../services/examScheduleService.js";
+import { exportToExcel, exportToPDF } from "./examExportHelper.js";
+import ProxyRegistrationModal from "./ProxyRegistrationModal.js";
 import "../../css/examschedule.css";
 
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-interface ExamRow {
-  id: string | number;
-  studentId: string;
-  fullName: string;
-  username: string;
-  majorCode: string | string[];
-  course: string;
-  subject: string;
-  examDate: string | null;
-  examSession: string;
-  examTime: string;
-  examRoom: string;
-  examForm: string;
-  status: string;
-  examLink: string;
-}
-
-interface StudentSummary {
-  fullName: string;
-  studentId: string;
-  username: string;
-  major: string | string[];
-  course: string;
-  totalExams: number;
-  matchedBy: "studentId" | "username" | null;
-}
-
-// ─── Status helpers ───────────────────────────────────────────────────────────
-type StatusKey = "eligible" | "ineligible" | "retake" | "unknown";
-
-function parseStatus(raw: string): { key: StatusKey; label: string } {
-  const s = (raw ?? "").toString().trim();
-  const lower = s.toLowerCase();
-  if (lower === "eligible" || s === "Đủ điều kiện")
-    return { key: "eligible", label: "Đủ điều kiện" };
-  if (lower === "ineligible" || s === "Không đủ điều kiện" || s === "Thiếu điều kiện" || s === "Cấm thi")
-    return { key: "ineligible", label: s === "Thiếu điều kiện" || s === "Cấm thi" ? s : "Không đủ điều kiện" };
-  if (s === "Thi lại" || s === "Thi cải thiện")
-    return { key: "retake", label: s };
-  return { key: "unknown", label: s || "Không xác định" };
-}
-
-const STATUS_CONFIG: Record<StatusKey, { icon: React.ReactNode }> = {
-  eligible: {
-    icon: <CheckCircle className="w-3.5 h-3.5" />,
-  },
-  ineligible: {
-    icon: <XCircle className="w-3.5 h-3.5" />,
-  },
-  retake: {
-    icon: <AlertCircle className="w-3.5 h-3.5" />,
-  },
-  unknown: {
-    icon: <HelpCircle className="w-3.5 h-3.5" />,
-  },
+const THEME_MAP: Record<string, { primary: string; dark: string; light: string }> = {
+  green: { primary: "#118d05", dark: "#0a6b04", light: "#15a80a" },
+  blue: { primary: "#0066cc", dark: "#0055aa", light: "#0d74e7" },
+  red: { primary: "#cc0000", dark: "#990000", light: "#ff3333" },
+  purple: { primary: "#6600cc", dark: "#440099", light: "#9933ff" },
+  yellow: { primary: "#ccbb00", dark: "#998800", light: "#ffea00" },
+  brown: { primary: "#996633", dark: "#663300", light: "#cc9966" },
+  black: { primary: "#333333", dark: "#111111", light: "#666666" },
 };
 
-// ─── API search ──────────────────────────────────────────────────────────────
-async function searchStudent(query: string): Promise<ExamRow[]> {
-  const { data } = await apiClient.get<{ results: ExamRow[] }>(
-    `/api/v1/exam/search?q=${encodeURIComponent(query)}`
-  );
-  return data.results;
-}
-
-// ─── Stat Badge ──────────────────────────────────────────────────────────────
-const StatBadge: React.FC<{ label: string; value: string | number }> = ({ label, value }) => (
-  <div
-    className="flex flex-col items-center justify-center p-3 rounded-xl exam-stat-card"
-  >
-    <span className="exam-stat-value">{value}</span>
-    <span className="exam-stat-label">{label}</span>
-  </div>
-);
-
-// ─── Main Page ────────────────────────────────────────────────────────────────
 const ExamSchedulePage: React.FC = () => {
-  const [query, setQuery] = useState("");
+  const [localQuery, setLocalQuery] = useState("");
+  const [results, setResults] = useState<any[]>([]);
+  const [studentData, setStudentData] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
-  const [rows, setRows] = useState<ExamRow[]>([]);
-  const [student, setStudent] = useState<StudentSummary | null>(null);
-  const [searched, setSearched] = useState(false);
-  const [expandedRow, setExpandedRow] = useState<string | number | null>(null);
+  const [isSearched, setIsSearched] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const [isExportOpen, setIsExportOpen] = useState(false);
 
-  const handleSearch = useCallback(async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    const q = query.trim();
+  const [subjectPriceMap, setSubjectPriceMap] = useState<Record<string, number>>({});
+  const [rentedIds, setRentedIds] = useState<any[]>([]);
+  const [rentedBillUrls, setRentedBillUrls] = useState("");
+  const [registrationStatus, setRegistrationStatus] = useState<string | null>(null);
+  const [isProxyModalOpen, setIsProxyModalOpen] = useState(false);
+
+  const { themeMode, primaryColor } = useUI();
+  const isDarkMode =
+    themeMode === "dark" ||
+    (themeMode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+
+  const currentTheme = THEME_MAP[primaryColor] || THEME_MAP.green;
+
+  const hexToRgb = (hex: string): string => {
+    if (!hex || typeof hex !== "string") return "0, 0, 0";
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result
+      ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}`
+      : "0, 0, 0";
+  };
+
+  const themeVariables: React.CSSProperties = {
+    // @ts-ignore
+    "--theme-primary": currentTheme.primary,
+    "--theme-primary-rgb": hexToRgb(currentTheme.primary),
+    "--theme-dark": currentTheme.dark,
+    "--theme-dark-rgb": hexToRgb(currentTheme.dark),
+    "--theme-light": currentTheme.light,
+    "--theme-light-rgb": hexToRgb(currentTheme.light),
+  };
+
+  const handleError = () => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const isZalo =
+      searchParams.get("utm_source") === "zalo" &&
+      searchParams.get("utm_medium") === "zalo" &&
+      searchParams.get("utm_campaign") === "zalo";
+
+    if (isZalo) {
+      toast.error("Vui lòng truy cập bằng web ngoài zalo và thực hiện lại");
+    } else {
+      toast.error("Không kết nối được đến máy chủ");
+    }
+  };
+
+  // Load subject prices map
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const list = await getAllSubjectPrices();
+        if (!mounted) return;
+        const map: Record<string, number> = {};
+        (list || []).forEach((item: any) => {
+          if (item && item.subject) {
+            const normalized = item.subject.trim();
+            map[normalized] = Number(item.price) || 0;
+            map[item.subject] = Number(item.price) || 0;
+          }
+        });
+        setSubjectPriceMap(map);
+      } catch (e) {
+        console.error("Failed to load subject prices", e);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const getConditionInfo = (status: string) => {
+    const raw = (status || "").toString().trim();
+    const key = raw.toLowerCase();
+
+    if (key === "eligible" || raw === "Đủ điều kiện") {
+      return { key: "eligible", label: "Đủ điều kiện" };
+    }
+    if (
+      key === "ineligible" ||
+      raw === "Không đủ điều kiện" ||
+      raw === "Thiếu điều kiện" ||
+      raw === "Cấm thi"
+    ) {
+      return {
+        key: "ineligible",
+        label: raw === "Thiếu điều kiện" || raw === "Cấm thi" ? raw : "Không đủ điều kiện",
+      };
+    }
+    if (raw === "Thi lại" || raw === "Thi cải thiện") {
+      return { key: "unverified", label: raw };
+    }
+    return { key: "unverified", label: raw || "Không xác định" };
+  };
+
+  const handleSearch = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+
+    const q = localQuery.trim();
     if (!q) {
-      toast.info("Vui lòng nhập mã sinh viên hoặc tên");
+      toast.info("Vui lòng nhập mã sinh viên hoặc tài khoản học");
       return;
     }
 
     setLoading(true);
-    setRows([]);
-    setStudent(null);
+    setRentedIds([]);
+    setRentedBillUrls("");
 
     try {
-      const data = await searchStudent(q);
-      if (data.length === 0) {
-        setSearched(true);
-        toast.warn("Không tìm thấy thông tin lịch thi cho mã này.");
-      } else {
-        const first: any = data[0];
-        setStudent({
+      const data = await searchStudentInfor(q);
+
+      if (data && data.length > 0) {
+        setResults(data);
+        const first = data[0];
+        const matchedBy = first.__matchedBy || null;
+
+        setStudentData({
           fullName: first.fullName,
           studentId: first.studentId,
           username: first.username,
           major: first.majorCode,
           course: first.course,
           totalExams: data.length,
-          matchedBy: first.__matchedBy ?? null,
+          matchedBy,
         });
-        setRows(data);
-        setSearched(true);
+
+        // Fetch proxy registration data
+        const { data: proxyData, error: proxyError } = await supabase
+          .from("proxy_registrations")
+          .select("selected_ids, bill_url, status")
+          .eq("student_id", first.studentId)
+          .maybeSingle();
+
+        if (!proxyError && proxyData) {
+          const ids = proxyData.selected_ids ? proxyData.selected_ids.split(",") : [];
+          setRentedIds(ids);
+          setRentedBillUrls(proxyData.bill_url || "");
+          setRegistrationStatus(proxyData.status || "pending");
+        }
+
+        setIsSearched(true);
+      } else {
+        setResults([]);
+        setStudentData(null);
+        setIsSearched(false);
+        toast.warn("Không tìm thấy thông tin lịch thi cho mã sinh viên này.");
       }
     } catch (err) {
-      console.error(err);
-      toast.error("Không kết nối được đến máy chủ. Vui lòng thử lại.");
+      console.error("Search error:", err);
+      handleError();
     } finally {
       setLoading(false);
     }
-  }, [query]);
+  };
 
-  const countByStatus = (key: StatusKey) =>
-    rows.filter((r) => parseStatus(r.status).key === key).length;
+  const startProxyRegistration = () => {
+    setIsProxyModalOpen(true);
+  };
 
-  const formatDate = (d: string | null) =>
-    d ? new Date(d).toLocaleDateString("vi-VN") : "–";
+  const handleExportAllSubjects = async (format: "excel" | "pdf") => {
+    if (!results || results.length === 0) {
+      toast.info("Không có dữ liệu lịch thi để tải.");
+      return;
+    }
 
-  const majorStr = (m: string | string[] | null | undefined) =>
-    Array.isArray(m) ? m.join(", ") : m || "–";
+    setLoading(true);
+    try {
+      toast.info("Đang truy vấn danh sách thí sinh từ server...");
+
+      const sessions = results.map((row) => ({
+        subject: row.subject,
+        examDate: row.examDate,
+        examSession: row.examSession,
+        examRoom: row.examRoom,
+        majorCode: Array.isArray(row.majorCode) ? row.majorCode.join(",") : row.majorCode,
+      }));
+
+      const allCombinedStudents = await getStudentsBySessionsOptimized(sessions);
+
+      if (!allCombinedStudents || allCombinedStudents.length === 0) {
+        toast.warn("Không tìm thấy danh sách thí sinh cho các môn này.");
+        setLoading(false);
+        return;
+      }
+
+      const uniqueStudents = Array.from(
+        new Map(allCombinedStudents.map((s: any) => [s.id, s])).values()
+      );
+
+      const fileNameBase = `DSTS_TongHop_${studentData?.studentId}_${Date.now()}`;
+      if (format === "excel") {
+        exportToExcel(uniqueStudents, studentData, rentedIds, subjectPriceMap, uniqueStudents, `${fileNameBase}.xlsx`, true);
+      } else {
+        exportToPDF(uniqueStudents, studentData, rentedIds, currentTheme, uniqueStudents, `${fileNameBase}.pdf`, true);
+      }
+    } catch (error) {
+      console.error("Export all subjects error:", error);
+      handleError();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const eligibleSubjects = results.filter((row) => {
+    const condition = getConditionInfo(row.status);
+    const hasLink = row.examLink && row.examLink.trim() !== "";
+    return (condition.key === "eligible" || condition.key === "unverified") && hasLink;
+  });
+  const availableToRent = eligibleSubjects.filter((sub) => !rentedIds.includes(sub.id));
+  const isAllRented = eligibleSubjects.length > 0 && availableToRent.length === 0;
+
+  const BrandIcon = () => (
+    <div className="lt-glass-icon w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg transition-transform hover:rotate-12 duration-300">
+      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+        />
+      </svg>
+    </div>
+  );
 
   return (
-    <div className="exam-outer-container">
-      {/* ── Hero Search ── */}
-      <div className="exam-hero-container">
-        {/* Icon */}
-        <div className="exam-hero-icon-container">
-          <Calendar className="w-8 h-8 text-white" />
-        </div>
+    <div
+      className={`min-h-screen w-full flex flex-col items-center px-0 pt-8 md:pt-16 pb-0 transition-colors duration-500 lt-container ${
+        isDarkMode ? "dark-mode" : "light-mode"
+      }`}
+      style={themeVariables}
+    >
+      <ToastContainer position="top-center" autoClose={3000} hideProgressBar style={{ zIndex: 10000 }} />
 
-        <h1 className="exam-hero-title">
-          Tra Cứu Lịch Thi
-        </h1>
-        <p className="exam-hero-subtitle">
-          Tra cứu lịch thi sinh viên nhanh chóng theo mã sinh viên hoặc tài khoản học.
-        </p>
-
-        {/* Search Form */}
-        <form onSubmit={handleSearch} className="exam-search-form">
-          <div className="relative flex-1">
-            <Search className="exam-search-icon" />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Nhập mã sinh viên hoặc tài khoản học..."
-              className="exam-search-input"
-              autoFocus
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="exam-search-btn"
-          >
-            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
-            <span className="hidden sm:inline">Tra Cứu</span>
-          </button>
-        </form>
-      </div>
-
-      {/* ── Not found ── */}
-      {searched && rows.length === 0 && !loading && (
-        <div className="exam-not-found-container">
-          <AlertCircle className="w-12 h-12 mx-auto mb-3 exam-icon-muted" />
-          <p className="exam-not-found-title">
-            Không tìm thấy kết quả
-          </p>
-          <p className="exam-not-found-desc">
-            Vui lòng kiểm tra lại mã sinh viên hoặc tài khoản học.
-          </p>
-        </div>
-      )}
-
-      {/* ── Results ── */}
-      {student && rows.length > 0 && (
-        <div className="space-y-5">
-          {/* Student Info Card */}
-          <div className="exam-student-card">
-            <div className="flex flex-col md:flex-row md:items-center gap-5">
-              {/* Avatar + Info */}
-              <div className="flex items-center gap-4 flex-1 min-w-0">
-                <div className="exam-student-avatar">
-                  {student.fullName?.charAt(0)?.toUpperCase() ?? "?"}
-                </div>
-                <div className="min-w-0">
-                  <h2 className="exam-student-name">
-                    {student.fullName}
-                  </h2>
-                  <div className="flex flex-wrap gap-3 mt-1">
-                    <span className="exam-student-meta">
-                      <strong className="exam-student-meta-label">Mã SV:</strong> {student.studentId || "–"}
-                    </span>
-                    <span className="exam-student-meta">
-                      <strong className="exam-student-meta-label">Tài khoản:</strong> {student.username || "–"}
-                    </span>
-                    <span className="exam-student-meta">
-                      <strong className="exam-student-meta-label">Mã ngành:</strong> {majorStr(student.major)}
-                    </span>
-                    {student.course && (
-                      <span className="exam-student-meta">
-                        <strong className="exam-student-meta-label">Khóa:</strong> {student.course}
-                      </span>
-                    )}
-                  </div>
-                  {student.matchedBy && (
-                    <p className="exam-matched-by">
-                      Khớp theo: {student.matchedBy === "studentId" ? "Mã sinh viên" : "Tài khoản học"}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Stats */}
-              <div className="flex gap-3 shrink-0">
-                <StatBadge label="Môn cần thi" value={String(student.totalExams).padStart(2, "0")} />
-                <StatBadge label="Đủ điều kiện" value={countByStatus("eligible")} />
-                <StatBadge label="Thi lại/CThiện" value={countByStatus("retake")} />
-              </div>
-            </div>
-          </div>
-
-          {/* Desktop Table */}
-          <div className="exam-desktop-table-container">
-            <div className="exam-table-header">
-              <h3 className="exam-table-header-title">
-                <ClipboardList className="w-4 h-4 text-[var(--brand-600)]" />
-                Danh sách môn thi
-              </h3>
-              <span className="exam-table-header-count">{rows.length} môn</span>
-            </div>
-            <div className="exam-table-body-container">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="exam-table-header-row">
-                    {["#", "Môn Thi", "Mã ngành", "Ngày Thi", "Ca Thi", "Hình thức", "Giờ Thi", "Phòng", "Điều kiện"].map((h) => (
-                      <th key={h} className="exam-table-th">
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row, idx) => {
-                    const { key, label } = parseStatus(row.status);
-                    const cfg = STATUS_CONFIG[key];
-                    return (
-                      <tr key={row.id ?? idx} className="exam-table-row">
-                        <td className="exam-table-td text-center font-semibold text-[var(--meta)]">
-                          {idx + 1}
-                        </td>
-                        <td className="exam-table-td font-semibold text-center text-[var(--fg)]">
-                          {row.subject}
-                        </td>
-                        <td className="exam-table-td text-center text-[var(--fg-2)]">
-                          {majorStr(row.majorCode)}
-                        </td>
-                        <td className="exam-table-td text-center text-[var(--fg-2)] whitespace-nowrap">
-                          {formatDate(row.examDate)}
-                        </td>
-                        <td className="exam-table-td text-center text-[var(--fg-2)]">
-                          {row.examSession || "–"}
-                        </td>
-                        <td className="exam-table-td text-center text-[var(--fg-2)]">
-                          {row.examForm || "–"}
-                        </td>
-                        <td className="exam-table-td text-center text-[var(--fg-2)] whitespace-nowrap">
-                          {row.examTime || "–"}
-                        </td>
-                        <td className="exam-table-td text-center font-semibold text-[var(--fg)]">
-                          {row.examRoom || "–"}
-                        </td>
-                        <td className="exam-table-td text-center">
-                          <span
-                            className={`exam-status-badge exam-status-badge-${key}`}
-                          >
-                            {cfg.icon}
-                            {label}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Mobile Cards */}
-          <div className="md:hidden space-y-3">
-            {rows.map((row, idx) => {
-              const { key, label } = parseStatus(row.status);
-              const cfg = STATUS_CONFIG[key];
-              const isOpen = expandedRow === (row.id ?? idx);
-              return (
-                <div key={row.id ?? idx} className="exam-mobile-card">
-                  <button
-                    className="exam-mobile-card-btn"
-                    onClick={() => setExpandedRow(isOpen ? null : (row.id ?? idx))}
+      {/* Main Content */}
+      <div className="flex-1 w-full flex flex-col">
+        <div
+          className="w-full max-w-7xl px-4 mx-auto animate-slide-up-fade"
+          style={{ animationDelay: "0.1s" }}
+        >
+          <div className="lt-glass-panel w-full p-6 md:p-10 mb-8">
+            <div className="flex flex-col gap-8 items-center justify-center text-center w-full">
+              <div className="flex flex-col items-center gap-4">
+                <BrandIcon />
+                <div>
+                  <h1
+                    className={`text-3xl md:text-4xl font-extrabold tracking-tight ${
+                      isDarkMode ? "text-white" : "text-slate-800"
+                    } mb-2`}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="exam-mobile-index">
-                        {idx + 1}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="exam-mobile-subject">{row.subject}</p>
-                        <p className="exam-mobile-datetime">
-                          {formatDate(row.examDate)} {row.examTime ? `| ${row.examTime}` : ""}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span
-                        className={`exam-status-badge exam-status-badge-${key}`}
-                      >
-                        {cfg.icon}
-                        {label}
-                      </span>
-                      {isOpen ? <ChevronUp className="w-4 h-4 exam-icon-muted" /> : <ChevronDown className="w-4 h-4 exam-icon-muted" />}
-                    </div>
-                  </button>
+                    TRA CỨU LỊCH THI
+                  </h1>
+                  <p className={`${isDarkMode ? "text-slate-400" : "text-slate-500"} font-medium max-w-md mx-auto`}>
+                    Hệ thống tra cứu lịch thi sinh viên trực tuyến nhanh chóng & chính xác.
+                  </p>
+                </div>
+              </div>
 
-                  {isOpen && (
-                    <div className="exam-mobile-expanded-content">
-                      {[
-                        { icon: <MapPin className="w-3.5 h-3.5" />, label: "Phòng", value: row.examRoom || "–" },
-                        { icon: <Clock className="w-3.5 h-3.5" />, label: "Ca thi", value: row.examSession || "–" },
-                        { icon: <BookOpen className="w-3.5 h-3.5" />, label: "Hình thức", value: row.examForm || "–" },
-                        { icon: <User className="w-3.5 h-3.5" />, label: "Mã ngành", value: majorStr(row.majorCode) },
-                      ].map((item) => (
-                        <div key={item.label}>
-                          <div className="exam-mobile-detail-label">
-                            {item.icon} {item.label}
-                          </div>
-                          <p className="exam-mobile-detail-value">{item.value}</p>
+              {/* Search Component */}
+              <div className="w-full max-w-2xl">
+                <form onSubmit={handleSearch} className="flex flex-col gap-4">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={localQuery}
+                      onFocus={() => setIsFocused(true)}
+                      onBlur={() => setIsFocused(false)}
+                      onChange={(e) => setLocalQuery(e.target.value)}
+                      placeholder="Nhập mã sinh viên hoặc tài khoản học..."
+                      className={`lt-input w-full px-6 py-4 outline-none font-semibold text-base ${
+                        isFocused ? "focused" : ""
+                      }`}
+                    />
+                    <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-slate-400">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    </div>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="lt-search-btn w-full py-4 font-bold text-base flex justify-center items-center gap-2"
+                  >
+                    Tra Cứu
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          {/* Not Found Alert */}
+          {isSearched && studentData === null && (
+            <div className="lt-not-found-box p-6 mb-8 text-center animate-slide-up-fade" style={{ animationDelay: "0.2s" }}>
+              <p className="font-semibold text-red-600 dark:text-red-400">
+                Không tìm thấy kết quả phù hợp cho mã sinh viên này.
+              </p>
+            </div>
+          )}
+
+          {/* Results Area */}
+          {isSearched && studentData && (
+            <div className="space-y-6 animate-slide-up-fade" style={{ animationDelay: "0.2s" }}>
+              {/* Student Info Card */}
+              <div className="lt-info-card hidden md:block">
+                <div className="lt-info-grid">
+                  <div className="lt-info-profile-pane">
+                    <p className="lt-info-kicker text-orange-500">Hồ sơ sinh viên</p>
+                    <h2
+                      className={`text-2xl md:text-3xl font-extrabold ${isDarkMode ? "text-white" : "text-slate-800"} mb-2`}
+                    >
+                      {studentData.fullName}
+                    </h2>
+                    <p className={`text-sm md:text-base font-semibold ${isDarkMode ? "text-slate-300" : "text-slate-600"}`}>
+                      {Array.isArray(studentData.major)
+                        ? `Mã ngành: ${studentData.major.join(", ")}`
+                        : `Mã ngành: ${studentData.major || "-"}`}
+                    </p>
+
+                    {registrationStatus && (
+                      <div className="mt-2 flex">
+                        <span
+                          className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${
+                            registrationStatus === "approved"
+                              ? "bg-green-500/10 text-green-500"
+                              : "bg-yellow-500/10 text-yellow-500"
+                          }`}
+                        >
+                          Đăng ký: {registrationStatus === "approved" ? "Đã duyệt" : "Đang chờ duyệt"}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="lt-info-meta-grid">
+                      <div className="lt-info-meta-item">
+                        <div className="lt-info-meta-label">Mã sinh viên</div>
+                        <div className={`lt-info-meta-value ${isDarkMode ? "text-slate-100" : "text-slate-800"}`}>
+                          {studentData.studentId || "-"}
                         </div>
-                      ))}
+                      </div>
+                      <div className="lt-info-meta-item">
+                        <div className="lt-info-meta-label">Tài khoản học</div>
+                        <div className={`lt-info-meta-value ${isDarkMode ? "text-slate-100" : "text-slate-800"}`}>
+                          {studentData.username || "-"}
+                        </div>
+                      </div>
+                      <div className="lt-info-meta-item">
+                        <div className="lt-info-meta-label">Khóa</div>
+                        <div className={`lt-info-meta-value ${isDarkMode ? "text-slate-100" : "text-slate-800"}`}>
+                          {studentData.course || "-"}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 flex flex-col gap-3">
+                      {isAllRented ? (
+                        <button
+                          onClick={startProxyRegistration}
+                          className="lt-search-btn px-8 py-3.5 font-bold uppercase tracking-widest flex items-center gap-2 shadow-2xl transition-all hover:scale-105 active:scale-95"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          Kiểm tra môn đã đăng kí
+                        </button>
+                      ) : eligibleSubjects.length > 0 ? (
+                        <button
+                          onClick={startProxyRegistration}
+                          className="lt-search-btn px-8 py-3.5 font-bold uppercase tracking-widest flex items-center gap-2 shadow-2xl transition-all hover:scale-105 active:scale-95"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                          Đăng kí giải đề
+                        </button>
+                      ) : (
+                        <div className="p-4 rounded-2xl bg-slate-500/10 border border-slate-500/20 flex items-center gap-3 text-slate-500">
+                          <span className="font-bold uppercase tracking-widest text-sm">Chưa có môn nào có link phòng thi</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="lt-info-stat-pane">
+                    <div className="lt-info-stat-head">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                      </svg>
+                    </div>
+                    <div className={`lt-info-stat-number ${isDarkMode ? "text-white" : "text-slate-900"}`}>
+                      {String(studentData.totalExams).padStart(2, "0")}
+                    </div>
+                    <div className="lt-info-stat-label">Môn cần thi</div>
+                    <div className="lt-info-stat-desc">Lịch thi đã công bố</div>
+                  </div>
+                </div>
+
+                {studentData.matchedBy && (
+                  <p className={`lt-info-footnote ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
+                    Kết quả được khớp theo: {studentData.matchedBy === "studentId" ? "Mã sinh viên" : "Tài khoản học"}
+                  </p>
+                )}
+              </div>
+
+              {/* Timetable glass table (Desktop) */}
+              <div className="lt-table-container hidden md:block">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr>
+                      <th className="lt-table-header px-6 py-4 w-16 text-center">#</th>
+                      <th className="lt-table-header px-6 py-4 w-64 text-center">Môn Thi</th>
+                      <th className="lt-table-header px-6 py-4 text-center min-w-[120px]">Mã ngành</th>
+                      <th className="lt-table-header px-6 py-4 text-center">Ngày Thi</th>
+                      <th className="lt-table-header px-6 py-4 text-center">Ca Thi</th>
+                      <th className="lt-table-header px-6 py-4 text-center">Hình thức thi</th>
+                      <th className="lt-table-header px-6 py-4 text-center">Giờ Thi</th>
+                      <th className="lt-table-header px-6 py-4 text-center">Phòng</th>
+                      <th className="lt-table-header px-6 py-4 text-center">Điều kiện thi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {results.map((row, idx) => {
+                      const condition = getConditionInfo(row.status);
+                      return (
+                        <tr key={idx} className="lt-table-row">
+                          <td className={`px-6 py-5 font-bold text-center ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
+                            {idx + 1}
+                          </td>
+                          <td className={`px-6 py-5 font-bold text-center ${isDarkMode ? "text-slate-200" : "text-slate-800"}`}>
+                            {row.subject}
+                          </td>
+                          <td className={`px-6 py-5 font-medium text-center ${isDarkMode ? "text-slate-300" : "text-slate-600"}`}>
+                            {Array.isArray(row.majorCode) ? row.majorCode.join(", ") : row.majorCode || "-"}
+                          </td>
+                          <td className={`px-6 py-5 font-semibold text-center ${isDarkMode ? "text-slate-300" : "text-slate-600"}`}>
+                            {row.examDate ? new Date(row.examDate).toLocaleDateString("vi-VN") : "-"}
+                          </td>
+                          <td className={`px-6 py-5 font-medium text-center ${isDarkMode ? "text-slate-300" : "text-slate-600"}`}>
+                            {row.examSession}
+                          </td>
+                          <td className={`px-6 py-5 font-semibold text-center ${isDarkMode ? "text-slate-300" : "text-slate-700"}`}>
+                            {row.examType || row.examForm || "Onsite"}
+                          </td>
+                          <td className={`px-6 py-5 font-mono font-bold text-center ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}>
+                            {row.examTime}
+                          </td>
+                          <td className={`px-6 py-5 font-bold text-center ${isDarkMode ? "text-slate-200" : "text-slate-800"}`}>
+                            {row.examRoom}
+                          </td>
+                          <td className="px-6 py-5 text-center">
+                            <span className={`lt-condition-pill lt-condition-${condition.key}`}>
+                              {condition.label}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {results.length > 0 && eligibleSubjects.length > 0 && (
+                <div className="hidden md:flex mt-8 justify-center">
+                  <button
+                    onClick={startProxyRegistration}
+                    className="lt-search-btn px-10 py-4 font-bold uppercase tracking-widest flex items-center gap-3 shadow-2xl transition-all hover:scale-105 active:scale-95"
+                  >
+                    {isAllRented ? "Kiểm tra môn đã đăng kí" : "Đăng kí giải đề"}
+                  </button>
+                </div>
+              )}
+
+              {/* Mobile Cards */}
+              <div className="md:hidden">
+                <div className="lt-mobile-shell">
+                  <div className="lt-mobile-shell-header">
+                    <h3 className={`lt-mobile-shell-title ${isDarkMode ? "text-white" : "text-slate-900"}`}>
+                      Lịch Thi
+                    </h3>
+                    <div className="lt-mobile-shell-total">
+                      {String(studentData.totalExams).padStart(2, "0")}
+                    </div>
+                  </div>
+
+                  <div className="lt-mobile-student-strip">
+                    <div className="lt-mobile-avatar">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A9.988 9.988 0 0112 15c2.269 0 4.362.754 6.04 2.025M15 9a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className={`font-bold leading-tight ${isDarkMode ? "text-slate-100" : "text-slate-800"}`}>
+                        {studentData.fullName}
+                      </p>
+                      <p className={`text-xs font-semibold ${isDarkMode ? "text-slate-300" : "text-slate-500"}`}>
+                        Mã SV {studentData.studentId || "-"} • Khóa: {studentData.course || "-"}
+                      </p>
+                      {registrationStatus && (
+                        <div className="mt-1">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[8px] font-extrabold uppercase tracking-tighter ${
+                              registrationStatus === "approved"
+                                ? "bg-green-500/10 text-green-500"
+                                : "bg-yellow-500/10 text-yellow-500"
+                            }`}
+                          >
+                            {registrationStatus === "approved" ? "Đã duyệt" : "Chờ duyệt"}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    {isAllRented ? (
+                      <button onClick={startProxyRegistration} className="lt-search-btn p-3 rounded-xl shadow-xl">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </button>
+                    ) : eligibleSubjects.length > 0 ? (
+                      <button onClick={startProxyRegistration} className="lt-search-btn p-3 rounded-xl shadow-xl">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                    ) : null}
+                  </div>
+
+                  <div className="space-y-4">
+                    {results.map((row, idx) => {
+                      const condition = getConditionInfo(row.status);
+                      return (
+                        <div key={idx} className="lt-mobile-card lt-mobile-schedule-card">
+                          <div className="lt-mobile-card-head">
+                            <div className="min-w-0">
+                              <p className="lt-mobile-subject-code">Môn #{idx + 1}</p>
+                              <h3 className={`font-extrabold text-lg leading-tight ${isDarkMode ? "text-slate-100" : "text-slate-800"}`}>
+                                {row.subject}
+                              </h3>
+                              <p className={`lt-mobile-session ${isDarkMode ? "text-slate-300" : "text-slate-500"}`}>
+                                Ca thi: {row.examSession || "Ca thi chưa cập nhật"}
+                                {row.majorCode
+                                  ? ` - Mã ngành: ${Array.isArray(row.majorCode) ? row.majorCode.join(", ") : row.majorCode}`
+                                  : ""}
+                              </p>
+                            </div>
+                            <span className={`lt-mobile-status-chip lt-condition-pill lt-condition-${condition.key}`}>
+                              {condition.label}
+                            </span>
+                          </div>
+
+                          <div className="lt-mobile-detail-grid">
+                            <div className="lt-mobile-detail-item">
+                              <div className="lt-mobile-detail-label">Ngày thi</div>
+                              <div className={`lt-mobile-detail-value ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}>
+                                {row.examDate ? new Date(row.examDate).toLocaleDateString("vi-VN") : "-"}
+                              </div>
+                            </div>
+                            <div className="lt-mobile-detail-item">
+                              <div className="lt-mobile-detail-label">Giờ thi</div>
+                              <div className={`lt-mobile-detail-value ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}>
+                                {row.examTime || "-"}
+                              </div>
+                            </div>
+                            <div className="lt-mobile-detail-item">
+                              <div className="lt-mobile-detail-label">Phòng</div>
+                              <div className={`lt-mobile-detail-value ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}>
+                                {row.examRoom || "-"}
+                              </div>
+                            </div>
+                            <div className="lt-mobile-detail-item">
+                              <div className="lt-mobile-detail-label">Hình thức</div>
+                              <div className={`lt-mobile-detail-value ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}>
+                                {row.examType || row.examForm || "Onsite"}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {results.length > 0 && eligibleSubjects.length > 0 && (
+                    <div className="mt-8 flex justify-center">
+                      <button
+                        onClick={startProxyRegistration}
+                        className="lt-search-btn px-10 py-4 font-bold uppercase tracking-widest flex items-center gap-3 shadow-2xl transition-all hover:scale-105 active:scale-95"
+                      >
+                        {isAllRented ? "Kiểm tra môn đã đăng kí" : "Đăng kí giải đề"}
+                      </button>
                     </div>
                   )}
                 </div>
-              );
-            })}
-          </div>
-
-          {/* Export Note */}
-          <div
-            className="rounded-xl p-4 flex items-center gap-3 exam-download-bar"
-          >
-            <Download className="w-4 h-4 shrink-0 exam-download-icon" />
-            <p className="exam-download-text">
-              Dữ liệu lịch thi được cập nhật từ hệ thống. Hãy kiểm tra lại trên cổng thông tin chính thức trước ngày thi.
-            </p>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="mb-16"></div>
+      </div>
+      {/* Floating Action Menu for downloads */}
+      {isSearched && studentData && results.length > 0 && (
+        <div className="lt-fab-group fixed bottom-8 right-8 z-50">
+          <div className="relative">
+            {isExportOpen && (
+              <div className="lt-fab-popup animate-pop-up">
+                <div className="lt-fab-pop-item-wrapper">
+                  <span className="lt-fab-label">Lịch của tôi (Excel)</span>
+                  <button
+                    onClick={() => {
+                      exportToExcel(results, studentData, rentedIds, subjectPriceMap);
+                      setIsExportOpen(false);
+                    }}
+                    className="lt-fab-pop-item excel"
+                    title="Xuất Excel"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="lt-fab-pop-item-wrapper">
+                  <span className="lt-fab-label">Lịch của tôi (PDF)</span>
+                  <button
+                    onClick={() => {
+                      exportToPDF(results, studentData, rentedIds, currentTheme);
+                      setIsExportOpen(false);
+                    }}
+                    className="lt-fab-pop-item pdf"
+                    title="Xuất PDF"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="lt-fab-pop-item-wrapper">
+                  <span className="lt-fab-label">Tải DSTS Toàn bộ (Excel)</span>
+                  <button
+                    onClick={() => {
+                      handleExportAllSubjects("excel");
+                      setIsExportOpen(false);
+                    }}
+                    className="lt-fab-pop-item excel"
+                    title="Tải DSTS Excel"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="lt-fab-pop-item-wrapper">
+                  <span className="lt-fab-label">Tải DSTS Toàn bộ (PDF)</span>
+                  <button
+                    onClick={() => {
+                      handleExportAllSubjects("pdf");
+                      setIsExportOpen(false);
+                    }}
+                    className="lt-fab-pop-item pdf"
+                    title="Tải DSTS PDF"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 2v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
+            <button
+              onClick={() => setIsExportOpen(!isExportOpen)}
+              className={`lt-fab-btn primary ${isExportOpen ? "active" : ""}`}
+              title="Tải xuống"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+            </button>
           </div>
         </div>
       )}
+
+      {/* Proxy Registration modal */}
+      <ProxyRegistrationModal
+        isOpen={isProxyModalOpen}
+        onClose={() => setIsProxyModalOpen(false)}
+        studentData={studentData}
+        results={results}
+        rentedIds={rentedIds}
+        rentedBillUrls={rentedBillUrls}
+        subjectPriceMap={subjectPriceMap}
+        setRentedIds={setRentedIds}
+        setRentedBillUrls={setRentedBillUrls}
+        setRegistrationStatus={setRegistrationStatus}
+        isDarkMode={isDarkMode}
+        themeVariables={themeVariables}
+      />
     </div>
   );
 };
