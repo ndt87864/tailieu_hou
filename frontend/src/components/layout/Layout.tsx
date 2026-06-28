@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Outlet } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.js";
-import { BookOpen, User, Shield, LogOut, ChevronDown, Menu, X, Settings } from "lucide-react";
+import { BookOpen, User, Shield, LogOut, ChevronDown, Menu, X, Settings, Phone } from "lucide-react";
 import UISettingsModal from "./UISettingsModal.js";
 import EditProfileModal from "./EditProfileModal.js";
 import { useUI } from "../../context/UIContext.js";
@@ -133,8 +133,9 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenProfile }) => {
                         </p>
                       )}
                       {profile?.phone && (
-                        <p className="truncate layout-profile-phone">
-                          📞 {profile.phone}
+                        <p className="truncate layout-profile-phone flex items-center gap-1.5">
+                          <Phone className="w-3.5 h-3.5 layout-icon-meta" />
+                          <span>{profile.phone}</span>
                         </p>
                       )}
                       <span className={`layout-user-badge mt-1 ${badge.className}`}>

@@ -627,8 +627,9 @@ const DocumentPage: React.FC = () => {
         {/* Bottom Lock Notice if not premium */}
         {!isPremiumUser && totalCount > visibleQuestions.length && (
           <div className="mt-6 border border-dashed border-amber-300 dark:border-amber-700 bg-amber-500/5 rounded-xl p-6 text-center space-y-3">
-            <div className="text-sm font-semibold text-amber-700 dark:text-amber-300">
-              🔒 Có {totalCount - visibleQuestions.length} câu hỏi khác đang bị ẩn trong bộ tài liệu này
+            <div className="text-sm font-semibold text-amber-700 dark:text-amber-300 flex items-center justify-center gap-1.5">
+              <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              <span>Có {totalCount - visibleQuestions.length} câu hỏi khác đang bị ẩn trong bộ tài liệu này</span>
             </div>
             <p className="text-xs text-muted-foreground max-w-md mx-auto">
               {["pro", "plus"].includes(role) ? (
