@@ -17,6 +17,14 @@
   color: #fff;
 }
 
+.doc-brand-header a {
+  color: inherit;
+}
+
+.doc-brand-header a:hover {
+  color: #fff !important;
+}
+
 .doc-text-white {
   color: #fff;
 }

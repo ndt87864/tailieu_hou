@@ -140,9 +140,12 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
             className="fixed inset-y-0 left-0 w-72 z-[70] md:hidden shadow-2xl overflow-y-auto flex flex-col animate-slide-right doc-brand-header"
           >
             <div className="p-4 flex items-center justify-between border-b doc-border-brand">
-              <span className="font-bold flex items-center gap-2 text-white">
+              <Link 
+                to="/" 
+                className="font-bold flex items-center gap-2 text-white hover:opacity-80 transition-opacity"
+              >
                 <BookOpen className="w-5 h-5 text-white" /> Tài liệu HOU
-              </span>
+              </Link>
               <button onClick={() => setMobileOpen(false)} className="p-1 rounded text-white/80 hover:text-white">
                 <X className="w-6 h-6" />
               </button>
@@ -207,9 +210,9 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
       <div 
         className="hidden md:flex lg:hidden w-20 shrink-0 flex-col items-center py-6 border-r md:sticky md:top-0 md:h-[calc(100vh/0.9)] z-20 doc-brand-header"
       >
-        <div className="mb-8 text-white">
+        <Link to="/" className="mb-8 text-white hover:opacity-80 transition-opacity" title="Về trang chủ">
           <BookOpen className="w-6 h-6" />
-        </div>
+        </Link>
         <div className="flex-1 w-full space-y-4 px-2 flex flex-col items-center">
           {sidebarCategories.map((cat) => {
             const catInfo = getCategoryInfo(cat.id, cat.title, cat.logo);
@@ -283,12 +286,13 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
         className="hidden lg:flex w-72 shrink-0 flex-col border-r lg:sticky lg:top-0 lg:h-[calc(100vh/0.9)] lg:overflow-y-auto z-10 animate-fade-in doc-brand-header"
       >
         <div className="p-4 pb-24 space-y-4">
-          <div 
-            className="flex items-center gap-2.5 font-bold text-lg mb-6 pb-2 border-b text-white doc-border-brand"
+          <Link 
+            to="/"
+            className="flex items-center gap-2.5 font-bold text-lg mb-6 pb-2 border-b text-white doc-border-brand hover:opacity-80 transition-opacity"
           >
             <BookOpen className="w-5 h-5 text-white" />
             <span>Tài liệu HOU</span>
-          </div>
+          </Link>
 
           <div className="space-y-2">
             {sidebarCategories.map((cat) => {

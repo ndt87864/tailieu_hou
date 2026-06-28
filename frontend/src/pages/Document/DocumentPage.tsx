@@ -103,14 +103,15 @@ const DocumentPage: React.FC = () => {
           subtitle={doc.category?.title || ""}
           hideLogo={true}
           leftElement={
-            <button
-              onClick={() => window.dispatchEvent(new Event("open-doc-sidebar"))}
-              className="md:hidden p-2 -ml-2 rounded-lg hover:bg-[var(--bg-2)] transition-colors text-[var(--muted)]"
-              aria-label="Danh mục tài liệu"
+            <Link
+              to="/"
+              className="md:hidden p-2 -ml-2 rounded-lg hover:bg-[var(--bg-2)] transition-colors text-[var(--muted)] flex items-center justify-center"
+              aria-label="Về trang chủ"
             >
               <Icons.BookOpen className="w-5 h-5 text-[var(--brand-600)]" />
-            </button>
+            </Link>
           }
+          onMobileMenuClick={() => window.dispatchEvent(new Event("open-doc-sidebar"))}
           onOpenSettings={() => window.dispatchEvent(new Event("open-settings"))}
           onOpenProfile={() => window.dispatchEvent(new Event("open-profile"))}
         />

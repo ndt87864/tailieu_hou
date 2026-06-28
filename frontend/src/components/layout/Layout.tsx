@@ -16,6 +16,7 @@ export interface HeaderProps {
   rightElement?: React.ReactNode;
   hideNavLinks?: boolean;
   hideLogo?: boolean;
+  onMobileMenuClick?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -27,6 +28,7 @@ export const Header: React.FC<HeaderProps> = ({
   rightElement,
   hideNavLinks = false,
   hideLogo = false,
+  onMobileMenuClick,
 }) => {
   const { user, role, profile, logout } = useAuth();
   const location = useLocation();
@@ -178,10 +180,10 @@ export const Header: React.FC<HeaderProps> = ({
                     <div className="py-1">
                       <button
                         onClick={() => { setDropdownOpen(false); onOpenProfile(); }}
-                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] transition-colors text-left layout-text-fg2"
+                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-[var(--fg-2)] hover:bg-[var(--bg-2)] transition-colors text-left"
                       >
                         <User className="w-4 h-4 layout-icon-meta" />
-                        Chỉnh sửa hồ sơ
+                        Trang cá nhân
                       </button>
                       {role === "admin" && (
                         <Link
@@ -195,7 +197,7 @@ export const Header: React.FC<HeaderProps> = ({
                       )}
                       <button
                         onClick={() => { setDropdownOpen(false); onOpenSettings(); }}
-                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] transition-colors text-left layout-text-fg2"
+                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-[var(--fg-2)] hover:bg-[var(--bg-2)] transition-colors text-left"
                       >
                         <Settings className="w-4 h-4 layout-icon-meta" />
                         Giao diện hệ thống
@@ -229,7 +231,7 @@ export const Header: React.FC<HeaderProps> = ({
 
             {/* Mobile toggle */}
             <button
-              onClick={() => setMobileOpen((p) => !p)}
+              onClick={onMobileMenuClick || (() => setMobileOpen((p) => !p))}
               className="md:hidden p-2 rounded-lg hover:bg-[var(--bg-2)] transition-colors layout-icon-muted"
               aria-label="Toggle menu"
             >
