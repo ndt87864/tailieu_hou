@@ -40,7 +40,7 @@ import {
 // Import component ContactsTab mới
 import { ContactsTab } from "./subpages/ContactsTab.js";
 import { QuestionRatioTab } from "./subpages/QuestionRatioTab.js";
-import { Header } from "../../components/layout/Layout.js";
+import { Header, Footer } from "../../components/layout/Layout.js";
 import "../../css/admin.css";
 
 type TabId =
@@ -250,7 +250,7 @@ const AdminPage: React.FC = () => {
 
       {/* 2. Tablet Sidebar - Icons only */}
       <aside 
-        className="admin-sidebar-bg hidden md:flex lg:hidden w-16 shrink-0 flex-col items-center py-4 border-r border-[var(--border)]"
+        className="admin-sidebar-bg hidden md:flex lg:hidden w-16 shrink-0 flex-col items-center py-4 border-r border-[var(--border)] md:sticky md:top-0 md:h-[calc(100vh/0.9)] z-20"
       >
         <div className="mb-6 text-white">
           <Shield className="w-5 h-5" />
@@ -276,7 +276,7 @@ const AdminPage: React.FC = () => {
 
       {/* 3. Desktop Sidebar - Full, Grouped */}
       <aside 
-        className="admin-sidebar-bg hidden lg:flex w-[260px] shrink-0 flex-col border-r border-[var(--border)]"
+        className="admin-sidebar-bg hidden lg:flex w-[260px] shrink-0 flex-col border-r border-[var(--border)] lg:sticky lg:top-0 lg:h-[calc(100vh/0.9)] z-10"
       >
         <div className="p-4 flex items-center gap-2.5 border-b border-white/10">
           <Shield className="w-5 h-5 text-white" />
@@ -352,6 +352,7 @@ const AdminPage: React.FC = () => {
         <main className="admin-main-content">
           {renderContent()}
         </main>
+        <Footer />
       </div>
     </div>
   );

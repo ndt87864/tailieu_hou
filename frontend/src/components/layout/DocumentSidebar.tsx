@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { cachedGet } from "../../utils/apiCache.js";
 import * as Icons from "lucide-react";
 
-const { BookOpen, ChevronDown, ChevronRight, Menu, X, Heart } = Icons;
+const { BookOpen, ChevronDown, ChevronRight, X, Heart } = Icons;
 
 interface Document {
   id: string;

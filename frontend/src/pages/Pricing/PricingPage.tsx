@@ -2,7 +2,6 @@ import React, { useEffect, useState, useRef } from "react";
 import apiClient from "../../services/client.js";
 import { useUI } from "../../context/UIContext.js";
 import { Check, Link2, Leaf, Zap, Crown, Gem, Sparkles, FileText, Files, GraduationCap, FileSignature, BarChart3, Briefcase, Star, Heart, Gift, Award, Shield, Flame, Rocket } from "lucide-react";
-import DocumentSidebar from "../../components/layout/DocumentSidebar.js";
 import { Header } from "../../components/layout/Layout.js";
 import "../../css/pricing-page.css";
 

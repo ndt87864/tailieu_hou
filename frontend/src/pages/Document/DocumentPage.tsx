@@ -4,7 +4,6 @@ import apiClient from "../../services/client.js";
 import LoadingSpinner from "../../components/common/LoadingSpinner.js";
 import { useAuth } from "../../context/AuthContext.js";
 import * as Icons from "lucide-react";
-import DocumentSidebar from "../../components/layout/DocumentSidebar.js";
 import { Header } from "../../components/layout/Layout.js";
 import "../../css/document.css";
 
