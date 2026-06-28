@@ -3,6 +3,7 @@ import apiClient from "../../../services/client.js";
 import LoadingSpinner from "../../../components/common/LoadingSpinner.js";
 import { toast } from "react-toastify";
 import { Search, Plus, Trash2, Edit2, RefreshCw, Loader2 } from "lucide-react";
+import { useConfirm } from "../../../context/ConfirmContext.js";
 
 interface Document {
   id: string;
@@ -19,6 +20,7 @@ interface Category {
 }
 
 const DocumentsTab: React.FC = () => {
+  const confirm = useConfirm();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,7 +92,8 @@ const DocumentsTab: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa tài liệu này? Mọi câu hỏi thuộc tài liệu này cũng sẽ bị xóa!")) return;
+    const isConfirmed = await confirm("Bạn có chắc chắn muốn xóa tài liệu này? Mọi câu hỏi thuộc tài liệu này cũng sẽ bị xóa!");
+    if (!isConfirmed) return;
     try {
       await apiClient.delete(`/api/v1/documents/${id}`);
       toast.success("Xóa tài liệu thành công!");

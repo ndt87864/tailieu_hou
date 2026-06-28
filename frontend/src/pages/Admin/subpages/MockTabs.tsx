@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Plus, Calendar, Lock, X, Loader2, Trash2, Leaf, Zap, Crown, Gem, Star, Heart, Gift, Award, Shield, Flame, Rocket, Sparkles } from "lucide-react";
 import apiClient from "../../../services/client.js";
 import { toast } from "react-toastify";
+import { useConfirm } from "../../../context/ConfirmContext.js";
 
 // 1. Quản lý phòng thi (Rooms)
 export const RoomsTab: React.FC = () => {
@@ -111,6 +112,7 @@ const iconOptions = [
   { value: "sparkles", label: "Lấp lánh", component: Sparkles },
 ];
 export const PricingTab: React.FC = () => {
+  const confirm = useConfirm();
   const [packages, setPackages] = useState<PricingPackage[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingPkg, setEditingPkg] = useState<PricingPackage | null>(null);
@@ -165,7 +167,8 @@ export const PricingTab: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa gói dịch vụ này?")) return;
+    const isConfirmed = await confirm("Bạn có chắc chắn muốn xóa gói dịch vụ này?");
+    if (!isConfirmed) return;
     try {
       await apiClient.delete(`/api/v1/pricing-packages/admin/${id}`);
       toast.success("Xóa gói dịch vụ thành công!");

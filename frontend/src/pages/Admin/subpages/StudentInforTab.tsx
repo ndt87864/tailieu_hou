@@ -2,7 +2,10 @@ import React, { useEffect, useState } from "react";
 import apiClient from "../../../services/client.js";
 import LoadingSpinner from "../../../components/common/LoadingSpinner.js";
 import { toast } from "react-toastify";
-import { Search, Plus, Trash2, Edit2, Upload, RefreshCw, Loader2 } from "lucide-react";
+import { Search, Plus, Trash2, Edit2, Upload, RefreshCw } from "lucide-react";
+import { useConfirm } from "../../../context/ConfirmContext.js";
+import StudentFormModal from "./StudentFormModal.js";
+import StudentImportModal from "./StudentImportModal.js";
 
 interface Student {
   id: string;
@@ -22,6 +25,7 @@ interface Student {
 }
 
 const StudentInforTab: React.FC = () => {
+  const confirm = useConfirm();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -130,7 +134,8 @@ const StudentInforTab: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa bản ghi này?")) return;
+    const isConfirmed = await confirm("Bạn có chắc chắn muốn xóa bản ghi này?");
+    if (!isConfirmed) return;
     try {
       await apiClient.delete(`/api/v1/admin/students/${id}`);
       toast.success("Xóa thành công!");
@@ -144,7 +149,8 @@ const StudentInforTab: React.FC = () => {
 
   const handleBulkDelete = async () => {
     if (selectedStudentIds.length === 0) return;
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${selectedStudentIds.length} sinh viên đã chọn?`)) return;
+    const isConfirmed = await confirm(`Bạn có chắc chắn muốn xóa ${selectedStudentIds.length} sinh viên đã chọn?`);
+    if (!isConfirmed) return;
 
     setIsDeletingBulk(true);
     try {
@@ -462,216 +468,28 @@ const StudentInforTab: React.FC = () => {
       )}
 
       {/* Form Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="card w-full max-w-lg p-6 relative max-h-[90vh] overflow-y-auto animate-scale-in">
-            <h3 className="modal-heading text-base font-bold mb-4">
-              {editingStudent ? "Cập nhật lịch thi" : "Thêm lịch thi mới"}
-            </h3>
-            <form onSubmit={handleCreateOrUpdate} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="form-label block text-xs font-semibold mb-1">Mã sinh viên</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.studentId}
-                    onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
-                    className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="form-label block text-xs font-semibold mb-1">Tên đăng nhập</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.username}
-                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                    className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="form-label block text-xs font-semibold mb-1">Họ và tên</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.fullName}
-                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                  className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="form-label block text-xs font-semibold mb-1">Mã ngành</label>
-                  <input
-                    type="text"
-                    value={formData.majorCode}
-                    onChange={(e) => setFormData({ ...formData, majorCode: e.target.value })}
-                    className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="form-label block text-xs font-semibold mb-1">Khóa</label>
-                  <input
-                    type="text"
-                    value={formData.course}
-                    onChange={(e) => setFormData({ ...formData, course: e.target.value })}
-                    className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="form-label block text-xs font-semibold mb-1">Môn thi</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.subject}
-                  onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                  className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="form-label block text-xs font-semibold mb-1">Ngày thi</label>
-                  <input
-                    type="date"
-                    value={formData.examDate}
-                    onChange={(e) => setFormData({ ...formData, examDate: e.target.value })}
-                    className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="form-label block text-xs font-semibold mb-1">Giờ thi</label>
-                  <input
-                    type="text"
-                    placeholder="Ví dụ: 13:30"
-                    value={formData.examTime}
-                    onChange={(e) => setFormData({ ...formData, examTime: e.target.value })}
-                    className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="form-label block text-xs font-semibold mb-1">Ca thi</label>
-                  <input
-                    type="text"
-                    placeholder="Ví dụ: Ca 3"
-                    value={formData.examSession}
-                    onChange={(e) => setFormData({ ...formData, examSession: e.target.value })}
-                    className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="form-label block text-xs font-semibold mb-1">Phòng thi</label>
-                  <input
-                    type="text"
-                    value={formData.examRoom}
-                    onChange={(e) => setFormData({ ...formData, examRoom: e.target.value })}
-                    className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="form-label block text-xs font-semibold mb-1">Hình thức thi</label>
-                  <input
-                    type="text"
-                    placeholder="Ví dụ: Trực tuyến"
-                    value={formData.examType}
-                    onChange={(e) => setFormData({ ...formData, examType: e.target.value })}
-                    className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="form-label block text-xs font-semibold mb-1">Link phòng thi (URL)</label>
-                <input
-                  type="text"
-                  placeholder="https://..."
-                  value={formData.examLink}
-                  onChange={(e) => setFormData({ ...formData, examLink: e.target.value })}
-                  className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={closeForm}
-                  className="btn-cancel px-4 py-2 text-sm font-medium rounded-xl hover:opacity-90"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="btn-primary px-4 py-2 text-sm font-medium rounded-xl hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Đang lưu...
-                    </>
-                  ) : (
-                    "Lưu lại"
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <StudentFormModal
+        show={showModal}
+        editingStudent={editingStudent}
+        formData={formData}
+        setFormData={setFormData}
+        submitting={submitting}
+        onClose={closeForm}
+        onSubmit={handleCreateOrUpdate}
+      />
 
       {/* Import JSON Modal */}
-      {showImportModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="card w-full max-w-lg p-6 relative animate-scale-in">
-            <h3 className="modal-heading text-base font-bold mb-2">Nhập dữ liệu sinh viên từ mảng JSON</h3>
-            <p className="form-label text-xs mb-4">
-              Dán mảng dữ liệu JSON có cấu trúc gồm các trường: studentId, fullName, username, course, subject, examRoom, examSession, examTime...
-            </p>
-            <textarea
-              placeholder='[{"studentId": "2301", "fullName": "Nguyễn Văn A", ...}]'
-              value={importText}
-              onChange={(e) => setImportText(e.target.value)}
-              className="textarea-json w-full px-3 py-2 text-sm rounded-xl outline-none focus:border-brand-500 font-mono text-xs mb-4 resize-none"
-            />
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowImportModal(false);
-                  setImportText("");
-                }}
-                className="btn-cancel px-4 py-2 text-sm font-medium rounded-xl hover:opacity-90"
-              >
-                Hủy
-              </button>
-              <button
-                type="button"
-                onClick={handleImport}
-                disabled={importing}
-                className="btn-primary px-4 py-2 text-sm font-medium rounded-xl hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
-              >
-                {importing ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Đang nhập...
-                  </>
-                ) : (
-                  "Nhập danh sách"
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <StudentImportModal
+        show={showImportModal}
+        importText={importText}
+        setImportText={setImportText}
+        importing={importing}
+        onClose={() => {
+          setShowImportModal(false);
+          setImportText("");
+        }}
+        onImport={handleImport}
+      />
     </div>
   );
 };

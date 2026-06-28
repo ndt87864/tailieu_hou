@@ -3,6 +3,7 @@ import apiClient from "../../../services/client.js";
 import { toast } from "react-toastify";
 import { Plus, Edit, Trash2, X, Loader2, Link2 } from "lucide-react";
 import "../../../css/contacts-tab.css";
+import { useConfirm } from "../../../context/ConfirmContext.js";
 
 interface ContactLink {
   linkText: string;
@@ -17,6 +18,7 @@ interface PricingContent {
 }
 
 export const ContactsTab: React.FC = () => {
+  const confirm = useConfirm();
   const [contentList, setContentList] = useState<PricingContent[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -109,7 +111,8 @@ export const ContactsTab: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa mục này?")) return;
+    const isConfirmed = await confirm("Bạn có chắc chắn muốn xóa mục này?");
+    if (!isConfirmed) return;
 
     try {
       await apiClient.delete(`/api/v1/admin/pricing-content/${id}`);

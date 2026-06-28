@@ -3,6 +3,7 @@ import apiClient from "../../../services/client.js";
 import LoadingSpinner from "../../../components/common/LoadingSpinner.js";
 import { toast } from "react-toastify";
 import * as Icons from "lucide-react";
+import { useConfirm } from "../../../context/ConfirmContext.js";
 
 const { Search, Plus, Trash2, Edit2, RefreshCw, Loader2 } = Icons;
 
@@ -53,6 +54,7 @@ interface Category {
 }
 
 const CategoriesTab: React.FC = () => {
+  const confirm = useConfirm();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -108,7 +110,8 @@ const CategoriesTab: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa danh mục này? Tài liệu thuộc danh mục sẽ không có danh mục.")) return;
+    const isConfirmed = await confirm("Bạn có chắc chắn muốn xóa danh mục này? Tài liệu thuộc danh mục sẽ không có danh mục.");
+    if (!isConfirmed) return;
     try {
       await apiClient.delete(`/api/v1/admin/categories/${id}`);
       toast.success("Xóa danh mục thành công!");
