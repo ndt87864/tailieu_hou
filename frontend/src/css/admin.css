@@ -53,6 +53,18 @@
   color: #ffffff;
 }
 
+/* Grouped sidebar section labels */
+.admin-nav-group-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.35);
+  padding: 0 0.625rem;
+  margin-bottom: 0.25rem;
+  margin-top: 0.125rem;
+}
+
 .admin-main-container {
   flex: 1;
   display: flex;
@@ -104,3 +116,11 @@
   transition: stroke-dasharray 0.5s ease;
 }
 
+/* ── Mobile drawer slide-in ── */
+@keyframes slide-right {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+.animate-slide-right {
+  animation: slide-right 0.22s cubic-bezier(0.2, 0, 0, 1);
+}

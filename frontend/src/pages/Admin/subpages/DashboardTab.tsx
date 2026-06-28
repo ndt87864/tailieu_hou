@@ -1,7 +1,24 @@
 import React, { useEffect, useState } from "react";
 import apiClient from "../../../services/client.js";
 import LoadingSpinner from "../../../components/common/LoadingSpinner.js";
-import { Users, BookOpen, FileText, HelpCircle, GraduationCap, RefreshCw, BarChart2 } from "lucide-react";
+import {
+  Users,
+  BookOpen,
+  FileText,
+  HelpCircle,
+  GraduationCap,
+  RefreshCw,
+  TrendingUp,
+  Crown,
+  Star,
+  Zap,
+  UserCheck,
+  Activity,
+  BarChart3,
+  FolderOpen,
+  ChevronRight,
+} from "lucide-react";
+import "../../../css/dashboard.css";
 
 interface Stats {
   totalUsers: number;
@@ -20,6 +37,46 @@ interface Stats {
   activeUsers: number;
 }
 
+type RoleKey = "free" | "plus" | "pro" | "ultra" | "management" | "admin";
+
+const ROLE_CONFIG: { key: RoleKey; label: string; color: string; icon: React.ElementType }[] = [
+  { key: "free",       label: "Miễn phí", color: "#6b7280", icon: Users },
+  { key: "plus",       label: "Plus",     color: "#3b82f6", icon: Star },
+  { key: "pro",        label: "Pro",      color: "#8b5cf6", icon: Zap },
+  { key: "ultra",      label: "Ultra",    color: "#f59e0b", icon: Crown },
+  { key: "management", label: "Quản lý", color: "#10b981", icon: UserCheck },
+  { key: "admin",      label: "Admin",    color: "#ef4444", icon: Activity },
+];
+
+function DonutChart({ data }: { data: { value: number; color: string }[] }) {
+  const total = data.reduce((s, d) => s + d.value, 0);
+  if (total === 0) return null;
+  const cx = 50, cy = 50, r = 38, sw = 12;
+  const circ = 2 * Math.PI * r;
+  let off = 0;
+  const segs = data.map((d) => {
+    const dash = (d.value / total) * circ;
+    const seg = { ...d, dash, off };
+    off += dash;
+    return seg;
+  });
+  return (
+    <svg viewBox="0 0 100 100" className="db-donut-svg">
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--bg-2)" strokeWidth={sw} />
+      {segs.map((s, i) => (
+        <circle key={i} cx={cx} cy={cy} r={r} fill="none"
+          stroke={s.color} strokeWidth={sw}
+          strokeDasharray={`${s.dash} ${circ - s.dash}`}
+          strokeDashoffset={-s.off + circ * 0.25}
+          strokeLinecap="butt"
+        />
+      ))}
+      <text x={cx} y={cy - 4} textAnchor="middle" className="db-donut-center-value">{total}</text>
+      <text x={cx} y={cy + 10} textAnchor="middle" className="db-donut-center-label">users</text>
+    </svg>
+  );
+}
+
 const DashboardTab: React.FC = () => {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -28,163 +85,140 @@ const DashboardTab: React.FC = () => {
     setLoading(true);
     apiClient
       .get("/api/v1/admin/stats")
-      .then((res) => {
-        setStats(res.data.stats || null);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error(err);
-        setLoading(false);
-      });
+      .then((res) => { setStats(res.data.stats || null); setLoading(false); })
+      .catch((err) => { console.error(err); setLoading(false); });
   };
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
+  useEffect(() => { fetchStats(); }, []);
 
   if (loading || !stats) return <LoadingSpinner />;
 
-  // Calculate percentages for SVG chart/progress bars
   const totalPaid = stats.roles.plus + stats.roles.pro + stats.roles.ultra;
-  const paidPercent = stats.totalUsers > 0 ? Math.round((totalPaid / stats.totalUsers) * 100) : 0;
-  const freePercent = 100 - paidPercent;
+  const paidPct = stats.totalUsers > 0 ? Math.round((totalPaid / stats.totalUsers) * 100) : 0;
+  const activePct = stats.totalUsers > 0 ? Math.round((stats.activeUsers / stats.totalUsers) * 100) : 0;
+
+  const kpis = [
+    { label: "Tổng người dùng",   value: stats.totalUsers,    sub: null,                  cls: "blue",   Icon: Users },
+    { label: "Người dùng trả phí", value: totalPaid,          sub: `${paidPct}% tổng số`, cls: "purple", Icon: Crown },
+    { label: "Đang hoạt động",    value: stats.activeUsers,   sub: `${activePct}% tổng số`, cls: "green", Icon: Activity },
+    { label: "Lượt đăng ký môn",  value: stats.totalStudents, sub: null,                  cls: "amber",  Icon: GraduationCap },
+  ] as const;
+
+  const contentItems = [
+    { label: "Danh mục", value: stats.totalCategories, Icon: BookOpen, cls: "indigo" },
+    { label: "Tài liệu",  value: stats.totalDocuments,  Icon: FileText,   cls: "amber" },
+    { label: "Câu hỏi",  value: stats.totalQuestions,  Icon: HelpCircle, cls: "rose" },
+  ] as const;
+
+  const quickLinks = [
+    { label: "Quản lý tài liệu",    href: "/admin/documents",  color: "#f59e0b" },
+    { label: "Quản lý bộ câu hỏi", href: "/admin/questions",  color: "#ef4444" },
+    { label: "Quản lý tài khoản",  href: "/admin/users",      color: "#3b82f6" },
+    { label: "Quản lý danh mục",   href: "/admin/categories", color: "#8b5cf6" },
+    { label: "Thông tin sinh viên", href: "/admin/students",   color: "#10b981" },
+  ];
+
+  const donutData = ROLE_CONFIG.map((rc) => ({ value: stats.roles[rc.key] ?? 0, color: rc.color }));
 
   return (
-    <div className="space-y-6">
-      {/* Tab Title */}
-      <div className="flex items-center justify-between">
+    <div className="db-root">
+      {/* Header */}
+      <div className="db-header">
         <div>
-          <h2 className="dashboard-title text-xl font-bold">Thống kê người dùng</h2>
-          <p className="dashboard-subtitle">Số liệu thống kê thời gian thực của hệ thống</p>
+          <h2 className="db-title">Tổng quan hệ thống</h2>
+          <p className="db-subtitle">Số liệu thời gian thực · Tài liệu HOU</p>
         </div>
-        <button
-          onClick={fetchStats}
-          className="dashboard-refresh-btn flex items-center gap-1.5 hover:bg-[var(--bg-2)] transition-colors shadow-sm"
-        >
+        <button onClick={fetchStats} className="db-refresh-btn">
           <RefreshCw className="w-3.5 h-3.5" />
           Làm mới
         </button>
       </div>
 
-      {/* KPI Cards Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        {/* Total Users */}
-        <div className="card p-4 flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-500">
-            <Users className="w-5 h-5" />
+      {/* KPI Row */}
+      <div className="db-kpi-grid">
+        {kpis.map((k) => (
+          <div key={k.label} className={`db-kpi-card db-kpi-${k.cls}`}>
+            <div className={`db-kpi-icon-wrap db-kpi-icon-${k.cls}`}>
+              <k.Icon className="w-5 h-5" />
+            </div>
+            <div className="db-kpi-body">
+              <span className="db-kpi-label">{k.label}</span>
+              <strong className="db-kpi-value">{k.value.toLocaleString()}</strong>
+              {k.sub && <span className="db-kpi-sub">{k.sub}</span>}
+            </div>
+            {k.cls === "blue" && (
+              <div className="db-kpi-trend">
+                <TrendingUp className="w-3 h-3" />
+              </div>
+            )}
           </div>
-          <div>
-            <p className="kpi-label">Tổng người dùng</p>
-            <h3 className="kpi-value text-lg font-bold mt-0.5">{stats.totalUsers}</h3>
-          </div>
-        </div>
-
-        {/* Free Users */}
-        <div className="card p-4 flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-500">
-            <Users className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="kpi-label">Người dùng miễn phí</p>
-            <h3 className="kpi-value text-lg font-bold mt-0.5">{stats.roles.free}</h3>
-          </div>
-        </div>
-
-        {/* Pro Users */}
-        <div className="card p-4 flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-500">
-            <Users className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="kpi-label">Người dùng trả phí</p>
-            <h3 className="kpi-value text-lg font-bold mt-0.5">{totalPaid}</h3>
-          </div>
-        </div>
-
-        {/* Active Users */}
-        <div className="card p-4 flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-500">
-            <BarChart2 className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="kpi-label">Đang hoạt động</p>
-            <h3 className="kpi-value text-lg font-bold mt-0.5">{stats.activeUsers}</h3>
-          </div>
-        </div>
-
-        {/* Student Records */}
-        <div className="card p-4 flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-500">
-            <GraduationCap className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="kpi-label">Lượt đăng ký môn</p>
-            <h3 className="kpi-value text-lg font-bold mt-0.5">{stats.totalStudents}</h3>
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* Analytics chart and details */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Pie Chart Representation */}
-        <div className="card p-5 flex flex-col items-center justify-center md:col-span-1">
-          <h4 className="pie-section-title">Phân bổ loại người dùng</h4>
-          
-          <div className="relative w-36 h-36 flex items-center justify-center">
-            {/* SVG Pie Chart */}
-            <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
-              <circle cx="18" cy="18" r="15.915" fill="none" stroke="color-mix(in srgb, var(--brand-600) 15%, transparent)" strokeWidth="4" />
-              <circle cx="18" cy="18" r="15.915" fill="none" stroke="var(--brand-600)" strokeWidth="4.2"
-                strokeDasharray={`${paidPercent} ${freePercent}`}
-                strokeDashoffset="0"
-                className="admin-pie-circle"
-              />
-            </svg>
-            <div className="absolute flex flex-col items-center justify-center">
-              <span className="pie-center-value text-2xl font-bold">{paidPercent}%</span>
-              <span className="pie-center-label">Trả phí</span>
-            </div>
+      {/* Analytics Row */}
+      <div className="db-analytics-grid">
+        {/* Donut + Role breakdown */}
+        <div className="card db-chart-card">
+          <div className="db-section-head">
+            <BarChart3 className="w-4 h-4 db-section-icon" />
+            <span className="db-section-title">Phân bổ vai trò</span>
           </div>
-
-          <div className="flex gap-4 mt-6 text-xs justify-center w-full">
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-[var(--brand-600)]"></div>
-              <span className="legend-item">Trả phí: {totalPaid}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-full legend-item-free"></div>
-              <span className="legend-item">Miễn phí: {stats.roles.free}</span>
-            </div>
+          <div className="db-donut-area">
+            <DonutChart data={donutData} />
+          </div>
+          <div className="db-role-list">
+            {ROLE_CONFIG.map((rc) => {
+              const count = stats.roles[rc.key] ?? 0;
+              const pct = stats.totalUsers > 0 ? Math.round((count / stats.totalUsers) * 100) : 0;
+              return (
+                <div key={rc.key} className="db-role-row">
+                  <div className="db-role-dot" style={{ background: rc.color }} />
+                  <span className="db-role-label">{rc.label}</span>
+                  <div className="db-role-bar-wrap">
+                    <div className="db-role-bar" style={{ width: `${pct}%`, background: rc.color }} />
+                  </div>
+                  <span className="db-role-count">{count}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        {/* Content Statistics Cards */}
-        <div className="card p-5 md:col-span-2 space-y-4">
-          <h4 className="section-title">Tài nguyên ôn thi</h4>
-          
-          <div className="grid grid-cols-3 gap-4 h-full py-2">
-            <div className="p-4 rounded-2xl bg-[var(--bg-2)] flex flex-col justify-between">
-              <BookOpen className="w-5 h-5 text-indigo-500 mb-2" />
-              <div>
-                <p className="resource-label">Danh mục</p>
-                <h4 className="resource-value">{stats.totalCategories}</h4>
-              </div>
+        {/* Right column */}
+        <div className="db-content-col">
+          {/* Content stats */}
+          <div className="card db-content-card">
+            <div className="db-section-head">
+              <FolderOpen className="w-4 h-4 db-section-icon" />
+              <span className="db-section-title">Tài nguyên ôn thi</span>
             </div>
-
-            <div className="p-4 rounded-2xl bg-[var(--bg-2)] flex flex-col justify-between">
-              <FileText className="w-5 h-5 text-amber-500 mb-2" />
-              <div>
-                <p className="resource-label">Tài liệu</p>
-                <h4 className="resource-value">{stats.totalDocuments}</h4>
-              </div>
+            <div className="db-content-grid">
+              {contentItems.map((ci) => (
+                <div key={ci.label} className={`db-content-item db-content-${ci.cls}`}>
+                  <div className="db-content-icon"><ci.Icon className="w-5 h-5" /></div>
+                  <div>
+                    <p className="db-content-label">{ci.label}</p>
+                    <h4 className="db-content-val">{ci.value}</h4>
+                  </div>
+                </div>
+              ))}
             </div>
+          </div>
 
-            <div className="p-4 rounded-2xl bg-[var(--bg-2)] flex flex-col justify-between">
-              <HelpCircle className="w-5 h-5 text-rose-500 mb-2" />
-              <div>
-                <p className="resource-label">Câu hỏi</p>
-                <h4 className="resource-value">{stats.totalQuestions}</h4>
-              </div>
+          {/* Quick access */}
+          <div className="card db-quick-card">
+            <div className="db-section-head">
+              <Zap className="w-4 h-4 db-section-icon" />
+              <span className="db-section-title">Truy cập nhanh</span>
+            </div>
+            <div className="db-quick-list">
+              {quickLinks.map((lnk) => (
+                <a key={lnk.href} href={lnk.href} className="db-quick-link">
+                  <span className="db-quick-dot" style={{ background: lnk.color }} />
+                  <span className="db-quick-label">{lnk.label}</span>
+                  <ChevronRight className="w-3.5 h-3.5 db-quick-arrow" />
+                </a>
+              ))}
             </div>
           </div>
         </div>

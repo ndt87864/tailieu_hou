@@ -67,6 +67,11 @@ interface MenuItem {
   icon: React.ReactNode;
 }
 
+interface MenuGroup {
+  label: string;
+  items: MenuItem[];
+}
+
 const AdminPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -110,23 +115,51 @@ const AdminPage: React.FC = () => {
     }
   };
 
-  const menuItems: MenuItem[] = [
-    { id: "stats", label: "Thống kê", icon: <BarChart2 className="w-4 h-4" /> },
-    { id: "users", label: "Quản lý tài khoản", icon: <Users className="w-4 h-4" /> },
-    { id: "categories", label: "Quản lý danh mục", icon: <FolderOpen className="w-4 h-4" /> },
-    { id: "documents", label: "Quản lý tài liệu", icon: <FileText className="w-4 h-4" /> },
-    { id: "questions", label: "Quản lý bộ câu hỏi", icon: <HelpCircle className="w-4 h-4" /> },
-    { id: "students", label: "Quản lý thông tin sinh viên", icon: <GraduationCap className="w-4 h-4" /> },
-    { id: "rooms", label: "Quản lý phòng thi", icon: <Home className="w-4 h-4" /> },
-    { id: "sessions", label: "Quản lý ca thi", icon: <Clock className="w-4 h-4" /> },
-    { id: "pricing", label: "Quản lý giá môn học", icon: <DollarSign className="w-4 h-4" /> },
-    { id: "calendar", label: "Quản lý lịch", icon: <Calendar className="w-4 h-4" /> },
-    { id: "premium", label: "Quản lý tài khoản cao cấp", icon: <Lock className="w-4 h-4" /> },
-    { id: "footer", label: "Quản lý footer", icon: <Compass className="w-4 h-4" /> },
-    { id: "contacts", label: "Quản lý nội dung liên hệ", icon: <Mail className="w-4 h-4" /> },
-    { id: "ratio", label: "Tỷ lệ câu hỏi", icon: <PieChart className="w-4 h-4" /> },
-    { id: "proxy", label: "Quản lý đăng ký môn", icon: <UserCheck className="w-4 h-4" /> },
+  const menuGroups: MenuGroup[] = [
+    {
+      label: "Tổng quan",
+      items: [
+        { id: "stats", label: "Thống kê", icon: <BarChart2 className="w-4 h-4" /> },
+      ],
+    },
+    {
+      label: "Nội dung",
+      items: [
+        { id: "categories", label: "Danh mục", icon: <FolderOpen className="w-4 h-4" /> },
+        { id: "documents",  label: "Tài liệu",  icon: <FileText className="w-4 h-4" /> },
+        { id: "questions",  label: "Câu hỏi",   icon: <HelpCircle className="w-4 h-4" /> },
+        { id: "ratio",      label: "Tỷ lệ câu hỏi", icon: <PieChart className="w-4 h-4" /> },
+      ],
+    },
+    {
+      label: "Người dùng",
+      items: [
+        { id: "users",    label: "Tài khoản",    icon: <Users className="w-4 h-4" /> },
+        { id: "premium",  label: "Tài khoản Plus", icon: <Lock className="w-4 h-4" /> },
+        { id: "students", label: "Sinh viên",    icon: <GraduationCap className="w-4 h-4" /> },
+        { id: "proxy",    label: "Đăng ký môn",  icon: <UserCheck className="w-4 h-4" /> },
+      ],
+    },
+    {
+      label: "Thi cử",
+      items: [
+        { id: "rooms",    label: "Phòng thi",    icon: <Home className="w-4 h-4" /> },
+        { id: "sessions", label: "Ca thi",       icon: <Clock className="w-4 h-4" /> },
+        { id: "pricing",  label: "Giá môn học",  icon: <DollarSign className="w-4 h-4" /> },
+        { id: "calendar", label: "Lịch",         icon: <Calendar className="w-4 h-4" /> },
+      ],
+    },
+    {
+      label: "Hệ thống",
+      items: [
+        { id: "footer",   label: "Footer",       icon: <Compass className="w-4 h-4" /> },
+        { id: "contacts", label: "Liên hệ",      icon: <Mail className="w-4 h-4" /> },
+      ],
+    },
   ];
+
+  // Flat list for compatibility
+  const menuItems: MenuItem[] = menuGroups.flatMap((g) => g.items);
 
   const renderContent = () => {
     switch (activeTab) {
@@ -185,25 +218,32 @@ const AdminPage: React.FC = () => {
                 <X className="w-6 h-6" />
               </button>
             </div>
-            <nav className="p-3 space-y-1">
-              {menuItems.map((item) => {
-                const isActive = activeTab === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      handleTabChange(item.id);
-                      setMobileOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-xs font-semibold transition-colors text-left ${
-                      isActive ? "bg-white/20 text-white" : "text-white/80 hover:bg-white/10 hover:text-white"
-                    }`}
-                  >
-                    {item.icon}
-                    <span>{item.label}</span>
-                  </button>
-                );
-              })}
+            <nav className="px-2.5 py-3 space-y-0">
+              {menuGroups.map((group, gi) => (
+                <div key={group.label} className={gi > 0 ? "mt-3" : ""}>
+                  <p className="admin-nav-group-label">{group.label}</p>
+                  <div className="space-y-0.5">
+                    {group.items.map((item) => {
+                      const isActive = activeTab === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => {
+                            handleTabChange(item.id);
+                            setMobileOpen(false);
+                          }}
+                          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
+                            isActive ? "bg-white/20 text-white font-semibold" : "text-white/70 hover:bg-white/10 hover:text-white"
+                          }`}
+                        >
+                          <span className={isActive ? "text-white" : "text-white/60"}>{item.icon}</span>
+                          <span>{item.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </nav>
           </div>
         </>
@@ -235,30 +275,40 @@ const AdminPage: React.FC = () => {
         </nav>
       </aside>
 
-      {/* 3. Desktop Sidebar - Full */}
+      {/* 3. Desktop Sidebar - Full, Grouped */}
       <aside 
         className="admin-sidebar-bg hidden lg:flex w-[260px] shrink-0 flex-col border-r border-[var(--border)]"
       >
-        <div className="p-4 flex items-center gap-2.5 border-b border-white/10 mb-2">
+        <div className="p-4 flex items-center gap-2.5 border-b border-white/10">
           <Shield className="w-5 h-5 text-white" />
           <span className="font-bold text-sm tracking-wide text-white">QUẢN TRỊ HOU</span>
         </div>
-        <nav className="flex-1 p-3 overflow-y-auto space-y-1">
-          {menuItems.map((item) => {
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => handleTabChange(item.id)}
-                className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-xs font-semibold transition-colors text-left ${
-                  isActive ? "bg-white/20 text-white" : "text-white/80 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                {item.icon}
-                <span className="truncate">{item.label}</span>
-              </button>
-            );
-          })}
+        <nav className="flex-1 px-2.5 py-3 overflow-y-auto">
+          {menuGroups.map((group, gi) => (
+            <div key={group.label} className={gi > 0 ? "mt-3" : ""}>
+              <p className="admin-nav-group-label">{group.label}</p>
+              <div className="space-y-0.5">
+                {group.items.map((item) => {
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => handleTabChange(item.id)}
+                      className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-all text-left ${
+                        isActive
+                          ? "bg-white/20 text-white font-semibold shadow-sm"
+                          : "text-white/70 hover:bg-white/10 hover:text-white"
+                      }`}
+                    >
+                      <span className={isActive ? "text-white" : "text-white/60"}>{item.icon}</span>
+                      <span className="truncate">{item.label}</span>
+                      {isActive && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white/80" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
       </aside>
 
