@@ -19,10 +19,10 @@ export const questionLimitMiddleware: MiddlewareHandler = async (c, next) => {
 
   let questions = data.questions;
 
-  console.log("questionLimitMiddleware: eval start", { role, docId, userId: user?.id });
+  //console.log("questionLimitMiddleware: eval start", { role, docId, userId: user?.id });
 
   if (role === "admin" || role === "management" || role === "ultra") {
-    console.log("questionLimitMiddleware: admin/management/ultra bypass");
+    //console.log("questionLimitMiddleware: admin/management/ultra bypass");
     c.res = c.json({ ...data, questions, limitApplied: false }, 200);
     return;
   }
@@ -34,7 +34,7 @@ export const questionLimitMiddleware: MiddlewareHandler = async (c, next) => {
       .eq("id", docId)
       .maybeSingle();
 
-    console.log("questionLimitMiddleware: docData fetched", docData);
+    //console.log("questionLimitMiddleware: docData fetched", docData);
 
     if (docData) {
       const categoryId = docData.category_id;
@@ -45,27 +45,27 @@ export const questionLimitMiddleware: MiddlewareHandler = async (c, next) => {
 
       if (role === "plus") {
         query = query.eq("document_id", docId);
-        console.log("questionLimitMiddleware: checking plus document-level access", { userId: user.id, docId });
+        //console.log("questionLimitMiddleware: checking plus document-level access", { userId: user.id, docId });
       } else {
         query = query.eq("category_id", categoryId);
-        console.log("questionLimitMiddleware: checking pro category-level access", { userId: user.id, categoryId });
+        //console.log("questionLimitMiddleware: checking pro category-level access", { userId: user.id, categoryId });
       }
 
       const { data: premiumAccess, error: accessError } = await query.maybeSingle();
       if (accessError) {
         console.error("questionLimitMiddleware: access check error", accessError);
       }
-      console.log("questionLimitMiddleware: premiumAccess result", premiumAccess);
+      //console.log("questionLimitMiddleware: premiumAccess result", premiumAccess);
 
       if (premiumAccess) {
-        console.log("questionLimitMiddleware: access granted via premium_user");
+        //console.log("questionLimitMiddleware: access granted via premium_user");
         c.res = c.json({ ...data, questions, limitApplied: false }, 200);
         return;
       }
     }
   }
 
-  console.log("questionLimitMiddleware: applying limits");
+  //console.log("questionLimitMiddleware: applying limits");
 
   // Tài khoản khách/free được xem tối thiểu 1 câu, tối đa 20% tổng số câu
   const limitCount = Math.max(1, Math.round(questions.length * 0.2));

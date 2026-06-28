@@ -21,7 +21,7 @@ export const listDocuments = async (categoryId?: string): Promise<Document[]> =>
 };
 
 export const getGroupedDocumentsPreview = async (): Promise<any[]> => {
-  // 1. Get all categories
+  // 1. Lấy tất cả categories
   const { data: categories, error: catError } = await supabaseAdmin
     .from("categories")
     .select("*")
@@ -30,60 +30,72 @@ export const getGroupedDocumentsPreview = async (): Promise<any[]> => {
   if (catError) throw catError;
   if (!categories) return [];
 
-  const result = [];
-  for (const cat of categories) {
-    // Get top 10 documents
-    const { data: docs, error: docsError } = await supabaseAdmin
+  // 2. Chạy song song: mỗi category lấy docs + count cùng 1 lúc
+  //    Dùng Promise.all thay vì for-loop tuần tự (tránh N+1 query)
+  const categoryPromises = categories.map(async (cat) => {
+    const [docsResult, countResult] = await Promise.all([
+      supabaseAdmin
+        .from("documents")
+        .select("*, category:categories(title, logo)")
+        .eq("category_id", cat.id)
+        .order("created_at", { ascending: false })
+        .limit(10),
+      supabaseAdmin
+        .from("documents")
+        .select("*", { count: "exact", head: true })
+        .eq("category_id", cat.id),
+    ]);
+
+    if (docsResult.error) throw docsResult.error;
+    if (countResult.error) throw countResult.error;
+
+    const docs = docsResult.data;
+    const count = countResult.count;
+
+    if (!docs || docs.length === 0) return null;
+
+    return {
+      id: cat.id,
+      title: cat.title,
+      logo: cat.logo,
+      documents: docs,
+      total_count: count ?? docs.length,
+    };
+  });
+
+  // 3. Chạy song song cả "no category" cùng lúc với các category khác
+  const noCatPromise = Promise.all([
+    supabaseAdmin
       .from("documents")
       .select("*, category:categories(title, logo)")
-      .eq("category_id", cat.id)
+      .is("category_id", null)
       .order("created_at", { ascending: false })
-      .limit(10);
-
-    if (docsError) throw docsError;
-
-    // Get total count
-    const { count, error: countError } = await supabaseAdmin
+      .limit(10),
+    supabaseAdmin
       .from("documents")
       .select("*", { count: "exact", head: true })
-      .eq("category_id", cat.id);
+      .is("category_id", null),
+  ]);
 
-    if (countError) throw countError;
+  // 4. Chờ tất cả hoàn thành song song
+  const [categoryResults, [noCatDocsResult, noCatCountResult]] =
+    await Promise.all([Promise.all(categoryPromises), noCatPromise]);
 
-    if (docs && docs.length > 0) {
-      result.push({
-        id: cat.id,
-        title: cat.title,
-        logo: cat.logo,
-        documents: docs,
-        total_count: count ?? docs.length
-      });
-    }
-  }
+  if (noCatDocsResult.error) throw noCatDocsResult.error;
+  if (noCatCountResult.error) throw noCatCountResult.error;
 
-  // Also handle documents with no category (category_id IS NULL)
-  const { data: noCatDocs, error: noCatError } = await supabaseAdmin
-    .from("documents")
-    .select("*, category:categories(title, logo)")
-    .is("category_id", null)
-    .order("created_at", { ascending: false })
-    .limit(10);
+  // 5. Lọc bỏ category rỗng (null) và giữ thứ tự stt
+  const result = categoryResults.filter(Boolean) as any[];
 
-  if (noCatError) throw noCatError;
-
+  // 6. Thêm nhóm "Khác" nếu có
+  const noCatDocs = noCatDocsResult.data;
+  const noCatCount = noCatCountResult.count;
   if (noCatDocs && noCatDocs.length > 0) {
-    const { count: noCatCount, error: noCatCountError } = await supabaseAdmin
-      .from("documents")
-      .select("*", { count: "exact", head: true })
-      .is("category_id", null);
-
-    if (noCatCountError) throw noCatCountError;
-
     result.push({
       id: "other",
       title: "Khác",
       documents: noCatDocs,
-      total_count: noCatCount ?? noCatDocs.length
+      total_count: noCatCount ?? noCatDocs.length,
     });
   }
 
