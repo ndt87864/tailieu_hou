@@ -47,41 +47,26 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenProfile }) => {
         { to: "/lich-thi", label: "Lịch thi" },
       ];
 
-  const roleBadge: Record<string, { label: string; style: React.CSSProperties }> = {
-    admin:      { label: "Admin",  style: { background: "#fee2e2", color: "#b91c1c", borderColor: "#fca5a5" } },
-    management: { label: "QL",    style: { background: "#fef3c7", color: "#b45309", borderColor: "#fcd34d" } },
-    ultra:      { label: "Ultra", style: { background: "#f3e8ff", color: "#7c3aed", borderColor: "#c4b5fd" } },
-    pro:        { label: "Pro",   style: { background: "#d1fae5", color: "#065f46", borderColor: "#6ee7b7" } },
-    plus:       { label: "Plus",  style: { background: "#dbeafe", color: "#1d4ed8", borderColor: "#93c5fd" } },
-    free:       { label: "Free",  style: { background: "var(--bg-2)", color: "var(--muted)", borderColor: "var(--border)" } },
+  const roleBadge: Record<string, { label: string; className: string }> = {
+    admin:      { label: "Admin",  className: "layout-user-badge-admin" },
+    management: { label: "QL",    className: "layout-user-badge-management" },
+    ultra:      { label: "Ultra", className: "layout-user-badge-ultra" },
+    pro:        { label: "Pro",   className: "layout-user-badge-pro" },
+    plus:       { label: "Plus",  className: "layout-user-badge-plus" },
+    free:       { label: "Free",  className: "layout-user-badge-free" },
   };
-  const badge = roleBadge[role] ?? { label: role.toUpperCase(), style: { background: "var(--bg-2)", color: "var(--muted)", borderColor: "var(--border)" } };
+  const badge = roleBadge[role] ?? { label: role.toUpperCase(), className: "layout-user-badge-free" };
 
   return (
-    <header
-      style={{
-        position: "sticky",
-        top: 0,
-        zIndex: 50,
-        background: "color-mix(in srgb, var(--surface) 85%, transparent)",
-        backdropFilter: "blur(20px)",
-        WebkitBackdropFilter: "blur(20px)",
-        borderBottom: "1px solid var(--border)",
-        transition: "background 0.25s ease, border-color 0.25s ease",
-      }}
-    >
+    <header className="layout-header">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link
             to="/"
-            style={{ color: "var(--fg)", textDecoration: "none" }}
-            className="flex items-center gap-2.5 font-bold text-lg shrink-0 hover:opacity-80 transition-opacity"
+            className="flex items-center gap-2.5 font-bold text-lg shrink-0 hover:opacity-80 transition-opacity layout-logo-link"
           >
-            <div
-              style={{ background: "linear-gradient(135deg, var(--brand-700), var(--brand-500))" }}
-              className="w-8 h-8 rounded-lg flex items-center justify-center shadow-sm"
-            >
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-sm layout-logo-icon-wrapper">
               <BookOpen className="w-4 h-4 text-white" />
             </div>
             <span className="hidden sm:inline">Tài liệu HOU</span>
@@ -93,13 +78,10 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenProfile }) => {
               <Link
                 key={link.to}
                 to={link.to}
-                style={
-                  isActive(link.to)
-                    ? { background: "color-mix(in srgb, var(--brand-600) 10%, transparent)", color: "var(--brand-600)" }
-                    : { color: "var(--muted)" }
-                }
                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:opacity-100 ${
-                  isActive(link.to) ? "" : "hover:bg-[var(--bg-2)] hover:text-[var(--fg)]"
+                  isActive(link.to)
+                    ? "layout-nav-link-active"
+                    : "layout-nav-link-inactive hover:bg-[var(--bg-2)] hover:text-[var(--fg)]"
                 }`}
               >
                 {link.label}
@@ -113,8 +95,7 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenProfile }) => {
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setDropdownOpen((p) => !p)}
-                  style={{ color: "var(--fg)" }}
-                  className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-all duration-200 hover:bg-[var(--bg-2)]"
+                  className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-all duration-200 hover:bg-[var(--bg-2)] layout-text-fg2"
                 >
                   <div
                     className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm shrink-0 overflow-hidden layout-avatar-bg"
@@ -130,8 +111,7 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenProfile }) => {
                       {profile?.full_name || user.email}
                     </span>
                     <span
-                      className="layout-user-badge"
-                      style={badge.style}
+                      className={`layout-user-badge ${badge.className}`}
                     >
                       {badge.label}
                     </span>
@@ -143,8 +123,8 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenProfile }) => {
                   <div
                     className="absolute right-0 mt-2 w-56 rounded-2xl py-1.5 animate-scale-in origin-top-right z-50 layout-dropdown"
                   >
-                    <div style={{ borderBottom: "1px solid var(--border-soft)" }} className="px-4 py-2.5">
-                      <p style={{ color: "var(--fg)", fontSize: "0.75rem", fontWeight: 500 }} className="truncate">
+                    <div className="px-4 py-2.5 layout-dropdown-header">
+                      <p className="truncate layout-dropdown-username">
                         {profile?.full_name || user.email}
                       </p>
                       {profile?.full_name && (
@@ -157,7 +137,7 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenProfile }) => {
                           📞 {profile.phone}
                         </p>
                       )}
-                      <span className="layout-user-badge mt-1" style={badge.style}>
+                      <span className={`layout-user-badge mt-1 ${badge.className}`}>
                         {badge.label}
                       </span>
                     </div>
@@ -231,12 +211,9 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenProfile }) => {
               <Link
                 key={link.to}
                 to={link.to}
-                style={
-                  isActive(link.to)
-                    ? { background: "color-mix(in srgb, var(--brand-600) 10%, transparent)", color: "var(--brand-600)" }
-                    : { color: "var(--muted)" }
-                }
-                className="block px-4 py-2.5 rounded-xl text-sm font-medium transition-colors mb-1"
+                className={`block px-4 py-2.5 rounded-xl text-sm font-medium transition-colors mb-1 ${
+                  isActive(link.to) ? "layout-nav-link-active" : "layout-nav-link-inactive"
+                }`}
               >
                 {link.label}
               </Link>
@@ -307,65 +284,16 @@ const Layout: React.FC = () => {
   const isAdminPage = location.pathname.startsWith("/admin");
   const isFullWidthPage = isDocPage || isAdminPage;
 
-  // View mode simulation styling
-  const getSimulatedStyle = (): React.CSSProperties => {
-    switch (viewMode) {
-      case "desktop":
-        return {
-          width: "1280px",
-          maxWidth: "100%",
-          margin: "0 auto",
-          borderLeft: "1px solid var(--border)",
-          borderRight: "1px solid var(--border)",
-          boxShadow: "0 0 40px rgba(0, 0, 0, 0.1)",
-        };
-      case "tablet":
-        return {
-          width: "768px",
-          maxWidth: "100%",
-          margin: "20px auto",
-          borderRadius: "24px",
-          border: "8px solid #1a1a1a",
-          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
-          overflow: "hidden",
-          height: "1024px",
-          maxHeight: "90dvh",
-          display: "flex",
-          flexDirection: "column",
-        };
-      case "mobile":
-        return {
-          width: "375px",
-          maxWidth: "100%",
-          margin: "20px auto",
-          borderRadius: "36px",
-          border: "10px solid #1a1a1a",
-          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
-          overflow: "hidden",
-          height: "812px",
-          maxHeight: "85dvh",
-          display: "flex",
-          flexDirection: "column",
-        };
-      default:
-        return {};
-    }
-  };
-
-  const simulatedStyle = getSimulatedStyle();
   const isSimulated = viewMode !== "responsive";
 
   const content = (
-    <div 
-      className="layout-content-wrapper"
-      style={{ 
-        minHeight: isSimulated ? undefined : "100vh", 
-        height: isSimulated && viewMode !== "desktop" ? "100%" : undefined,
-        ...simulatedStyle
-      }}
-    >
+    <div className={`layout-content-wrapper view-mode-${viewMode}`}>
       <Header onOpenSettings={() => setSettingsOpen(true)} onOpenProfile={() => setProfileOpen(true)} />
-      <main className="layout-main-static" style={{ overflowY: isSimulated && viewMode !== "desktop" ? "auto" : undefined }}>
+      <main
+        className={`layout-main-static ${
+          isSimulated && viewMode !== "desktop" ? "layout-main-static-scrollable" : ""
+        }`}
+      >
         {isFullWidthPage ? (
           <Outlet />
         ) : (
@@ -382,12 +310,7 @@ const Layout: React.FC = () => {
 
   if (isSimulated) {
     return (
-      <div 
-        className="layout-simulated-container"
-        style={{ 
-          padding: viewMode === "desktop" ? 0 : "20px 10px", 
-        }}
-      >
+      <div className={`layout-simulated-container view-mode-${viewMode}`}>
         {content}
       </div>
     );

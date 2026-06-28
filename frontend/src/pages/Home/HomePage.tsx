@@ -217,12 +217,9 @@ const HomePage: React.FC = () => {
         <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-1 scrollbar-none">
           <button
             onClick={() => setSelectedCategory(null)}
-            className="shrink-0 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-250"
-            style={
-              !selectedCategory
-                ? { background: "var(--brand-600)", color: "#fff" }
-                : { background: "var(--surface)", border: "1px solid var(--border)", color: "var(--muted)" }
-            }
+            className={`shrink-0 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-250 ${
+              !selectedCategory ? "home-filter-btn-active" : "home-filter-btn-inactive"
+            }`}
           >
             <Filter className="w-3 h-3 inline mr-1.5" />
             Tất cả
@@ -235,12 +232,9 @@ const HomePage: React.FC = () => {
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(active ? null : cat)}
-                className="shrink-0 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-250 inline-flex items-center gap-1.5"
-                style={
-                  active
-                    ? { background: "var(--brand-600)", color: "#fff" }
-                    : { background: "var(--surface)", border: "1px solid var(--border)", color: "var(--muted)" }
-                }
+                className={`shrink-0 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-250 inline-flex items-center gap-1.5 ${
+                  active ? "home-filter-btn-active" : "home-filter-btn-inactive"
+                }`}
               >
                 {info.icon(`w-3.5 h-3.5 ${active ? 'text-white' : 'text-[var(--brand-600)]'}`)}
                 {info.label}
@@ -301,7 +295,7 @@ const HomePage: React.FC = () => {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {activeCategories.map((cat, i) => {
+            {activeCategories.map((cat) => {
               const isExpanded = !!expandedCategories[cat.id];
               const isCatLoading = !!loadingCategory[cat.id];
               
@@ -314,8 +308,7 @@ const HomePage: React.FC = () => {
               return (
                 <div
                   key={cat.id}
-                  className="card flex flex-col animate-fade-up p-6"
-                  style={{ animationDelay: `${i * 50}ms` }}
+                  className="card flex flex-col animate-fade-up p-6 home-category-card"
                 >
                   {/* Category Header */}
                   <div className="flex items-center gap-3 mb-4 pb-3 home-card-header">

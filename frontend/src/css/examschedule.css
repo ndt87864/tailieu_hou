@@ -158,3 +158,25 @@
   color: var(--muted);
   font-size: 0.8rem;
 }
+
+/* Exam Status Badges */
+.exam-status-badge-eligible {
+  background: rgba(17, 141, 5, 0.1);
+  border: 1px solid rgba(17, 141, 5, 0.3);
+  color: #118d05;
+}
+.exam-status-badge-ineligible {
+  background: rgba(220, 38, 38, 0.1);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  color: #dc2626;
+}
+.exam-status-badge-retake {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #d97706;
+}
+.exam-status-badge-unknown {
+  background: rgba(100, 116, 139, 0.1);
+  border: 1px solid rgba(100, 116, 139, 0.3);
+  color: #64748b;
+}

@@ -90,6 +90,50 @@
   background: rgba(var(--brand-rgb, 17, 141, 5), 0.06);
 }
 
+/* HOU Green Preset */
+.ui-settings-color-circle-green {
+  background: #008037;
+}
+.ui-settings-color-btn-green.active {
+  border: 2px solid #008037 !important;
+}
+.ui-settings-color-circle-green.active {
+  box-shadow: 0 0 0 2px rgba(0, 128, 55, 0.2);
+}
+
+/* Ocean Blue Preset */
+.ui-settings-color-circle-blue {
+  background: #2563eb;
+}
+.ui-settings-color-btn-blue.active {
+  border: 2px solid #2563eb !important;
+}
+.ui-settings-color-circle-blue.active {
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+/* Royal Purple Preset */
+.ui-settings-color-circle-purple {
+  background: #7c3aed;
+}
+.ui-settings-color-btn-purple.active {
+  border: 2px solid #7c3aed !important;
+}
+.ui-settings-color-circle-purple.active {
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.2);
+}
+
+/* Rose Petal Preset */
+.ui-settings-color-circle-rose {
+  background: #e11d48;
+}
+.ui-settings-color-btn-rose.active {
+  border: 2px solid #e11d48 !important;
+}
+.ui-settings-color-circle-rose.active {
+  box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.2);
+}
+
 .ui-settings-note {
   color: var(--meta);
   font-size: 0.7rem;

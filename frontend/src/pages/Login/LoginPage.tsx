@@ -143,7 +143,6 @@ const LoginPage: React.FC = () => {
                   type="submit"
                   disabled={loading}
                   className="btn-brand w-full py-3 text-sm"
-                  style={{ opacity: loading ? 0.7 : 1 }}
                 >
                   {loading ? (
                     <>
@@ -335,7 +334,6 @@ const LoginPage: React.FC = () => {
               type="submit"
               disabled={loading}
               className="btn-brand w-full py-3 text-sm"
-              style={{ opacity: loading ? 0.7 : 1 }}
             >
               {loading ? (
                 <>

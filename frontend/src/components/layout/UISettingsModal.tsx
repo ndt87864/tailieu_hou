@@ -129,14 +129,14 @@ const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) =>
                   key={c.value}
                   onClick={() => setPrimaryColor(c.value)}
                   title={c.label}
-                  className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl text-xs font-medium transition-all duration-200 ${
-                    active ? "ui-settings-color-active" : "ui-settings-btn-option"
+                  className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl text-xs font-medium transition-all duration-200 ui-settings-color-btn ui-settings-color-btn-${c.value} ${
+                    active ? "ui-settings-color-active active" : "ui-settings-btn-option"
                   }`}
-                  style={active ? { border: `2px solid ${c.hex}` } : undefined}
                 >
                   <span
-                    className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
-                    style={{ background: c.hex, boxShadow: active ? `0 0 0 2px ${c.hex}33` : undefined }}
+                    className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ui-settings-color-circle ui-settings-color-circle-${c.value} ${
+                      active ? "active" : ""
+                    }`}
                   >
                     {active && <Check className="w-3 h-3 text-white" />}
                   </span>

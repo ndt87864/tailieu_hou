@@ -866,5 +866,149 @@
   box-shadow: var(--shadow-md);
 }
 
+/* Header specific styles */
+.layout-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  transition: background 0.25s ease, border-color 0.25s ease;
+}
+
+.layout-logo-link {
+  color: var(--fg);
+  text-decoration: none;
+}
+
+.layout-logo-icon-wrapper {
+  background: linear-gradient(135deg, var(--brand-700), var(--brand-500));
+}
+
+.layout-nav-link-active {
+  background: color-mix(in srgb, var(--brand-600) 10%, transparent);
+  color: var(--brand-600);
+}
+
+.layout-nav-link-inactive {
+  color: var(--muted);
+}
+
+.layout-dropdown-header {
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.layout-dropdown-username {
+  color: var(--fg);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* User Role Badge Colors */
+.layout-user-badge-admin {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: #fca5a5;
+}
+
+.layout-user-badge-management {
+  background: #fef3c7;
+  color: #b45309;
+  border-color: #fcd34d;
+}
+
+.layout-user-badge-ultra {
+  background: #f3e8ff;
+  color: #7c3aed;
+  border-color: #c4b5fd;
+}
+
+.layout-user-badge-pro {
+  background: #d1fae5;
+  color: #065f46;
+  border-color: #6ee7b7;
+}
+
+.layout-user-badge-plus {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-color: #93c5fd;
+}
+
+.layout-user-badge-free {
+  background: var(--bg-2);
+  color: var(--muted);
+  border-color: var(--border);
+}
+
+/* Device Viewport Simulation Styles */
+.layout-simulated-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: color-mix(in srgb, var(--bg-2) 60%, var(--bg));
+  overflow-x: auto;
+  padding: 20px 10px;
+  transition: padding 0.2s ease;
+}
+
+.layout-simulated-container.view-mode-desktop {
+  padding: 0;
+}
+
+.layout-content-wrapper.view-mode-responsive {
+  min-height: 100vh;
+}
+
+.layout-content-wrapper.view-mode-desktop {
+  width: 1280px;
+  max-width: 100%;
+  margin: 0 auto;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.1);
+  min-height: 100vh;
+}
+
+.layout-content-wrapper.view-mode-tablet {
+  width: 768px;
+  max-width: 100%;
+  margin: 20px auto;
+  border-radius: 24px;
+  border: 8px solid #1a1a1a;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  height: 1024px;
+  max-height: 90dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.layout-content-wrapper.view-mode-mobile {
+  width: 375px;
+  max-width: 100%;
+  margin: 20px auto;
+  border-radius: 36px;
+  border: 10px solid #1a1a1a;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  height: 812px;
+  max-height: 85dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.layout-content-wrapper.view-mode-tablet,
+.layout-content-wrapper.view-mode-mobile {
+  height: 100%;
+}
+
+.layout-main-static-scrollable {
+  overflow-y: auto;
+}
+
 
 

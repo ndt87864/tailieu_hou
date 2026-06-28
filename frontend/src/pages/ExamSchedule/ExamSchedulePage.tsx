@@ -48,26 +48,18 @@ function parseStatus(raw: string): { key: StatusKey; label: string } {
   return { key: "unknown", label: s || "Không xác định" };
 }
 
-const STATUS_CONFIG: Record<StatusKey, { icon: React.ReactNode; bgStyle: React.CSSProperties; textStyle: React.CSSProperties }> = {
+const STATUS_CONFIG: Record<StatusKey, { icon: React.ReactNode }> = {
   eligible: {
     icon: <CheckCircle className="w-3.5 h-3.5" />,
-    bgStyle: { background: "rgba(17,141,5,0.1)", border: "1px solid rgba(17,141,5,0.3)" },
-    textStyle: { color: "#118d05" },
   },
   ineligible: {
     icon: <XCircle className="w-3.5 h-3.5" />,
-    bgStyle: { background: "rgba(220,38,38,0.1)", border: "1px solid rgba(220,38,38,0.3)" },
-    textStyle: { color: "#dc2626" },
   },
   retake: {
     icon: <AlertCircle className="w-3.5 h-3.5" />,
-    bgStyle: { background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)" },
-    textStyle: { color: "#d97706" },
   },
   unknown: {
     icon: <HelpCircle className="w-3.5 h-3.5" />,
-    bgStyle: { background: "rgba(100,116,139,0.1)", border: "1px solid rgba(100,116,139,0.3)" },
-    textStyle: { color: "#64748b" },
   },
 };
 
@@ -299,8 +291,7 @@ const ExamSchedulePage: React.FC = () => {
                         </td>
                         <td className="exam-table-td text-center">
                           <span
-                            className="exam-status-badge"
-                            style={{ ...cfg.bgStyle, ...cfg.textStyle }}
+                            className={`exam-status-badge exam-status-badge-${key}`}
                           >
                             {cfg.icon}
                             {label}
@@ -339,8 +330,7 @@ const ExamSchedulePage: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span
-                        className="exam-status-badge"
-                        style={{ ...cfg.bgStyle, ...cfg.textStyle }}
+                        className={`exam-status-badge exam-status-badge-${key}`}
                       >
                         {cfg.icon}
                         {label}
