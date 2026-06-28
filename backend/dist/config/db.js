@@ -7,34 +7,15 @@ const supabaseServiceRole = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 if (!supabaseUrl || !supabaseAnonKey) {
     console.warn("WARN: Supabase credentials missing from Env!");
 }
-// Client dùng service role để lấy dữ liệu bỏ qua RLS của Auth API
+// Client dùng service role để lấy dữ liệu bỏ qua RLS
+// BẬT keepalive để tái dùng TCP connection — tránh tạo connection mới mỗi query
 export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRole || supabaseAnonKey, {
     auth: {
         persistSession: false,
         autoRefreshToken: false,
     },
-    global: {
-        fetch: (url, init) => {
-            const headers = new Headers(init?.headers);
-            headers.set("Connection", "close");
-            return fetch(url, {
-                ...init,
-                keepalive: false,
-                headers,
-            });
-        },
-    },
+    // Không override global fetch → dùng Node.js built-in với keep-alive mặc định
 });
 export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-    global: {
-        fetch: (url, init) => {
-            const headers = new Headers(init?.headers);
-            headers.set("Connection", "close");
-            return fetch(url, {
-                ...init,
-                keepalive: false,
-                headers,
-            });
-        },
-    },
+// Không override global fetch → dùng Node.js built-in với keep-alive mặc định
 });
