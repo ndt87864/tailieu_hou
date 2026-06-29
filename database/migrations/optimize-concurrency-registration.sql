@@ -92,3 +92,9 @@ ON public.registration_queue (status, created_at);
 
 CREATE INDEX IF NOT EXISTS idx_proxy_registrations_student_id 
 ON public.proxy_registrations (student_id);
+
+-- 4. Drop triggers and function attempting to delete directly from storage tables (which is blocked by Supabase)
+DROP TRIGGER IF EXISTS trg_delete_proxy_registration_bill ON public.proxy_registrations;
+DROP TRIGGER IF EXISTS trg_delete_queue_registration_bill ON public.registration_queue;
+DROP FUNCTION IF EXISTS public.delete_registration_bill_files();
+
