@@ -131,8 +131,8 @@ adminRouter.post("/users", async (c) => {
         full_name,
         phone: phone || null,
         role: role || "free",
-        excel_percentage: role === "plus" ? 50 : (role === "free" ? 0 : 100),
-        is_excel_enabled: role !== "free" && role !== undefined,
+        excel_percentage: null, // Sử dụng cấu hình động mặc định của role
+        is_excel_enabled: true,
         updated_at: new Date().toISOString(),
       })
       .eq("id", authUser.user.id)
@@ -158,16 +158,8 @@ adminRouter.put("/users/:userId", async (c) => {
     const updates: any = {};
     if (role !== undefined) {
       updates.role = role;
-      if (role === "plus") {
-        updates.excel_percentage = 50;
-        updates.is_excel_enabled = true;
-      } else if (role === "free") {
-        updates.excel_percentage = 0;
-        updates.is_excel_enabled = false;
-      } else if (["admin", "management", "ultra", "pro"].includes(role)) {
-        updates.excel_percentage = 100;
-        updates.is_excel_enabled = true;
-      }
+      updates.excel_percentage = null; // Reset để nhận giá trị mặc định động của role mới
+      updates.is_excel_enabled = true;
     }
     if (full_name !== undefined) updates.full_name = full_name;
     if (phone !== undefined) updates.phone = phone;
@@ -202,16 +194,8 @@ adminRouter.patch("/users/:userId", async (c) => {
       updated_at: new Date().toISOString(),
     };
     if (body.role !== undefined) {
-      if (body.role === "plus") {
-        updates.excel_percentage = 50;
-        updates.is_excel_enabled = true;
-      } else if (body.role === "free") {
-        updates.excel_percentage = 0;
-        updates.is_excel_enabled = false;
-      } else if (["admin", "management", "ultra", "pro"].includes(body.role)) {
-        updates.excel_percentage = 100;
-        updates.is_excel_enabled = true;
-      }
+      updates.excel_percentage = null; // Reset để nhận giá trị mặc định động của role mới
+      updates.is_excel_enabled = true;
     }
 
     const { data: profile, error } = await supabaseAdmin
@@ -249,17 +233,12 @@ adminRouter.put("/users/:userId/role", async (c) => {
     return c.json({ error: "Invalid role value" }, 400);
   }
 
-  const updates: any = { role, updated_at: new Date().toISOString() };
-  if (role === "plus") {
-    updates.excel_percentage = 50;
-    updates.is_excel_enabled = true;
-  } else if (role === "free") {
-    updates.excel_percentage = 0;
-    updates.is_excel_enabled = false;
-  } else if (["admin", "management", "ultra", "pro"].includes(role)) {
-    updates.excel_percentage = 100;
-    updates.is_excel_enabled = true;
-  }
+  const updates: any = { 
+    role, 
+    excel_percentage: null, // Reset để nhận giá trị mặc định động của role mới
+    is_excel_enabled: true, 
+    updated_at: new Date().toISOString() 
+  };
 
   const { data: profile, error } = await supabaseAdmin
     .from("profiles")
@@ -829,7 +808,7 @@ adminRouter.get("/question-ratios", async (c) => {
 
 adminRouter.post("/question-ratios", async (c) => {
   try {
-    const { ratios } = await c.req.json(); // Array of { role: string, ratio_percent: number }
+    const { ratios } = await c.req.json(); // Array of { role: string, ratio_percent: number, excel_ratio_unpaid?: number, excel_ratio_paid?: number }
     if (!Array.isArray(ratios)) {
       return c.json({ error: "Input 'ratios' must be an array" }, 400);
     }
@@ -842,12 +821,24 @@ adminRouter.post("/question-ratios", async (c) => {
       if (item.ratio_percent < 0 || item.ratio_percent > 100) {
         return c.json({ error: "ratio_percent must be between 0 and 100" }, 400);
       }
+      if (item.excel_ratio_unpaid !== undefined) {
+        if (typeof item.excel_ratio_unpaid !== "number" || item.excel_ratio_unpaid < 0 || item.excel_ratio_unpaid > 100) {
+          return c.json({ error: "excel_ratio_unpaid must be between 0 and 100" }, 400);
+        }
+      }
+      if (item.excel_ratio_paid !== undefined) {
+        if (typeof item.excel_ratio_paid !== "number" || item.excel_ratio_paid < 0 || item.excel_ratio_paid > 100) {
+          return c.json({ error: "excel_ratio_paid must be between 0 and 100" }, 400);
+        }
+      }
 
       const { error } = await supabaseAdmin
         .from("question_ratios")
         .upsert({
           role: item.role,
           ratio_percent: item.ratio_percent,
+          excel_ratio_unpaid: item.excel_ratio_unpaid !== undefined ? item.excel_ratio_unpaid : (item.role === "plus" ? 50 : (item.role === "free" ? 0 : 100)),
+          excel_ratio_paid: item.excel_ratio_paid !== undefined ? item.excel_ratio_paid : (item.role === "free" ? 0 : 100),
           updated_at: new Date().toISOString()
         }, { onConflict: "role" });
 

@@ -88,10 +88,17 @@ const DocumentPage: React.FC = () => {
 
   // Excel download logic
   const isExcelEnabled = profile?.is_excel_enabled !== false;
-  const excelPercentage = profile?.excel_percentage !== undefined ? profile.excel_percentage : (role === "plus" ? 50 : 100);
+  
+  // Lấy tỷ lệ mặc định dựa trên việc tài liệu đã được mua (limitApplied === false) hay chưa
+  const defaultExcelPct = !limitApplied
+    ? (profile?.default_excel_paid !== undefined ? profile.default_excel_paid : (role === "free" ? 0 : 100))
+    : (profile?.default_excel_unpaid !== undefined ? profile.default_excel_unpaid : (role === "plus" ? 50 : (role === "free" ? 0 : 100)));
+    
+  const excelPercentage = profile?.excel_percentage !== undefined && profile.excel_percentage !== null 
+    ? profile.excel_percentage 
+    : defaultExcelPct;
 
-  const canDownloadExcel = isExcelEnabled && 
-    ["admin", "management", "ultra", "pro", "plus"].includes(role);
+  const canDownloadExcel = isExcelEnabled && excelPercentage > 0;
 
   const exportToExcel = () => {
     try {

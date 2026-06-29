@@ -26,6 +26,17 @@ authRouter.get("/profile", async (c) => {
     .eq("id", user.id)
     .single();
 
+  if (profile) {
+    const { data: ratioRecord } = await supabaseAdmin
+      .from("question_ratios")
+      .select("excel_ratio_unpaid, excel_ratio_paid")
+      .eq("role", role || "free")
+      .maybeSingle();
+
+    profile.default_excel_unpaid = ratioRecord?.excel_ratio_unpaid ?? (role === "plus" ? 50 : (role === "free" ? 0 : 100));
+    profile.default_excel_paid = ratioRecord?.excel_ratio_paid ?? (role === "free" ? 0 : 100);
+  }
+
   return c.json({ user, profile, role });
 });
 

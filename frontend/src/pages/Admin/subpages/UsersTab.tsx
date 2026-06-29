@@ -27,19 +27,30 @@ const UsersTab: React.FC = () => {
   const [users, setUsers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [formData, setFormData] = useState({ email: "", password: "", full_name: "", phone: "", role: "free" });
-  const [tempPercentages, setTempPercentages] = useState<Record<string, string>>({});
-
-  // States for permission selection (plus / pro)
-  const [selectedUserForAccess, setSelectedUserForAccess] = useState<Profile | null>(null);
-  const [allDocuments, setAllDocuments] = useState<any[]>([]);
-  const [allCategories, setAllCategories] = useState<any[]>([]);
-  const [userDocUnlocks, setUserDocUnlocks] = useState<string[]>([]);
-  const [userCatUnlocks, setUserCatUnlocks] = useState<string[]>([]);
-  const [loadingUnlocks, setLoadingUnlocks] = useState(false);
-  const [savingUnlocks, setSavingUnlocks] = useState(false);
   const [docSearch, setDocSearch] = useState("");
+  const [questionRatios, setQuestionRatios] = useState<any[]>([]);
+
+  const fetchQuestionRatios = async () => {
+    try {
+      const res = await apiClient.get("/api/v1/admin/question-ratios");
+      setQuestionRatios(res.data?.ratios || []);
+    } catch (err) {
+      console.error("Error loading question ratios:", err);
+    }
+  };
+
+  const getRoleDefaultExcelPercentage = (role: string) => {
+    const ratio = questionRatios.find((r) => r.role === role);
+    if (ratio) {
+      const unpaid = ratio.excel_ratio_unpaid !== undefined ? ratio.excel_ratio_unpaid : 100;
+      const paid = ratio.excel_ratio_paid !== undefined ? ratio.excel_ratio_paid : 100;
+      if (unpaid === paid) return `${unpaid}`;
+      return `${unpaid}/${paid}`;
+    }
+    if (role === "plus") return "50/100";
+    if (role === "free") return "0";
+    return "100";
+  };
 
   const fetchAllDocuments = async () => {
     try {
@@ -134,6 +145,7 @@ const UsersTab: React.FC = () => {
     fetchUsers();
     fetchAllDocuments();
     fetchAllCategories();
+    fetchQuestionRatios();
   }, []);
 
   const handleUpdateRole = async (userId: string, newRole: string) => {
@@ -170,12 +182,12 @@ const UsersTab: React.FC = () => {
     }
   };
 
-  const handleExcelPercentageChange = async (userId: string, percentage: number) => {
+  const handleExcelPercentageChange = async (userId: string, percentage: number | null) => {
     try {
       await apiClient.patch(`/api/v1/admin/users/${userId}`, { excel_percentage: percentage });
-      toast.success(`Tỷ lệ tải Excel đã được cập nhật thành ${percentage}%!`);
+      toast.success(percentage === null ? "Đã đặt lại tỷ lệ tải Excel về mặc định của role!" : `Tỷ lệ tải Excel đã được cập nhật thành ${percentage}%!`);
       setUsers((prev) =>
-        prev.map((u) => (u.id === userId ? { ...u, excel_percentage: percentage } : u))
+        prev.map((u) => (u.id === userId ? { ...u, excel_percentage: percentage ?? undefined } : u))
       );
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Cập nhật tỷ lệ tải Excel thất bại.");
@@ -246,7 +258,10 @@ const UsersTab: React.FC = () => {
             Thêm tài khoản
           </button>
           <button
-            onClick={fetchUsers}
+            onClick={() => {
+              fetchUsers();
+              fetchQuestionRatios();
+            }}
             className="btn-secondary p-2 rounded-xl hover:bg-[var(--bg-2)] transition-colors shadow-sm"
             title="Làm mới"
           >
@@ -385,63 +400,59 @@ const UsersTab: React.FC = () => {
                         </div>
                       </td>
                       <td>
-                        {["admin", "management", "ultra", "pro", "plus"].includes(u.role) ? (
-                          <div className="flex flex-col gap-1.5 items-start">
-                            <label className="flex items-center gap-1.5 cursor-pointer text-xs">
+                        <div className="flex flex-col gap-1.5 items-start">
+                          <label className="flex items-center gap-1.5 cursor-pointer text-xs">
+                            <input
+                              type="checkbox"
+                              checked={u.is_excel_enabled !== false}
+                              onChange={() => handleToggleExcelPermission(u.id, u.is_excel_enabled !== false)}
+                              className="rounded text-brand-600 focus:ring-brand-500 border-gray-300"
+                            />
+                            <span>Cho phép</span>
+                          </label>
+                          {u.is_excel_enabled !== false && (
+                            <div className="flex items-center gap-1">
                               <input
-                                type="checkbox"
-                                checked={u.is_excel_enabled !== false}
-                                onChange={() => handleToggleExcelPermission(u.id, u.is_excel_enabled !== false)}
-                                className="rounded text-brand-600 focus:ring-brand-500 border-gray-300"
-                              />
-                              <span>Cho phép</span>
-                            </label>
-                            {u.is_excel_enabled !== false && (
-                              <div className="flex items-center gap-1">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  value={
-                                    tempPercentages[u.id] !== undefined
-                                      ? tempPercentages[u.id]
-                                      : String(u.excel_percentage !== undefined ? u.excel_percentage : (u.role === "plus" ? 50 : 100))
-                                  }
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    setTempPercentages((prev) => ({ ...prev, [u.id]: val }));
-                                  }}
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter") {
-                                      const rawVal = tempPercentages[u.id];
-                                      if (rawVal !== undefined) {
-                                        const percentage = Math.min(Math.max(parseInt(rawVal) || 0, 0), 100);
-                                        handleExcelPercentageChange(u.id, percentage);
-                                        setTempPercentages((prev) => {
-                                          const copy = { ...prev };
-                                          delete copy[u.id];
-                                          return copy;
-                                        });
-                                      }
-                                      (e.target as HTMLInputElement).blur();
+                                type="text"
+                                placeholder={getRoleDefaultExcelPercentage(u.role)}
+                                value={
+                                  tempPercentages[u.id] !== undefined
+                                    ? tempPercentages[u.id]
+                                    : (u.excel_percentage !== undefined && u.excel_percentage !== null ? String(u.excel_percentage) : "")
+                                }
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setTempPercentages((prev) => ({ ...prev, [u.id]: val }));
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    const rawVal = tempPercentages[u.id];
+                                    if (rawVal !== undefined) {
+                                      const trimmed = rawVal.trim();
+                                      const percentage = trimmed === "" ? null : Math.min(Math.max(parseInt(trimmed) || 0, 0), 100);
+                                      handleExcelPercentageChange(u.id, percentage);
+                                      setTempPercentages((prev) => {
+                                        const copy = { ...prev };
+                                        delete copy[u.id];
+                                        return copy;
+                                      });
                                     }
-                                  }}
-                                  onBlur={() => {
-                                    setTempPercentages((prev) => {
-                                      const copy = { ...prev };
-                                      delete copy[u.id];
-                                      return copy;
-                                    });
-                                  }}
-                                  className="input-themed w-16 px-1.5 py-0.5 text-center text-xs rounded-lg outline-none"
-                                />
-                                <span className="text-[11px] text-[var(--muted)]">%</span>
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-xs text-[var(--muted)]">—</span>
-                        )}
+                                    (e.target as HTMLInputElement).blur();
+                                  }
+                                }}
+                                onBlur={() => {
+                                  setTempPercentages((prev) => {
+                                    const copy = { ...prev };
+                                    delete copy[u.id];
+                                    return copy;
+                                  });
+                                }}
+                                className="input-themed w-16 px-1.5 py-0.5 text-center text-xs rounded-lg outline-none"
+                              />
+                              <span className="text-[11px] text-[var(--muted)]">%</span>
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className="td-right">
                         <button
@@ -576,64 +587,62 @@ const UsersTab: React.FC = () => {
                       )}
                     </div>
                   </div>
-                  {["admin", "management", "ultra", "pro", "plus"].includes(u.role) && (
-                    <div className="admin-mobile-card-row">
-                      <span className="admin-mobile-card-label">Tải Excel:</span>
-                      <div className="flex flex-col items-end gap-1">
-                        <label className="flex items-center gap-1 cursor-pointer text-xs">
+                  <div className="admin-mobile-card-row">
+                    <span className="admin-mobile-card-label">Tải Excel:</span>
+                    <div className="flex flex-col items-end gap-1">
+                      <label className="flex items-center gap-1 cursor-pointer text-xs">
+                        <input
+                          type="checkbox"
+                          checked={u.is_excel_enabled !== false}
+                          onChange={() => handleToggleExcelPermission(u.id, u.is_excel_enabled !== false)}
+                          className="rounded text-brand-600 focus:ring-brand-500 border-gray-300"
+                        />
+                        <span>Cho phép</span>
+                      </label>
+                      {u.is_excel_enabled !== false && (
+                        <div className="flex items-center gap-1">
                           <input
-                            type="checkbox"
-                            checked={u.is_excel_enabled !== false}
-                            onChange={() => handleToggleExcelPermission(u.id, u.is_excel_enabled !== false)}
-                            className="rounded text-brand-600 focus:ring-brand-500 border-gray-300"
-                          />
-                          <span>Cho phép</span>
-                        </label>
-                        {u.is_excel_enabled !== false && (
-                          <div className="flex items-center gap-1">
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              value={
-                                tempPercentages[u.id] !== undefined
-                                  ? tempPercentages[u.id]
-                                  : String(u.excel_percentage !== undefined ? u.excel_percentage : (u.role === "plus" ? 50 : 100))
-                              }
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setTempPercentages((prev) => ({ ...prev, [u.id]: val }));
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  const rawVal = tempPercentages[u.id];
-                                  if (rawVal !== undefined) {
-                                    const percentage = Math.min(Math.max(parseInt(rawVal) || 0, 0), 100);
-                                    handleExcelPercentageChange(u.id, percentage);
-                                    setTempPercentages((prev) => {
-                                      const copy = { ...prev };
-                                      delete copy[u.id];
-                                      return copy;
-                                    });
-                                  }
-                                  (e.target as HTMLInputElement).blur();
-                                }
-                              }}
-                              onBlur={() => {
+                            type="text"
+                            placeholder={getRoleDefaultExcelPercentage(u.role)}
+                            value={
+                              tempPercentages[u.id] !== undefined
+                                ? tempPercentages[u.id]
+                                : (u.excel_percentage !== undefined && u.excel_percentage !== null ? String(u.excel_percentage) : "")
+                            }
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setTempPercentages((prev) => ({ ...prev, [u.id]: val }));
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                const rawVal = tempPercentages[u.id];
+                                if (rawVal !== undefined) {
+                                  const trimmed = rawVal.trim();
+                                  const percentage = trimmed === "" ? null : Math.min(Math.max(parseInt(trimmed) || 0, 0), 100);
+                                  handleExcelPercentageChange(u.id, percentage);
                                   setTempPercentages((prev) => {
                                     const copy = { ...prev };
                                     delete copy[u.id];
                                     return copy;
                                   });
-                              }}
-                              className="input-themed w-16 px-1 py-0.5 text-center text-xs rounded-lg outline-none"
-                            />
-                            <span className="text-[11px] text-[var(--muted)]">%</span>
-                          </div>
-                        )}
-                      </div>
+                                }
+                                (e.target as HTMLInputElement).blur();
+                              }
+                            }}
+                            onBlur={() => {
+                                setTempPercentages((prev) => {
+                                  const copy = { ...prev };
+                                  delete copy[u.id];
+                                  return copy;
+                                });
+                            }}
+                            className="input-themed w-16 px-1 py-0.5 text-center text-xs rounded-lg outline-none"
+                          />
+                          <span className="text-[11px] text-[var(--muted)]">%</span>
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
 
                 </div>
 
