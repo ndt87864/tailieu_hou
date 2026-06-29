@@ -259,29 +259,6 @@ export const Header: React.FC<HeaderProps> = ({
                 {link.label}
               </Link>
             ))}
-            <button
-              onClick={() => { setMobileOpen(false); onOpenProfile(); }}
-              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] rounded-xl transition-colors text-left layout-text-fg2"
-            >
-              <User className="w-4 h-4 layout-icon-meta" />
-              Chỉnh sửa hồ sơ
-            </button>
-            <button
-              onClick={() => { setMobileOpen(false); onOpenSettings(); }}
-              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] rounded-xl transition-colors layout-text-fg2"
-            >
-              <Settings className="w-4 h-4 layout-icon-meta" />
-              Giao diện hệ thống
-            </button>
-            {user && (
-              <button
-                onClick={logout}
-                className="w-full mt-2 flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-500/10 rounded-xl transition-colors"
-              >
-                <LogOut className="w-4 h-4" />
-                Đăng xuất
-              </button>
-            )}
           </nav>
         )}
       </div>
