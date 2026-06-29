@@ -127,7 +127,7 @@ export const ContactsTab: React.FC = () => {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-[#008037] mb-2" />
+        <Loader2 className="w-8 h-8 animate-spin text-brand-600 mb-2" />
         <span className="text-xs text-muted-foreground">Đang tải dữ liệu...</span>
       </div>
     );
@@ -139,7 +139,7 @@ export const ContactsTab: React.FC = () => {
         <h3 className="modal-heading text-base font-bold">Nội dung hướng dẫn liên hệ</h3>
         <button
           onClick={openAddModal}
-          className="btn-brand text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#008037] text-white hover:opacity-90 transition"
+          className="btn-brand text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-600 text-white hover:opacity-90 transition"
         >
           <Plus className="w-4 h-4" /> Thêm mục mới
         </button>
@@ -157,7 +157,7 @@ export const ContactsTab: React.FC = () => {
               className="card contact-step-card flex items-start justify-between border border-[var(--border)] bg-[var(--surface)]"
             >
               <div className="flex items-start gap-3 flex-1 min-w-0">
-                <span className="contact-step-number bg-[#008037]/10 text-[#008037] flex-shrink-0">
+                <span className="contact-step-number bg-brand-600/10 text-brand-600 flex-shrink-0">
                   {item.number}
                 </span>
                 <div className="flex-1 min-w-0 space-y-1">
@@ -255,7 +255,7 @@ export const ContactsTab: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleAddLink}
-                    className="text-xs font-semibold text-[#008037] hover:underline"
+                    className="text-xs font-semibold text-brand-600 hover:underline"
                   >
                     + Thêm liên kết
                   </button>
@@ -309,7 +309,7 @@ export const ContactsTab: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-xs font-semibold bg-[#008037] text-white rounded-xl hover:opacity-90 transition flex items-center gap-1.5"
+                  className="px-4 py-2 text-xs font-semibold bg-brand-600 text-white rounded-xl hover:opacity-90 transition flex items-center gap-1.5"
                   disabled={submitting}
                 >
                   {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
