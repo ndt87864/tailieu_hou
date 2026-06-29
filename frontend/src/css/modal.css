@@ -123,16 +123,50 @@
   box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.2);
 }
 
-/* Rose Petal Preset */
-.ui-settings-color-circle-rose {
-  background: #e11d48;
+/* Red/Rose Preset */
+.ui-settings-color-circle-red, .ui-settings-color-circle-rose {
+  background: #cc0000;
 }
-.ui-settings-color-btn-rose.active {
-  border: 2px solid #e11d48 !important;
+.ui-settings-color-btn-red.active, .ui-settings-color-btn-rose.active {
+  border: 2px solid #cc0000 !important;
 }
-.ui-settings-color-circle-rose.active {
-  box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.2);
+.ui-settings-color-circle-red.active, .ui-settings-color-circle-rose.active {
+  box-shadow: 0 0 0 2px rgba(204, 0, 0, 0.2);
 }
+
+/* Yellow Preset */
+.ui-settings-color-circle-yellow {
+  background: #ccbb00;
+}
+.ui-settings-color-btn-yellow.active {
+  border: 2px solid #ccbb00 !important;
+}
+.ui-settings-color-circle-yellow.active {
+  box-shadow: 0 0 0 2px rgba(204, 187, 0, 0.2);
+}
+
+/* Brown Preset */
+.ui-settings-color-circle-brown {
+  background: #996633;
+}
+.ui-settings-color-btn-brown.active {
+  border: 2px solid #996633 !important;
+}
+.ui-settings-color-circle-brown.active {
+  box-shadow: 0 0 0 2px rgba(153, 102, 51, 0.2);
+}
+
+/* Black Preset */
+.ui-settings-color-circle-black {
+  background: #333333;
+}
+.ui-settings-color-btn-black.active {
+  border: 2px solid #333333 !important;
+}
+.ui-settings-color-circle-black.active {
+  box-shadow: 0 0 0 2px rgba(51, 51, 51, 0.2);
+}
+
 
 .ui-settings-note {
   color: var(--meta);
