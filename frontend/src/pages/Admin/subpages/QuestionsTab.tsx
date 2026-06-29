@@ -15,6 +15,7 @@ import FilterQuestionModal from "./FilterQuestionModal.js";
 import QuestionFormModal from "./QuestionFormModal.js";
 import { useConfirm } from "../../../context/ConfirmContext.js";
 import QuestionCard from "./QuestionCard.js";
+import { useAdminCategories } from "../../../hooks/useAdminCategories.js";
 
 interface Question {
   id: string;
@@ -33,14 +34,9 @@ interface Document {
   category_id?: string | null;
 }
 
-interface Category {
-  id: string;
-  title: string;
-}
-
 const QuestionsTab: React.FC = () => {
   const confirm = useConfirm();
-  const [categories, setCategories] = useState<Category[]>([]);
+  const { categories } = useAdminCategories();
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const [documents, setDocuments] = useState<Document[]>([]);
   const [selectedDocId, setSelectedDocId] = useState<string>("");
@@ -68,40 +64,29 @@ const QuestionsTab: React.FC = () => {
   });
   const [submitting, setSubmitting] = useState(false);
 
-  // Fetch all categories and documents on load
+  // Fetch documents on load (categories come from shared hook)
   useEffect(() => {
     setLoadingDocs(true);
-    Promise.all([
-      apiClient.get("/api/v1/admin/categories"),
-      apiClient.get("/api/v1/documents"),
-    ])
-      .then(([catsRes, docsRes]) => {
-        const cats = catsRes.data.categories || [];
+    apiClient
+      .get("/api/v1/documents")
+      .then((docsRes) => {
         const docs = docsRes.data.documents || [];
-        setCategories(cats);
         setDocuments(docs);
-
-        if (cats.length > 0) {
-          setSelectedCategoryId(cats[0].id);
-          const filteredDocs = docs.filter(
-            (d: Document) => d.category_id === cats[0].id
-          );
-          if (filteredDocs.length > 0) {
-            setSelectedDocId(filteredDocs[0].id);
-            setSelectedDocIds([filteredDocs[0].id]);
-          }
-        } else if (docs.length > 0) {
-          setSelectedDocId(docs[0].id);
-          setSelectedDocIds([docs[0].id]);
-        }
         setLoadingDocs(false);
       })
       .catch((err) => {
         console.error(err);
-        toast.error("Không thể tải danh sách danh mục hoặc tài liệu.");
+        toast.error("Không thể tải danh sách tài liệu.");
         setLoadingDocs(false);
       });
   }, []);
+
+  // Set initial selected category when categories load
+  useEffect(() => {
+    if (categories.length > 0 && !selectedCategoryId) {
+      setSelectedCategoryId(categories[0].id);
+    }
+  }, [categories, selectedCategoryId]);
 
   // Update selected doc when category changes (Single Selection mode)
   useEffect(() => {
@@ -412,33 +397,34 @@ const QuestionsTab: React.FC = () => {
   return (
     <div className="space-y-4">
       {/* Selection & Search Bar */}
-      <div className="flex flex-col lg:flex-row items-center gap-3">
-        {/* Filter Modal Trigger */}
-        <div className="shrink-0">
-          <button
-            type="button"
-            onClick={() => setShowFilterModal(true)}
-            title="Lọc tài liệu"
-            className="btn-secondary flex items-center justify-center p-2.5 rounded-xl hover:opacity-95 transition-colors shadow-sm"
-          >
-            <Filter className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-          </button>
-        </div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        {/* Filter Modal Trigger + Search combined */}
+        <div className="flex items-center gap-2 w-full sm:flex-1">
+          <div className="shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowFilterModal(true)}
+              title="Lọc tài liệu"
+              className="btn-secondary flex items-center justify-center p-2.5 rounded-xl hover:opacity-95 transition-colors shadow-sm"
+            >
+              <Filter className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+            </button>
+          </div>
 
-        {/* Search */}
-        <div className="relative w-full lg:flex-1">
-          <Search className="absolute left-3 top-3 w-4 h-4 input-search-icon" />
-          <input
-            type="text"
-            placeholder="Tìm theo câu hỏi, câu trả lời, hoặc tài liệu..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="input-themed w-full pl-9 pr-4 py-2.5 text-sm rounded-xl outline-none focus:border-brand-500"
-          />
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-3 w-4 h-4 input-search-icon" />
+            <input
+              type="text"
+              placeholder="Tìm theo câu hỏi, câu trả lời, hoặc tài liệu..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="input-themed w-full pl-9 pr-4 py-2.5 text-sm rounded-xl outline-none focus:border-brand-500"
+            />
+          </div>
         </div>
 
         {/* Action buttons */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end sm:justify-start">
           {/* Download Word */}
           <button
             onClick={() => handleDownload("word")}

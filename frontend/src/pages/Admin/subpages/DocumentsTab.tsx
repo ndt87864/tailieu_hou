@@ -4,6 +4,7 @@ import LoadingSpinner from "../../../components/common/LoadingSpinner.js";
 import { toast } from "react-toastify";
 import { Search, Plus, Trash2, Edit2, RefreshCw, Loader2, Eye, EyeOff, Crown } from "lucide-react";
 import { useConfirm } from "../../../context/ConfirmContext.js";
+import { useAdminCategories } from "../../../hooks/useAdminCategories.js";
 
 interface Document {
   id: string;
@@ -14,11 +15,6 @@ interface Document {
   active: boolean;
   premium: boolean;
   category?: { title: string } | null;
-}
-
-interface Category {
-  id: string;
-  title: string;
 }
 
 const ToggleSwitch: React.FC<{
@@ -47,7 +43,7 @@ const ToggleSwitch: React.FC<{
 const DocumentsTab: React.FC = () => {
   const confirm = useConfirm();
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const { categories } = useAdminCategories();
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [editingDoc, setEditingDoc] = useState<Document | null>(null);
@@ -66,16 +62,12 @@ const DocumentsTab: React.FC = () => {
   const fetchInitialData = async () => {
     setLoading(true);
     try {
-      const [docsRes, catsRes] = await Promise.all([
-        apiClient.get("/api/v1/admin/documents"),
-        apiClient.get("/api/v1/admin/categories"),
-      ]);
+      const docsRes = await apiClient.get("/api/v1/admin/documents");
       setDocuments(docsRes.data.documents || []);
-      setCategories(catsRes.data.categories || []);
       setLoading(false);
     } catch (err) {
       console.error(err);
-      toast.error("Không thể tải danh sách dữ liệu.");
+      toast.error("Không thể tải danh sách tài liệu.");
       setLoading(false);
     }
   };

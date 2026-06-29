@@ -326,13 +326,23 @@ adminRouter.put("/users/:userId/premium-access", async (c) => {
 // =============================================================
 
 adminRouter.get("/categories", async (c) => {
-  const { data: categories, error } = await supabaseAdmin
-    .from("categories")
-    .select("*")
-    .order("stt", { ascending: true });
-
-  if (error) return c.json({ error: error.message }, 500);
-  return c.json({ categories });
+  try {
+    const categories = await cacheGetOrSet(
+      "admin:categories",
+      async () => {
+        const { data, error } = await supabaseAdmin
+          .from("categories")
+          .select("*")
+          .order("stt", { ascending: true });
+        if (error) throw error;
+        return data || [];
+      },
+      5 * 60 * 1000 // Cache 5 minutes
+    );
+    return c.json({ categories });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
 });
 
 adminRouter.post("/categories", async (c) => {
@@ -353,6 +363,11 @@ adminRouter.post("/categories", async (c) => {
       .single();
 
     if (error) throw error;
+
+    // Invalidate caches
+    await cacheInvalidate("admin:categories");
+    await cacheInvalidatePrefix("docs");
+
     return c.json({ category }, 201);
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
@@ -375,6 +390,11 @@ adminRouter.put("/categories/:id", async (c) => {
       .single();
 
     if (error) throw error;
+
+    // Invalidate caches
+    await cacheInvalidate("admin:categories");
+    await cacheInvalidatePrefix("docs");
+
     return c.json({ category });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
@@ -397,6 +417,11 @@ adminRouter.patch("/categories/:id", async (c) => {
       .single();
 
     if (error) throw error;
+
+    // Invalidate caches
+    await cacheInvalidate("admin:categories");
+    await cacheInvalidatePrefix("docs");
+
     return c.json({ category });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
@@ -407,6 +432,11 @@ adminRouter.delete("/categories/:id", async (c) => {
   const id = c.req.param("id");
   const { error } = await supabaseAdmin.from("categories").delete().eq("id", id);
   if (error) return c.json({ error: error.message }, 400);
+
+  // Invalidate caches
+  await cacheInvalidate("admin:categories");
+  await cacheInvalidatePrefix("docs");
+
   return c.json({ success: true, message: "Category deleted" });
 });
 
