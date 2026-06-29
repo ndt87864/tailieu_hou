@@ -14,6 +14,8 @@ interface Profile {
   role: string;
   phone: string | null;
   avatar_url: string | null;
+  is_excel_enabled?: boolean;
+  excel_percentage?: number;
 }
 
 const ROLE_OPTIONS = ["free", "plus", "pro", "ultra", "management", "admin"];
@@ -139,6 +141,30 @@ const UsersTab: React.FC = () => {
     }
   };
 
+  const handleToggleExcelPermission = async (userId: string, currentStatus: boolean) => {
+    try {
+      await apiClient.patch(`/api/v1/admin/users/${userId}`, { is_excel_enabled: !currentStatus });
+      toast.success(`Quyền tải Excel đã được ${!currentStatus ? "bật" : "tắt"} thành công!`);
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, is_excel_enabled: !currentStatus } : u))
+      );
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Cập nhật quyền tải Excel thất bại.");
+    }
+  };
+
+  const handleExcelPercentageChange = async (userId: string, percentage: number) => {
+    try {
+      await apiClient.patch(`/api/v1/admin/users/${userId}`, { excel_percentage: percentage });
+      toast.success(`Tỷ lệ tải Excel đã được cập nhật thành ${percentage}%!`);
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, excel_percentage: percentage } : u))
+      );
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Cập nhật tỷ lệ tải Excel thất bại.");
+    }
+  };
+
   const handleDeleteUser = async (userId: string) => {
     if (currentUser && currentUser.id === userId) {
       toast.error("Bạn không thể tự xóa tài khoản của mình!");
@@ -221,13 +247,14 @@ const UsersTab: React.FC = () => {
                 <th>Hồ sơ / Email</th>
                 <th>Điện thoại</th>
                 <th>Phân quyền</th>
+                <th>Tải Excel</th>
                 <th className="th-right">Hành động</th>
               </tr>
             </thead>
             <tbody>
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="td-empty">
+                  <td colSpan={5} className="td-empty">
                     Không tìm thấy tài khoản nào.
                   </td>
                 </tr>
@@ -289,6 +316,36 @@ const UsersTab: React.FC = () => {
                             </button>
                           )}
                         </div>
+                      </td>
+                      <td>
+                        {["admin", "management", "ultra", "pro", "plus"].includes(u.role) ? (
+                          <div className="flex items-center gap-3">
+                            <label className="flex items-center gap-1.5 cursor-pointer text-xs">
+                              <input
+                                type="checkbox"
+                                checked={u.is_excel_enabled !== false}
+                                onChange={() => handleToggleExcelPermission(u.id, u.is_excel_enabled !== false)}
+                                className="rounded text-brand-600 focus:ring-brand-500 border-gray-300"
+                              />
+                              <span>Cho phép</span>
+                            </label>
+                            {u.is_excel_enabled !== false && (
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  value={u.excel_percentage !== undefined ? u.excel_percentage : (["admin", "management", "ultra"].includes(u.role) ? 100 : 50)}
+                                  onChange={(e) => handleExcelPercentageChange(u.id, parseInt(e.target.value) || 0)}
+                                  className="input-themed w-16 px-1.5 py-0.5 text-center text-xs rounded-lg outline-none"
+                                />
+                                <span className="text-[11px] text-[var(--muted)]">%</span>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-[var(--muted)]">—</span>
+                        )}
                       </td>
                       <td className="td-right">
                         <button
@@ -355,6 +412,35 @@ const UsersTab: React.FC = () => {
                       ))}
                     </select>
                   </div>
+                  {["admin", "management", "ultra", "pro", "plus"].includes(u.role) && (
+                    <div className="admin-mobile-card-row">
+                      <span className="admin-mobile-card-label">Tải Excel:</span>
+                      <div className="flex items-center gap-3">
+                        <label className="flex items-center gap-1 cursor-pointer text-xs">
+                          <input
+                            type="checkbox"
+                            checked={u.is_excel_enabled !== false}
+                            onChange={() => handleToggleExcelPermission(u.id, u.is_excel_enabled !== false)}
+                            className="rounded text-brand-600 focus:ring-brand-500 border-gray-300"
+                          />
+                          <span>Cho phép</span>
+                        </label>
+                        {u.is_excel_enabled !== false && (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={u.excel_percentage !== undefined ? u.excel_percentage : (["admin", "management", "ultra"].includes(u.role) ? 100 : 50)}
+                              onChange={(e) => handleExcelPercentageChange(u.id, parseInt(e.target.value) || 0)}
+                              className="input-themed w-16 px-1 py-0.5 text-center text-xs rounded-lg outline-none"
+                            />
+                            <span className="text-[11px] text-[var(--muted)]">%</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="admin-mobile-card-footer">

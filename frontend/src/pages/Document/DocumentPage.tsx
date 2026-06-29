@@ -5,6 +5,8 @@ import LoadingSpinner from "../../components/common/LoadingSpinner.js";
 import { useAuth } from "../../context/AuthContext.js";
 import * as Icons from "lucide-react";
 import { Header } from "../../components/layout/Layout.js";
+import * as XLSX from "xlsx";
+import { toast } from "react-toastify";
 import "../../css/document.css";
 
 const { Lock, Search, Crown } = Icons;
@@ -36,7 +38,7 @@ interface Document {
 
 const DocumentPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { role } = useAuth();
+  const { role, profile, user } = useAuth();
   const [doc, setDoc] = useState<Document | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [limitApplied, setLimitApplied] = useState<boolean>(false);
@@ -83,6 +85,76 @@ const DocumentPage: React.FC = () => {
   const visibleQuestions = filteredQuestions.filter(
     (q) => !(q.isPremiumLocked && !hasFullAccess)
   );
+
+  // Excel download logic
+  const isExcelEnabled = profile?.is_excel_enabled !== false;
+  const excelPercentage = profile?.excel_percentage !== undefined ? profile.excel_percentage : (["admin", "management", "ultra"].includes(role) ? 100 : 50);
+
+  const canDownloadExcel = isExcelEnabled && 
+    (["admin", "management", "ultra"].includes(role) || 
+     (["pro", "plus"].includes(role) && !limitApplied));
+
+  const exportToExcel = () => {
+    try {
+      if (!user) {
+        toast.error("Vui lòng đăng nhập để thực hiện tải xuống.");
+        return;
+      }
+      if (!canDownloadExcel) {
+        toast.error(profile?.is_excel_enabled === false ? "Quyền tải Excel của bạn đã bị tắt." : "Tài khoản của bạn không có quyền tải bộ câu hỏi này.");
+        return;
+      }
+
+      let dataToExport = visibleQuestions;
+      
+      if (excelPercentage < 100) {
+        const limitedCount = Math.floor(visibleQuestions.length * (excelPercentage / 100));
+        dataToExport = visibleQuestions.slice(0, limitedCount);
+        toast.info(`Tài khoản được tải ${excelPercentage}% câu hỏi (${limitedCount}/${visibleQuestions.length} câu).`);
+      }
+
+      const excelData = dataToExport.map((q, index) => ({
+        "STT": index + 1,
+        "Câu hỏi": q.question,
+        "Lựa chọn A": q.choices?.[0] || "",
+        "Lựa chọn B": q.choices?.[1] || "",
+        "Lựa chọn C": q.choices?.[2] || "",
+        "Lựa chọn D": q.choices?.[3] || "",
+        "Đáp án": q.answer,
+      }));
+
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      
+      // Auto-fit column widths
+      const maxLenQuestion = Math.max(...excelData.map(d => d["Câu hỏi"].length), 10);
+      worksheet["!cols"] = [
+        { wch: 6 },
+        { wch: Math.min(maxLenQuestion, 50) },
+        { wch: 25 },
+        { wch: 25 },
+        { wch: 25 },
+        { wch: 25 },
+        { wch: 15 },
+      ];
+
+      const documentTitle = doc?.title || "Document";
+      XLSX.utils.book_append_sheet(
+        workbook,
+        worksheet,
+        documentTitle.substring(0, 30)
+      );
+
+      const percentageSuffix = excelPercentage < 100 ? `_${excelPercentage}percent` : "";
+      const fileName = `${doc?.category?.title || "Category"} - ${documentTitle}${percentageSuffix}.xlsx`;
+
+      XLSX.writeFile(workbook, fileName);
+      toast.success("Tải xuống file Excel thành công!");
+    } catch (error) {
+      console.error("Excel export error:", error);
+      toast.error("Có lỗi xảy ra khi tạo file Excel.");
+    }
+  };
 
   if (loading) return <LoadingSpinner />;
   if (error || !doc)
@@ -180,10 +252,22 @@ const DocumentPage: React.FC = () => {
 
         {/* Info & Search Row */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="text-xs doc-text-muted">
-            Hiển thị từ <span className="font-semibold doc-text-fg2">{filteredCount > 0 ? 1 : 0}</span> đến{" "}
-            <span className="font-semibold doc-text-fg2">{filteredCount}</span> trong tổng số{" "}
-            <span className="font-semibold doc-text-fg2">{totalCount}</span> câu hỏi
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="text-xs doc-text-muted">
+              Hiển thị từ <span className="font-semibold doc-text-fg2">{filteredCount > 0 ? 1 : 0}</span> đến{" "}
+              <span className="font-semibold doc-text-fg2">{filteredCount}</span> trong tổng số{" "}
+              <span className="font-semibold doc-text-fg2">{totalCount}</span> câu hỏi
+            </div>
+            {canDownloadExcel && (
+              <button
+                onClick={exportToExcel}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--brand-600)] hover:bg-[var(--brand-700)] text-white font-semibold text-[11px] transition-colors shadow-sm cursor-pointer"
+                title={`Tải xuống Excel (${excelPercentage}%)`}
+              >
+                <Icons.Download className="w-3.5 h-3.5" />
+                Tải Excel {excelPercentage < 100 && `(${excelPercentage}%)`}
+              </button>
+            )}
           </div>
 
           {/* Search box */}
