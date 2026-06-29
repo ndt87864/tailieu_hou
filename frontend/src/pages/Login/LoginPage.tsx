@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { supabase } from "../../context/AuthContext.js";
 import { toast } from "react-toastify";
 import { BookOpen, Mail, Lock, Eye, EyeOff, ArrowRight, LogIn, UserPlus, KeyRound, CheckCircle, User, Phone } from "lucide-react";
@@ -12,13 +12,20 @@ const LoginPage: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState<string>("");
   const [fullName, setFullName] = useState<string>("");
   const [phone, setPhone] = useState<string>("");
-  const [isSignUp, setIsSignUp] = useState<boolean>(false);
+  const location = useLocation();
+  const isSignUp = location.pathname === "/register";
   const [isForgotPassword, setIsForgotPassword] = useState<boolean>(false);
   const [forgotSent, setForgotSent] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    setFullName("");
+    setPhone("");
+    setConfirmPassword("");
+  }, [location.pathname]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,7 +51,7 @@ const LoginPage: React.FC = () => {
         },
       });
       if (error) toast.error(error.message);
-      else { toast.success("Đăng ký thành công! Hãy kiểm tra email hoặc đăng nhập ngay."); setIsSignUp(false); }
+      else { toast.success("Đăng ký thành công! Hãy kiểm tra email hoặc đăng nhập ngay."); navigate("/login"); }
     } else {
       // Validate đăng nhập
       if (!email || !password) { toast.warn("Vui lòng điền đầy đủ thông tin."); return; }
@@ -82,12 +89,7 @@ const LoginPage: React.FC = () => {
     setLoading(false);
   };
 
-  const handleToggleMode = () => {
-    setIsSignUp(!isSignUp);
-    setFullName("");
-    setPhone("");
-    setConfirmPassword("");
-  };
+
 
   // --- Forgot Password Screen ---
   if (isForgotPassword) {
@@ -376,8 +378,8 @@ const LoginPage: React.FC = () => {
 
           {/* Toggle sign up / login */}
           <div className="login-toggle-container">
-            <button
-              onClick={handleToggleMode}
+            <Link
+              to={isSignUp ? "/login" : "/register"}
               className="inline-flex items-center gap-1.5 hover:text-[var(--brand-600)] transition-colors group login-toggle-text"
             >
               {isSignUp ? (
@@ -393,7 +395,7 @@ const LoginPage: React.FC = () => {
                   <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
                 </>
               )}
-            </button>
+            </Link>
           </div>
         </div>
 
