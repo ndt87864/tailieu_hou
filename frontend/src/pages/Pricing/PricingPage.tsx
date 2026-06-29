@@ -234,7 +234,7 @@ export const PricingPage: React.FC = () => {
 
     return (
       <li key={item.id} className="info-item">
-        <span className="info-number bg-brand-600">{item.number}</span>
+        <span className="info-number">{item.number}</span>
         <div className="info-content text-sm text-[var(--fg-2)]">
           {renderTextWithLinks()}
           {remainingLinks.length > 0 && (
@@ -311,7 +311,7 @@ export const PricingPage: React.FC = () => {
                         {getIcon(tier.icon)}
                       </div>
                       <h3 className="card-title text-[var(--fg)]">{tier.name}</h3>
-                      <div className="card-price text-brand-600">{tier.price}</div>
+                      <div className="card-price">{tier.price}</div>
                       <p className="text-xs text-[var(--fg-2)] mt-1">{tier.savings}</p>
                     </div>
 
@@ -331,7 +331,7 @@ export const PricingPage: React.FC = () => {
                         const el = document.getElementById("instructions");
                         if (el) el.scrollIntoView({ behavior: "smooth" });
                       }}
-                      className="card-button bg-brand-600 text-white"
+                      className="card-button"
                     >
                       Đăng ký ngay
                     </button>
@@ -351,7 +351,7 @@ export const PricingPage: React.FC = () => {
             content.length > 0 && (
               <div id="instructions" className="mt-16">
                 <div className="pricing-hero">
-                  <h2 className={`pricing-title ${isDark ? "dark" : "light"}`} style={{ fontSize: "2rem" }}>
+                  <h2 className={`pricing-title section-title ${isDark ? "dark" : "light"}`}>
                     Thông tin chuyển khoản &amp; kích hoạt
                   </h2>
                 </div>
@@ -368,7 +368,7 @@ export const PricingPage: React.FC = () => {
           {/* Support Section */}
           <div className="services-section mt-16">
             <div className="pricing-hero">
-              <h2 className={`pricing-title ${isDark ? "dark" : "light"}`} style={{ fontSize: "2rem" }}>
+              <h2 className={`pricing-title section-title ${isDark ? "dark" : "light"}`}>
                 Hỗ trợ
               </h2>
               <p className="pricing-subtitle text-[var(--fg-2)]">
@@ -379,7 +379,7 @@ export const PricingPage: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
               <div className={`service-card border border-[var(--border)] ${isDark ? "dark" : "light"}`}>
                 <div className={`service-icon ${isDark ? "dark" : "light"}`}>
-                  <FileText className="w-8 h-8 text-brand-600" />
+                  <FileText className="w-8 h-8" />
                 </div>
                 <h4 className="service-title text-[var(--fg)]">
                   Hỗ trợ full 9/10 tất cả các môn hệ thống
@@ -388,7 +388,7 @@ export const PricingPage: React.FC = () => {
 
               <div className={`service-card border border-[var(--border)] ${isDark ? "dark" : "light"}`}>
                 <div className={`service-icon ${isDark ? "dark" : "light"}`}>
-                  <Files className="w-8 h-8 text-brand-600" />
+                  <Files className="w-8 h-8" />
                 </div>
                 <h4 className="service-title text-[var(--fg)]">
                   Hỗ trợ đề cương trong thời gian học
@@ -397,7 +397,7 @@ export const PricingPage: React.FC = () => {
 
               <div className={`service-card border border-[var(--border)] ${isDark ? "dark" : "light"}`}>
                 <div className={`service-icon ${isDark ? "dark" : "light"}`}>
-                  <GraduationCap className="w-8 h-8 text-brand-600" />
+                  <GraduationCap className="w-8 h-8" />
                 </div>
                 <h4 className="service-title text-[var(--fg)]">
                   Hỗ trợ thi kết thúc môn học full điểm các môn
@@ -408,7 +408,7 @@ export const PricingPage: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className={`service-card border border-[var(--border)] ${isDark ? "dark" : "light"}`}>
                 <div className={`service-icon ${isDark ? "dark" : "light"}`}>
-                  <FileSignature className="w-8 h-8 text-brand-600" />
+                  <FileSignature className="w-8 h-8" />
                 </div>
                 <h4 className="service-title text-[var(--fg)]">
                   Hỗ trợ đồ án full 9/10
@@ -417,7 +417,7 @@ export const PricingPage: React.FC = () => {
 
               <div className={`service-card border border-[var(--border)] ${isDark ? "dark" : "light"}`}>
                 <div className={`service-icon ${isDark ? "dark" : "light"}`}>
-                  <BarChart3 className="w-8 h-8 text-brand-600" />
+                  <BarChart3 className="w-8 h-8" />
                 </div>
                 <h4 className="service-title text-[var(--fg)]">
                   Báo cáo thực tập, chuyên đề thực tập, luận văn thạc sĩ tất cả các chuyên ngành
@@ -426,7 +426,7 @@ export const PricingPage: React.FC = () => {
 
               <div className={`service-card border border-[var(--border)] ${isDark ? "dark" : "light"}`}>
                 <div className={`service-icon ${isDark ? "dark" : "light"}`}>
-                  <Briefcase className="w-8 h-8 text-brand-600" />
+                  <Briefcase className="w-8 h-8" />
                 </div>
                 <h4 className="service-title text-[var(--fg)]">
                   Dịch vụ kế toán, tư vấn khi ra trường, tư vấn pháp lý
