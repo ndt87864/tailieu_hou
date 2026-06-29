@@ -16,6 +16,7 @@ interface Profile {
   avatar_url: string | null;
   is_excel_enabled?: boolean;
   excel_percentage?: number;
+  premium_user?: { category_id: string | null; document_id: string | null }[];
 }
 
 const ROLE_OPTIONS = ["free", "plus", "pro", "ultra", "management", "admin"];
@@ -105,6 +106,7 @@ const UsersTab: React.FC = () => {
       });
       toast.success("Cập nhật quyền truy cập thành công!");
       setSelectedUserForAccess(null);
+      fetchUsers();
     } catch (err: any) {
       console.error(err);
       toast.error(err.response?.data?.error || "Cập nhật quyền truy cập thất bại.");
@@ -130,6 +132,8 @@ const UsersTab: React.FC = () => {
 
   useEffect(() => {
     fetchUsers();
+    fetchAllDocuments();
+    fetchAllCategories();
   }, []);
 
   const handleUpdateRole = async (userId: string, newRole: string) => {
@@ -296,7 +300,7 @@ const UsersTab: React.FC = () => {
                       </td>
                       <td className="user-phone">{u.phone || "—"}</td>
                       <td>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-col gap-1 items-start">
                           <select
                             value={u.role}
                             onChange={(e) => handleUpdateRole(u.id, e.target.value)}
@@ -308,31 +312,81 @@ const UsersTab: React.FC = () => {
                               </option>
                             ))}
                           </select>
-                          {u.role === "plus" && (
-                            <button
-                              onClick={() => handleOpenPermissionModal(u)}
-                              className="px-2 py-1 text-xs font-semibold rounded-lg bg-brand-500/10 text-[var(--brand-600)] hover:bg-brand-500/20 transition-colors flex items-center gap-1"
-                              title="Cấp quyền tài liệu cho tài khoản Plus"
-                            >
-                              <BookOpen className="w-3.5 h-3.5" />
-                              Tài liệu
-                            </button>
-                          )}
+
                           {u.role === "pro" && (
-                            <button
-                              onClick={() => handleOpenPermissionModal(u)}
-                              className="px-2 py-1 text-xs font-semibold rounded-lg bg-emerald-500/10 text-[var(--brand-600)] hover:bg-emerald-500/20 transition-colors flex items-center gap-1"
-                              title="Cấp quyền danh mục cho tài khoản Pro"
-                            >
-                              <BookOpen className="w-3.5 h-3.5" />
-                              Danh mục
-                            </button>
+                            (() => {
+                              const userCats = u.premium_user?.map(pu => pu.category_id).filter(Boolean) || [];
+                              const catNames = userCats.map(id => allCategories.find(c => c.id === id)?.title).filter(Boolean);
+                              const displayNames = catNames.slice(0, 2);
+                              const extraCount = catNames.length - 2;
+                              return (
+                                <div className="flex flex-col gap-1 mt-1">
+                                  <button
+                                    onClick={() => handleOpenPermissionModal(u)}
+                                    className="text-[10px] text-emerald-600 hover:text-emerald-700 flex items-center gap-1 font-semibold hover:underline"
+                                    title="Chỉnh sửa danh mục cấp quyền"
+                                  >
+                                    <BookOpen className="w-3 h-3" />
+                                    Danh mục ({catNames.length})
+                                  </button>
+                                  {catNames.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 max-w-[160px]">
+                                      {displayNames.map((name, idx) => (
+                                        <span key={idx} className="px-1.5 py-0.5 text-[9px] rounded bg-emerald-50 text-emerald-700 border border-emerald-200 truncate max-w-[95px]" title={name}>
+                                          {name}
+                                        </span>
+                                      ))}
+                                      {extraCount > 0 && (
+                                        <span className="px-1 py-0.5 text-[9px] rounded bg-gray-100 text-gray-600 border border-gray-200">
+                                          +{extraCount}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()
+                          )}
+
+                          {u.role === "plus" && (
+                            (() => {
+                              const userDocs = u.premium_user?.map(pu => pu.document_id).filter(Boolean) || [];
+                              const docNames = userDocs.map(id => allDocuments.find(d => d.id === id)?.title).filter(Boolean);
+                              const displayNames = docNames.slice(0, 2);
+                              const extraCount = docNames.length - 2;
+                              return (
+                                <div className="flex flex-col gap-1 mt-1">
+                                  <button
+                                    onClick={() => handleOpenPermissionModal(u)}
+                                    className="text-[10px] text-brand-600 hover:text-brand-700 flex items-center gap-1 font-semibold hover:underline"
+                                    title="Chỉnh sửa tài liệu cấp quyền"
+                                  >
+                                    <BookOpen className="w-3 h-3" />
+                                    Tài liệu ({docNames.length})
+                                  </button>
+                                  {docNames.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 max-w-[160px]">
+                                      {displayNames.map((name, idx) => (
+                                        <span key={idx} className="px-1.5 py-0.5 text-[9px] rounded bg-brand-50 text-brand-700 border border-brand-200 truncate max-w-[95px]" title={name}>
+                                          {name}
+                                        </span>
+                                      ))}
+                                      {extraCount > 0 && (
+                                        <span className="px-1 py-0.5 text-[9px] rounded bg-gray-100 text-gray-600 border border-gray-200">
+                                          +{extraCount}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()
                           )}
                         </div>
                       </td>
                       <td>
                         {["admin", "management", "ultra", "pro", "plus"].includes(u.role) ? (
-                          <div className="flex items-center gap-3">
+                          <div className="flex flex-col gap-1.5 items-start">
                             <label className="flex items-center gap-1.5 cursor-pointer text-xs">
                               <input
                                 type="checkbox"
@@ -442,22 +496,90 @@ const UsersTab: React.FC = () => {
                   </div>
                   <div className="admin-mobile-card-row">
                     <span className="admin-mobile-card-label">Phân quyền:</span>
-                    <select
-                      value={u.role}
-                      onChange={(e) => handleUpdateRole(u.id, e.target.value)}
-                      className="input-themed px-2.5 py-1 text-xs rounded-lg outline-none cursor-pointer"
-                    >
-                      {ROLE_OPTIONS.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt.toUpperCase()}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="flex flex-col items-end gap-1">
+                      <select
+                        value={u.role}
+                        onChange={(e) => handleUpdateRole(u.id, e.target.value)}
+                        className="input-themed px-2.5 py-1 text-xs rounded-lg outline-none cursor-pointer"
+                      >
+                        {ROLE_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt.toUpperCase()}
+                          </option>
+                        ))}
+                      </select>
+                      {u.role === "pro" && (
+                        (() => {
+                          const userCats = u.premium_user?.map(pu => pu.category_id).filter(Boolean) || [];
+                          const catNames = userCats.map(id => allCategories.find(c => c.id === id)?.title).filter(Boolean);
+                          const displayNames = catNames.slice(0, 2);
+                          const extraCount = catNames.length - 2;
+                          return (
+                            <div className="flex flex-col items-end gap-1 mt-1">
+                              <button
+                                onClick={() => handleOpenPermissionModal(u)}
+                                className="text-[10px] text-emerald-600 hover:text-emerald-700 flex items-center gap-1 font-semibold hover:underline"
+                              >
+                                <BookOpen className="w-3 h-3" />
+                                Danh mục ({catNames.length})
+                              </button>
+                              {catNames.length > 0 && (
+                                <div className="flex flex-wrap justify-end gap-1 max-w-[180px]">
+                                  {displayNames.map((name, idx) => (
+                                    <span key={idx} className="px-1.5 py-0.5 text-[9px] rounded bg-emerald-50 text-emerald-700 border border-emerald-200 truncate max-w-[120px]" title={name}>
+                                      {name}
+                                    </span>
+                                  ))}
+                                  {extraCount > 0 && (
+                                    <span className="px-1 py-0.5 text-[9px] rounded bg-gray-100 text-gray-600 border border-gray-200">
+                                      +{extraCount}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()
+                      )}
+                      {u.role === "plus" && (
+                        (() => {
+                          const userDocs = u.premium_user?.map(pu => pu.document_id).filter(Boolean) || [];
+                          const docNames = userDocs.map(id => allDocuments.find(d => d.id === id)?.title).filter(Boolean);
+                          const displayNames = docNames.slice(0, 2);
+                          const extraCount = docNames.length - 2;
+                          return (
+                            <div className="flex flex-col items-end gap-1 mt-1">
+                              <button
+                                onClick={() => handleOpenPermissionModal(u)}
+                                className="text-[10px] text-brand-600 hover:text-brand-700 flex items-center gap-1 font-semibold hover:underline"
+                              >
+                                <BookOpen className="w-3 h-3" />
+                                Tài liệu ({docNames.length})
+                              </button>
+                              {docNames.length > 0 && (
+                                <div className="flex flex-wrap justify-end gap-1 max-w-[180px]">
+                                  {displayNames.map((name, idx) => (
+                                    <span key={idx} className="px-1.5 py-0.5 text-[9px] rounded bg-brand-50 text-brand-700 border border-brand-200 truncate max-w-[120px]" title={name}>
+                                      {name}
+                                    </span>
+                                  ))}
+                                  {extraCount > 0 && (
+                                    <span className="px-1 py-0.5 text-[9px] rounded bg-gray-100 text-gray-600 border border-gray-200">
+                                      +{extraCount}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()
+                      )}
+                    </div>
                   </div>
                   {["admin", "management", "ultra", "pro", "plus"].includes(u.role) && (
                     <div className="admin-mobile-card-row">
                       <span className="admin-mobile-card-label">Tải Excel:</span>
-                      <div className="flex items-center gap-3">
+                      <div className="flex flex-col items-end gap-1">
                         <label className="flex items-center gap-1 cursor-pointer text-xs">
                           <input
                             type="checkbox"
@@ -498,11 +620,11 @@ const UsersTab: React.FC = () => {
                                 }
                               }}
                               onBlur={() => {
-                                setTempPercentages((prev) => {
-                                  const copy = { ...prev };
-                                  delete copy[u.id];
-                                  return copy;
-                                });
+                                  setTempPercentages((prev) => {
+                                    const copy = { ...prev };
+                                    delete copy[u.id];
+                                    return copy;
+                                  });
                               }}
                               className="input-themed w-16 px-1 py-0.5 text-center text-xs rounded-lg outline-none"
                             />
@@ -512,27 +634,10 @@ const UsersTab: React.FC = () => {
                       </div>
                     </div>
                   )}
+
                 </div>
 
-                <div className="admin-mobile-card-footer">
-                  {u.role === "plus" && (
-                    <button
-                      onClick={() => handleOpenPermissionModal(u)}
-                      className="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-brand-500/10 text-[var(--brand-600)] hover:bg-brand-500/20 transition-colors flex items-center gap-1"
-                    >
-                      <BookOpen className="w-3.5 h-3.5" />
-                      Tài liệu
-                    </button>
-                  )}
-                  {u.role === "pro" && (
-                    <button
-                      onClick={() => handleOpenPermissionModal(u)}
-                      className="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-500/10 text-[var(--brand-600)] hover:bg-emerald-500/20 transition-colors flex items-center gap-1"
-                    >
-                      <BookOpen className="w-3.5 h-3.5" />
-                      Danh mục
-                    </button>
-                  )}
+                 <div className="admin-mobile-card-footer justify-end">
                   <button
                     onClick={() => handleDeleteUser(u.id)}
                     className="p-1.5 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors ml-auto"

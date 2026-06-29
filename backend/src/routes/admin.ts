@@ -89,7 +89,13 @@ adminRouter.get("/stats", async (c) => {
 adminRouter.get("/users", async (c) => {
   const { data: users, error } = await supabaseAdmin
     .from("profiles")
-    .select("*")
+    .select(`
+      *,
+      premium_user (
+        category_id,
+        document_id
+      )
+    `)
     .order("updated_at", { ascending: false });
 
   if (error) {
