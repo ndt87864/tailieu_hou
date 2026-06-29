@@ -527,6 +527,25 @@ adminRouter.post("/students/bulk-delete", async (c) => {
   }
 });
 
+adminRouter.post("/students/bulk-update", async (c) => {
+  try {
+    const { ids, updates } = await c.req.json();
+    if (!Array.isArray(ids) || ids.length === 0 || !updates) {
+      return c.json({ error: "Invalid or empty ids array or updates object" }, 400);
+    }
+    const { data, error } = await supabaseAdmin
+      .from("student_infor")
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .in("id", ids)
+      .select();
+
+    if (error) throw error;
+    return c.json({ success: true, count: data?.length || 0 });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
 adminRouter.post("/students", async (c) => {
   try {
     const body = await c.req.json();

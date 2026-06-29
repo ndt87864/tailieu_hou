@@ -6,48 +6,7 @@ import { useConfirm } from "../../../context/ConfirmContext.js";
 import { supabase } from "../../../context/AuthContext.js";
 import * as XLSX from "xlsx";
 
-// 1. Quản lý phòng thi (Rooms)
-export const RoomsTab: React.FC = () => {
-  const [rooms] = useState([
-    { id: 1, name: "Phòng thi trực tuyến Zoom 01", capacity: 40, status: "active" },
-    { id: 2, name: "Phòng thi trực tuyến Zoom 02", capacity: 40, status: "active" },
-    { id: 3, name: "Phòng thi trực tuyến Google Meet 01", capacity: 50, status: "active" },
-    { id: 4, name: "Phòng thi Tự do 05", capacity: 100, status: "inactive" },
-  ]);
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="modal-heading text-base font-bold">Quản lý phòng thi</h3>
-        <button className="btn-brand text-xs flex items-center gap-1"><Plus className="w-3.5 h-3.5" /> Thêm phòng</button>
-      </div>
-      <div className="card overflow-hidden">
-        <table className="table-themed">
-          <thead>
-            <tr>
-              <th>Tên phòng thi</th>
-              <th>Sức chứa</th>
-              <th>Trạng thái</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rooms.map((r) => (
-              <tr key={r.id}>
-                <td className="font-medium user-name">{r.name}</td>
-                <td className="td-fg2">{r.capacity} sinh viên</td>
-                <td>
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${r.status === "active" ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-600"}`}>
-                    {r.status === "active" ? "HOẠT ĐỘNG" : "KHÓA"}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-};
 
 // 2. Quản lý ca thi (Sessions)
 export const SessionsTab: React.FC = () => {

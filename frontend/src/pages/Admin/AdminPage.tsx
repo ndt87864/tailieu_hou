@@ -27,9 +27,9 @@ import CategoriesTab from "./subpages/CategoriesTab.js";
 import DocumentsTab from "./subpages/DocumentsTab.js";
 import QuestionsTab from "./subpages/QuestionsTab.js";
 import StudentInforTab from "./subpages/StudentInforTab.js";
+import RoomsTab from "./subpages/RoomsTab.js";
 
 import {
-  RoomsTab,
   SessionsTab,
   PricingTab,
   RemindersTab,
