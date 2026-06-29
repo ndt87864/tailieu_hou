@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { createClient, type User, type Session } from "@supabase/supabase-js";
 import apiClient, { setAuthToken } from "../services/client.js";
+import { clearAllCache } from "../utils/apiCache.js";
 
 interface AuthContextType {
   user: User | null;
@@ -59,6 +60,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      clearAllCache();
       setSession(session);
       setUser(session?.user ?? null);
       if (session) {

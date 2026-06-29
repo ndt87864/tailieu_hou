@@ -38,7 +38,7 @@ interface Document {
 
 const DocumentPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { role, profile, user } = useAuth();
+  const { role, profile, user, loading: authLoading } = useAuth();
   const [doc, setDoc] = useState<Document | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [limitApplied, setLimitApplied] = useState<boolean>(false);
@@ -49,7 +49,7 @@ const DocumentPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || authLoading) return;
     setLoading(true);
     Promise.all([
       apiClient.get(`/api/v1/documents/${id}`),
@@ -66,7 +66,7 @@ const DocumentPage: React.FC = () => {
         setError("Lỗi tải thông tin tài liệu. Vui lòng thử lại.");
         setLoading(false);
       });
-  }, [id]);
+  }, [id, authLoading]);
 
   // Filter questions based on search query
   const filteredQuestions = questions.filter(
@@ -88,11 +88,10 @@ const DocumentPage: React.FC = () => {
 
   // Excel download logic
   const isExcelEnabled = profile?.is_excel_enabled !== false;
-  const excelPercentage = profile?.excel_percentage !== undefined ? profile.excel_percentage : (["admin", "management", "ultra"].includes(role) ? 100 : 50);
+  const excelPercentage = profile?.excel_percentage !== undefined ? profile.excel_percentage : (role === "plus" ? 50 : 100);
 
   const canDownloadExcel = isExcelEnabled && 
-    (["admin", "management", "ultra"].includes(role) || 
-     (["pro", "plus"].includes(role) && !limitApplied));
+    ["admin", "management", "ultra", "pro", "plus"].includes(role);
 
   const exportToExcel = () => {
     try {

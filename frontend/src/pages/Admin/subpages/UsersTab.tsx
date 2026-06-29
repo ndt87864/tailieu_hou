@@ -28,6 +28,7 @@ const UsersTab: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [formData, setFormData] = useState({ email: "", password: "", full_name: "", phone: "", role: "free" });
+  const [tempPercentages, setTempPercentages] = useState<Record<string, string>>({});
 
   // States for permission selection (plus / pro)
   const [selectedUserForAccess, setSelectedUserForAccess] = useState<Profile | null>(null);
@@ -133,9 +134,21 @@ const UsersTab: React.FC = () => {
 
   const handleUpdateRole = async (userId: string, newRole: string) => {
     try {
-      await apiClient.put(`/api/v1/admin/users/${userId}/role`, { role: newRole });
+      const res = await apiClient.put(`/api/v1/admin/users/${userId}/role`, { role: newRole });
       toast.success("Cập nhật phân quyền thành công!");
-      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u)));
+      const updatedProfile = res.data.profile;
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === userId
+            ? {
+                ...u,
+                role: updatedProfile.role,
+                excel_percentage: updatedProfile.excel_percentage,
+                is_excel_enabled: updatedProfile.is_excel_enabled,
+              }
+            : u
+        )
+      );
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Cập nhật thất bại.");
     }
@@ -335,8 +348,37 @@ const UsersTab: React.FC = () => {
                                   type="number"
                                   min="0"
                                   max="100"
-                                  value={u.excel_percentage !== undefined ? u.excel_percentage : (["admin", "management", "ultra"].includes(u.role) ? 100 : 50)}
-                                  onChange={(e) => handleExcelPercentageChange(u.id, parseInt(e.target.value) || 0)}
+                                  value={
+                                    tempPercentages[u.id] !== undefined
+                                      ? tempPercentages[u.id]
+                                      : String(u.excel_percentage !== undefined ? u.excel_percentage : (u.role === "plus" ? 50 : 100))
+                                  }
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setTempPercentages((prev) => ({ ...prev, [u.id]: val }));
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      const rawVal = tempPercentages[u.id];
+                                      if (rawVal !== undefined) {
+                                        const percentage = Math.min(Math.max(parseInt(rawVal) || 0, 0), 100);
+                                        handleExcelPercentageChange(u.id, percentage);
+                                        setTempPercentages((prev) => {
+                                          const copy = { ...prev };
+                                          delete copy[u.id];
+                                          return copy;
+                                        });
+                                      }
+                                      (e.target as HTMLInputElement).blur();
+                                    }
+                                  }}
+                                  onBlur={() => {
+                                    setTempPercentages((prev) => {
+                                      const copy = { ...prev };
+                                      delete copy[u.id];
+                                      return copy;
+                                    });
+                                  }}
                                   className="input-themed w-16 px-1.5 py-0.5 text-center text-xs rounded-lg outline-none"
                                 />
                                 <span className="text-[11px] text-[var(--muted)]">%</span>
@@ -431,8 +473,37 @@ const UsersTab: React.FC = () => {
                               type="number"
                               min="0"
                               max="100"
-                              value={u.excel_percentage !== undefined ? u.excel_percentage : (["admin", "management", "ultra"].includes(u.role) ? 100 : 50)}
-                              onChange={(e) => handleExcelPercentageChange(u.id, parseInt(e.target.value) || 0)}
+                              value={
+                                tempPercentages[u.id] !== undefined
+                                  ? tempPercentages[u.id]
+                                  : String(u.excel_percentage !== undefined ? u.excel_percentage : (u.role === "plus" ? 50 : 100))
+                              }
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setTempPercentages((prev) => ({ ...prev, [u.id]: val }));
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  const rawVal = tempPercentages[u.id];
+                                  if (rawVal !== undefined) {
+                                    const percentage = Math.min(Math.max(parseInt(rawVal) || 0, 0), 100);
+                                    handleExcelPercentageChange(u.id, percentage);
+                                    setTempPercentages((prev) => {
+                                      const copy = { ...prev };
+                                      delete copy[u.id];
+                                      return copy;
+                                    });
+                                  }
+                                  (e.target as HTMLInputElement).blur();
+                                }
+                              }}
+                              onBlur={() => {
+                                setTempPercentages((prev) => {
+                                  const copy = { ...prev };
+                                  delete copy[u.id];
+                                  return copy;
+                                });
+                              }}
                               className="input-themed w-16 px-1 py-0.5 text-center text-xs rounded-lg outline-none"
                             />
                             <span className="text-[11px] text-[var(--muted)]">%</span>

@@ -31,7 +31,7 @@ interface GroupedCategory {
 }
 
 const HomePage: React.FC = () => {
-  const { role } = useAuth();
+  const { role, loading: authLoading } = useAuth();
   const isPremiumUser = ["admin", "management", "ultra", "pro", "plus"].includes(role);
   const [groupedCategories, setGroupedCategories] = useState<GroupedCategory[]>([]);
   const [allDocuments, setAllDocuments] = useState<Document[]>([]);
@@ -48,6 +48,7 @@ const HomePage: React.FC = () => {
   const [loadingCategory, setLoadingCategory] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
+    if (authLoading) return;
     cachedGet<{ categories: GroupedCategory[] }>("/api/v1/documents/grouped")
       .then((res) => {
         setGroupedCategories(res.data.categories || []);
@@ -58,7 +59,7 @@ const HomePage: React.FC = () => {
         setError("Không thể tải danh sách tài liệu.");
         setLoading(false);
       });
-  }, []);
+  }, [authLoading]);
 
   // Fetch all documents on-demand when user is searching
   useEffect(() => {

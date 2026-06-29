@@ -125,6 +125,8 @@ adminRouter.post("/users", async (c) => {
         full_name,
         phone: phone || null,
         role: role || "free",
+        excel_percentage: role === "plus" ? 50 : (role === "free" ? 0 : 100),
+        is_excel_enabled: role !== "free" && role !== undefined,
         updated_at: new Date().toISOString(),
       })
       .eq("id", authUser.user.id)
@@ -148,7 +150,19 @@ adminRouter.put("/users/:userId", async (c) => {
     }
 
     const updates: any = {};
-    if (role !== undefined) updates.role = role;
+    if (role !== undefined) {
+      updates.role = role;
+      if (role === "plus") {
+        updates.excel_percentage = 50;
+        updates.is_excel_enabled = true;
+      } else if (role === "free") {
+        updates.excel_percentage = 0;
+        updates.is_excel_enabled = false;
+      } else if (["admin", "management", "ultra", "pro"].includes(role)) {
+        updates.excel_percentage = 100;
+        updates.is_excel_enabled = true;
+      }
+    }
     if (full_name !== undefined) updates.full_name = full_name;
     if (phone !== undefined) updates.phone = phone;
     if (avatar_url !== undefined) updates.avatar_url = avatar_url;
@@ -177,10 +191,22 @@ adminRouter.patch("/users/:userId", async (c) => {
       return c.json({ error: "Invalid role value" }, 400);
     }
 
-    const updates = {
+    const updates: any = {
       ...body,
       updated_at: new Date().toISOString(),
     };
+    if (body.role !== undefined) {
+      if (body.role === "plus") {
+        updates.excel_percentage = 50;
+        updates.is_excel_enabled = true;
+      } else if (body.role === "free") {
+        updates.excel_percentage = 0;
+        updates.is_excel_enabled = false;
+      } else if (["admin", "management", "ultra", "pro"].includes(body.role)) {
+        updates.excel_percentage = 100;
+        updates.is_excel_enabled = true;
+      }
+    }
 
     const { data: profile, error } = await supabaseAdmin
       .from("profiles")
@@ -217,9 +243,21 @@ adminRouter.put("/users/:userId/role", async (c) => {
     return c.json({ error: "Invalid role value" }, 400);
   }
 
+  const updates: any = { role, updated_at: new Date().toISOString() };
+  if (role === "plus") {
+    updates.excel_percentage = 50;
+    updates.is_excel_enabled = true;
+  } else if (role === "free") {
+    updates.excel_percentage = 0;
+    updates.is_excel_enabled = false;
+  } else if (["admin", "management", "ultra", "pro"].includes(role)) {
+    updates.excel_percentage = 100;
+    updates.is_excel_enabled = true;
+  }
+
   const { data: profile, error } = await supabaseAdmin
     .from("profiles")
-    .update({ role, updated_at: new Date().toISOString() })
+    .update(updates)
     .eq("id", userId)
     .select()
     .single();

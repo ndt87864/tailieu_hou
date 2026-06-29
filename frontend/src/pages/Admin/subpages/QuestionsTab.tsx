@@ -16,6 +16,7 @@ import QuestionFormModal from "./QuestionFormModal.js";
 import { useConfirm } from "../../../context/ConfirmContext.js";
 import QuestionCard from "./QuestionCard.js";
 import { useAdminCategories } from "../../../hooks/useAdminCategories.js";
+import { exportQuestionsToWord } from "../../../utils/wordExport.js";
 
 interface Question {
   id: string;
@@ -332,63 +333,23 @@ const QuestionsTab: React.FC = () => {
       document.body.removeChild(link);
       toast.success("Xuất file Excel thành công!");
     } else if (type === "word") {
-      // Create simplified HTML document that Word can open natively as .doc
-      let htmlContent = `
-        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-        <head>
-          <title>Danh sách câu hỏi</title>
-          <meta charset="utf-8">
-          <style>
-            body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1.5; }
-            .question-block { margin-bottom: 20px; }
-            .question-title { font-weight: bold; margin-bottom: 5px; }
-            .choices { margin-left: 20px; margin-bottom: 5px; }
-            .choice { margin-bottom: 3px; }
-            .answer { font-style: italic; color: #10b981; font-weight: bold; margin-top: 5px; }
-            .doc-info { font-size: 10pt; color: #666; margin-bottom: 10px; }
-          </style>
-        </head>
-        <body>
-          <h2 style="text-align: center;">DANH SÁCH CÂU HỎI</h2>
-      `;
-
-      filtered.forEach((q, idx) => {
-        const docTitle = documents.find((d) => d.id === q.document_id)?.title || "";
-        htmlContent += `
-          <div class="question-block">
-            <div class="question-title">Câu ${idx + 1}: ${q.question}</div>
-            <div class="doc-info">Tài liệu: ${docTitle}</div>
-            <div class="choices">
-        `;
-
-        (q.choices || []).forEach((choice, cIdx) => {
-          htmlContent += `
-            <div class="choice">${String.fromCharCode(65 + cIdx)}. ${choice}</div>
-          `;
+      let docTitle = "Danh sách câu hỏi";
+      if (selectedDocId) {
+        const docObj = documents.find((d) => d.id === selectedDocId);
+        if (docObj) {
+          docTitle = docObj.title;
+        }
+      }
+      
+      toast.info("Đang khởi tạo và tải ảnh cho file Word, vui lòng đợi...");
+      exportQuestionsToWord(filtered, docTitle)
+        .then(() => {
+          toast.success("Xuất file Word thành công!");
+        })
+        .catch((err) => {
+          console.error(err);
+          toast.error("Có lỗi xảy ra khi tạo file Word.");
         });
-
-        htmlContent += `
-            </div>
-            <div class="answer">Đáp án đúng: ${q.answer}</div>
-          </div>
-          <hr/>
-        `;
-      });
-
-      htmlContent += `
-        </body>
-        </html>
-      `;
-
-      const blob = new Blob(["\uFEFF" + htmlContent], { type: "application/msword;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", `Danh_sach_cau_hoi_${new Date().getTime()}.doc`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      toast.success("Xuất file Word thành công!");
     }
   };
 
