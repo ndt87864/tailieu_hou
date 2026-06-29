@@ -1,4 +1,5 @@
 import { supabase } from "../context/AuthContext.js";
+import apiClient from "./client.js";
 
 const TABLE_NAME = "student_infor";
 
@@ -283,34 +284,24 @@ export const getAllSubjectPrices = async () => {
 // ─── Registration Queue Operations ───────────────────────────────────────────
 export const pushToRegistrationQueue = async (data: any, maxRetries = 3) => {
   const { studentId, selectedIds, fullName, username, billUrl, quantity, totalAmount } = data;
-  const idsString = Array.isArray(selectedIds) ? selectedIds.join(",") : selectedIds;
-
-  const payload = {
-    student_id: studentId,
-    selected_ids: idsString,
-    full_name: fullName,
-    username: username,
-    bill_url: billUrl,
-    quantity: quantity,
-    total_amount: totalAmount,
-    status: "pending",
-    retry_count: 0,
-  };
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const { data: queueData, error } = await supabase
-        .from("registration_queue")
-        .insert([payload])
-        .select()
-        .single();
+      const response = await apiClient.post("/api/v1/exam/register", {
+        studentId,
+        selectedIds,
+        fullName,
+        username,
+        billUrl,
+        quantity,
+        totalAmount,
+      });
 
-      if (error) throw error;
-      return { success: true, data: queueData };
+      return { success: true, data: response.data.data };
     } catch (error: any) {
       if (attempt === maxRetries) {
         console.error("Error pushing to registration queue after retries:", error);
-        return { success: false, error: error.message };
+        return { success: false, error: error.response?.data?.error || error.message };
       }
       await new Promise((resolve) => setTimeout(resolve, 1000 * Math.pow(2, attempt - 1)));
     }

@@ -16,4 +16,23 @@ examRouter.get("/search", async (c) => {
   }
 });
 
+examRouter.post("/register", async (c) => {
+  try {
+    const user = c.get("user");
+    if (!user) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    const body = await c.req.json();
+    if (!body.studentId || !body.selectedIds || !body.billUrl) {
+      return c.json({ error: "Missing required fields" }, 400);
+    }
+
+    const result = await examService.pushToRegistrationQueue(body);
+    return c.json({ success: true, data: result });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 export default examRouter;

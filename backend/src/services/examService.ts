@@ -58,3 +58,29 @@ export const searchExamSchedule = async (query: string): Promise<ExamRow[]> => {
     __matchedBy: null,
   }));
 };
+
+export const pushToRegistrationQueue = async (data: any) => {
+  const { studentId, selectedIds, fullName, username, billUrl, quantity, totalAmount } = data;
+  const idsString = Array.isArray(selectedIds) ? selectedIds.join(",") : selectedIds;
+
+  const payload = {
+    student_id: studentId,
+    selected_ids: idsString,
+    full_name: fullName,
+    username: username,
+    bill_url: billUrl,
+    quantity: quantity,
+    total_amount: totalAmount,
+    status: "pending",
+    retry_count: 0,
+  };
+
+  const { data: queueData, error } = await supabaseAdmin
+    .from("registration_queue")
+    .insert([payload])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return queueData;
+};

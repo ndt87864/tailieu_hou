@@ -113,3 +113,7 @@ DROP TRIGGER IF EXISTS trg_delete_queue_registration_bill ON public.registration
 CREATE TRIGGER trg_delete_queue_registration_bill
 AFTER DELETE ON public.registration_queue
 FOR EACH ROW EXECUTE FUNCTION public.delete_registration_bill_files();
+
+-- 5. Drop public insert policy on registration_queue to restrict writes only to Service Role / Backend
+DROP POLICY IF EXISTS "insert_registration_queue_all" ON public.registration_queue;
+
