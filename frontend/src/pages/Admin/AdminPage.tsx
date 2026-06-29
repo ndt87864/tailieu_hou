@@ -34,12 +34,12 @@ import {
   PricingTab,
   RemindersTab,
   FooterTab,
-  ProxyTab,
 } from "./subpages/MockTabs.js";
 
 // Import component ContactsTab mới
 import { ContactsTab } from "./subpages/ContactsTab.js";
 import { QuestionRatioTab } from "./subpages/QuestionRatioTab.js";
+import { ProxyTab } from "./subpages/ProxyTab.js";
 import { Header, Footer } from "../../components/layout/Layout.js";
 import "../../css/admin.css";
 

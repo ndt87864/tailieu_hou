@@ -718,6 +718,7 @@ const ExamSchedulePage: React.FC = () => {
         subjectPriceMap={subjectPriceMap}
         setRentedIds={setRentedIds}
         setRentedBillUrls={setRentedBillUrls}
+        registrationStatus={registrationStatus}
         setRegistrationStatus={setRegistrationStatus}
         isDarkMode={isDarkMode}
         themeVariables={themeVariables}

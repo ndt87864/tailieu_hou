@@ -15,6 +15,7 @@ interface ProxyRegistrationModalProps {
   subjectPriceMap: Record<string, number>;
   setRentedIds: (ids: (string | number)[]) => void;
   setRentedBillUrls: (urls: string) => void;
+  registrationStatus: string | null;
   setRegistrationStatus: (status: string | null) => void;
   isDarkMode: boolean;
   themeVariables: React.CSSProperties;
@@ -30,6 +31,7 @@ const ProxyRegistrationModal: React.FC<ProxyRegistrationModalProps> = ({
   subjectPriceMap,
   setRentedIds,
   setRentedBillUrls,
+  registrationStatus,
   setRegistrationStatus,
   isDarkMode,
   themeVariables,
@@ -146,13 +148,13 @@ const ProxyRegistrationModal: React.FC<ProxyRegistrationModalProps> = ({
         const filePath = `bills/${fileName}`;
 
         const { error: storageError } = await supabase.storage
-          .from("tailieuehou")
+          .from("tailieuhou")
           .upload(filePath, billFile);
 
         if (storageError) throw storageError;
 
         const { data: { publicUrl } } = supabase.storage
-          .from("tailieuehou")
+          .from("tailieuhou")
           .getPublicUrl(filePath);
 
         finalBillUrl = publicUrl;
@@ -279,18 +281,24 @@ const ProxyRegistrationModal: React.FC<ProxyRegistrationModalProps> = ({
                         {isRented ? "Đã đăng kí" : priceDisplay}
                       </div>
                       {isRented && sub.examLink && !visitedLinks[sub.id] && (
-                        <a
-                          href={sub.examLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleLinkClick(sub.id);
-                          }}
-                          className="lt-search-btn lt-modal-zalo-btn"
-                        >
-                          VÀO ZALO
-                        </a>
+                        registrationStatus === "approved" ? (
+                          <a
+                            href={sub.examLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleLinkClick(sub.id);
+                            }}
+                            className="lt-search-btn lt-modal-zalo-btn"
+                          >
+                            VÀO ZALO
+                          </a>
+                        ) : (
+                          <span className="text-[12px] font-semibold text-yellow-600 dark:text-yellow-400 mt-1">
+                            Chờ duyệt
+                          </span>
+                        )
                       )}
                       {isRented && visitedLinks[sub.id] && (
                         <span className="lt-modal-joined-badge">✓ Đã vào nhóm</span>
@@ -429,15 +437,21 @@ const ProxyRegistrationModal: React.FC<ProxyRegistrationModalProps> = ({
                       </div>
                     </div>
                     {sub.examLink && (
-                      <a
-                        href={sub.examLink || "#"}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={() => handleLinkClick(sub.id)}
-                        className={`lt-modal-zalo-btn-link ${visitedLinks[sub.id] ? "visited" : "lt-search-btn"}`}
-                      >
-                        {visitedLinks[sub.id] ? "ĐÃ VÀO" : "VÀO ZALO"}
-                      </a>
+                      registrationStatus === "approved" ? (
+                        <a
+                          href={sub.examLink || "#"}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => handleLinkClick(sub.id)}
+                          className={`lt-modal-zalo-btn-link ${visitedLinks[sub.id] ? "visited" : "lt-search-btn"}`}
+                        >
+                          {visitedLinks[sub.id] ? "ĐÃ VÀO" : "VÀO ZALO"}
+                        </a>
+                      ) : (
+                        <span className="text-[12px] font-semibold text-yellow-600 dark:text-yellow-400">
+                          Chờ duyệt
+                        </span>
+                      )
                     )}
                   </div>
                 ))}

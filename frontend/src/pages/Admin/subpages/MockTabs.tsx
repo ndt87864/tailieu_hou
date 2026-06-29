@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from "react";
-import { Plus, Calendar, Lock, X, Loader2, Trash2, Leaf, Zap, Crown, Gem, Star, Heart, Gift, Award, Shield, Flame, Rocket, Sparkles } from "lucide-react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { Plus, Calendar, Lock, X, Loader2, Trash2, Leaf, Zap, Crown, Gem, Star, Heart, Gift, Award, Shield, Flame, Rocket, Sparkles, Search, RefreshCw, Download, Check, Eye } from "lucide-react";
 import apiClient from "../../../services/client.js";
 import { toast } from "react-toastify";
 import { useConfirm } from "../../../context/ConfirmContext.js";
+import { supabase } from "../../../context/AuthContext.js";
+import * as XLSX from "xlsx";
 
 // 1. Quản lý phòng thi (Rooms)
 export const RoomsTab: React.FC = () => {
@@ -473,14 +475,4 @@ export const FooterTab: React.FC = () => {
 
 
 
-// 9. Quản lý đăng ký môn (Proxy Registrations)
-export const ProxyTab: React.FC = () => {
-  return (
-    <div className="space-y-4">
-      <h3 className="modal-heading text-base font-bold">Quản lý Đăng ký môn hộ</h3>
-      <div className="card p-6 text-center text-xs mock-proxy-empty">
-        Không có yêu cầu đăng ký môn học hộ nào đang chờ duyệt.
-      </div>
-    </div>
-  );
-};
+
