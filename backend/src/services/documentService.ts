@@ -34,7 +34,10 @@ export const listDocuments = async (
     }
 
     const { data, error } = await query;
-    if (error) throw error;
+    if (error) {
+      console.warn("Could not fetch documents from database:", error.message);
+      return [];
+    }
     return (data as any) ?? [];
   };
 
@@ -85,7 +88,10 @@ async function _fetchGroupedDocuments(isPremiumUser = false, preview = true): Pr
 
   const { data: categories, error: catError } = await catQuery;
 
-  if (catError) throw catError;
+  if (catError) {
+    console.warn("Could not fetch categories from database:", catError.message);
+    return [];
+  }
   if (!categories) return [];
 
   // 2. Chạy song song: mỗi category lấy docs + count cùng 1 lúc
@@ -116,11 +122,15 @@ async function _fetchGroupedDocuments(isPremiumUser = false, preview = true): Pr
 
     const [docsResult, countResult] = await Promise.all([docQuery, cntQuery]);
 
-    if (docsResult.error) throw docsResult.error;
-    if (countResult.error) throw countResult.error;
+    if (docsResult.error) {
+      console.warn(`Could not fetch docs for category ${cat.id}:`, docsResult.error.message);
+    }
+    if (countResult.error) {
+      console.warn(`Could not count docs for category ${cat.id}:`, countResult.error.message);
+    }
 
-    const docs = docsResult.data;
-    const count = countResult.count;
+    const docs = docsResult.error ? [] : docsResult.data;
+    const count = countResult.error ? 0 : countResult.count;
 
     if (!docs || docs.length === 0) return null;
 
@@ -162,15 +172,19 @@ async function _fetchGroupedDocuments(isPremiumUser = false, preview = true): Pr
   const [categoryResults, [noCatDocsResult, noCatCountResult]] =
     await Promise.all([Promise.all(categoryPromises), noCatPromise]);
 
-  if (noCatDocsResult.error) throw noCatDocsResult.error;
-  if (noCatCountResult.error) throw noCatCountResult.error;
+  if (noCatDocsResult.error) {
+    console.warn("Could not fetch no-category docs:", noCatDocsResult.error.message);
+  }
+  if (noCatCountResult.error) {
+    console.warn("Could not count no-category docs:", noCatCountResult.error.message);
+  }
 
   // 5. Lọc bỏ category rỗng (null) và giữ thứ tự stt
   const result = categoryResults.filter(Boolean) as any[];
 
   // 6. Thêm nhóm "Khác" nếu có
-  const noCatDocs = noCatDocsResult.data;
-  const noCatCount = noCatCountResult.count;
+  const noCatDocs = noCatDocsResult.error ? [] : noCatDocsResult.data;
+  const noCatCount = noCatCountResult.error ? 0 : noCatCountResult.count;
   if (noCatDocs && noCatDocs.length > 0) {
     result.push({
       id: "other",

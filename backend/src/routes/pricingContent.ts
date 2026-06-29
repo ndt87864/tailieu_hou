@@ -20,7 +20,10 @@ pricingRouter.get("/", async (c) => {
           .select("*")
           .order("number", { ascending: true });
 
-        if (error) throw error;
+        if (error) {
+          console.warn("Could not fetch pricing_content from database:", error.message);
+          return [];
+        }
         return content || [];
       },
       TTL
@@ -39,7 +42,10 @@ pricingRouter.get("/admin", requireRole("admin"), async (c) => {
       .select("*")
       .order("number", { ascending: true });
 
-    if (error) throw error;
+    if (error) {
+      console.warn("Could not fetch pricing_content for admin from database:", error.message);
+      return c.json({ content: [] });
+    }
     return c.json({ content: content || [] });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);

@@ -13,7 +13,10 @@ export const getQuestionsByDocument = async (documentId: string): Promise<Questi
       .eq("document_id", documentId)
       .order("order_index", { ascending: true });
 
-    if (error) throw error;
+    if (error) {
+      console.warn(`Could not fetch questions for document ${documentId}:`, error.message);
+      return [];
+    }
     return data ?? [];
   };
 

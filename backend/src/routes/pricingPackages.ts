@@ -20,7 +20,10 @@ pricingPackagesRouter.get("/", async (c) => {
           .select("*")
           .order("display_order", { ascending: true });
 
-        if (error) throw error;
+        if (error) {
+          console.warn("Could not fetch pricing_packages from database:", error.message);
+          return [];
+        }
         return packages || [];
       },
       TTL
@@ -39,7 +42,10 @@ pricingPackagesRouter.get("/admin", requireRole("admin"), async (c) => {
       .select("*")
       .order("display_order", { ascending: true });
 
-    if (error) throw error;
+    if (error) {
+      console.warn("Could not fetch pricing_packages for admin from database:", error.message);
+      return c.json({ packages: [] });
+    }
     return c.json({ packages: packages || [] });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);

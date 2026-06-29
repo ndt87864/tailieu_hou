@@ -35,7 +35,10 @@ export const searchExamSchedule = async (query: string): Promise<ExamRow[]> => {
       .order("examRoom", { ascending: true })
       .limit(200);
 
-    if (error) throw error;
+    if (error) {
+      console.warn("Could not search exam schedule by ID/username:", error.message);
+      return [];
+    }
     if (data && data.length > 0) {
       return data.map((d: any) => ({
         ...d,
@@ -52,7 +55,10 @@ export const searchExamSchedule = async (query: string): Promise<ExamRow[]> => {
     .order("examDate", { ascending: true })
     .limit(200);
 
-  if (error) throw error;
+  if (error) {
+    console.warn("Could not search exam schedule by fullName:", error.message);
+    return [];
+  }
   return (data ?? []).map((d: any) => ({
     ...d,
     __matchedBy: null,

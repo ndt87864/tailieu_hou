@@ -31,32 +31,44 @@ adminRouter.get("/stats", async (c) => {
           supabaseAdmin.from("student_infor").select("*", { count: "exact", head: true }),
         ]);
 
-        if (usersResult.error) throw usersResult.error;
-        if (catResult.error) throw catResult.error;
-        if (docResult.error) throw docResult.error;
-        if (qResult.error) throw qResult.error;
-        if (stdResult.error) throw stdResult.error;
+        if (usersResult.error) {
+          console.warn("Could not fetch profiles for stats:", usersResult.error.message);
+        }
+        if (catResult.error) {
+          console.warn("Could not fetch category counts for stats:", catResult.error.message);
+        }
+        if (docResult.error) {
+          console.warn("Could not fetch document counts for stats:", docResult.error.message);
+        }
+        if (qResult.error) {
+          console.warn("Could not fetch question counts for stats:", qResult.error.message);
+        }
+        if (stdResult.error) {
+          console.warn("Could not fetch student counts for stats:", stdResult.error.message);
+        }
 
-        let totalUsers = usersResult.data?.length || 0;
+        let totalUsers = usersResult.error ? 0 : usersResult.data?.length || 0;
         let freeCount = 0, plusCount = 0, proCount = 0;
         let ultraCount = 0, managementCount = 0, adminCount = 0;
 
-        usersResult.data?.forEach((u) => {
-          if (u.role === "admin") adminCount++;
-          else if (u.role === "management") managementCount++;
-          else if (u.role === "ultra") ultraCount++;
-          else if (u.role === "pro") proCount++;
-          else if (u.role === "plus") plusCount++;
-          else freeCount++;
-        });
+        if (!usersResult.error && usersResult.data) {
+          usersResult.data.forEach((u) => {
+            if (u.role === "admin") adminCount++;
+            else if (u.role === "management") managementCount++;
+            else if (u.role === "ultra") ultraCount++;
+            else if (u.role === "pro") proCount++;
+            else if (u.role === "plus") plusCount++;
+            else freeCount++;
+          });
+        }
 
         return {
           totalUsers,
           roles: { free: freeCount, plus: plusCount, pro: proCount, ultra: ultraCount, management: managementCount, admin: adminCount },
-          totalCategories: catResult.count || 0,
-          totalDocuments: docResult.count || 0,
-          totalQuestions: qResult.count || 0,
-          totalStudents: stdResult.count || 0,
+          totalCategories: catResult.error ? 0 : catResult.count || 0,
+          totalDocuments: docResult.error ? 0 : docResult.count || 0,
+          totalQuestions: qResult.error ? 0 : qResult.count || 0,
+          totalStudents: stdResult.error ? 0 : stdResult.count || 0,
           activeUsers: Math.floor(Math.random() * 10) + 5,
         };
       },
@@ -80,7 +92,10 @@ adminRouter.get("/users", async (c) => {
     .select("*")
     .order("updated_at", { ascending: false });
 
-  if (error) return c.json({ error: error.message }, 500);
+  if (error) {
+    console.warn("Could not fetch users list:", error.message);
+    return c.json({ users: [] });
+  }
   return c.json({ users });
 });
 
@@ -923,7 +938,10 @@ adminRouter.get("/exam-sessions", async (c) => {
       .order("examDate", { ascending: true })
       .order("startTime", { ascending: true });
 
-    if (error) throw error;
+    if (error) {
+      console.warn("Could not fetch exam sessions list:", error.message);
+      return c.json({ sessions: [] });
+    }
     return c.json({ sessions: sessions || [] });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
