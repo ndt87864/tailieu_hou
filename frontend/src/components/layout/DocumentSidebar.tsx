@@ -58,19 +58,22 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
       .then((res) => {
         const cats: SidebarCategory[] = res.data.categories || [];
         setSidebarCategories(cats);
-        if (currentDocId) {
-          const activeCat = cats.find((cat) =>
-            cat.documents.some((d) => d.id === currentDocId)
-          );
-          if (activeCat) {
-            setExpandedCategories((prev) => ({ ...prev, [activeCat.id]: true }));
-          }
-        }
       })
       .catch((err) => {
         console.error("Lỗi khi tải danh mục sidebar:", err);
       });
-  }, [currentDocId]);
+  }, []);
+
+  useEffect(() => {
+    if (currentDocId && sidebarCategories.length > 0) {
+      const activeCat = sidebarCategories.find((cat) =>
+        cat.documents.some((d) => d.id === currentDocId)
+      );
+      if (activeCat) {
+        setExpandedCategories((prev) => ({ ...prev, [activeCat.id]: true }));
+      }
+    }
+  }, [currentDocId, sidebarCategories]);
 
   useEffect(() => {
     const handleOutsideClick = () => {
