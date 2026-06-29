@@ -17,7 +17,9 @@ import {
   UserCheck,
   Shield,
   Menu,
-  X
+  X,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 
 // Import actual subpages
@@ -74,6 +76,19 @@ const AdminPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    const stored = localStorage.getItem("admin-sidebar-collapsed");
+    if (stored !== null) return stored === "true";
+    return window.innerWidth < 1024;
+  });
+
+  const toggleCollapse = () => {
+    setIsCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem("admin-sidebar-collapsed", String(next));
+      return next;
+    });
+  };
 
   const getTabFromPath = (): TabId => {
     const pathParts = location.pathname.split("/").filter(Boolean);
@@ -248,13 +263,20 @@ const AdminPage: React.FC = () => {
         </>
       )}
 
-      {/* 2. Tablet Sidebar - Icons only */}
+      {/* 2. Tablet / Collapsed Sidebar - Icons only */}
       <aside 
-        className="admin-sidebar-bg hidden md:flex lg:hidden w-16 shrink-0 flex-col items-center py-4 border-r border-[var(--border)] md:sticky md:top-0 md:h-[calc(100vh/0.9)] z-20"
+        className={`admin-sidebar-bg ${isCollapsed ? "hidden md:flex" : "hidden"} w-16 shrink-0 flex-col items-center py-4 border-r border-[var(--border)] md:sticky md:top-0 md:h-[calc(100vh/0.9)] z-20`}
       >
-        <div className="mb-6 text-white">
+        <div className="mb-4 text-white">
           <Shield className="w-5 h-5" />
         </div>
+        <button
+          onClick={toggleCollapse}
+          className="mb-6 p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+          title="Mở rộng sidebar"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
         <nav className="w-full flex flex-col items-center gap-2 px-2">
           {menuItems.map((item) => {
             const isActive = activeTab === item.id;
@@ -274,13 +296,22 @@ const AdminPage: React.FC = () => {
         </nav>
       </aside>
 
-      {/* 3. Desktop Sidebar - Full, Grouped */}
+      {/* 3. Desktop / Expanded Sidebar - Full, Grouped */}
       <aside 
-        className="admin-sidebar-bg hidden lg:flex w-[260px] shrink-0 flex-col border-r border-[var(--border)] lg:sticky lg:top-0 lg:h-[calc(100vh/0.9)] z-10"
+        className={`admin-sidebar-bg ${isCollapsed ? "hidden" : "hidden md:flex"} w-[260px] shrink-0 flex-col border-r md:sticky md:top-0 md:h-[calc(100vh/0.9)] z-10 animate-fade-in`}
       >
-        <div className="p-4 flex items-center gap-2.5 border-b border-white/10">
-          <Shield className="w-5 h-5 text-white" />
-          <span className="font-bold text-sm tracking-wide text-white">QUẢN TRỊ HOU</span>
+        <div className="p-4 flex items-center justify-between border-b border-white/10">
+          <div className="flex items-center gap-2.5">
+            <Shield className="w-5 h-5 text-white" />
+            <span className="font-bold text-sm tracking-wide text-white">QUẢN TRỊ HOU</span>
+          </div>
+          <button
+            onClick={toggleCollapse}
+            className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+            title="Thu nhỏ sidebar"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
         </div>
         <nav className="flex-1 px-2.5 py-3 overflow-y-auto">
           {menuGroups.map((group, gi) => (

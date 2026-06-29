@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import apiClient from "../../services/client.js";
 import * as Icons from "lucide-react";
 
-const { BookOpen, ChevronDown, ChevronRight, X, Heart, Crown } = Icons;
+const { BookOpen, ChevronDown, ChevronRight, ChevronLeft, X, Heart, Crown } = Icons;
 
 interface Document {
   id: string;
@@ -39,16 +39,25 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeTabletPopover, setActiveTabletPopover] = useState<string | null>(null);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    const stored = localStorage.getItem("sidebar-collapsed");
+    if (stored !== null) return stored === "true";
+    return window.innerWidth < 1024;
+  });
+
+  const toggleCollapse = () => {
+    setIsCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem("sidebar-collapsed", String(next));
+      return next;
+    });
+  };
 
   useEffect(() => {
-    // Dùng endpoint /grouped?full=true — backend lọc active+premium, trả đầy đủ tài liệu (không giới hạn 10)
     apiClient.get<{ categories: SidebarCategory[] }>("/api/v1/documents/grouped?full=true")
       .then((res) => {
         const cats: SidebarCategory[] = res.data.categories || [];
-
         setSidebarCategories(cats);
-
-        // Auto-expand category của tài liệu đang xem
         if (currentDocId) {
           const activeCat = cats.find((cat) =>
             cat.documents.some((d) => d.id === currentDocId)
@@ -63,16 +72,14 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
       });
   }, [currentDocId]);
 
-  // Click outside to close tablet popover
   useEffect(() => {
     const handleOutsideClick = () => {
       setActiveTabletPopover(null);
     };
     document.addEventListener("click", handleOutsideClick);
-    return () => document.removeEventListener("change", handleOutsideClick);
+    return () => document.removeEventListener("click", handleOutsideClick);
   }, []);
 
-  // Listen to custom event to open the sidebar on mobile/tablet
   useEffect(() => {
     const handleOpenSidebar = () => setMobileOpen(true);
     window.addEventListener("open-doc-sidebar", handleOpenSidebar);
@@ -99,17 +106,11 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
       }
     }
 
-    return {
-      label: title,
-      icon
-    };
+    return { label: title, icon };
   };
 
   return (
     <>
-      {/* Redundant Mobile Toggle Bar removed to avoid double headers */}
-
-      {/* 1. Mobile Drawer (Overlay) */}
       {mobileOpen && (
         <>
           <div 
@@ -120,10 +121,7 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
             className="fixed inset-y-0 left-0 w-72 z-[70] md:hidden shadow-2xl flex flex-col animate-slide-right doc-brand-header"
           >
             <div className="p-4 flex items-center justify-between border-b doc-border-brand shrink-0">
-              <Link 
-                to="/" 
-                className="font-bold flex items-center gap-2 text-white hover:opacity-80 transition-opacity"
-              >
+              <Link to="/" className="font-bold flex items-center gap-2 text-white hover:opacity-80 transition-opacity">
                 <BookOpen className="w-5 h-5 text-white" /> Tài liệu HOU
               </Link>
               <button onClick={() => setMobileOpen(false)} className="p-1 rounded text-white/80 hover:text-white">
@@ -175,9 +173,7 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
                   to="/pricing"
                   onClick={() => setMobileOpen(false)}
                   className={`flex items-center gap-2 px-2 py-2 rounded-lg text-sm font-medium transition-all ${
-                    isContactPage 
-                      ? "text-white font-bold doc-sidebar-item-active" 
-                      : "text-white/80 hover:text-white hover:bg-[rgba(255,255,255,0.08)]"
+                    isContactPage ? "text-white font-bold doc-sidebar-item-active" : "text-white/80 hover:text-white hover:bg-[rgba(255,255,255,0.08)]"
                   }`}
                 >
                   <Heart className="w-4 h-4 text-rose-400 shrink-0" />
@@ -189,13 +185,19 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
         </>
       )}
 
-      {/* 2. Tablet Sidebar (Icons-only) */}
       <div 
-        className="hidden md:flex lg:hidden w-20 shrink-0 flex-col items-center py-6 border-r md:sticky md:top-0 md:h-[calc(100vh/0.9)] z-20 doc-brand-header"
+        className={`${isCollapsed ? "hidden md:flex" : "hidden"} w-20 shrink-0 flex-col items-center py-6 border-r md:sticky md:top-0 md:h-[calc(100vh/0.9)] z-20 doc-brand-header`}
       >
-        <Link to="/" className="mb-8 text-white hover:opacity-80 transition-opacity" title="Về trang chủ">
+        <Link to="/" className="mb-4 text-white hover:opacity-80 transition-opacity" title="Về trang chủ">
           <BookOpen className="w-6 h-6" />
         </Link>
+        <button
+          onClick={toggleCollapse}
+          className="mb-8 p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+          title="Mở rộng sidebar"
+        >
+          <ChevronRight className="w-5 h-5" />
+        </button>
         <div className="flex-1 w-full space-y-4 px-2 flex flex-col items-center">
           {sidebarCategories.map((cat) => {
             const catInfo = getCategoryInfo(cat.id, cat.title, cat.logo);
@@ -217,7 +219,6 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
                 >
                   {catInfo.icon("w-5 h-5")}
                 </button>
-
                 {isPopoverOpen && (
                   <div 
                     className="absolute left-full top-0 ml-2 w-64 rounded-xl shadow-xl p-3 z-30 animate-scale-in origin-left doc-brand-header border border-white/10"
@@ -255,9 +256,7 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
             <Link
               to="/pricing"
               className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${
-                isContactPage 
-                  ? "bg-[rgba(255,255,255,0.12)] text-rose-300" 
-                  : "text-rose-400 hover:bg-[rgba(255,255,255,0.08)] hover:text-rose-300"
+                isContactPage ? "bg-[rgba(255,255,255,0.12)] text-rose-300" : "text-rose-400 hover:bg-[rgba(255,255,255,0.08)] hover:text-rose-300"
               }`}
               title="Liên hệ"
             >
@@ -267,18 +266,26 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
         </div>
       </div>
 
-      {/* 3. Desktop Sidebar (Full layout) */}
       <div 
-        className="hidden lg:flex w-72 shrink-0 flex-col border-r lg:sticky lg:top-0 lg:h-[calc(100vh/0.9)] z-10 animate-fade-in doc-brand-header"
+        className={`${isCollapsed ? "hidden" : "hidden md:flex"} w-72 shrink-0 flex-col border-r md:sticky md:top-0 md:h-[calc(100vh/0.9)] z-10 animate-fade-in doc-brand-header`}
       >
         <div className="p-4 pb-0 shrink-0">
-          <Link 
-            to="/"
-            className="flex items-center gap-2.5 font-bold text-lg mb-4 pb-2 border-b text-white doc-border-brand hover:opacity-80 transition-opacity"
-          >
-            <BookOpen className="w-5 h-5 text-white" />
-            <span>Tài liệu HOU</span>
-          </Link>
+          <div className="flex items-center justify-between border-b doc-border-brand mb-4 pb-2">
+            <Link 
+              to="/"
+              className="flex items-center gap-2.5 font-bold text-lg text-white hover:opacity-80 transition-opacity"
+            >
+              <BookOpen className="w-5 h-5 text-white" />
+              <span>Tài liệu HOU</span>
+            </Link>
+            <button
+              onClick={toggleCollapse}
+              className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              title="Thu nhỏ sidebar"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 pt-2 pb-24 space-y-4">
@@ -325,9 +332,7 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
               <Link
                 to="/pricing"
                 className={`flex items-center gap-2 px-2 py-2 rounded-lg text-sm font-medium transition-all ${
-                  isContactPage 
-                    ? "text-white font-bold doc-sidebar-item-active" 
-                    : "text-white/80 hover:text-white hover:bg-[rgba(255,255,255,0.08)]"
+                  isContactPage ? "text-white font-bold doc-sidebar-item-active" : "text-white/80 hover:text-white hover:bg-[rgba(255,255,255,0.08)]"
                 }`}
               >
                 <Heart className="w-4 h-4 text-rose-400 shrink-0" />
