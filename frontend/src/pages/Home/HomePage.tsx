@@ -345,7 +345,7 @@ const HomePage: React.FC = () => {
                             {doc.title}
                           </span>
                           {doc.premium && (
-                            <Crown className="w-3 h-3 text-amber-400 shrink-0" title="Tài liệu Premium" />
+                            <span title="Tài liệu Premium"><Crown className="w-3 h-3 text-amber-400 shrink-0" /></span>
                           )}
                         </div>
                         <ChevronRight className="w-4 h-4 text-[var(--meta)] opacity-0 group-hover/item:opacity-100 group-hover/item:translate-x-0.5 transition-all shrink-0 duration-200" />

@@ -546,6 +546,100 @@ adminRouter.post("/students/bulk-update", async (c) => {
   }
 });
 
+adminRouter.post("/students/update-by-match", async (c) => {
+  try {
+    const { criteria, updates, options } = await c.req.json();
+    if (!criteria || Object.keys(criteria).length === 0 || !updates) {
+      return c.json({ error: "Invalid criteria or updates" }, 400);
+    }
+
+    const { subject, examSession, examTime, examRoom, examDate, majorCode, examType } = criteria;
+
+    let query = supabaseAdmin.from("student_infor").select("*");
+
+    if (examDate) {
+      query = query.eq("examDate", examDate);
+    }
+    if (subject) {
+      query = query.eq("subject", subject);
+    }
+    if (examSession) {
+      query = query.eq("examSession", examSession);
+    }
+    if (examTime) {
+      query = query.eq("examTime", examTime);
+    }
+    if (examRoom) {
+      query = query.eq("examRoom", examRoom);
+    }
+    if (examType) {
+      query = query.eq("examType", examType);
+    }
+    if (majorCode) {
+      const codes = String(majorCode).split(",").map(code => code.trim());
+      if (codes.length === 1) {
+        query = query.eq("majorCode", codes[0]);
+      } else {
+        query = query.in("majorCode", codes);
+      }
+    }
+
+    const { data: matches, error: fetchError } = await query;
+    if (fetchError) throw fetchError;
+
+    if (!matches || matches.length === 0) {
+      return c.json({ success: true, count: 0 });
+    }
+
+    let payload: any = {};
+    if (options && options.isExamSessionSync) {
+      if (updates.examTime !== undefined) {
+        payload.examTime = updates.examTime;
+      }
+    } else {
+      payload = { ...updates };
+    }
+
+    if (Object.keys(payload).length === 0) {
+      return c.json({ success: true, count: 0 });
+    }
+
+    const force = options && options.force === true;
+    const keys = Object.keys(payload);
+    const hasExamLink = keys.includes("examLink");
+
+    if (!hasExamLink || force) {
+      const { data: updatedData, error: updateError } = await supabaseAdmin
+        .from("student_infor")
+        .update({ ...payload, updated_at: new Date().toISOString() })
+        .in("id", matches.map(s => s.id))
+        .select();
+
+      if (updateError) throw updateError;
+      return c.json({ success: true, count: updatedData?.length || 0 });
+    } else {
+      const toUpdateIds = matches
+        .filter(s => !s.examLink || String(s.examLink).trim() === "")
+        .map(s => s.id);
+
+      if (toUpdateIds.length === 0) {
+        return c.json({ success: true, count: 0 });
+      }
+
+      const { data: updatedData, error: updateError } = await supabaseAdmin
+        .from("student_infor")
+        .update({ ...payload, updated_at: new Date().toISOString() })
+        .in("id", toUpdateIds)
+        .select();
+
+      if (updateError) throw updateError;
+      return c.json({ success: true, count: updatedData?.length || 0 });
+    }
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
 adminRouter.post("/students", async (c) => {
   try {
     const body = await c.req.json();
@@ -677,6 +771,207 @@ adminRouter.post("/question-ratios", async (c) => {
     return c.json({ success: true, message: "Question ratios updated successfully" });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
+  }
+});
+
+// =============================================================
+// Y. QUẢN LÝ PHÒNG THI (ROOM_INFOR CRUD - DERIVED FROM STUDENT_INFOR)
+// =============================================================
+
+adminRouter.get("/room-infor", async (c) => {
+  try {
+    const { data: students, error } = await supabaseAdmin
+      .from("student_infor")
+      .select("examDate, subject, examSession, examTime, examRoom, examType, examLink, majorCode");
+
+    if (error) throw error;
+
+    const roomsMap = new Map();
+    (students || []).forEach((s) => {
+      if (!s.examRoom) return;
+      const key = `${s.examDate || ""}|${s.subject || ""}|${s.examSession || ""}|${s.examTime || ""}|${s.examRoom || ""}|${s.examType || ""}`;
+      if (!roomsMap.has(key)) {
+        roomsMap.set(key, {
+          id: key,
+          examDate: s.examDate,
+          subject: s.subject,
+          examSession: s.examSession,
+          examTime: s.examTime,
+          examRoom: s.examRoom,
+          examLink: s.examLink,
+          examType: s.examType,
+          majorCode: s.majorCode
+        });
+      }
+    });
+
+    const rooms = Array.from(roomsMap.values());
+    return c.json({ rooms });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+adminRouter.post("/room-infor", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { examDate, subject, examSession, examRoom, examLink, examType, examTime, majorCode } = body;
+    
+    // Find matching students and update their info
+    let query = supabaseAdmin.from("student_infor").select("id");
+    if (examDate) query = query.eq("examDate", examDate);
+    if (subject) query = query.eq("subject", subject);
+    if (examSession) query = query.eq("examSession", examSession);
+    if (examRoom) query = query.eq("examRoom", examRoom);
+    if (examType) query = query.eq("examType", examType);
+    
+    const { data: matches, error: fetchError } = await query;
+    if (fetchError) throw fetchError;
+    
+    if (matches && matches.length > 0) {
+      const ids = matches.map(m => m.id);
+      const { error: updateError } = await supabaseAdmin
+        .from("student_infor")
+        .update({
+          examLink,
+          examTime,
+          majorCode,
+          updated_at: new Date().toISOString()
+        })
+        .in("id", ids);
+      if (updateError) throw updateError;
+    }
+    
+    return c.json({ room: body }, 201);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+adminRouter.put("/room-infor/:id", async (c) => {
+  const id = c.req.param("id");
+  try {
+    const body = await c.req.json();
+    const parts = id.split("|");
+    const [oldDate, oldSubject, oldSession, oldTime, oldRoom, oldType] = parts;
+    
+    let query = supabaseAdmin.from("student_infor").select("id");
+    if (oldDate) query = query.eq("examDate", oldDate);
+    if (oldSubject) query = query.eq("subject", oldSubject);
+    if (oldSession) query = query.eq("examSession", oldSession);
+    if (oldRoom) query = query.eq("examRoom", oldRoom);
+    if (oldType) query = query.eq("examType", oldType);
+    
+    const { data: matches, error: fetchError } = await query;
+    if (fetchError) throw fetchError;
+    
+    if (matches && matches.length > 0) {
+      const ids = matches.map(m => m.id);
+      const { error: updateError } = await supabaseAdmin
+        .from("student_infor")
+        .update({
+          examDate: body.examDate || null,
+          subject: body.subject,
+          examSession: body.examSession,
+          examTime: body.examTime,
+          examRoom: body.examRoom,
+          examLink: body.examLink,
+          examType: body.examType,
+          majorCode: body.majorCode,
+          updated_at: new Date().toISOString()
+        })
+        .in("id", ids);
+      if (updateError) throw updateError;
+    }
+    
+    return c.json({ room: body });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+adminRouter.delete("/room-infor/:id", async (c) => {
+  const id = c.req.param("id");
+  try {
+    const parts = id.split("|");
+    const [oldDate, oldSubject, oldSession, oldTime, oldRoom, oldType] = parts;
+    
+    let query = supabaseAdmin.from("student_infor").delete();
+    if (oldDate) query = query.eq("examDate", oldDate);
+    if (oldSubject) query = query.eq("subject", oldSubject);
+    if (oldSession) query = query.eq("examSession", oldSession);
+    if (oldRoom) query = query.eq("examRoom", oldRoom);
+    if (oldType) query = query.eq("examType", oldType);
+    
+    const { error } = await query;
+    if (error) throw error;
+    return c.json({ success: true, message: "Room records and matching students deleted" });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+// =============================================================
+// Z. QUẢN LÝ CA THI (EXAM_SESSIONS CRUD)
+// =============================================================
+
+adminRouter.get("/exam-sessions", async (c) => {
+  try {
+    const { data: sessions, error } = await supabaseAdmin
+      .from("exam_sessions")
+      .select("*")
+      .order("examDate", { ascending: true })
+      .order("startTime", { ascending: true });
+
+    if (error) throw error;
+    return c.json({ sessions: sessions || [] });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+adminRouter.post("/exam-sessions", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { data, error } = await supabaseAdmin
+      .from("exam_sessions")
+      .insert(body)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return c.json({ session: data }, 201);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+adminRouter.put("/exam-sessions/:id", async (c) => {
+  const id = c.req.param("id");
+  try {
+    const body = await c.req.json();
+    const { data, error } = await supabaseAdmin
+      .from("exam_sessions")
+      .update({ ...body, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return c.json({ session: data });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+adminRouter.delete("/exam-sessions/:id", async (c) => {
+  const id = c.req.param("id");
+  try {
+    const { error } = await supabaseAdmin.from("exam_sessions").delete().eq("id", id);
+    if (error) throw error;
+    return c.json({ success: true, message: "Exam session deleted" });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
   }
 });
 

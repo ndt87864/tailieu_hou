@@ -8,44 +8,7 @@ import * as XLSX from "xlsx";
 
 
 
-// 2. Quản lý ca thi (Sessions)
-export const SessionsTab: React.FC = () => {
-  const [sessions] = useState([
-    { id: 1, code: "C1", time: "07:30 - 09:30", note: "Ca thi sáng" },
-    { id: 2, code: "C2", time: "09:45 - 11:45", note: "Ca thi sáng muộn" },
-    { id: 3, code: "C3", time: "13:30 - 15:30", note: "Ca thi chiều" },
-    { id: 4, code: "C4", time: "15:45 - 17:45", note: "Ca thi chiều muộn" },
-  ]);
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="modal-heading text-base font-bold">Quản lý ca thi</h3>
-        <button className="btn-brand text-xs flex items-center gap-1"><Plus className="w-3.5 h-3.5" /> Thêm ca thi</button>
-      </div>
-      <div className="card overflow-hidden">
-        <table className="table-themed">
-          <thead>
-            <tr>
-              <th>Mã ca thi</th>
-              <th>Khung giờ</th>
-              <th>Ghi chú</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sessions.map((s) => (
-              <tr key={s.id}>
-                <td className="font-semibold mock-session-code">{s.code}</td>
-                <td className="mock-session-time">{s.time}</td>
-                <td className="mock-session-note">{s.note}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-};
+// SessionsTab removed to be imported from standalone SessionsTab.tsx file
 
 interface PricingPackage {
   id: string;

@@ -1,11 +1,18 @@
-import React, { useEffect, useState } from "react";
-import apiClient from "../../../services/client.js";
-import LoadingSpinner from "../../../components/common/LoadingSpinner.js";
+import React, { useEffect, useState, useMemo } from "react";
+import { Search, Plus, Trash2, Edit2, Upload, Download, RefreshCw, Loader2 } from "lucide-react";
 import { toast } from "react-toastify";
-import { Search, Plus, Trash2, Edit2, Upload, RefreshCw } from "lucide-react";
+import apiClient from "../../../services/client.js";
 import { useConfirm } from "../../../context/ConfirmContext.js";
 import StudentFormModal from "./StudentFormModal.js";
 import StudentImportModal from "./StudentImportModal.js";
+import {
+  ensureXLSX,
+  mapHeaderToKey,
+  parseExcelDateToYMD,
+  parseDateToYMD,
+  formatDate,
+  parseCSV,
+} from "../../../utils/studentInforHelpers.js";
 
 interface Student {
   id: string;
@@ -22,7 +29,24 @@ interface Student {
   examType: string;
   examLink: string;
   status: string;
+  created_at?: string;
 }
+
+const emptyForm = {
+  studentId: "",
+  fullName: "",
+  username: "",
+  majorCode: "",
+  course: "",
+  subject: "",
+  examDate: "",
+  examSession: "",
+  examTime: "",
+  examRoom: "",
+  examType: "",
+  examLink: "",
+  status: "Đủ điều kiện",
+};
 
 const StudentInforTab: React.FC = () => {
   const confirm = useConfirm();
@@ -41,23 +65,10 @@ const StudentInforTab: React.FC = () => {
   const [showImportModal, setShowImportModal] = useState(false);
   const [importText, setImportText] = useState("");
   const [isDeletingBulk, setIsDeletingBulk] = useState(false);
-  const [formData, setFormData] = useState({
-    studentId: "",
-    fullName: "",
-    username: "",
-    majorCode: "",
-    course: "",
-    subject: "",
-    examDate: "",
-    examSession: "",
-    examTime: "",
-    examRoom: "",
-    examType: "",
-    examLink: "",
-    status: "verified",
-  });
-  const [submitting, setSubmitting] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [formData, setFormData] = useState(emptyForm);
+  const [submitting, setSubmitting] = useState(false);
 
   const fetchStudents = () => {
     setLoading(true);
@@ -69,8 +80,8 @@ const StudentInforTab: React.FC = () => {
           limit: 15,
           course: courseFilter,
           subject: subjectFilter,
-          majorCode: majorCodeFilter
-        }
+          majorCode: majorCodeFilter,
+        },
       })
       .then((res) => {
         setStudents(res.data.students || []);
@@ -128,7 +139,7 @@ const StudentInforTab: React.FC = () => {
       examRoom: std.examRoom || "",
       examType: std.examType || "",
       examLink: std.examLink || "",
-      status: std.status || "verified",
+      status: std.status || "Đủ điều kiện",
     });
     setShowModal(true);
   };
@@ -201,23 +212,130 @@ const StudentInforTab: React.FC = () => {
     }
   };
 
+  const handleExcelImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    try {
+      const isCSV = file.name.toLowerCase().endsWith(".csv");
+      let rows: any[] = [];
+      let date1904 = false;
+
+      if (isCSV) {
+        const text = await file.text();
+        rows = parseCSV(text);
+      } else {
+        const XLSX = await ensureXLSX();
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: "array", cellDates: false });
+        date1904 = Boolean(
+          workbook &&
+          workbook.Workbook &&
+          workbook.Workbook.WBProps &&
+          workbook.Workbook.WBProps.date1904
+        );
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        rows = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+      }
+
+      if (rows.length === 0) {
+        toast.error("File Excel không chứa dữ liệu.");
+        return;
+      }
+
+      const headerMap: any = {};
+      const firstRow = rows[0];
+      Object.keys(firstRow).forEach((h) => {
+        const key = mapHeaderToKey(h);
+        if (key) headerMap[h] = key;
+      });
+
+      const parsedStudents = rows.map((row) => {
+        const item: any = {};
+        Object.entries(row).forEach(([k, v]) => {
+          const key = headerMap[k];
+          if (key) {
+            if (key === "dob" || key === "examDate") {
+              item[key] = parseExcelDateToYMD(v, { date1904 }) || null;
+            } else {
+              item[key] = String(v).trim();
+            }
+          }
+        });
+        return item;
+      }).filter(item => item.studentId && item.fullName);
+
+      if (parsedStudents.length === 0) {
+        toast.error("Không tìm thấy dòng dữ liệu sinh viên hợp lệ.");
+        return;
+      }
+
+      const res = await apiClient.post("/api/v1/admin/students/import", { list: parsedStudents });
+      toast.success(`Đồng bộ thành công ${res.data.count} sinh viên từ file Excel.`);
+      fetchStudents();
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Đọc file Excel thất bại: " + (err.message || String(err)));
+    } finally {
+      setImporting(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleExportExcel = async () => {
+    setExporting(true);
+    try {
+      const XLSX = await ensureXLSX();
+      const res = await apiClient.get("/api/v1/admin/students", {
+        params: {
+          search,
+          page: 1,
+          limit: 10000,
+          course: courseFilter,
+          subject: subjectFilter,
+          majorCode: majorCodeFilter,
+        },
+      });
+      const exportList = res.data.students || [];
+      if (exportList.length === 0) {
+        toast.warn("Không có dữ liệu để xuất.");
+        return;
+      }
+
+      const header = ["Mã SV", "Họ tên", "Tài khoản", "Khóa", "Mã ngành", "Môn thi", "Ngày thi", "Ca thi", "Thời gian", "Phòng thi", "Hình thức", "Link phòng", "Trạng thái"];
+      const data = exportList.map((r: Student) => [
+        r.studentId || "",
+        r.fullName || "",
+        r.username || "",
+        r.course || "",
+        r.majorCode || "",
+        r.subject || "",
+        r.examDate ? parseDateToYMD(r.examDate) : "",
+        r.examSession || "",
+        r.examTime || "",
+        r.examRoom || "",
+        r.examType || "",
+        r.examLink || "",
+        r.status || "",
+      ]);
+
+      const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "SinhVien");
+      XLSX.writeFile(wb, `DanhSachSinhVien_${Date.now()}.xlsx`);
+      toast.success("Xuất file Excel thành công!");
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Xuất Excel thất bại.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const closeForm = () => {
     setEditingStudent(null);
-    setFormData({
-      studentId: "",
-      fullName: "",
-      username: "",
-      majorCode: "",
-      course: "",
-      subject: "",
-      examDate: "",
-      examSession: "",
-      examTime: "",
-      examRoom: "",
-      examType: "",
-      examLink: "",
-      status: "verified",
-    });
+    setFormData(emptyForm);
     setShowModal(false);
   };
 
@@ -225,14 +343,13 @@ const StudentInforTab: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      {/* Controls */}
       <div className="flex flex-col gap-3">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="relative w-full sm:w-80">
             <Search className="absolute left-3 top-2.5 w-4 h-4 input-search-icon" />
             <input
               type="text"
-              placeholder="Tìm kiếm mã SV, tên, ca thi..."
+              placeholder="Tìm kiếm mã SV, tên, môn thi..."
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -242,7 +359,7 @@ const StudentInforTab: React.FC = () => {
             />
           </div>
 
-          <div className="flex gap-2 w-full sm:w-auto shrink-0">
+          <div className="flex gap-2 w-full sm:w-auto shrink-0 flex-wrap justify-end">
             {selectedStudentIds.length > 0 && (
               <button
                 onClick={handleBulkDelete}
@@ -254,14 +371,36 @@ const StudentInforTab: React.FC = () => {
               </button>
             )}
             <button
+              onClick={handleExportExcel}
+              disabled={exporting}
+              className="btn-secondary flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl hover:opacity-90 transition-colors shadow-sm"
+            >
+              {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              Xuất Excel
+            </button>
+            <label className="btn-secondary flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl hover:opacity-90 transition-colors shadow-sm cursor-pointer">
+              <Upload className="w-4 h-4" />
+              Nhập Excel
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={handleExcelImport}
+                className="hidden"
+                disabled={importing}
+              />
+            </label>
+            <button
               onClick={() => setShowImportModal(true)}
               className="btn-secondary flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl hover:opacity-90 transition-colors shadow-sm"
             >
-              <Upload className="w-4 h-4" />
               Nhập JSON
             </button>
             <button
-              onClick={() => setShowModal(true)}
+              onClick={openCreateModal => {
+                setEditingStudent(null);
+                setFormData(emptyForm);
+                setShowModal(true);
+              }}
               className="btn-primary flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium rounded-xl hover:bg-brand-700 transition-colors"
             >
               <Plus className="w-4 h-4" />
@@ -276,7 +415,6 @@ const StudentInforTab: React.FC = () => {
           </div>
         </div>
 
-        {/* Filter Bar */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <input
@@ -317,9 +455,10 @@ const StudentInforTab: React.FC = () => {
         </div>
       </div>
 
-      {/* Table view */}
       {loading ? (
-        <LoadingSpinner />
+        <div className="flex justify-center items-center py-10">
+          <Loader2 className="w-6 h-6 animate-spin text-brand-600" />
+        </div>
       ) : (
         <div className="card overflow-hidden">
           <div className="overflow-x-auto">
@@ -331,20 +470,20 @@ const StudentInforTab: React.FC = () => {
                       type="checkbox"
                       checked={allSelectedOnPage}
                       onChange={handleToggleSelectAll}
-                      className="w-4 h-4 rounded cursor-pointer"
+                      className="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
                     />
                   </th>
                   <th>Sinh viên</th>
                   <th>Môn thi</th>
                   <th>Thời gian thi</th>
                   <th>Phòng / Ca</th>
-                  <th className="th-right">Hành động</th>
+                  <th className="text-right">Hành động</th>
                 </tr>
               </thead>
               <tbody>
                 {students.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="td-empty">
+                    <td colSpan={6} className="text-center py-8 text-muted">
                       Không tìm thấy lịch thi nào.
                     </td>
                   </tr>
@@ -356,52 +495,51 @@ const StudentInforTab: React.FC = () => {
                           type="checkbox"
                           checked={selectedStudentIds.includes(std.id)}
                           onChange={() => handleToggleSelectStudent(std.id)}
-                          className="w-4 h-4 rounded cursor-pointer"
+                          className="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
                         />
                       </td>
                       <td>
-                        <div className="user-name font-semibold">{std.fullName}</div>
-                        <div className="cat-meta">
+                        <div className="font-semibold">{std.fullName}</div>
+                        <div className="text-xs text-muted">
                           MSV: {std.studentId} | Khóa: {std.course}
                         </div>
                       </td>
-                      <td className="td-sm-text">{std.subject}
-                        <div className="cat-meta">
-                          {std.majorCode && <>Ngành: <span className="user-email-text">{std.majorCode}</span></>}
-                        </div></td>
-                      <td className="td-sm-text">
-                        {std.examDate ? new Date(std.examDate).toLocaleDateString("vi-VN") : "—"}{" "}
-                        <span className="cat-meta">({std.examTime})</span>
+                      <td>
+                        <div>{std.subject}</div>
+                        {std.majorCode && (
+                          <div className="text-xs text-muted">Ngành: {std.majorCode}</div>
+                        )}
                       </td>
-                      <td className="cat-meta">
+                      <td>
+                        <div>{std.examDate ? formatDate(std.examDate) : "—"}</div>
+                        <div className="text-xs text-muted">{std.examTime}</div>
+                      </td>
+                      <td>
                         <div>Phòng: {std.examRoom} | Ca: {std.examSession}</div>
                         {std.examLink && (
                           <a
                             href={std.examLink}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="exam-link"
-                            title={std.examLink}
+                            className="text-xs text-emerald-500 hover:underline block max-w-[200px] truncate"
                           >
                             {std.examLink}
                           </a>
                         )}
                       </td>
-                      <td className="td-right">
-                        <div className="flex justify-end gap-1">
-                          <button
-                            onClick={() => handleEditClick(std)}
-                            className="btn-icon-edit p-1.5 hover:bg-[var(--bg-2)] rounded-lg transition-colors"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(std.id)}
-                            className="p-1.5 hover:bg-red-500/10 text-red-500 rounded-lg transition-colors"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                      <td className="text-right space-x-2">
+                        <button
+                          onClick={() => handleEditClick(std)}
+                          className="btn-action hover:text-blue-500 inline-flex items-center p-1 rounded hover:bg-blue-500/10"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(std.id)}
+                          className="btn-action hover:text-red-500 inline-flex items-center p-1 rounded hover:bg-red-500/10"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </td>
                     </tr>
                   ))
@@ -410,10 +548,9 @@ const StudentInforTab: React.FC = () => {
             </table>
           </div>
 
-          {/* Pagination */}
           {total > 15 && (
-            <div className="p-4 flex items-center justify-between border-t pagination-bar">
-              <span className="text-xs pagination-info">
+            <div className="p-4 flex items-center justify-between border-t border-[var(--border)]">
+              <span className="text-xs text-[var(--fg-2)]">
                 Hiển thị {students.length} trên {total} bản ghi
               </span>
               <div className="flex items-center gap-2">
@@ -424,11 +561,11 @@ const StudentInforTab: React.FC = () => {
                     setPage(newPage);
                     setPageInput(String(newPage));
                   }}
-                  className="input-themed px-3 py-1.5 text-xs rounded-xl disabled:opacity-50"
+                  className="px-3 py-1.5 text-xs rounded-xl border border-[var(--border)] hover:bg-[var(--bg-2)] disabled:opacity-50"
                 >
                   Trước
                 </button>
-                <span className="text-xs pagination-info">Trang</span>
+                <span className="text-xs text-[var(--fg-2)]">Trang</span>
                 <input
                   type="number"
                   min={1}
@@ -447,9 +584,9 @@ const StudentInforTab: React.FC = () => {
                     }
                   }}
                   onBlur={() => setPageInput(String(page))}
-                  className="input-themed pagination-input py-1.5 text-xs rounded-xl outline-none"
+                  className="input-themed w-12 text-center py-1 text-xs rounded-xl outline-none"
                 />
-                <span className="text-xs pagination-info">/ {Math.ceil(total / 15)}</span>
+                <span className="text-xs text-[var(--fg-2)]">/ {Math.ceil(total / 15)}</span>
                 <button
                   disabled={page * 15 >= total}
                   onClick={() => {
@@ -457,7 +594,7 @@ const StudentInforTab: React.FC = () => {
                     setPage(newPage);
                     setPageInput(String(newPage));
                   }}
-                  className="input-themed px-3 py-1.5 text-xs rounded-xl disabled:opacity-50"
+                  className="px-3 py-1.5 text-xs rounded-xl border border-[var(--border)] hover:bg-[var(--bg-2)] disabled:opacity-50"
                 >
                   Sau
                 </button>
@@ -467,7 +604,6 @@ const StudentInforTab: React.FC = () => {
         </div>
       )}
 
-      {/* Form Modal */}
       <StudentFormModal
         show={showModal}
         editingStudent={editingStudent}
@@ -478,7 +614,6 @@ const StudentInforTab: React.FC = () => {
         onSubmit={handleCreateOrUpdate}
       />
 
-      {/* Import JSON Modal */}
       <StudentImportModal
         show={showImportModal}
         importText={importText}
