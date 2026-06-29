@@ -168,6 +168,23 @@ const ExamSchedulePage: React.FC = () => {
           setRentedIds(ids);
           setRentedBillUrls(proxyData.bill_url || "");
           setRegistrationStatus(proxyData.status || "pending");
+        } else {
+          // Check if there is a pending registration in queue
+          const { data: queueData, error: queueError } = await supabase
+            .from("registration_queue")
+            .select("selected_ids, bill_url, status")
+            .eq("student_id", first.studentId)
+            .eq("status", "pending")
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (!queueError && queueData) {
+            const ids = queueData.selected_ids ? queueData.selected_ids.split(",") : [];
+            setRentedIds(ids);
+            setRentedBillUrls(queueData.bill_url || "");
+            setRegistrationStatus("pending");
+          }
         }
 
         setIsSearched(true);

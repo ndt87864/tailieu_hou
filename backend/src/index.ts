@@ -16,6 +16,7 @@ import { authMiddleware } from "./middlewares/auth.js";
 import { securityHeaders } from "./middlewares/security.js";
 import { timeout } from "./middlewares/timeout.js";
 import { rateLimiter } from "./middlewares/rateLimiter.js";
+import { startRegistrationQueueWorker, stopRegistrationQueueWorker } from "./services/queueWorker.js";
 
 dotenv.config();
 
@@ -60,12 +61,16 @@ const PORT = parseInt(process.env.PORT || "3001", 10);
 
 const server = serve(
   { fetch: app.fetch, port: PORT },
-  () => console.log(`🚀 Backend Hono running at http://localhost:${PORT}`)
+  () => {
+    console.log(`🚀 Backend Hono running at http://localhost:${PORT}`);
+    startRegistrationQueueWorker();
+  }
 );
 
 // Graceful Shutdown - Đóng kết nối an toàn khi tắt/cập nhật server
 const gracefulShutdown = () => {
   console.log("Shutting down server gracefully...");
+  stopRegistrationQueueWorker();
   server.close(() => {
     console.log("Server closed.");
     process.exit(0);
