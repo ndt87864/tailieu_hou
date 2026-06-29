@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import { supabase } from "../../context/AuthContext.js";
 import { pushToRegistrationQueue } from "../../services/examScheduleService.js";
 import qrCodeImg from "./qrcode.jpg";
+import { compressImage } from "../../utils/imageCompressor.js";
 
 interface ProxyRegistrationModalProps {
   isOpen: boolean;
@@ -143,13 +144,15 @@ const ProxyRegistrationModal: React.FC<ProxyRegistrationModalProps> = ({
       let finalBillUrl = billUrl;
 
       if (billFile) {
-        const fileExt = billFile.name.split(".").pop();
+        toast.info("Đang nén ảnh để tối ưu tốc độ gửi...");
+        const compressed = await compressImage(billFile);
+        const fileExt = compressed.name.split(".").pop() || "jpg";
         const fileName = `${studentData.studentId}_${Date.now()}.${fileExt}`;
         const filePath = `bills/${fileName}`;
 
         const { error: storageError } = await supabase.storage
           .from("tailieuhou")
-          .upload(filePath, billFile);
+          .upload(filePath, compressed);
 
         if (storageError) throw storageError;
 
