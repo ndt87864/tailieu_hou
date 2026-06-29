@@ -18,6 +18,7 @@ export interface HeaderProps {
   hideNavLinks?: boolean;
   hideLogo?: boolean;
   onMobileMenuClick?: () => void;
+  hideMobileMenuToggle?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -30,6 +31,7 @@ export const Header: React.FC<HeaderProps> = ({
   hideNavLinks = false,
   hideLogo = false,
   onMobileMenuClick,
+  hideMobileMenuToggle = false,
 }) => {
   const { user, role, profile, logout } = useAuth();
   const location = useLocation();
@@ -231,13 +233,15 @@ export const Header: React.FC<HeaderProps> = ({
             )}
 
             {/* Mobile toggle */}
-            <button
-              onClick={onMobileMenuClick || (() => setMobileOpen((p) => !p))}
-              className="md:hidden p-2 rounded-lg hover:bg-[var(--bg-2)] transition-colors layout-icon-muted"
-              aria-label="Toggle menu"
-            >
-              {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
+            {!hideMobileMenuToggle && (
+              <button
+                onClick={onMobileMenuClick || (() => setMobileOpen((p) => !p))}
+                className="md:hidden p-2 rounded-lg hover:bg-[var(--bg-2)] transition-colors layout-icon-muted"
+                aria-label="Toggle menu"
+              >
+                {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
+            )}
           </div>
         </div>
 

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import {
   BarChart2,
   Users,
@@ -224,11 +224,20 @@ const AdminPage: React.FC = () => {
           <div 
             className="admin-sidebar-bg fixed inset-y-0 left-0 w-64 z-[70] md:hidden shadow-2xl overflow-y-auto flex flex-col animate-slide-right"
           >
-            <div className="p-4 flex items-center justify-between border-b border-white/10">
-              <span className="font-bold flex items-center gap-2 text-white text-sm">
-                <Shield className="w-5 h-5 text-white" /> QUẢN TRỊ HOU
-              </span>
-              <button onClick={() => setMobileOpen(false)} className="p-1 rounded text-white/80 hover:text-white">
+            <div className="p-4 flex items-center justify-between border-b border-white/10 shrink-0">
+              <div className="flex flex-col">
+                <Link to="/" className="font-bold flex items-center gap-2 text-white text-sm hover:opacity-80 transition-opacity">
+                  <Shield className="w-5 h-5 text-white" /> QUẢN TRỊ HOU
+                </Link>
+                <Link
+                  to="/lich-thi"
+                  onClick={() => setMobileOpen(false)}
+                  className="text-[10px] text-white/80 hover:text-white transition-colors mt-0.5 pl-7"
+                >
+                  Xem lịch thi
+                </Link>
+              </div>
+              <button onClick={() => setMobileOpen(false)} className="p-1 rounded text-white/80 hover:text-white shrink-0">
                 <X className="w-6 h-6" />
               </button>
             </div>
@@ -293,6 +302,15 @@ const AdminPage: React.FC = () => {
               </button>
             );
           })}
+          <div className="pt-4 border-t border-white/10 w-full flex justify-center mt-4">
+            <Link
+              to="/lich-thi"
+              className="w-10 h-10 rounded-lg flex items-center justify-center text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+              title="Lịch thi"
+            >
+              <Calendar className="w-5 h-5 text-emerald-400" />
+            </Link>
+          </div>
         </nav>
       </aside>
 
@@ -301,10 +319,10 @@ const AdminPage: React.FC = () => {
         className={`admin-sidebar-bg ${isCollapsed ? "hidden" : "hidden md:flex"} w-[260px] shrink-0 flex-col border-r md:sticky md:top-0 md:h-[calc(100vh/0.9)] z-10 animate-fade-in`}
       >
         <div className="p-4 flex items-center justify-between border-b border-white/10">
-          <div className="flex items-center gap-2.5">
+          <Link to="/" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
             <Shield className="w-5 h-5 text-white" />
             <span className="font-bold text-sm tracking-wide text-white">QUẢN TRỊ HOU</span>
-          </div>
+          </Link>
           <button
             onClick={toggleCollapse}
             className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
@@ -339,6 +357,15 @@ const AdminPage: React.FC = () => {
               </div>
             </div>
           ))}
+          <div className="pt-4 border-t border-white/10 mt-4">
+            <Link
+              to="/lich-thi"
+              className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium text-white/70 hover:bg-white/10 hover:text-white transition-all"
+            >
+              <Calendar className="w-4 h-4 text-white" />
+              <span>Lịch thi</span>
+            </Link>
+          </div>
         </nav>
       </aside>
 
@@ -347,6 +374,7 @@ const AdminPage: React.FC = () => {
         <Header 
           onOpenSettings={() => window.dispatchEvent(new Event("open-settings"))}
           onOpenProfile={() => window.dispatchEvent(new Event("open-profile"))}
+          hideMobileMenuToggle={true}
           leftElement={
             <div className="flex items-center gap-2 min-w-0">
               <button
