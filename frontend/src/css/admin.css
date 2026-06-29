@@ -227,3 +227,78 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* Mobile-specific responsive styles */
+@media (max-width: 767px) {
+  .admin-main-content {
+    padding: 0.75rem;
+  }
+
+  .admin-main-content .card {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    transform: none !important;
+    padding: 0 !important;
+  }
+  
+  .admin-mobile-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    padding: 1rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    position: relative;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  
+  .admin-mobile-card:active {
+    transform: scale(0.995);
+  }
+  
+  .admin-mobile-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 1px dashed var(--border);
+    padding-bottom: 0.75rem;
+  }
+
+  .admin-mobile-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+  }
+
+  .admin-mobile-card-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .admin-mobile-card-label {
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  .admin-mobile-card-value {
+    color: var(--fg);
+    font-weight: 600;
+    text-align: right;
+  }
+
+  .admin-mobile-card-footer {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.5rem;
+    border-top: 1px dashed var(--border);
+    padding-top: 0.75rem;
+    margin-top: 0.25rem;
+  }
+}

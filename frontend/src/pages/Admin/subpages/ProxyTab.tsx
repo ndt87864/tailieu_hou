@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { Search, RefreshCw, Download, Check, Eye, X, Loader2 } from "lucide-react";
+import { Search, RefreshCw, Download, Eye, X, Loader2 } from "lucide-react";
 import { toast } from "react-toastify";
 import { useConfirm } from "../../../context/ConfirmContext.js";
 import { supabase } from "../../../context/AuthContext.js";
@@ -346,8 +346,8 @@ export const ProxyTab: React.FC = () => {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="card overflow-hidden">
+      {/* Table - Desktop View */}
+      <div className="card overflow-hidden hidden md:block">
         <table className="table-themed w-full text-left border-collapse">
           <thead>
             <tr>
@@ -413,6 +413,69 @@ export const ProxyTab: React.FC = () => {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile Card List View */}
+      <div className="grid grid-cols-1 gap-3 md:hidden">
+        {filteredRegistrations.length === 0 ? (
+          <div className="card p-6 text-center text-sm text-[var(--fg-2)]">
+            Không có yêu cầu đăng ký môn học hộ nào.
+          </div>
+        ) : (
+          filteredRegistrations.map((reg) => (
+            <div key={reg.id} className="admin-mobile-card">
+              <div className="admin-mobile-card-header">
+                <div className="min-w-0">
+                  <div className="font-semibold text-sm truncate">{reg.full_name}</div>
+                  <div className="text-[10px] text-[var(--muted)]">
+                    MSSV: {reg.student_id} • Khóa: {reg.course || "N/A"}
+                  </div>
+                </div>
+                <span
+                  className={`ml-auto px-2 py-0.5 rounded text-[10px] font-bold ${
+                    reg.status === "approved"
+                      ? "bg-emerald-500/10 text-emerald-600"
+                      : "bg-amber-500/10 text-amber-600"
+                  }`}
+                >
+                  {reg.status === "approved" ? "ĐÃ DUYỆT" : "CHỜ DUYỆT"}
+                </span>
+              </div>
+
+              <div className="admin-mobile-card-body">
+                <div className="admin-mobile-card-row">
+                  <span className="admin-mobile-card-label">Số lượng môn:</span>
+                  <span className="admin-mobile-card-value text-orange-500 font-semibold">{reg.quantity} Môn</span>
+                </div>
+                <div className="admin-mobile-card-row">
+                  <span className="admin-mobile-card-label">Tổng tiền:</span>
+                  <span className="admin-mobile-card-value text-brand-600 font-bold">{reg.total_amount.toLocaleString()}đ</span>
+                </div>
+                <div className="admin-mobile-card-row">
+                  <span className="admin-mobile-card-label">Thời gian:</span>
+                  <span className="admin-mobile-card-value text-[10px]">{formatDateTime(reg.updated_at)}</span>
+                </div>
+              </div>
+
+              <div className="admin-mobile-card-footer">
+                {reg.status !== "approved" && (
+                  <button
+                    onClick={() => handleApprove(reg.id)}
+                    className="px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-xs font-semibold hover:bg-emerald-600 transition-colors"
+                  >
+                    Duyệt
+                  </button>
+                )}
+                <button
+                  onClick={() => handleShowDetails(reg)}
+                  className="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-xs font-semibold hover:bg-blue-600 transition-colors flex items-center gap-1 ml-auto"
+                >
+                  <Eye className="w-3.5 h-3.5" /> Chi tiết
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {/* Details Modal */}

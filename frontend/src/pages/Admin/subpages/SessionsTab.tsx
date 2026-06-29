@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import { Plus, Trash2, Edit2, Clock, X, Loader2 } from "lucide-react";
 import { toast } from "react-toastify";
 import apiClient from "../../../services/client.js";
@@ -32,8 +32,6 @@ export const SessionsTab: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingSession, setEditingSession] = useState<ExamSession | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [syncProgress, setSyncProgress] = useState({ done: 0, total: 0 });
 
   const [formData, setFormData] = useState(defaultForm);
 
@@ -102,7 +100,6 @@ export const SessionsTab: React.FC = () => {
 
   // Sync examTime to student_infor
   const syncExamTimeForStudents = async (session: ExamSession) => {
-    setSyncing(true);
     try {
       const newExamTime = formatExamTime(session.startTime, session.endTime);
       const res = await apiClient.post("/api/v1/admin/students/update-by-match", {
@@ -119,8 +116,6 @@ export const SessionsTab: React.FC = () => {
       }
     } catch (err) {
       console.error("Lỗi đồng bộ thông tin sinh viên:", err);
-    } finally {
-      setSyncing(false);
     }
   };
 
@@ -175,65 +170,134 @@ export const SessionsTab: React.FC = () => {
           <Loader2 className="w-6 h-6 animate-spin text-brand-600" />
         </div>
       ) : (
-        <div className="card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="table-themed">
-              <thead>
-                <tr>
-                  <th>Tên ca thi</th>
-                  <th>Ngày thi</th>
-                  <th>Bắt đầu</th>
-                  <th>Kết thúc</th>
-                  <th>Hình thức</th>
-                  <th>Trạng thái</th>
-                  <th className="text-right">Hành động</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sessions.length === 0 ? (
+        <>
+          {/* Table view - Desktop View */}
+          <div className="card overflow-hidden hidden md:block">
+            <div className="overflow-x-auto">
+              <table className="table-themed">
+                <thead>
                   <tr>
-                    <td colSpan={7} className="text-center py-8 text-muted">
-                      Chưa có ca thi nào.
-                    </td>
+                    <th>Tên ca thi</th>
+                    <th>Ngày thi</th>
+                    <th>Bắt đầu</th>
+                    <th>Kết thúc</th>
+                    <th>Hình thức</th>
+                    <th>Trạng thái</th>
+                    <th className="text-right">Hành động</th>
                   </tr>
-                ) : (
-                  sessions.map((s) => (
-                    <tr key={s.id}>
-                      <td className="font-semibold">{s.title}</td>
-                      <td>{s.examDate}</td>
-                      <td>{s.startTime}</td>
-                      <td>{s.endTime}</td>
-                      <td>{s.examType || "Onsite"}</td>
-                      <td>
-                        {s.isActive !== false ? (
-                          <span className="badge-verified">Đang hoạt động</span>
-                        ) : (
-                          <span className="badge-unverified">Đã tắt</span>
-                        )}
-                      </td>
-                      <td className="text-right space-x-2">
-                        <button
-                          onClick={() => openEditModal(s)}
-                          className="btn-action hover:text-blue-500 inline-flex items-center p-1 rounded hover:bg-blue-500/10"
-                          title="Sửa"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(s.id)}
-                          className="btn-action hover:text-red-500 inline-flex items-center p-1 rounded hover:bg-red-500/10"
-                          title="Xóa"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                </thead>
+                <tbody>
+                  {sessions.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="text-center py-8 text-muted">
+                        Chưa có ca thi nào.
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    sessions.map((s) => (
+                      <tr key={s.id}>
+                        <td className="font-semibold">{s.title}</td>
+                        <td>{s.examDate}</td>
+                        <td>{s.startTime}</td>
+                        <td>{s.endTime}</td>
+                        <td>{s.examType || "Onsite"}</td>
+                        <td>
+                          {s.isActive !== false ? (
+                            <span className="badge-verified">Đang hoạt động</span>
+                          ) : (
+                            <span className="badge-unverified">Đã tắt</span>
+                          )}
+                        </td>
+                        <td className="text-right space-x-2">
+                          <button
+                            onClick={() => openEditModal(s)}
+                            className="btn-action hover:text-blue-500 inline-flex items-center p-1 rounded hover:bg-blue-500/10"
+                            title="Sửa"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(s.id)}
+                            className="btn-action hover:text-red-500 inline-flex items-center p-1 rounded hover:bg-red-500/10"
+                            title="Xóa"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+
+          {/* Cards view - Mobile View */}
+          <div className="grid grid-cols-1 gap-3 md:hidden">
+            {sessions.length === 0 ? (
+              <div className="card p-6 text-center text-sm text-[var(--fg-2)]">
+                Chưa có ca thi nào.
+              </div>
+            ) : (
+              sessions.map((s) => (
+                <div key={s.id} className="admin-mobile-card">
+                  <div className="admin-mobile-card-header">
+                    <div className="font-semibold text-sm">{s.title}</div>
+                    {s.isActive !== false ? (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-600">
+                        Hoạt động
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-600">
+                        Đã tắt
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="admin-mobile-card-body">
+                    <div className="admin-mobile-card-row">
+                      <span className="admin-mobile-card-label">Ngày thi:</span>
+                      <span className="admin-mobile-card-value">{s.examDate}</span>
+                    </div>
+                    <div className="admin-mobile-card-row">
+                      <span className="admin-mobile-card-label">Thời gian:</span>
+                      <span className="admin-mobile-card-value font-semibold">
+                        {s.startTime} - {s.endTime}
+                      </span>
+                    </div>
+                    <div className="admin-mobile-card-row">
+                      <span className="admin-mobile-card-label">Hình thức:</span>
+                      <span className="admin-mobile-card-value">{s.examType || "Onsite"}</span>
+                    </div>
+                    {s.note && (
+                      <div className="admin-mobile-card-row pt-1 border-t border-[var(--border)] border-dashed">
+                        <span className="admin-mobile-card-label">Ghi chú:</span>
+                        <span className="admin-mobile-card-value text-xs text-[var(--fg-2)] italic max-w-[70%] truncate">
+                          {s.note}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="admin-mobile-card-footer">
+                    <button
+                      onClick={() => openEditModal(s)}
+                      className="px-3 py-1.5 bg-[var(--surface-2)] text-[var(--fg)] border border-[var(--border)] rounded-lg text-xs font-medium hover:bg-[var(--bg-2)] transition-colors flex items-center gap-1"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" /> Chỉnh sửa
+                    </button>
+                    <button
+                      onClick={() => handleDelete(s.id)}
+                      className="px-3 py-1.5 bg-red-500/10 text-red-500 rounded-lg text-xs font-medium hover:bg-red-500/20 transition-colors flex items-center gap-1 ml-auto"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Xóa
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </>
       )}
 
       {showModal && (

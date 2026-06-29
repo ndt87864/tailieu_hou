@@ -218,8 +218,8 @@ const DocumentsTab: React.FC = () => {
         </div>
       </div>
 
-      {/* Table view */}
-      <div className="card overflow-hidden">
+      {/* Table view - Desktop View */}
+      <div className="card overflow-hidden hidden md:block">
         <div className="overflow-x-auto">
           <table className="table-themed">
             <thead>
@@ -300,6 +300,80 @@ const DocumentsTab: React.FC = () => {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Documents List - Mobile View */}
+      <div className="grid grid-cols-1 gap-3 md:hidden">
+        {filtered.length === 0 ? (
+          <div className="card p-6 text-center text-sm text-[var(--fg-2)]">
+            Không tìm thấy tài liệu nào.
+          </div>
+        ) : (
+          filtered.map((doc) => (
+            <div key={doc.id} className={`admin-mobile-card ${!doc.active ? "opacity-60" : ""}`}>
+              <div className="admin-mobile-card-header">
+                <div className="min-w-0 flex-1">
+                  <div className="font-semibold text-sm flex items-center gap-1.5 flex-wrap">
+                    <span>{doc.title}</span>
+                    {doc.premium && <Crown className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
+                  </div>
+                  <div className="text-xs text-[var(--brand-600)] font-medium mt-1">
+                    Danh mục: {doc.category?.title || "Khác"}
+                  </div>
+                </div>
+              </div>
+
+              <div className="admin-mobile-card-body">
+                <p className="text-xs text-[var(--fg-2)] line-clamp-2 italic mb-1">
+                  {doc.description || "Chưa có mô tả."}
+                </p>
+                <div className="admin-mobile-card-row">
+                  <span className="admin-mobile-card-label">Hiển thị (Active):</span>
+                  <button
+                    disabled={togglingId === doc.id + "active"}
+                    onClick={() => handleQuickToggle(doc, "active", !doc.active)}
+                    className={`inline-flex items-center justify-center px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors border ${
+                      doc.active
+                        ? "text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
+                        : "text-[var(--muted)] bg-[var(--bg-2)] border-[var(--border)]"
+                    }`}
+                  >
+                    {doc.active ? "Đang hiện" : "Đang ẩn"}
+                  </button>
+                </div>
+                <div className="admin-mobile-card-row">
+                  <span className="admin-mobile-card-label">Premium:</span>
+                  <button
+                    disabled={togglingId === doc.id + "premium"}
+                    onClick={() => handleQuickToggle(doc, "premium", !doc.premium)}
+                    className={`inline-flex items-center justify-center px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors border ${
+                      doc.premium
+                        ? "text-amber-500 bg-amber-500/10 border-amber-500/20"
+                        : "text-[var(--muted)] bg-[var(--bg-2)] border-[var(--border)]"
+                    }`}
+                  >
+                    {doc.premium ? "Yêu cầu Premium" : "Miễn phí"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="admin-mobile-card-footer">
+                <button
+                  onClick={() => handleEditClick(doc)}
+                  className="px-3 py-1.5 bg-[var(--surface-2)] text-[var(--fg)] border border-[var(--border)] rounded-lg text-xs font-medium hover:bg-[var(--bg-2)] transition-colors flex items-center gap-1"
+                >
+                  <Edit2 className="w-3.5 h-3.5" /> Chỉnh sửa
+                </button>
+                <button
+                  onClick={() => handleDelete(doc.id)}
+                  className="px-3 py-1.5 bg-red-500/10 text-red-500 rounded-lg text-xs font-medium hover:bg-red-500/20 transition-colors flex items-center gap-1 ml-auto"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Xóa
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {/* Modal */}

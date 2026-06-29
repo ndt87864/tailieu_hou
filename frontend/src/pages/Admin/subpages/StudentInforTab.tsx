@@ -1,8 +1,9 @@
-import React, { useEffect, useState, useMemo } from "react";
-import { Search, Plus, Trash2, Edit2, Upload, Download, RefreshCw, Loader2 } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Search, Plus, Trash2, Upload, Download, RefreshCw, Loader2 } from "lucide-react";
 import { toast } from "react-toastify";
 import apiClient from "../../../services/client.js";
 import { useConfirm } from "../../../context/ConfirmContext.js";
+import StudentList from "./StudentList.js";
 import StudentFormModal from "./StudentFormModal.js";
 import StudentImportModal from "./StudentImportModal.js";
 import {
@@ -396,7 +397,7 @@ const StudentInforTab: React.FC = () => {
               Nhập JSON
             </button>
             <button
-              onClick={openCreateModal => {
+              onClick={() => {
                 setEditingStudent(null);
                 setFormData(emptyForm);
                 setShowModal(true);
@@ -461,99 +462,25 @@ const StudentInforTab: React.FC = () => {
         </div>
       ) : (
         <div className="card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="table-themed">
-              <thead>
-                <tr>
-                  <th className="w-10">
-                    <input
-                      type="checkbox"
-                      checked={allSelectedOnPage}
-                      onChange={handleToggleSelectAll}
-                      className="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-                    />
-                  </th>
-                  <th>Sinh viên</th>
-                  <th>Môn thi</th>
-                  <th>Thời gian thi</th>
-                  <th>Phòng / Ca</th>
-                  <th className="text-right">Hành động</th>
-                </tr>
-              </thead>
-              <tbody>
-                {students.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="text-center py-8 text-muted">
-                      Không tìm thấy lịch thi nào.
-                    </td>
-                  </tr>
-                ) : (
-                  students.map((std) => (
-                    <tr key={std.id}>
-                      <td>
-                        <input
-                          type="checkbox"
-                          checked={selectedStudentIds.includes(std.id)}
-                          onChange={() => handleToggleSelectStudent(std.id)}
-                          className="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-                        />
-                      </td>
-                      <td>
-                        <div className="font-semibold">{std.fullName}</div>
-                        <div className="text-xs text-muted">
-                          MSV: {std.studentId} | Khóa: {std.course}
-                        </div>
-                      </td>
-                      <td>
-                        <div>{std.subject}</div>
-                        {std.majorCode && (
-                          <div className="text-xs text-muted">Ngành: {std.majorCode}</div>
-                        )}
-                      </td>
-                      <td>
-                        <div>{std.examDate ? formatDate(std.examDate) : "—"}</div>
-                        <div className="text-xs text-muted">{std.examTime}</div>
-                      </td>
-                      <td>
-                        <div>Phòng: {std.examRoom} | Ca: {std.examSession}</div>
-                        {std.examLink && (
-                          <a
-                            href={std.examLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-emerald-500 hover:underline block max-w-[200px] truncate"
-                          >
-                            {std.examLink}
-                          </a>
-                        )}
-                      </td>
-                      <td className="text-right space-x-2">
-                        <button
-                          onClick={() => handleEditClick(std)}
-                          className="btn-action hover:text-blue-500 inline-flex items-center p-1 rounded hover:bg-blue-500/10"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(std.id)}
-                          className="btn-action hover:text-red-500 inline-flex items-center p-1 rounded hover:bg-red-500/10"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          <div className="overflow-x-auto p-1 md:p-0">
+            <StudentList
+              students={students}
+              selectedStudentIds={selectedStudentIds}
+              toggleSelectStudent={handleToggleSelectStudent}
+              toggleSelectAll={handleToggleSelectAll}
+              allSelectedOnPage={allSelectedOnPage}
+              handleEditClick={handleEditClick}
+              handleDelete={handleDelete}
+              formatDate={formatDate}
+            />
           </div>
 
           {total > 15 && (
             <div className="p-4 flex items-center justify-between border-t border-[var(--border)]">
-              <span className="text-xs text-[var(--fg-2)]">
+              <span className="text-xs text-[var(--fg-2)] hidden sm:inline">
                 Hiển thị {students.length} trên {total} bản ghi
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
                 <button
                   disabled={page <= 1}
                   onClick={() => {
@@ -565,28 +492,30 @@ const StudentInforTab: React.FC = () => {
                 >
                   Trước
                 </button>
-                <span className="text-xs text-[var(--fg-2)]">Trang</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={Math.ceil(total / 15)}
-                  value={pageInput}
-                  onChange={(e) => setPageInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      const val = parseInt(pageInput);
-                      const maxPage = Math.ceil(total / 15);
-                      if (!isNaN(val) && val >= 1 && val <= maxPage) {
-                        setPage(val);
-                      } else {
-                        setPageInput(String(page));
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-[var(--fg-2)]">Trang</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={Math.ceil(total / 15)}
+                    value={pageInput}
+                    onChange={(e) => setPageInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        const val = parseInt(pageInput);
+                        const maxPage = Math.ceil(total / 15);
+                        if (!isNaN(val) && val >= 1 && val <= maxPage) {
+                          setPage(val);
+                        } else {
+                          setPageInput(String(page));
+                        }
                       }
-                    }
-                  }}
-                  onBlur={() => setPageInput(String(page))}
-                  className="input-themed w-12 text-center py-1 text-xs rounded-xl outline-none"
-                />
-                <span className="text-xs text-[var(--fg-2)]">/ {Math.ceil(total / 15)}</span>
+                    }}
+                    onBlur={() => setPageInput(String(page))}
+                    className="input-themed w-12 text-center py-1 text-xs rounded-xl outline-none"
+                  />
+                  <span className="text-xs text-[var(--fg-2)]">/ {Math.ceil(total / 15)}</span>
+                </div>
                 <button
                   disabled={page * 15 >= total}
                   onClick={() => {

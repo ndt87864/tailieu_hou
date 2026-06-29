@@ -212,8 +212,8 @@ const UsersTab: React.FC = () => {
         </div>
       </div>
 
-      {/* Users table */}
-      <div className="card overflow-hidden">
+      {/* Users table - Desktop View */}
+      <div className="card overflow-hidden hidden md:block">
         <div className="overflow-x-auto">
           <table className="table-themed">
             <thead>
@@ -306,6 +306,88 @@ const UsersTab: React.FC = () => {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Users List - Mobile View */}
+      <div className="grid grid-cols-1 gap-3 md:hidden">
+        {filteredUsers.length === 0 ? (
+          <div className="card p-6 text-center text-sm text-[var(--fg-2)]">
+            Không tìm thấy tài khoản nào.
+          </div>
+        ) : (
+          filteredUsers.map((u) => {
+            const isMe = currentUser && u.id === currentUser.id;
+            return (
+              <div key={u.id} className="admin-mobile-card">
+                <div className="flex items-center gap-3">
+                  <div className="user-avatar-initial w-10 h-10 rounded-full bg-brand-500/15 flex items-center justify-center font-bold text-sm shrink-0">
+                    {u.avatar_url ? (
+                      <img src={u.avatar_url} alt="Avatar" className="w-full h-full rounded-full object-cover" />
+                    ) : (
+                      (u.full_name || u.email).charAt(0).toUpperCase()
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold text-sm truncate flex items-center gap-1">
+                      <span>{u.full_name || "Chưa thiết lập"}</span>
+                      {isMe && <span className="px-1.5 py-0.5 rounded text-[0.625rem] font-bold bg-brand-600/10 text-[var(--brand-600)]">Tôi</span>}
+                    </div>
+                    <div className="text-xs text-[var(--muted)] truncate">{u.email}</div>
+                  </div>
+                </div>
+
+                <div className="admin-mobile-card-body">
+                  <div className="admin-mobile-card-row">
+                    <span className="admin-mobile-card-label">Điện thoại:</span>
+                    <span className="admin-mobile-card-value">{u.phone || "—"}</span>
+                  </div>
+                  <div className="admin-mobile-card-row">
+                    <span className="admin-mobile-card-label">Phân quyền:</span>
+                    <select
+                      value={u.role}
+                      onChange={(e) => handleUpdateRole(u.id, e.target.value)}
+                      className="input-themed px-2.5 py-1 text-xs rounded-lg outline-none cursor-pointer"
+                    >
+                      {ROLE_OPTIONS.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt.toUpperCase()}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="admin-mobile-card-footer">
+                  {u.role === "plus" && (
+                    <button
+                      onClick={() => handleOpenPermissionModal(u)}
+                      className="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-brand-500/10 text-[var(--brand-600)] hover:bg-brand-500/20 transition-colors flex items-center gap-1"
+                    >
+                      <BookOpen className="w-3.5 h-3.5" />
+                      Tài liệu
+                    </button>
+                  )}
+                  {u.role === "pro" && (
+                    <button
+                      onClick={() => handleOpenPermissionModal(u)}
+                      className="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-500/10 text-[var(--brand-600)] hover:bg-emerald-500/20 transition-colors flex items-center gap-1"
+                    >
+                      <BookOpen className="w-3.5 h-3.5" />
+                      Danh mục
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleDeleteUser(u.id)}
+                    className="p-1.5 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors ml-auto"
+                    title="Xóa tài khoản"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
 
       {/* Add Modal */}

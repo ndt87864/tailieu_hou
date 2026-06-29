@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { Plus, Trash2, Edit2, Upload, RefreshCw, Loader2, X } from "lucide-react";
+import { Plus, Trash2, Upload, RefreshCw, Loader2, X } from "lucide-react";
 import { toast } from "react-toastify";
 import apiClient from "../../../services/client.js";
 import { useConfirm } from "../../../context/ConfirmContext.js";
@@ -10,7 +10,6 @@ import {
   parseExcelDateToYMD,
   parseDateToYMD,
   parseCSV,
-  isValidUrl,
 } from "../../../utils/studentInforHelpers.js";
 
 interface Room {
