@@ -340,64 +340,67 @@ const DocumentPage: React.FC = () => {
               return (
                 <div 
                   key={q.id || idx}
-                  className="card p-4 space-y-3 doc-question-card"
+                  className="p-4 rounded-2xl border shadow-sm flex flex-col gap-3.5 bg-[var(--surface)] border-[var(--border-soft)] transition-all"
                 >
-                  <div className="flex items-center justify-between border-b pb-2 doc-border-brand">
-                    <span className="font-bold text-xs doc-question-num">Câu {idx + 1}</span>
+                  <div className="flex items-center justify-between border-b border-dashed pb-2.5 border-[var(--border-soft)]">
+                    <span className="font-bold text-xs text-[var(--brand-600)] uppercase tracking-wider">Câu {idx + 1}</span>
                     {isLocked && (
-                      <span className="text-amber-600 font-bold text-[10px] flex items-center gap-0.5">
+                      <span className="text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full font-bold text-[10px] flex items-center gap-1 border border-amber-500/20">
                         <Lock className="w-3 h-3" /> Premium
                       </span>
                     )}
                   </div>
                   
-                  <div className="text-sm font-medium doc-text-fg">{q.question}</div>
+                  <div className="text-sm font-semibold text-[var(--fg)] leading-relaxed">{q.question}</div>
                   
                   {/* Choices list */}
-                  <div className="space-y-1.5 pl-2 border-l doc-border-themed">
-                    {(q.choices || []).map((opt, oIdx) => (
-                      <div key={oIdx} className="text-xs doc-text-muted">
-                        <span className="font-semibold mr-1">{String.fromCharCode(65 + oIdx)}.</span>
-                        {opt}
-                      </div>
-                    ))}
-                  </div>
-
-                  {q.url_question && (
-                    <div 
-                      className="border rounded-lg p-1 max-w-full doc-option-card"
-                    >
-                      <img src={q.url_question} alt={`Ảnh câu hỏi ${idx + 1}`} className="max-h-40 w-full object-contain" />
+                  {q.choices && q.choices.length > 0 && (
+                    <div className="space-y-2">
+                      {q.choices.map((opt, oIdx) => (
+                        <div 
+                          key={oIdx} 
+                          className="flex items-start gap-2.5 p-2.5 rounded-xl text-xs bg-[var(--bg-2)] border border-[var(--border-soft)] text-[var(--fg-2)] transition-colors hover:bg-[var(--bg-3)]"
+                        >
+                          <span className="font-bold text-[var(--brand-600)] shrink-0">{String.fromCharCode(65 + oIdx)}.</span>
+                          <span className="leading-relaxed">{opt}</span>
+                        </div>
+                      ))}
                     </div>
                   )}
 
-                  <div className="pt-2 border-t doc-border-brand">
+                  {q.url_question && (
+                    <div 
+                      className="border rounded-xl p-1 max-w-full bg-[var(--bg-2)] border-[var(--border-soft)] overflow-hidden"
+                    >
+                      <img src={q.url_question} alt={`Ảnh câu hỏi ${idx + 1}`} className="max-h-48 w-full object-contain" />
+                    </div>
+                  )}
+
+                  <div className="pt-1.5">
                     {isLocked ? (
                       ["pro", "plus"].includes(role) ? (
-                        <div className="text-center text-xs text-amber-600 font-semibold py-1.5 bg-amber-500/10 rounded-lg">
+                        <div className="text-center text-xs text-amber-600 bg-amber-500/10 border border-amber-500/20 font-semibold py-2.5 rounded-xl">
                           Vui lòng đăng ký bộ câu hỏi này
                         </div>
                       ) : (
                         <Link
                           to="/pricing"
-                          className="block text-center text-xs bg-amber-500 hover:bg-amber-600 text-white font-semibold py-1.5 rounded-lg transition"
+                          className="block text-center text-xs bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2.5 rounded-xl transition-all shadow-sm hover:shadow-md"
                         >
                           Nâng cấp Premium để xem đáp án
                         </Link>
                       )
                     ) : (
-                      <div className="space-y-2">
-                        <div className="text-[10px] uppercase font-semibold doc-text-muted">Đáp án đúng:</div>
-                        <div 
-                          className="font-semibold rounded-lg px-2.5 py-1.5 inline-block text-xs border doc-answer-badge"
-                        >
-                          {q.answer}
+                      <div className="space-y-3">
+                        <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                          <div className="text-[10px] uppercase font-bold tracking-wider text-emerald-600 dark:text-emerald-400 mb-1">Đáp án đúng</div>
+                          <div className="text-sm font-semibold leading-relaxed">{q.answer}</div>
                         </div>
                         {q.url_answer && (
                           <div 
-                            className="border rounded-lg p-1 max-w-full doc-option-card"
+                            className="border rounded-xl p-1 max-w-full bg-[var(--bg-2)] border-[var(--border-soft)] overflow-hidden"
                           >
-                            <img src={q.url_answer} alt={`Ảnh đáp án ${idx + 1}`} className="max-h-40 w-full object-contain" />
+                            <img src={q.url_answer} alt={`Ảnh đáp án ${idx + 1}`} className="max-h-48 w-full object-contain" />
                           </div>
                         )}
                       </div>
