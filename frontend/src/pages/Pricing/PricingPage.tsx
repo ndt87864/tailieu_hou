@@ -180,16 +180,66 @@ export const PricingPage: React.FC = () => {
   };
 
   const renderContentItem = (item: PricingContent) => {
-    let textContent = item.text;
-    
+    const text = item.text || "";
+    const links = item.links || [];
+
+    // Filter links that are present in the text to be rendered inline
+    const inlineLinks = links.filter(link => link.linkText && text.includes(link.linkText));
+    // Filter out inline links from the list of links rendered at the bottom
+    const remainingLinks = links.filter(link => !inlineLinks.some(il => il.linkText === link.linkText));
+
+    const renderTextWithLinks = () => {
+      if (inlineLinks.length === 0) {
+        return <p className="whitespace-pre-line leading-relaxed">{text}</p>;
+      }
+
+      // Escape special characters for regex
+      const escapeRegExp = (str: string) => {
+        return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      };
+
+      // Sort inline links by length descending to match longer substrings first
+      const sortedInlineLinks = [...inlineLinks].sort((a, b) => b.linkText.length - a.linkText.length);
+      const pattern = sortedInlineLinks.map(l => `(${escapeRegExp(l.linkText)})`).join("|");
+      const regex = new RegExp(pattern, "g");
+
+      const parts = text.split(regex);
+
+      return (
+        <p className="whitespace-pre-line leading-relaxed">
+          {parts.map((part, index) => {
+            if (!part) return null;
+
+            const matchingLink = inlineLinks.find(link => link.linkText === part);
+            if (matchingLink) {
+              return (
+                <a
+                  key={index}
+                  href={matchingLink.linkUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline font-semibold inline-flex items-center gap-0.5 mx-1"
+                >
+                  <Link2 className="w-3.5 h-3.5 inline-block align-text-top" />
+                  {part}
+                </a>
+              );
+            }
+
+            return part;
+          })}
+        </p>
+      );
+    };
+
     return (
       <li key={item.id} className="info-item">
         <span className="info-number bg-brand-600">{item.number}</span>
         <div className="info-content text-sm text-[var(--fg-2)]">
-          <p className="whitespace-pre-line leading-relaxed">{textContent}</p>
-          {item.links && item.links.length > 0 && (
+          {renderTextWithLinks()}
+          {remainingLinks.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-2">
-              {item.links.map((link, idx) => (
+              {remainingLinks.map((link, idx) => (
                 <a
                   key={idx}
                   href={link.linkUrl}

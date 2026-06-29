@@ -387,7 +387,7 @@
 
 /* Content Section (Additional Info) */
 .pricing-info-section {
-    max-width: 800px;
+    max-width: 100%;
     margin: 0 auto;
     padding: 2rem;
     border-radius: 1.5rem;
