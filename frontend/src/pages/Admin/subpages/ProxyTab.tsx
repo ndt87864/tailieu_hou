@@ -347,7 +347,7 @@ export const ProxyTab: React.FC = () => {
       </div>
 
       {/* Table - Desktop View */}
-      <div className="card overflow-hidden hidden md:block">
+      <div className="admin-table-card-wrapper hidden md:block">
         <table className="table-themed w-full text-left border-collapse">
           <thead>
             <tr>

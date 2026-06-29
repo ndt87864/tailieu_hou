@@ -461,7 +461,7 @@ const StudentInforTab: React.FC = () => {
           <Loader2 className="w-6 h-6 animate-spin text-brand-600" />
         </div>
       ) : (
-        <div className="card overflow-hidden">
+        <div className="admin-table-card-wrapper">
           <div className="overflow-x-auto p-1 md:p-0">
             <StudentList
               students={students}

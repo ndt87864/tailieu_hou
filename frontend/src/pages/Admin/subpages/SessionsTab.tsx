@@ -172,7 +172,7 @@ export const SessionsTab: React.FC = () => {
       ) : (
         <>
           {/* Table view - Desktop View */}
-          <div className="card overflow-hidden hidden md:block">
+          <div className="admin-table-card-wrapper hidden md:block">
             <div className="overflow-x-auto">
               <table className="table-themed">
                 <thead>

@@ -52,7 +52,7 @@ const RoomTable: React.FC<RoomTableProps> = ({
 
   return (
     <div className="overflow-x-auto">
-      <div className="card overflow-hidden p-1 md:p-0">
+      <div className="admin-table-card-wrapper p-1 md:p-0">
         <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between">
           <div className="text-xs text-[var(--fg-2)]">Tổng: <strong>{roomsCount}</strong> phòng thi</div>
         </div>
