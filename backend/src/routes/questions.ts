@@ -2,6 +2,8 @@ import { Hono } from "hono";
 import { requireRole } from "../middlewares/role.js";
 import { questionLimitMiddleware, checkFullAccess, getQuestionRatios } from "../middlewares/questionLimit.js";
 import * as questionService from "../services/questionService.js";
+import { supabaseAdmin } from "../config/db.js";
+import { cacheGetOrSet } from "../utils/cache.js";
 
 type Env = {
   Variables: {
@@ -31,38 +33,54 @@ questionsRouter.get("/document/:documentId/limited", async (c) => {
   try {
     const role = c.get("role") || "guest";
     const user = c.get("user");
+    const userId = user?.id || "anonymous";
 
-    const questions = await questionService.getQuestionsByDocument(documentId);
-    const totalCount = questions.length;
+    // Cache key starts with "questions:${documentId}" so it automatically invalidates 
+    // when questions are added, updated, or deleted.
+    const cacheKey = `questions:${documentId}:limited:${role}:${userId}`;
 
-    const hasFullAccess = await checkFullAccess(role, user, documentId);
+    const responseData = await cacheGetOrSet(
+      cacheKey,
+      async () => {
+        // Run full access check, questions query, and ratios lookup in parallel to reduce latency
+        const [hasFullAccess, questions, ratios] = await Promise.all([
+          checkFullAccess(role, user, documentId),
+          questionService.getQuestionsByDocument(documentId),
+          getQuestionRatios()
+        ]);
 
-    if (hasFullAccess) {
-      return c.json({
-        questions,
-        totalCount,
-        lockedCount: 0,
-        ratioPercent: 100,
-        limitApplied: false,
-      });
-    }
+        const totalCount = questions.length;
 
-    const ratios = await getQuestionRatios();
-    const targetRole = role === "guest" ? "free" : role;
-    const limitRatio = ratios[targetRole] !== undefined ? ratios[targetRole] : 20;
+        if (hasFullAccess) {
+          return {
+            questions,
+            totalCount,
+            lockedCount: 0,
+            ratioPercent: 100,
+            limitApplied: false,
+          };
+        }
 
-    const limitCount = Math.max(1, Math.round(totalCount * (limitRatio / 100)));
-    const lockedCount = Math.max(0, totalCount - limitCount);
+        const targetRole = role === "guest" ? "free" : role;
+        const limitRatio = ratios[targetRole] !== undefined ? ratios[targetRole] : 20;
 
-    const allowedQuestions = questions.slice(0, limitCount);
+        const limitCount = Math.max(1, Math.round(totalCount * (limitRatio / 100)));
+        const lockedCount = Math.max(0, totalCount - limitCount);
 
-    return c.json({
-      questions: allowedQuestions,
-      totalCount,
-      lockedCount,
-      ratioPercent: limitRatio,
-      limitApplied: true,
-    });
+        const allowedQuestions = questions.slice(0, limitCount);
+
+        return {
+          questions: allowedQuestions,
+          totalCount,
+          lockedCount,
+          ratioPercent: limitRatio,
+          limitApplied: true,
+        };
+      },
+      120_000 // Cache for 2 minutes
+    );
+
+    return c.json(responseData);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }

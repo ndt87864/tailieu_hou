@@ -37,55 +37,48 @@ export async function checkFullAccess(role: string, user: any, docId: string | u
     return true;
   }
 
-  // Pro / plus: kiểm tra quyền premium — chạy 2 queries song song
+  // Pro / plus: kiểm tra quyền premium
   if ((role === "pro" || role === "plus") && docId && user) {
     if (role === "plus") {
-      // Plus: kiểm tra theo document_id trực tiếp (không cần category_id)
+      // Plus: kiểm tra theo document_id trực tiếp
       const { data: premiumAccess } = await supabaseAdmin
         .from("premium_user")
         .select("id")
         .eq("profile_id", user.id)
         .eq("document_id", docId)
+        .limit(1)
         .maybeSingle();
 
       if (premiumAccess) {
         return true;
       }
     } else {
-      // Pro: cần category_id của doc → chạy song song cả 2 queries
-      const [docResult, premiumByDocResult] = await Promise.all([
-        supabaseAdmin
-          .from("documents")
-          .select("category_id")
-          .eq("id", docId)
-          .maybeSingle(),
-        // Thử luôn theo document_id (fallback nếu không có category)
-        supabaseAdmin
-          .from("premium_user")
-          .select("id, category_id")
-          .eq("profile_id", user.id)
-          .maybeSingle(),
-      ]);
+      // Pro: kiểm tra theo category_id hoặc document_id
+      // 1. Lấy category_id của document
+      const { data: docData } = await supabaseAdmin
+        .from("documents")
+        .select("category_id")
+        .eq("id", docId)
+        .limit(1)
+        .maybeSingle();
 
-      const categoryId = docResult.data?.category_id;
+      const categoryId = docData?.category_id;
 
-      if (categoryId && premiumByDocResult.data) {
-        // Kiểm tra category match
-        if (premiumByDocResult.data.category_id === categoryId) {
-          return true;
-        }
-      } else if (categoryId) {
-        // Fallback: query cụ thể theo category_id
-        const { data: premiumAccess } = await supabaseAdmin
-          .from("premium_user")
-          .select("id")
-          .eq("profile_id", user.id)
-          .eq("category_id", categoryId)
-          .maybeSingle();
+      // 2. Kiểm tra xem user có quyền premium cho document này hoặc category này không
+      const filterOr = categoryId 
+        ? `document_id.eq.${docId},category_id.eq.${categoryId}`
+        : `document_id.eq.${docId}`;
 
-        if (premiumAccess) {
-          return true;
-        }
+      const { data: premiumAccess } = await supabaseAdmin
+        .from("premium_user")
+        .select("id")
+        .eq("profile_id", user.id)
+        .or(filterOr)
+        .limit(1)
+        .maybeSingle();
+
+      if (premiumAccess) {
+        return true;
       }
     }
   }

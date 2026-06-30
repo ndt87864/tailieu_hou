@@ -11,7 +11,7 @@ export const getQuestionsByDocument = async (documentId: string): Promise<Questi
       .from("questions")
       .select("*")
       .eq("document_id", documentId)
-      .order("order_index", { ascending: true });
+      .order("created_at", { ascending: true });
 
     if (error) {
       console.warn(`Could not fetch questions for document ${documentId}:`, error.message);

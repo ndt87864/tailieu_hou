@@ -19,6 +19,7 @@ import { rateLimiter } from "./middlewares/rateLimiter.js";
 import { startRegistrationQueueWorker, stopRegistrationQueueWorker } from "./services/queueWorker.js";
 import { supabaseAdmin } from "./config/db.js";
 import { getGroupedDocumentsPreview, getGroupedDocumentsFull } from "./services/documentService.js";
+import { getQuestionRatios } from "./middlewares/questionLimit.js";
 
 dotenv.config();
 
@@ -68,6 +69,9 @@ const preWarmConnectionAndCache = async () => {
     await Promise.all([
       supabaseAdmin.from("categories").select("id").limit(1),
       supabaseAdmin.from("questions").select("id").limit(1),
+      supabaseAdmin.from("documents").select("id").limit(1),
+      supabaseAdmin.from("premium_user").select("id").limit(1),
+      getQuestionRatios(), // Warm the ratio config cache
       getGroupedDocumentsPreview(false),
       getGroupedDocumentsPreview(true),
       getGroupedDocumentsFull(false),
