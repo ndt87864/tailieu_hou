@@ -67,6 +67,7 @@ const preWarmConnectionAndCache = async () => {
   try {
     await Promise.all([
       supabaseAdmin.from("categories").select("id").limit(1),
+      supabaseAdmin.from("questions").select("id").limit(1),
       getGroupedDocumentsPreview(false),
       getGroupedDocumentsPreview(true),
       getGroupedDocumentsFull(false),

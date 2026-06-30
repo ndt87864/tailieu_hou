@@ -156,14 +156,22 @@ async function _fetchGroupedDocuments(isPremiumUser = false, preview = true): Pr
 }
 
 export const getDocumentById = async (id: string): Promise<Document | null> => {
-  const { data, error } = await supabaseAdmin
-    .from("documents")
-    .select("*")
-    .eq("id", id)
-    .single();
+  const fetcher = async () => {
+    const { data, error } = await supabaseAdmin
+      .from("documents")
+      .select("*")
+      .eq("id", id)
+      .single();
 
-  if (error) return null;
-  return data;
+    if (error) return null;
+    return data;
+  };
+
+  return cacheGetOrSet<Document | null>(
+    `${CACHE_PREFIX}:item:${id}`,
+    fetcher,
+    60_000
+  );
 };
 
 export const createDocument = async (
