@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import apiClient from "../../../services/client.js";
-import LoadingSpinner from "../../../components/common/LoadingSpinner.js";
+import apiClient from "../../services/client.js";
+import LoadingSpinner from "../../components/common/LoadingSpinner.js";
 import {
   Users,
   BookOpen,
@@ -18,7 +18,7 @@ import {
   FolderOpen,
   ChevronRight,
 } from "lucide-react";
-import "../../../css/dashboard.css";
+import "../../css/dashboard.css";
 
 interface Stats {
   totalUsers: number;

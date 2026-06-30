@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import apiClient from "../../services/client.js";
 import * as Icons from "lucide-react";
 
-const { BookOpen, ChevronDown, ChevronRight, ChevronLeft, X, Heart, Crown, Calendar } = Icons;
+const { BookOpen, ChevronDown, ChevronRight, ChevronLeft, X, Crown, Calendar } = Icons;
 
 interface Document {
   id: string;
@@ -33,7 +33,7 @@ interface DocumentSidebarProps {
 
 export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
   currentDocId,
-  isContactPage = false,
+  isContactPage: _isContactPage = false,
 }) => {
   const [sidebarCategories, setSidebarCategories] = useState<SidebarCategory[]>([]);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});

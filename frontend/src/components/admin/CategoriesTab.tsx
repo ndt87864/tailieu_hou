@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
-import apiClient from "../../../services/client.js";
-import LoadingSpinner from "../../../components/common/LoadingSpinner.js";
+import apiClient from "../../services/client.js";
+import LoadingSpinner from "../../components/common/LoadingSpinner.js";
 import { toast } from "react-toastify";
 import * as Icons from "lucide-react";
-import { useConfirm } from "../../../context/ConfirmContext.js";
+import { useConfirm } from "../../context/ConfirmContext.js";
 
 const { Search, Plus, Trash2, Edit2, RefreshCw, Loader2, Eye, EyeOff, Crown } = Icons;
 

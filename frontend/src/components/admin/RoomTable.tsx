@@ -1,5 +1,5 @@
 import React from "react";
-import { formatDate } from "../../../utils/studentInforHelpers.js";
+import { formatDate } from "../../utils/studentInforHelpers.js";
 
 interface Room {
   id: string;

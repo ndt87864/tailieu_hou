@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
-import apiClient from "../../../services/client.js";
-import LoadingSpinner from "../../../components/common/LoadingSpinner.js";
+import apiClient from "../../services/client.js";
+import LoadingSpinner from "../../components/common/LoadingSpinner.js";
 import { toast } from "react-toastify";
-import { useAuth } from "../../../context/AuthContext.js";
+import { useAuth } from "../../context/AuthContext.js";
 import { Search, Plus, Trash2, RefreshCw, BookOpen } from "lucide-react";
-import { useConfirm } from "../../../context/ConfirmContext.js";
+import { useConfirm } from "../../context/ConfirmContext.js";
 import UserPermissionModal from "./UserPermissionModal.js";
 
 interface Profile {
@@ -29,6 +29,16 @@ const UsersTab: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [docSearch, setDocSearch] = useState("");
   const [questionRatios, setQuestionRatios] = useState<any[]>([]);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [formData, setFormData] = useState({ email: "", password: "", full_name: "", phone: "", role: "free" });
+  const [tempPercentages, setTempPercentages] = useState<Record<string, string>>({});
+  const [selectedUserForAccess, setSelectedUserForAccess] = useState<Profile | null>(null);
+  const [allDocuments, setAllDocuments] = useState<any[]>([]);
+  const [allCategories, setAllCategories] = useState<any[]>([]);
+  const [userDocUnlocks, setUserDocUnlocks] = useState<string[]>([]);
+  const [userCatUnlocks, setUserCatUnlocks] = useState<string[]>([]);
+  const [loadingUnlocks, setLoadingUnlocks] = useState(false);
+  const [savingUnlocks, setSavingUnlocks] = useState(false);
 
   const fetchQuestionRatios = async () => {
     try {

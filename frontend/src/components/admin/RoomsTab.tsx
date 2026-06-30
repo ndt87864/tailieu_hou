@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { Plus, Trash2, Upload, RefreshCw, Loader2, X } from "lucide-react";
 import { toast } from "react-toastify";
-import apiClient from "../../../services/client.js";
-import { useConfirm } from "../../../context/ConfirmContext.js";
+import apiClient from "../../services/client.js";
+import { useConfirm } from "../../context/ConfirmContext.js";
 import RoomTable from "./RoomTable.js";
 import {
   ensureXLSX,
@@ -10,7 +10,7 @@ import {
   parseExcelDateToYMD,
   parseDateToYMD,
   parseCSV,
-} from "../../../utils/studentInforHelpers.js";
+} from "../../utils/studentInforHelpers.js";
 
 interface Room {
   id: string;

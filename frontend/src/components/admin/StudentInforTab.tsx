@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Search, Plus, Trash2, Upload, Download, RefreshCw, Loader2 } from "lucide-react";
 import { toast } from "react-toastify";
-import apiClient from "../../../services/client.js";
-import { useConfirm } from "../../../context/ConfirmContext.js";
+import apiClient from "../../services/client.js";
+import { useConfirm } from "../../context/ConfirmContext.js";
 import StudentList from "./StudentList.js";
 import StudentFormModal from "./StudentFormModal.js";
 import StudentImportModal from "./StudentImportModal.js";
@@ -13,7 +13,7 @@ import {
   parseDateToYMD,
   formatDate,
   parseCSV,
-} from "../../../utils/studentInforHelpers.js";
+} from "../../utils/studentInforHelpers.js";
 
 interface Student {
   id: string;

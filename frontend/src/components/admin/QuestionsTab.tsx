@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import apiClient from "../../../services/client.js";
-import LoadingSpinner from "../../../components/common/LoadingSpinner.js";
+import apiClient from "../../services/client.js";
+import LoadingSpinner from "../../components/common/LoadingSpinner.js";
 import { toast } from "react-toastify";
 import {
   Search,
@@ -13,10 +13,10 @@ import {
 } from "lucide-react";
 import FilterQuestionModal from "./FilterQuestionModal.js";
 import QuestionFormModal from "./QuestionFormModal.js";
-import { useConfirm } from "../../../context/ConfirmContext.js";
+import { useConfirm } from "../../context/ConfirmContext.js";
 import QuestionCard from "./QuestionCard.js";
-import { useAdminCategories } from "../../../hooks/useAdminCategories.js";
-import { exportQuestionsToWord } from "../../../utils/wordExport.js";
+import { useAdminCategories } from "../../hooks/useAdminCategories.js";
+import { exportQuestionsToWord } from "../../utils/wordExport.js";
 
 interface Question {
   id: string;

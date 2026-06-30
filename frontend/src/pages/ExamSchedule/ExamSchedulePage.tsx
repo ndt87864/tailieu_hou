@@ -8,8 +8,8 @@ import {
   getStudentsBySessionsOptimized,
   getAllSubjectPrices,
 } from "../../services/examScheduleService.js";
-import { exportToExcel, exportToPDF } from "./examExportHelper.js";
-import ProxyRegistrationModal from "./ProxyRegistrationModal.js";
+import { exportToExcel, exportToPDF } from "../../utils/examExportHelper.js";
+import ProxyRegistrationModal from "../../components/exam-schedule/ProxyRegistrationModal.js";
 import "../../css/examschedule.css";
 
 const THEME_MAP: Record<string, { primary: string; dark: string; light: string }> = {

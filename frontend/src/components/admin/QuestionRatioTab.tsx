@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import apiClient from "../../../services/client.js";
+import apiClient from "../../services/client.js";
 import { toast } from "react-toastify";
 import { Save, Loader2, RefreshCw, Link2, Link2Off } from "lucide-react";
 

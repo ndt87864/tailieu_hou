@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Search, RefreshCw, Download, Eye, X, Loader2 } from "lucide-react";
 import { toast } from "react-toastify";
-import { useConfirm } from "../../../context/ConfirmContext.js";
-import { supabase } from "../../../context/AuthContext.js";
+import { useConfirm } from "../../context/ConfirmContext.js";
+import { supabase } from "../../context/AuthContext.js";
 import * as XLSX from "xlsx";
 
 interface Registration {

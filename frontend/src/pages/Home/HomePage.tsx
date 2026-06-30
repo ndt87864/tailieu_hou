@@ -31,8 +31,7 @@ interface GroupedCategory {
 }
 
 const HomePage: React.FC = () => {
-  const { role, loading: authLoading } = useAuth();
-  const isPremiumUser = ["admin", "management", "ultra", "pro", "plus"].includes(role);
+  const { loading: authLoading } = useAuth();
   const [groupedCategories, setGroupedCategories] = useState<GroupedCategory[]>([]);
   const [allDocuments, setAllDocuments] = useState<Document[]>([]);
   const [allDocumentsLoaded, setAllDocumentsLoaded] = useState(false);

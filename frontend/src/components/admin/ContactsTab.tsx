@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
-import apiClient from "../../../services/client.js";
+import apiClient from "../../services/client.js";
 import { toast } from "react-toastify";
 import { Plus, Edit, Trash2, X, Loader2, Link2 } from "lucide-react";
-import "../../../css/contacts-tab.css";
-import { useConfirm } from "../../../context/ConfirmContext.js";
+import "../../css/contacts-tab.css";
+import { useConfirm } from "../../context/ConfirmContext.js";
 
 interface ContactLink {
   linkText: string;

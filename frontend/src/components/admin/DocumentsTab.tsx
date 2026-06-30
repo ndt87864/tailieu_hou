@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
-import apiClient from "../../../services/client.js";
-import LoadingSpinner from "../../../components/common/LoadingSpinner.js";
+import apiClient from "../../services/client.js";
+import LoadingSpinner from "../../components/common/LoadingSpinner.js";
 import { toast } from "react-toastify";
 import { Search, Plus, Trash2, Edit2, RefreshCw, Loader2, Eye, EyeOff, Crown } from "lucide-react";
-import { useConfirm } from "../../../context/ConfirmContext.js";
-import { useAdminCategories } from "../../../hooks/useAdminCategories.js";
+import { useConfirm } from "../../context/ConfirmContext.js";
+import { useAdminCategories } from "../../hooks/useAdminCategories.js";
 
 interface Document {
   id: string;

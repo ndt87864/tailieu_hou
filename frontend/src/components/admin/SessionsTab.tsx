@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Plus, Trash2, Edit2, Clock, X, Loader2 } from "lucide-react";
 import { toast } from "react-toastify";
-import apiClient from "../../../services/client.js";
-import { useConfirm } from "../../../context/ConfirmContext.js";
+import apiClient from "../../services/client.js";
+import { useConfirm } from "../../context/ConfirmContext.js";
 
 interface ExamSession {
   id: string;

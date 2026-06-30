@@ -23,25 +23,25 @@ import {
 } from "lucide-react";
 
 // Import actual subpages
-import DashboardTab from "./subpages/DashboardTab.js";
-import UsersTab from "./subpages/UsersTab.js";
-import CategoriesTab from "./subpages/CategoriesTab.js";
-import DocumentsTab from "./subpages/DocumentsTab.js";
-import QuestionsTab from "./subpages/QuestionsTab.js";
-import StudentInforTab from "./subpages/StudentInforTab.js";
-import RoomsTab from "./subpages/RoomsTab.js";
+import DashboardTab from "../../components/admin/DashboardTab.js";
+import UsersTab from "../../components/admin/UsersTab.js";
+import CategoriesTab from "../../components/admin/CategoriesTab.js";
+import DocumentsTab from "../../components/admin/DocumentsTab.js";
+import QuestionsTab from "../../components/admin/QuestionsTab.js";
+import StudentInforTab from "../../components/admin/StudentInforTab.js";
+import RoomsTab from "../../components/admin/RoomsTab.js";
 
-import { SessionsTab } from "./subpages/SessionsTab.js";
+import { SessionsTab } from "../../components/admin/SessionsTab.js";
 import {
   PricingTab,
   RemindersTab,
   FooterTab,
-} from "./subpages/MockTabs.js";
+} from "../../components/admin/MockTabs.js";
 
 // Import component ContactsTab mới
-import { ContactsTab } from "./subpages/ContactsTab.js";
-import { QuestionRatioTab } from "./subpages/QuestionRatioTab.js";
-import { ProxyTab } from "./subpages/ProxyTab.js";
+import { ContactsTab } from "../../components/admin/ContactsTab.js";
+import { QuestionRatioTab } from "../../components/admin/QuestionRatioTab.js";
+import { ProxyTab } from "../../components/admin/ProxyTab.js";
 import { Header, Footer } from "../../components/layout/Layout.js";
 import "../../css/admin.css";
 

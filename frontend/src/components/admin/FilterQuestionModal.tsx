@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { X, Search } from "lucide-react";
-import "../../../css/filter-modal.css";
+import "../../css/filter-modal.css";
 
 interface Category {
   id: string;
