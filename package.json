@@ -12,6 +12,9 @@
     "dev": "npx concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "build:backend": "npm run build -w backend",
     "build:frontend": "npm run build -w frontend",
-    "build": "npm run build:backend && npm run build:frontend"
+    "build": "npm run build:backend && npm run build:frontend",
+    "start:backend": "npm run start -w backend",
+    "start:frontend": "npm run preview -w frontend",
+    "start": "npx concurrently \"npm run start:backend\" \"npm run start:frontend\""
   }
 }
