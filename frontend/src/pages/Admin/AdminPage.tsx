@@ -229,13 +229,6 @@ const AdminPage: React.FC = () => {
                 <Link to="/" className="font-bold flex items-center gap-2 text-white text-sm hover:opacity-80 transition-opacity">
                   <Shield className="w-5 h-5 text-white" /> QUẢN TRỊ HOU
                 </Link>
-                <Link
-                  to="/lich-thi"
-                  onClick={() => setMobileOpen(false)}
-                  className="text-[10px] text-white/80 hover:text-white transition-colors mt-0.5 pl-7"
-                >
-                  Xem lịch thi
-                </Link>
               </div>
               <button onClick={() => setMobileOpen(false)} className="p-1 rounded text-white/80 hover:text-white shrink-0">
                 <X className="w-6 h-6" />
@@ -390,21 +383,7 @@ const AdminPage: React.FC = () => {
               </span>
             </div>
           }
-          rightElement={
-            <div className="md:hidden shrink-0">
-              <select
-                value={activeTab}
-                onChange={(e) => handleTabChange(e.target.value as TabId)}
-                className="admin-mobile-select text-xs px-2.5 py-1.5 rounded-lg outline-none border border-[var(--border)] bg-[var(--surface)] text-[var(--fg)]"
-              >
-                {menuItems.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          }
+
         />
 
         {/* Tab Content container */}

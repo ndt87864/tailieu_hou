@@ -340,7 +340,11 @@ const Layout: React.FC = () => {
   ) : (
     <div className={`layout-content-wrapper view-mode-${viewMode}`}>
       {!isDocPage && !isAdminPage && !isPricingPage && (
-        <Header onOpenSettings={() => setSettingsOpen(true)} onOpenProfile={() => setProfileOpen(true)} />
+        <Header 
+          onOpenSettings={() => setSettingsOpen(true)} 
+          onOpenProfile={() => setProfileOpen(true)} 
+          hideMobileMenuToggle={true} 
+        />
       )}
       <main
         className={`layout-main-static ${
