@@ -231,17 +231,67 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <button
-                  onClick={onOpenSettings}
-                  className="p-2 rounded-xl hover:bg-[var(--bg-2)] transition-colors layout-icon-muted"
-                  aria-label="Tùy chỉnh giao diện"
-                >
-                  <Settings className="w-4 h-4" />
-                </button>
-                <Link to="/login" className="btn-brand text-sm !py-2 !px-4 flex items-center gap-2">
-                  <User className="w-4 h-4" />
-                  Đăng nhập
-                </Link>
+                <div className="hidden md:block relative" ref={dropdownRef}>
+                  <button
+                    onClick={() => setDropdownOpen((p) => !p)}
+                    className="p-2 rounded-xl hover:bg-[var(--bg-2)] transition-colors layout-icon-muted"
+                    aria-label="Menu"
+                  >
+                    <Menu className="w-5 h-5" />
+                  </button>
+
+                  {dropdownOpen && (
+                    <div
+                      className="absolute right-0 mt-2 w-56 rounded-2xl py-1.5 animate-scale-in origin-top-right z-50 layout-dropdown"
+                    >
+                      <div className="py-1">
+                        <Link
+                          to="/"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] transition-colors layout-text-fg2 text-left"
+                        >
+                          <Home className="w-4 h-4 layout-icon-meta" />
+                          Trang chủ
+                        </Link>
+                        <Link
+                          to="/lich-thi"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] transition-colors layout-text-fg2 text-left"
+                        >
+                          <Calendar className="w-4 h-4 layout-icon-meta" />
+                          Lịch thi
+                        </Link>
+                        <Link
+                          to="/pricing"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] transition-colors layout-text-fg2 text-left"
+                        >
+                          <Phone className="w-4 h-4 layout-icon-meta" />
+                          Liên hệ
+                        </Link>
+                        <button
+                          onClick={() => { setDropdownOpen(false); onOpenSettings(); }}
+                          className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-[var(--fg-2)] hover:bg-[var(--bg-2)] transition-colors text-left"
+                        >
+                          <Settings className="w-4 h-4 layout-icon-meta" />
+                          Giao diện hệ thống
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {location.pathname === "/" || location.pathname.startsWith("/documents/") ? (
+                  <Link to="/login" className="btn-premium-login text-sm flex items-center gap-2">
+                    <User className="w-4 h-4 premium-icon-user" />
+                    <span>Đăng nhập</span>
+                  </Link>
+                ) : (
+                  <Link to="/login" className="btn-brand text-sm !py-2 !px-4 flex items-center gap-2">
+                    <User className="w-4 h-4" />
+                    Đăng nhập
+                  </Link>
+                )}
               </div>
             )}
 
@@ -261,17 +311,40 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Mobile Nav */}
         {mobileOpen && (
           <nav className="md:hidden py-3 pb-4 animate-slide-up layout-mobile-nav">
-            {navLinks.map((link) => (
-              <Link
-                key={link.to}
-                to={link.to}
-                className={`block px-4 py-2.5 rounded-xl text-sm font-medium transition-colors mb-1 ${
-                  isActive(link.to) ? "layout-nav-link-active" : "layout-nav-link-inactive"
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
+            <Link
+              to="/"
+              onClick={() => setMobileOpen(false)}
+              className={`block px-4 py-2.5 rounded-xl text-sm font-medium transition-colors mb-1 ${
+                isActive("/") ? "layout-nav-link-active" : "layout-nav-link-inactive hover:bg-[var(--bg-2)]"
+              }`}
+            >
+              Trang chủ
+            </Link>
+            <Link
+              to="/lich-thi"
+              onClick={() => setMobileOpen(false)}
+              className={`block px-4 py-2.5 rounded-xl text-sm font-medium transition-colors mb-1 ${
+                isActive("/lich-thi") ? "layout-nav-link-active" : "layout-nav-link-inactive hover:bg-[var(--bg-2)]"
+              }`}
+            >
+              Lịch thi
+            </Link>
+            <Link
+              to="/pricing"
+              onClick={() => setMobileOpen(false)}
+              className={`block px-4 py-2.5 rounded-xl text-sm font-medium transition-colors mb-1 ${
+                isActive("/pricing") ? "layout-nav-link-active" : "layout-nav-link-inactive hover:bg-[var(--bg-2)]"
+              }`}
+            >
+              Liên hệ
+            </Link>
+            <button
+              onClick={() => { setMobileOpen(false); onOpenSettings(); }}
+              className="flex items-center gap-2.5 w-full px-4 py-2.5 rounded-xl text-sm font-medium transition-colors mb-1 text-[var(--fg-2)] hover:bg-[var(--bg-2)] text-left"
+            >
+              <Settings className="w-4 h-4 layout-icon-meta" />
+              Giao diện hệ thống
+            </button>
           </nav>
         )}
       </div>
@@ -367,7 +440,7 @@ const Layout: React.FC = () => {
         <Header 
           onOpenSettings={() => setSettingsOpen(true)} 
           onOpenProfile={() => setProfileOpen(true)} 
-          hideMobileMenuToggle={true} 
+          hideMobileMenuToggle={false} 
         />
       )}
       <main
