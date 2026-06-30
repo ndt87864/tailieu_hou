@@ -1,9 +1,16 @@
 import { Hono } from "hono";
 import { requireRole } from "../middlewares/role.js";
-import { questionLimitMiddleware } from "../middlewares/questionLimit.js";
+import { questionLimitMiddleware, checkFullAccess, getQuestionRatios } from "../middlewares/questionLimit.js";
 import * as questionService from "../services/questionService.js";
 
-const questionsRouter = new Hono();
+type Env = {
+  Variables: {
+    user: any;
+    role: string;
+  };
+};
+
+const questionsRouter = new Hono<Env>();
 
 questionsRouter.post("/bulk-delete", requireRole("management"), async (c) => {
   try {
@@ -16,6 +23,48 @@ questionsRouter.post("/bulk-delete", requireRole("management"), async (c) => {
     return c.json({ success: true, message: `Deleted ${ids.length} questions` });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
+  }
+});
+
+questionsRouter.get("/document/:documentId/limited", async (c) => {
+  const documentId = c.req.param("documentId");
+  try {
+    const role = c.get("role") || "guest";
+    const user = c.get("user");
+
+    const questions = await questionService.getQuestionsByDocument(documentId);
+    const totalCount = questions.length;
+
+    const hasFullAccess = await checkFullAccess(role, user, documentId);
+
+    if (hasFullAccess) {
+      return c.json({
+        questions,
+        totalCount,
+        lockedCount: 0,
+        ratioPercent: 100,
+        limitApplied: false,
+      });
+    }
+
+    const ratios = await getQuestionRatios();
+    const targetRole = role === "guest" ? "free" : role;
+    const limitRatio = ratios[targetRole] !== undefined ? ratios[targetRole] : 20;
+
+    const limitCount = Math.max(1, Math.round(totalCount * (limitRatio / 100)));
+    const lockedCount = Math.max(0, totalCount - limitCount);
+
+    const allowedQuestions = questions.slice(0, limitCount);
+
+    return c.json({
+      questions: allowedQuestions,
+      totalCount,
+      lockedCount,
+      ratioPercent: limitRatio,
+      limitApplied: true,
+    });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
   }
 });
 

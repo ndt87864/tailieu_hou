@@ -3,7 +3,7 @@ import { type UserRole } from "../types/index.js";
 import { supabaseAdmin } from "../config/db.js";
 import { cacheGetOrSet } from "../utils/cache.js";
 
-async function getQuestionRatios(): Promise<Record<string, number>> {
+export async function getQuestionRatios(): Promise<Record<string, number>> {
   try {
     return await cacheGetOrSet(
       "question:ratios",
@@ -31,27 +31,10 @@ async function getQuestionRatios(): Promise<Record<string, number>> {
   }
 }
 
-export const questionLimitMiddleware: MiddlewareHandler = async (c, next) => {
-  await next();
-
-  if (c.res.status !== 200 || !c.res.headers.get("content-type")?.includes("application/json")) return;
-
-  const role: UserRole | "guest" = c.get("role") || "guest";
-  const user = c.get("user");
-  const docId = c.req.param("documentId") || c.req.query("documentId");
-  const data = await c.res.json();
-
-  if (!data || !Array.isArray(data.questions)) {
-    c.res = c.json(data, c.res.status);
-    return;
-  }
-
-  let questions = data.questions;
-
+export async function checkFullAccess(role: string, user: any, docId: string | undefined): Promise<boolean> {
   // Admin / management / ultra: bypass hoàn toàn
   if (role === "admin" || role === "management" || role === "ultra") {
-    c.res = c.json({ ...data, questions, limitApplied: false }, 200);
-    return;
+    return true;
   }
 
   // Pro / plus: kiểm tra quyền premium — chạy 2 queries song song
@@ -66,8 +49,7 @@ export const questionLimitMiddleware: MiddlewareHandler = async (c, next) => {
         .maybeSingle();
 
       if (premiumAccess) {
-        c.res = c.json({ ...data, questions, limitApplied: false }, 200);
-        return;
+        return true;
       }
     } else {
       // Pro: cần category_id của doc → chạy song song cả 2 queries
@@ -90,8 +72,7 @@ export const questionLimitMiddleware: MiddlewareHandler = async (c, next) => {
       if (categoryId && premiumByDocResult.data) {
         // Kiểm tra category match
         if (premiumByDocResult.data.category_id === categoryId) {
-          c.res = c.json({ ...data, questions, limitApplied: false }, 200);
-          return;
+          return true;
         }
       } else if (categoryId) {
         // Fallback: query cụ thể theo category_id
@@ -103,11 +84,35 @@ export const questionLimitMiddleware: MiddlewareHandler = async (c, next) => {
           .maybeSingle();
 
         if (premiumAccess) {
-          c.res = c.json({ ...data, questions, limitApplied: false }, 200);
-          return;
+          return true;
         }
       }
     }
+  }
+  return false;
+}
+
+export const questionLimitMiddleware: MiddlewareHandler = async (c, next) => {
+  await next();
+
+  if (c.res.status !== 200 || !c.res.headers.get("content-type")?.includes("application/json")) return;
+
+  const role: UserRole | "guest" = c.get("role") || "guest";
+  const user = c.get("user");
+  const docId = c.req.param("documentId") || c.req.query("documentId");
+  const data = await c.res.json();
+
+  if (!data || !Array.isArray(data.questions)) {
+    c.res = c.json(data, c.res.status);
+    return;
+  }
+
+  let questions = data.questions;
+
+  const hasFullAccess = await checkFullAccess(role, user, docId);
+  if (hasFullAccess) {
+    c.res = c.json({ ...data, questions, limitApplied: false }, 200);
+    return;
   }
 
   // Lấy cấu hình tỷ lệ câu hỏi từ DB/cache

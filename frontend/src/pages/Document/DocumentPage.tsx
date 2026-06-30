@@ -42,6 +42,9 @@ const DocumentPage: React.FC = () => {
   const [doc, setDoc] = useState<Document | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [limitApplied, setLimitApplied] = useState<boolean>(false);
+  const [totalCount, setTotalCount] = useState<number>(0);
+  const [lockedCount, setLockedCount] = useState<number>(0);
+  const [ratioPercent, setRatioPercent] = useState<number>(100);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,12 +56,15 @@ const DocumentPage: React.FC = () => {
     setLoading(true);
     Promise.all([
       apiClient.get(`/api/v1/documents/${id}`),
-      apiClient.get(`/api/v1/questions/document/${id}`),
+      apiClient.get(`/api/v1/questions/document/${id}/limited`),
     ])
       .then(([docRes, questRes]) => {
         setDoc(docRes.data.document);
         setQuestions(questRes.data.questions || []);
         setLimitApplied(!!questRes.data.limitApplied);
+        setTotalCount(questRes.data.totalCount || 0);
+        setLockedCount(questRes.data.lockedCount || 0);
+        setRatioPercent(questRes.data.ratioPercent || 100);
         setLoading(false);
       })
       .catch((err) => {
@@ -75,16 +81,13 @@ const DocumentPage: React.FC = () => {
       q.answer.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const totalCount = questions.length;
   const filteredCount = filteredQuestions.length;
 
   // Determine if user has premium/unlimited access
   const isPremiumUser = ["admin", "management", "ultra", "pro", "plus"].includes(role);
   const hasFullAccess = ["admin", "ultra"].includes(role) || (["pro", "plus", "management"].includes(role) && !limitApplied);
 
-  const visibleQuestions = filteredQuestions.filter(
-    (q) => !(q.isPremiumLocked && !hasFullAccess)
-  );
+  const visibleQuestions = filteredQuestions;
 
   // Excel download logic
   const isExcelEnabled = profile?.is_excel_enabled !== false;
@@ -302,7 +305,7 @@ const DocumentPage: React.FC = () => {
                 </span>
               ) : (
                 <>
-                  Bạn đang xem bản giới hạn (20% câu hỏi). Vui lòng{" "}
+                  Bạn đang xem bản giới hạn ({ratioPercent}% câu hỏi). Vui lòng{" "}
                   <Link to="/pricing" className="font-bold underline text-amber-600 hover:text-amber-700">
                     nâng cấp Premium
                   </Link>{" "}
@@ -503,11 +506,11 @@ const DocumentPage: React.FC = () => {
         </div>
 
         {/* Bottom Lock Notice if not premium */}
-        {!hasFullAccess && totalCount > visibleQuestions.length && (
+        {!hasFullAccess && lockedCount > 0 && (
           <div className="mt-6 border border-dashed border-amber-300 dark:border-amber-700 bg-amber-500/5 rounded-xl p-6 text-center space-y-3">
             <div className="text-sm font-semibold text-amber-700 dark:text-amber-300 flex items-center justify-center gap-1.5">
               <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-              <span>Có {totalCount - visibleQuestions.length} câu hỏi khác đang bị ẩn trong bộ tài liệu này</span>
+              <span>Có {lockedCount} câu hỏi khác đang bị ẩn trong bộ tài liệu này</span>
             </div>
             <p className="text-xs text-muted-foreground max-w-md mx-auto">
               {["pro", "plus"].includes(role) ? (
