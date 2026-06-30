@@ -3,7 +3,14 @@ import { requireRole } from "../middlewares/role.js";
 import * as docService from "../services/documentService.js";
 import type { UserRole } from "../types/index.js";
 
-const docsRouter = new Hono();
+type Env = {
+  Variables: {
+    user: any;
+    role: UserRole;
+  };
+};
+
+const docsRouter = new Hono<Env>();
 
 /** Trả về true nếu role là premium (plus/pro/ultra/management/admin) */
 const isPremium = (role?: string): boolean =>

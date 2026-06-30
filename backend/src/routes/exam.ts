@@ -1,7 +1,14 @@
 import { Hono } from "hono";
 import * as examService from "../services/examService.js";
 
-const examRouter = new Hono();
+type Env = {
+  Variables: {
+    user: any;
+    role: string;
+  };
+};
+
+const examRouter = new Hono<Env>();
 
 examRouter.get("/search", async (c) => {
   try {
