@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Outlet } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.js";
-import { BookOpen, User, Shield, LogOut, ChevronDown, Menu, X, Settings, Phone, Wifi, Battery, Signal } from "lucide-react";
+import { BookOpen, User, Shield, LogOut, ChevronDown, Menu, X, Settings, Phone, Wifi, Battery, Signal, Home, Calendar } from "lucide-react";
 import UISettingsModal from "./UISettingsModal.js";
 import EditProfileModal from "./EditProfileModal.js";
 import { useUI } from "../../context/UIContext.js";
@@ -177,6 +177,30 @@ export const Header: React.FC<HeaderProps> = ({
                         <User className="w-4 h-4 layout-icon-meta" />
                         Trang cá nhân
                       </button>
+                      <Link
+                        to="/"
+                        onClick={() => setDropdownOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] transition-colors layout-text-fg2 text-left"
+                      >
+                        <Home className="w-4 h-4 layout-icon-meta" />
+                        Trang chủ
+                      </Link>
+                      <Link
+                        to="/lich-thi"
+                        onClick={() => setDropdownOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] transition-colors layout-text-fg2 text-left"
+                      >
+                        <Calendar className="w-4 h-4 layout-icon-meta" />
+                        Lịch thi
+                      </Link>
+                      <Link
+                        to="/pricing"
+                        onClick={() => setDropdownOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] transition-colors layout-text-fg2 text-left"
+                      >
+                        <Phone className="w-4 h-4 layout-icon-meta" />
+                        Liên hệ
+                      </Link>
                       {role === "admin" && (
                         <Link
                           to="/admin"
