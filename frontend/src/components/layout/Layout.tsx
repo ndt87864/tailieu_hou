@@ -56,18 +56,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   const isActive = (path: string) => location.pathname === path;
 
-  const navLinks = user
-    ? [
-        { to: "/", label: "Trang chủ" },
-        { to: "/lich-thi", label: "Lịch thi" },
-        { to: "/pricing", label: "Liên hệ" },
-        ...(role === "admin" ? [{ to: "/admin", label: "Quản trị" }] : []),
-      ]
-    : [
-        { to: "/", label: "Trang chủ" },
-        { to: "/lich-thi", label: "Lịch thi" },
-        { to: "/pricing", label: "Liên hệ" },
-      ];
+  const navLinks: { to: string; label: string }[] = [];
 
   const roleBadge: Record<string, { label: string; className: string }> = {
     admin:      { label: "Admin",  className: "layout-user-badge-admin" },

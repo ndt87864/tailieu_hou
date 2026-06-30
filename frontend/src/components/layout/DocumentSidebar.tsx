@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import apiClient from "../../services/client.js";
 import * as Icons from "lucide-react";
 
-const { BookOpen, ChevronDown, ChevronRight, ChevronLeft, X, Crown, Calendar } = Icons;
+const { BookOpen, ChevronDown, ChevronRight, ChevronLeft, X, Crown } = Icons;
 
 interface Document {
   id: string;
@@ -171,16 +171,19 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
                   </div>
                 );
               })}
-              <div className="pt-4 border-t border-white/10 mt-4">
-                <Link
-                  to="/lich-thi"
-                  onClick={() => setMobileOpen(false)}
-                  className="flex items-center gap-2 px-2 py-2 rounded-lg text-sm font-medium transition-all text-white/80 hover:text-white hover:bg-[rgba(255,255,255,0.08)]"
-                >
-                  <Calendar className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span>Lịch thi</span>
-                </Link>
-              </div>
+
+              <Link
+                to="/pricing"
+                onClick={() => setMobileOpen(false)}
+                className={`flex items-center gap-2 p-2 rounded-lg text-sm transition-colors ${
+                  _isContactPage
+                    ? "text-white font-bold bg-[rgba(255,255,255,0.12)] doc-sidebar-item-active"
+                    : "text-white/90 hover:bg-[rgba(255,255,255,0.08)]"
+                }`}
+              >
+                <Icons.Phone className="w-4 h-4 text-white/80 shrink-0" />
+                <span className="font-semibold">Liên hệ</span>
+              </Link>
             </div>
           </div>
         </>
@@ -253,16 +256,16 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
               </div>
             );
           })}
-          <div className="pt-4 border-t border-white/10 w-full flex justify-center mt-4">
-            <Link
-              to="/lich-thi"
-              className="w-12 h-12 rounded-xl flex items-center justify-center transition-colors text-white/80 hover:bg-[rgba(255,255,255,0.08)]"
-              title="Lịch thi"
-            >
-              <Calendar className="w-5 h-5 text-emerald-400" />
-            </Link>
-          </div>
         </div>
+        <Link
+          to="/pricing"
+          title="Liên hệ"
+          className={`w-12 h-12 rounded-xl flex items-center justify-center text-white/90 hover:bg-[rgba(255,255,255,0.08)] transition-colors mt-2 ${
+            _isContactPage ? "bg-[rgba(255,255,255,0.12)] text-white" : ""
+          }`}
+        >
+          <Icons.Phone className="w-5 h-5" />
+        </Link>
       </div>
 
       <div 
@@ -327,15 +330,17 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
                 </div>
               );
             })}
-            <div className="pt-4 border-t border-white/10 mt-4">
-              <Link
-                to="/lich-thi"
-                className="flex items-center gap-2 px-2 py-2 rounded-lg text-sm font-medium transition-all text-white/80 hover:text-white hover:bg-[rgba(255,255,255,0.08)]"
-              >
-                <Calendar className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Lịch thi</span>
-              </Link>
-            </div>
+            <Link
+              to="/pricing"
+              className={`flex items-center gap-2 p-2 rounded-lg text-sm transition-colors mt-2 ${
+                _isContactPage
+                  ? "text-white font-bold bg-[rgba(255,255,255,0.12)] border-l-2 doc-sidebar-item-active"
+                  : "text-white/90 hover:bg-[rgba(255,255,255,0.08)]"
+              }`}
+            >
+              <Icons.Phone className="w-4 h-4 text-white/80 shrink-0" />
+              <span className="font-semibold">Liên hệ</span>
+            </Link>
           </div>
         </div>
       </div>
