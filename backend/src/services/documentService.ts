@@ -77,7 +77,7 @@ async function _fetchGroupedDocuments(isPremiumUser = false, preview = true): Pr
   // 1. Lấy tất cả categories đang active
   let catQuery = supabaseAdmin
     .from("categories")
-    .select("*")
+    .select("id, title, logo, stt, premium")
     .eq("active", true)
     .order("stt", { ascending: true });
 
@@ -94,103 +94,61 @@ async function _fetchGroupedDocuments(isPremiumUser = false, preview = true): Pr
   }
   if (!categories) return [];
 
-  // 2. Chạy song song: mỗi category lấy docs + count cùng 1 lúc
-  //    Dùng Promise.all thay vì for-loop tuần tự (tránh N+1 query)
-  const categoryPromises = categories.map(async (cat) => {
-    let docQuery = supabaseAdmin
-      .from("documents")
-      .select("*, category:categories(title, logo)")
-      .eq("category_id", cat.id)
-      .eq("active", true)
-      .order("created_at", { ascending: true });
-
-    // Chỉ giới hạn 10 khi ở chế độ preview (homepage)
-    if (preview) {
-      docQuery = docQuery.limit(10);
-    }
-
-    let cntQuery = supabaseAdmin
-      .from("documents")
-      .select("*", { count: "exact", head: true })
-      .eq("category_id", cat.id)
-      .eq("active", true);
-
-    if (!isPremiumUser) {
-      docQuery = docQuery.eq("premium", false);
-      cntQuery = cntQuery.eq("premium", false);
-    }
-
-    const [docsResult, countResult] = await Promise.all([docQuery, cntQuery]);
-
-    if (docsResult.error) {
-      console.warn(`Could not fetch docs for category ${cat.id}:`, docsResult.error.message);
-    }
-    if (countResult.error) {
-      console.warn(`Could not count docs for category ${cat.id}:`, countResult.error.message);
-    }
-
-    const docs = docsResult.error ? [] : docsResult.data;
-    const count = countResult.error ? 0 : countResult.count;
-
-    if (!docs || docs.length === 0) return null;
-
-    return {
-      id: cat.id,
-      title: cat.title,
-      logo: cat.logo,
-      documents: docs,
-      total_count: count ?? docs.length,
-    };
-  });
-
-  // 3. Chạy song song cả "no category" cùng lúc với các category khác
-  let noCatDocQuery = supabaseAdmin
+  // 2. Lấy tất cả active documents
+  let docQuery = supabaseAdmin
     .from("documents")
     .select("*, category:categories(title, logo)")
-    .is("category_id", null)
     .eq("active", true)
     .order("created_at", { ascending: true });
 
-  if (preview) {
-    noCatDocQuery = noCatDocQuery.limit(10);
-  }
-
-  let noCatCntQuery = supabaseAdmin
-    .from("documents")
-    .select("*", { count: "exact", head: true })
-    .is("category_id", null)
-    .eq("active", true);
-
   if (!isPremiumUser) {
-    noCatDocQuery = noCatDocQuery.eq("premium", false);
-    noCatCntQuery = noCatCntQuery.eq("premium", false);
+    docQuery = docQuery.eq("premium", false);
   }
 
-  const noCatPromise = Promise.all([noCatDocQuery, noCatCntQuery]);
-
-  // 4. Chờ tất cả hoàn thành song song
-  const [categoryResults, [noCatDocsResult, noCatCountResult]] =
-    await Promise.all([Promise.all(categoryPromises), noCatPromise]);
-
-  if (noCatDocsResult.error) {
-    console.warn("Could not fetch no-category docs:", noCatDocsResult.error.message);
-  }
-  if (noCatCountResult.error) {
-    console.warn("Could not count no-category docs:", noCatCountResult.error.message);
+  const { data: allDocs, error: docError } = await docQuery;
+  if (docError || !allDocs) {
+    console.warn("Could not fetch documents from database:", docError?.message);
+    return [];
   }
 
-  // 5. Lọc bỏ category rỗng (null) và giữ thứ tự stt
-  const result = categoryResults.filter(Boolean) as any[];
+  // 3. Phân nhóm trong bộ nhớ (In-memory grouping & counting)
+  const docsByCat = new Map<string | null, any[]>();
+  allDocs.forEach((doc) => {
+    const catId = doc.category_id;
+    if (!docsByCat.has(catId)) {
+      docsByCat.set(catId, []);
+    }
+    docsByCat.get(catId)!.push(doc);
+  });
 
-  // 6. Thêm nhóm "Khác" nếu có
-  const noCatDocs = noCatDocsResult.error ? [] : noCatDocsResult.data;
-  const noCatCount = noCatCountResult.error ? 0 : noCatCountResult.count;
-  if (noCatDocs && noCatDocs.length > 0) {
+  const result: any[] = [];
+
+  // 4. Map từng category với documents tương ứng
+  categories.forEach((cat) => {
+    const catDocs = docsByCat.get(cat.id) ?? [];
+    if (catDocs.length === 0) return; // Chỉ lấy các nhóm có tài liệu hoạt động
+
+    // Giới hạn 10 docs nếu ở chế độ preview
+    const documentsToShow = preview ? catDocs.slice(0, 10) : catDocs;
+
+    result.push({
+      id: cat.id,
+      title: cat.title,
+      logo: cat.logo,
+      documents: documentsToShow,
+      total_count: catDocs.length,
+    });
+  });
+
+  // 5. Thêm nhóm "Khác" (no category) nếu có
+  const noCatDocs = docsByCat.get(null) ?? [];
+  if (noCatDocs.length > 0) {
+    const documentsToShow = preview ? noCatDocs.slice(0, 10) : noCatDocs;
     result.push({
       id: "other",
       title: "Khác",
-      documents: noCatDocs,
-      total_count: noCatCount ?? noCatDocs.length,
+      documents: documentsToShow,
+      total_count: noCatDocs.length,
     });
   }
 

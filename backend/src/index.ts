@@ -17,6 +17,8 @@ import { securityHeaders } from "./middlewares/security.js";
 import { timeout } from "./middlewares/timeout.js";
 import { rateLimiter } from "./middlewares/rateLimiter.js";
 import { startRegistrationQueueWorker, stopRegistrationQueueWorker } from "./services/queueWorker.js";
+import { supabaseAdmin } from "./config/db.js";
+import { getGroupedDocumentsPreview, getGroupedDocumentsFull } from "./services/documentService.js";
 
 dotenv.config();
 
@@ -59,11 +61,29 @@ app.route("/api/v1/pricing-packages", pricingPackagesRouter);
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 
+const preWarmConnectionAndCache = async () => {
+  console.log("⚡ Pre-warming database connections and caching document structures...");
+  const startTime = Date.now();
+  try {
+    await Promise.all([
+      supabaseAdmin.from("categories").select("id").limit(1),
+      getGroupedDocumentsPreview(false),
+      getGroupedDocumentsPreview(true),
+      getGroupedDocumentsFull(false),
+      getGroupedDocumentsFull(true),
+    ]);
+    console.log(`⚡ Database connection & grouped document cache pre-warmed successfully in ${Date.now() - startTime}ms!`);
+  } catch (error: any) {
+    console.warn("⚠️ Pre-warming failed:", error?.message || error);
+  }
+};
+
 const server = serve(
   { fetch: app.fetch, port: PORT },
   () => {
     console.log(`🚀 Backend Hono running at http://localhost:${PORT}`);
     startRegistrationQueueWorker();
+    preWarmConnectionAndCache();
   }
 );
 
