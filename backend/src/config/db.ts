@@ -22,5 +22,9 @@ export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRole || su
 });
 
 export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+  },
   // Không override global fetch → dùng Node.js built-in với keep-alive mặc định
 });

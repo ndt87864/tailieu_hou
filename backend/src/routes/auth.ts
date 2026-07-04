@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { supabaseAdmin } from "../config/db.js";
+import { supabaseAdmin, supabaseClient } from "../config/db.js";
 import { requireRole } from "../middlewares/role.js";
 
 type Env = {
@@ -11,6 +11,95 @@ type Env = {
 
 const authRouter = new Hono<Env>();
 
+const getProfileWithRole = async (userId: string) => {
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("*")
+    .eq("id", userId)
+    .single();
+
+  const role = profile?.role || "free";
+
+  if (profile) {
+    const { data: ratioRecord } = await supabaseAdmin
+      .from("question_ratios")
+      .select("excel_ratio_unpaid, excel_ratio_paid")
+      .eq("role", role)
+      .maybeSingle();
+
+    profile.default_excel_unpaid =
+      ratioRecord?.excel_ratio_unpaid ?? (role === "plus" ? 50 : role === "free" ? 0 : 100);
+    profile.default_excel_paid = ratioRecord?.excel_ratio_paid ?? (role === "free" ? 0 : 100);
+  }
+
+  return { profile, role };
+};
+
+authRouter.post("/login", async (c) => {
+  try {
+    const body = await c.req.json();
+    const email = String(body?.email || "").trim();
+    const password = String(body?.password || "");
+
+    if (!email || !password) {
+      return c.json({ error: "Email và mật khẩu là bắt buộc" }, 400);
+    }
+
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error || !data.session || !data.user) {
+      return c.json({ error: error?.message || "Đăng nhập thất bại" }, 401);
+    }
+
+    const { profile, role } = await getProfileWithRole(data.user.id);
+
+    return c.json({
+      user: data.user,
+      session: {
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+        expires_at: data.session.expires_at,
+        expires_in: data.session.expires_in,
+        token_type: data.session.token_type,
+      },
+      profile,
+      role,
+    });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+authRouter.get("/google-url", async (c) => {
+  try {
+    const redirectTo = String(c.req.query("redirect_to") || "").trim();
+    const redirectUrl = new URL(redirectTo);
+
+    if (redirectUrl.protocol !== "https:" || !redirectUrl.hostname.endsWith(".chromiumapp.org")) {
+      return c.json({ error: "redirect_to không hợp lệ" }, 400);
+    }
+
+    const { data, error } = await supabaseClient.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo,
+        skipBrowserRedirect: true,
+      },
+    });
+
+    if (error || !data.url) {
+      return c.json({ error: error?.message || "Không tạo được URL đăng nhập Google" }, 400);
+    }
+
+    return c.json({ url: data.url });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
 // Lấy profile cá nhân
 authRouter.get("/profile", async (c) => {
   const user = c.get("user");
@@ -20,22 +109,7 @@ authRouter.get("/profile", async (c) => {
     return c.json({ user: null, role: "guest" });
   }
 
-  const { data: profile } = await supabaseAdmin
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
-
-  if (profile) {
-    const { data: ratioRecord } = await supabaseAdmin
-      .from("question_ratios")
-      .select("excel_ratio_unpaid, excel_ratio_paid")
-      .eq("role", role || "free")
-      .maybeSingle();
-
-    profile.default_excel_unpaid = ratioRecord?.excel_ratio_unpaid ?? (role === "plus" ? 50 : (role === "free" ? 0 : 100));
-    profile.default_excel_paid = ratioRecord?.excel_ratio_paid ?? (role === "free" ? 0 : 100);
-  }
+  const { profile } = await getProfileWithRole(user.id);
 
   return c.json({ user, profile, role });
 });

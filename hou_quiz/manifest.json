@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "HOU Quiz - Tự động chọn đáp án",
+  "version": "1.0.0",
+  "description": "Tự động tìm kiếm tài liệu theo môn học và highlight/chọn đáp án đúng cho các câu hỏi trắc nghiệm.",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://*.ehou.edu.vn/*",
+    "https://lmshub.hou.edu.vn/*",
+    "http://localhost/*"
+  ],
+  "action": {
+    "default_title": "HOU Quiz",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.ehou.edu.vn/mod/quiz/attempt.php*",
+        "https://*.ehou.edu.vn/mod/quiz/review.php*",
+        "https://lmshub.hou.edu.vn/mod/quiz/attempt.php*",
+        "https://lmshub.hou.edu.vn/mod/quiz/review.php*"
+      ],
+      "js": [
+        "config.js",
+        "utils.js",
+        "auto-select-docs.js",
+        "quiz-match.js",
+        "content.js"
+      ],
+      "css": [
+        "styles.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

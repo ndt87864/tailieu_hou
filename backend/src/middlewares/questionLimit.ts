@@ -102,7 +102,8 @@ export const questionLimitMiddleware: MiddlewareHandler = async (c, next) => {
 
   let questions = data.questions;
 
-  const hasFullAccess = await checkFullAccess(role, user, docId);
+  const isBypass = process.env.BYPASS_QUESTION_LIMIT === "true" || process.env.NODE_ENV === "development";
+  const hasFullAccess = isBypass ? true : await checkFullAccess(role, user, docId);
   if (hasFullAccess) {
     c.res = c.json({ ...data, questions, limitApplied: false }, 200);
     return;

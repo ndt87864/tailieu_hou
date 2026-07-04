@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Generate Icons PNG</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            text-align: center;
+            background: #f0f8ff;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+        }
+
+        .preview {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        canvas {
+            border: 2px solid #ddd;
+            margin: 10px;
+            background: white;
+            border-radius: 5px;
+        }
+
+        .info {
+            background: #e8f4fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #3498db;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1> Tailieu Extension - Icon Generator</h1>
+
+        <div class="info">
+            <strong> Hướng dẫn:</strong><br>
+            Click nút bên dưới để tự động tạo và download các file PNG cho Chrome Extension
+        </div>
+
+        <div class="preview">
+            <h3>🖼️ Preview Icons</h3>
+            <canvas id="canvas16" width="16" height="16" style="width: 48px; height: 48px;"></canvas>
+            <canvas id="canvas128" width="128" height="128" style="width: 128px; height: 128px;"></canvas>
+        </div>
+
+        <button onclick="generateIcons()" id="generateBtn">
+            Generate & Download PNG Icons
+        </button>
+
+        <div id="status" style="margin-top: 20px; font-size: 14px;"></div>
+    </div>
+
+    <script>
+        // SVG content for icons
+        const svg16Content = `<svg width="16" height="16" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="bgGrad16" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#0ea5e9" />
+              <stop offset="100%" style="stop-color:#6366f1" />
+            </linearGradient>
+            <linearGradient id="searchGrad16" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#f59e0b" />
+              <stop offset="100%" style="stop-color:#ea580c" />
+            </linearGradient>
+          </defs>
+          <rect x="0" y="0" width="16" height="16" fill="url(#bgGrad16)" rx="3"/>
+          <rect x="2" y="3" width="8" height="10" fill="#ffffff" rx="1"/>
+          <rect x="3" y="5" width="5" height="1" fill="#94a3b8" rx="0.5"/>
+          <rect x="3" y="7" width="4" height="1" fill="#94a3b8" rx="0.5"/>
+          <rect x="2.5" y="9" width="6" height="1.5" fill="#fef3c7" rx="0.5"/>
+          <rect x="3" y="9.2" width="4" height="0.6" fill="#d97706" rx="0.3"/>
+          <circle cx="12" cy="6" r="2.5" fill="url(#searchGrad16)"/>
+          <circle cx="12" cy="6" r="1.5" fill="none" stroke="#ffffff" stroke-width="0.8"/>
+          <line x1="13.2" y1="7.2" x2="14.5" y2="8.5" stroke="#ffffff" stroke-width="1" stroke-linecap="round"/>
+          <circle cx="5" cy="7" r="1.5" fill="#10b981"/>
+          <text x="5" y="8" font-family="Arial, sans-serif" font-size="2" font-weight="bold" fill="#ffffff" text-anchor="middle">?</text>
+        </svg>`;
+
+        const svg128Content = `<svg width="128" height="128" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="mainGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#0ea5e9;stop-opacity:1" />
+              <stop offset="50%" style="stop-color:#3b82f6;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#6366f1;stop-opacity:1" />
+            </linearGradient>
+            <linearGradient id="searchGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#f59e0b;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#ea580c;stop-opacity:1" />
+            </linearGradient>
+          </defs>
+          <circle cx="64" cy="64" r="60" fill="url(#mainGradient)"/>
+          <rect x="26" y="42" width="52" height="65" fill="#ffffff" rx="4" opacity="0.85" transform="rotate(-1 52 74.5)"/>
+          <rect x="28" y="38" width="52" height="65" fill="#ffffff" rx="4" opacity="0.92" transform="rotate(0.5 54 70.5)"/>
+          <rect x="30" y="34" width="52" height="65" fill="#ffffff" rx="5"/>
+          <rect x="30" y="34" width="52" height="12" fill="#f1f5f9" rx="5"/>
+          <rect x="35" y="39" width="15" height="2" fill="#cbd5e1" rx="1"/>
+          <rect x="36" y="52" width="35" height="2.5" fill="#64748b" rx="1.25"/>
+          <rect x="36" y="58" width="28" height="2" fill="#94a3b8" rx="1"/>
+          <rect x="36" y="63" width="40" height="2.5" fill="#64748b" rx="1.25"/>
+          <rect x="36" y="69" width="25" height="2" fill="#94a3b8" rx="1"/>
+          <rect x="34" y="75" width="42" height="8" fill="#fef3c7" rx="3" opacity="0.7"/>
+          <rect x="36" y="77" width="32" height="2.5" fill="#d97706" rx="1.25"/>
+          <rect x="36" y="81" width="25" height="1.5" fill="#d97706" rx="0.75" opacity="0.7"/>
+          <rect x="36" y="88" width="20" height="2" fill="#94a3b8" rx="1"/>
+          <rect x="36" y="93" width="30" height="2" fill="#94a3b8" rx="1"/>
+          <circle cx="78" cy="72" r="16" fill="url(#searchGradient)" opacity="0.95"/>
+          <circle cx="78" cy="72" r="11" fill="none" stroke="#ffffff" stroke-width="3"/>
+          <line x1="86" y1="80" x2="94" y2="88" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+          <circle cx="78" cy="72" r="2.5" fill="#ffffff" opacity="0.9"/>
+          <circle cx="45" cy="50" r="8" fill="#10b981" opacity="0.9"/>
+          <text x="45" y="55" font-family="Arial Black, sans-serif" font-size="10" font-weight="900" fill="#ffffff" text-anchor="middle">?</text>
+          <circle cx="50" cy="40" r="1.5" fill="#fbbf24" opacity="0.8"/>
+          <circle cx="90" cy="45" r="1" fill="#fbbf24" opacity="0.6"/>
+          <circle cx="25" cy="80" r="1.2" fill="#fbbf24" opacity="0.7"/>
+        </svg>`;
+
+        function updateStatus(message, color = '#333') {
+            const status = document.getElementById('status');
+            status.innerHTML = message;
+            status.style.color = color;
+        }
+
+        function createPngFromSvg(svgContent, size, canvasId, filename) {
+            return new Promise((resolve) => {
+                const canvas = document.getElementById(canvasId);
+                const ctx = canvas.getContext('2d');
+
+                const img = new Image();
+                const svgBlob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
+                const url = URL.createObjectURL(svgBlob);
+
+                img.onload = function () {
+                    ctx.clearRect(0, 0, size, size);
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = 'high';
+                    ctx.drawImage(img, 0, 0, size, size);
+
+                    canvas.toBlob(function (blob) {
+                        const downloadUrl = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = downloadUrl;
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+
+                        URL.revokeObjectURL(downloadUrl);
+                        URL.revokeObjectURL(url);
+
+                        updateStatus(` Generated ${filename}`, '#27ae60');
+                        resolve();
+                    }, 'image/png', 1.0);
+                };
+
+                img.src = url;
+            });
+        }
+
+        async function generateIcons() {
+            const btn = document.getElementById('generateBtn');
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Generating...';
+
+            updateStatus(' Starting icon generation...', '#3498db');
+
+            try {
+                await createPngFromSvg(svg16Content, 16, 'canvas16', 'icon16.png');
+                await new Promise(resolve => setTimeout(resolve, 500)); // Small delay
+                await createPngFromSvg(svg128Content, 128, 'canvas128', 'icon128.png');
+
+                updateStatus('🎉 All icons generated and downloaded successfully!', '#27ae60');
+            } catch (error) {
+                updateStatus('Error generating icons', '#e74c3c');
+                console.error(error);
+            }
+
+            btn.disabled = false;
+            btn.innerHTML = ' Generate & Download PNG Icons';
+        }
+
+        // Load preview on page load
+        window.onload = function () {
+            updateStatus('📱 Ready to generate icons', '#3498db');
+
+            // Show preview
+            const canvas16 = document.getElementById('canvas16');
+            const canvas128 = document.getElementById('canvas128');
+
+            // Preview 16x16
+            const img16 = new Image();
+            const blob16 = new Blob([svg16Content], { type: 'image/svg+xml;charset=utf-8' });
+            const url16 = URL.createObjectURL(blob16);
+            img16.onload = () => {
+                canvas16.getContext('2d').drawImage(img16, 0, 0, 16, 16);
+                URL.revokeObjectURL(url16);
+            };
+            img16.src = url16;
+
+            // Preview 128x128
+            const img128 = new Image();
+            const blob128 = new Blob([svg128Content], { type: 'image/svg+xml;charset=utf-8' });
+            const url128 = URL.createObjectURL(blob128);
+            img128.onload = () => {
+                canvas128.getContext('2d').drawImage(img128, 0, 0, 128, 128);
+                URL.revokeObjectURL(url128);
+            };
+            img128.src = url128;
+        };
+    </script>
+</body>
+
+</html>

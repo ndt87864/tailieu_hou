@@ -1,33 +1,45 @@
 {
   "manifest_version": 3,
-  "name": "Tailieu HOU - Tim dap an cau hoi",
-  "version": "0.1.0",
-  "description": "Tu dong tim va highlight dap an dung cho cau hoi trac nghiem tu backend Tailieu HOU.",
+  "name": "Tailieu Questions - Tự động tìm đáp án câu hỏi",
+  "version": "1.18",
+  "description": "Tự động tìm và highlight đáp án đúng cho câu hỏi trắc nghiệm từ cơ sở dữ liệu Tailieu. Hỗ trợ học tập hiệu quả.",
+  "homepage_url": "https://tailieuehou.id.vn",
   "permissions": [
     "activeTab",
     "storage",
     "scripting",
-    "identity"
+    "cookies",
+    "declarativeNetRequest",
+    "downloads"
   ],
   "host_permissions": [
+    "http://account.ehou.edu.vn/*",
     "https://*.ehou.edu.vn/*",
     "https://elearning.neu.edu.vn/*",
-    "https://lmshub.hou.edu.vn/*",
-    "http://localhost:3001/*",
-    "http://localhost:3000/*",
-    "https://tailieu-hou.onrender.com/*",
-    "https://*.supabase.co/*"
+    "https://tailieuehou.id.vn/editor",
+    "https://rleundkygkoyoyzrmvqe.supabase.co/*",
+    "https://api.puter.com/*",
+    "https://puter.com/*",
+    "https://9router-olive.vercel.app/*",
+    "https://lmshub.hou.edu.vn/*"
   ],
   "action": {
-    "default_popup": "popup/popup.html",
-    "default_title": "Tailieu HOU",
-    "default_icon": {
-      "16": "icons/icon16.png",
-      "48": "icons/icon48.png",
-      "128": "icons/icon128.png"
-    }
+    "default_popup": "popup.html",
+    "default_title": "Tailieu Questions"
   },
   "content_scripts": [
+    {
+      "matches": [
+        "https://cas.ehou.edu.vn/*"
+      ],
+      "js": [
+        "debug-config.js",
+        "supabase/supabase-client.js",
+        "user-capture.js",
+        "batch-cas-login-content.js"
+      ],
+      "run_at": "document_idle"
+    },
     {
       "matches": [
         "https://*.ehou.edu.vn/mod/quiz/attempt.php*",
@@ -38,18 +50,27 @@
         "https://lmshub.hou.edu.vn/mod/quiz/review.php*"
       ],
       "js": [
-        "utils/debug.js",
-        "utils/textUtils.js",
-        "content/courseDetector.js",
-        "content/quizDetector.js",
-        "content/matcher.js",
-        "content/highlighter.js",
-        "content/panel.js",
-        "content/content.js",
-        "content/quizMode.js"
+        "debug-config.js",
+        "supabase/supabase-client.js",
+        "scanner/image-handler.js",
+        "content-image-handler.js",
+        "content-text-utils.js",
+        "image-renderer.js",
+        "on-demand-query.js",
+        "auto-select-docs.js",
+        "quiz-mode.js",
+        "puterJs/puter-ai-helper.js",
+        "content.js",
+        "scanner/scanner.js",
+        "scanner/neu-scanner.js",
+        "fill-blank-handler.js",
+        "auto-quiz-flow.js",
+        "batch-quiz/batch-exclusion-cache.js",
+        "batch-quiz/batch-navigation-controller.js",
+        "batch-quiz/batch-review-handler.js"
       ],
       "css": [
-        "content/content.css"
+        "styles.css"
       ],
       "run_at": "document_idle"
     },
@@ -58,42 +79,83 @@
         "https://*.ehou.edu.vn/*",
         "https://lmshub.hou.edu.vn/*",
         "https://elearning.neu.edu.vn/*",
-        "http://localhost:3000/*",
-        "https://tailieu-hou.onrender.com/*"
-      ],
-      "exclude_matches": [
-        "https://*.ehou.edu.vn/mod/quiz/attempt.php*",
-        "https://*.ehou.edu.vn/mod/quiz/review.php*",
-        "https://elearning.neu.edu.vn/mod/quiz/attempt.php*",
-        "https://elearning.neu.edu.vn/mod/quiz/review.php*",
-        "https://lmshub.hou.edu.vn/mod/quiz/attempt.php*",
-        "https://lmshub.hou.edu.vn/mod/quiz/review.php*"
+        "https://elearning.neu.edu.vn/?redirect=0",
+        "https://elearning.neu.edu.vn/my/index.php",
+        "https://elearning.neu.edu.vn/course/view.php?id=*"
       ],
       "js": [
-        "utils/debug.js",
-        "utils/textUtils.js",
-        "content/courseDetector.js",
-        "content/panel.js",
-        "content/content.js"
+        "debug-config.js",
+        "supabase/supabase-client.js",
+        "subject-sync.js",
+        "exam-sync.js",
+        "batch-quiz/batch-utils.js",
+        "batch-quiz/batch-ui-content.js",
+        "suggest-quiz/suggest-quiz-content.js",
+        "captcha-handler.js",
+        "auto-quiz-flow.js",
+        "batch-learning-content.js"
       ],
       "css": [
-        "content/content.css"
+        "styles.css",
+        "batch-quiz/batch-ui-content.css"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://tailieuehou.id.vn/editor"
+      ],
+      "js": [
+        "debug-config.js",
+        "supabase/supabase-client.js",
+        "subject-sync.js",
+        "exam-sync.js",
+        "scanner/image-handler.js",
+        "content-image-handler.js",
+        "content-text-utils.js",
+        "image-renderer.js",
+        "on-demand-query.js",
+        "auto-select-docs.js",
+        "suggest-quiz/suggest-quiz-content.js",
+        "quiz-mode.js",
+        "puterJs/puter-ai-helper.js",
+        "content.js",
+        "scanner/scanner.js",
+        "scanner/neu-scanner.js",
+        "fill-blank-handler.js"
+      ],
+      "css": [
+        "styles.css"
       ],
       "run_at": "document_idle"
     }
   ],
   "background": {
-    "service_worker": "background/background.js"
+    "service_worker": "background.js"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' data: https:; connect-src 'self' http://localhost:3001 http://localhost:3000 https://tailieu-hou.onrender.com https://*.supabase.co;"
+    "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' data: https:; connect-src 'self' https://learning.ehou.edu.vn https://rleundkygkoyoyzrmvqe.supabase.co https://api.puter.com https://puter.com https://9router-olive.vercel.app https://lmshub.hou.edu.vn;"
+  },
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "ruleset_1",
+        "enabled": true,
+        "path": "rules.json"
+      }
+    ]
   },
   "web_accessible_resources": [
     {
       "resources": [
-        ".env.extends",
-        "icons/*",
-        "content/content.css"
+        "icons/*.png",
+        "styles.css",
+        "quiz-mode.js",
+        "puterJs/puter.js",
+        "puterJs/puter-captcha-bridge.js",
+        "bridges/manual-compare-bridge.js",
+        "auto-quiz-flow.js",
+        ".env.extends"
       ],
       "matches": [
         "<all_urls>"
