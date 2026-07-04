@@ -196,6 +196,8 @@
     align-items: center;
     justify-content: center;
     transition: background 0.2s;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 #hou-quiz-result-popup .quiz-result-minimize:hover,
@@ -389,13 +391,22 @@
 
 /* Style chung cho Lucide Icon SVG trong extension */
 .lucide-icon {
-    width: 1.2em;
-    height: 1.2em;
-    stroke: currentColor;
-    stroke-width: 2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    fill: none;
-    display: inline-block;
-    vertical-align: middle;
+    width: 1.2em !important;
+    height: 1.2em !important;
+    stroke: currentColor !important;
+    stroke-width: 2 !important;
+    stroke-linecap: round !important;
+    stroke-linejoin: round !important;
+    fill: none !important;
+    display: inline-block !important;
+    vertical-align: middle !important;
+}
+
+/* Fix hiển thị cho các icon thu nhỏ và đóng trên popup */
+#hou-quiz-result-popup .quiz-result-minimize svg,
+#hou-quiz-result-popup .quiz-result-close svg {
+    width: 14px !important;
+    height: 14px !important;
+    stroke: #ffffff !important;
+    display: block !important;
 }

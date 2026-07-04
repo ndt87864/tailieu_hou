@@ -2,152 +2,280 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>HOU Quiz Setup</title>
+    <title>HOU Quiz Control</title>
     <style>
         body {
-            width: 320px;
+            width: 340px;
             margin: 0;
-            padding: 15px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background-color: #f5f5f5;
-            color: #333;
+            padding: 16px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f1f5f9;
+            color: #1e293b;
         }
-        .header {
-            text-align: center;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #ddd;
-            margin-bottom: 15px;
+        
+        /* Header section */
+        .header-card {
+            background: white;
+            padding: 16px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 16px;
         }
-        .header h3 {
-            margin: 0;
-            color: #ff9800;
+        
+        .logo-wrapper {
+            flex-shrink: 0;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 6px;
         }
-        /* Style chung cho Lucide Icon SVG trong extension */
-        .lucide-icon {
-            width: 1.2em;
-            height: 1.2em;
-            stroke: currentColor;
-            stroke-width: 2;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-            fill: none;
-            display: inline-block;
-            vertical-align: middle;
+        
+        .header-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
         }
-        .section {
+        
+        .header-title {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 700;
+            color: #0f172a;
+            letter-spacing: -0.5px;
+        }
+        
+        .header-subtitle {
+            font-size: 12px;
+            color: #64748b;
+            margin: 0;
+        }
+        
+        /* Main config card */
+        .config-card {
             background: white;
-            padding: 12px;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-            margin-bottom: 15px;
+            border-top: 4px solid #3b82f6;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
         }
-        .option-group {
+        
+        .connection-status {
+            font-size: 11px;
+            color: #64748b;
+            margin-bottom: 12px;
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            margin-bottom: 10px;
+            gap: 4px;
         }
-        .option-group:last-child {
+        
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            background-color: #10b981;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        
+        .config-title {
+            display: flex;
+            align-items: center;
+            font-size: 15px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-top: 0;
+            margin-bottom: 16px;
+        }
+        
+        .settings-icon {
+            width: 18px;
+            height: 18px;
+            stroke: #3b82f6;
+            stroke-width: 2.5;
+            fill: none;
+            margin-right: 6px;
+        }
+        
+        /* Options layout as cards */
+        .option-card {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        
+        .option-card:last-child {
             margin-bottom: 0;
         }
-        .option-label {
-            font-size: 14px;
-            font-weight: 500;
+        
+        .option-card:hover {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
         }
-        /* Switch styling */
-        .switch {
-            position: relative;
-            display: inline-block;
-            width: 44px;
-            height: 22px;
-        }
-        .switch input {
+        
+        /* Custom checkbox */
+        .option-card input[type="checkbox"] {
+            position: absolute;
             opacity: 0;
-            width: 0;
-            height: 0;
-        }
-        .slider {
-            position: absolute;
             cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: .4s;
-            border-radius: 22px;
+            height: 0;
+            width: 0;
         }
-        .slider:before {
-            position: absolute;
+        
+        .custom-checkbox {
+            flex-shrink: 0;
+            height: 20px;
+            width: 20px;
+            background-color: #fff;
+            border: 2px solid #cbd5e1;
+            border-radius: 6px;
+            position: relative;
+            transition: all 0.2s ease;
+            margin-top: 2px;
+        }
+        
+        .option-card input:checked ~ .custom-checkbox {
+            background-color: #3b82f6;
+            border-color: #3b82f6;
+        }
+        
+        .custom-checkbox:after {
             content: "";
-            height: 16px;
-            width: 16px;
-            left: 3px;
-            bottom: 3px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
+            position: absolute;
+            display: none;
+            left: 6px;
+            top: 2px;
+            width: 5px;
+            height: 10px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
         }
-        input:checked + .slider {
-            background-color: #4caf50;
+        
+        .option-card input:checked ~ .custom-checkbox:after {
+            display: block;
         }
-        input:checked + .slider:before {
-            transform: translateX(22px);
+        
+        .option-info {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
         }
+        
+        .option-title {
+            font-size: 13.5px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        
+        .option-desc {
+            font-size: 11px;
+            color: #64748b;
+            line-height: 1.4;
+        }
+        
+        /* Footer */
         .footer {
             text-align: center;
             font-size: 11px;
-            color: #666;
-            margin-top: 10px;
+            color: #94a3b8;
+            margin-top: 16px;
+            padding-top: 8px;
+            border-top: 1px dashed #e2e8f0;
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h3>
-            <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 3.5-2 3.5s2.24-.5 3.5-2c1.26-1.5 2-3.5 2-3.5s-2.24.5-3.5 2z"/><path d="M12 5c.8-1 2.4-1.6 3.5-1.5C17.2 3.6 20 6.5 20.5 8c.1 1.1-.5 2.7-1.5 3.5-.8.6-2.5.5-3.5-.5-1-1-1.1-2.7-.5-3.5z"/><path d="M6 18l6-6"/><path d="M14.5 17.5c-.75-.75-1.5-1-2.5-.5-1 .5-1.5 1.5-2.5 1.5s-1.5-1-1.5-2.5 1-1.5 1.5-2.5c.5-1 .25-1.75-.5-2.5"/></svg>
-            HOU Quiz Control
-        </h3>
+    <!-- Header card -->
+    <div class="header-card">
+        <div class="logo-wrapper">
+            <svg width="44" height="44" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Vòng tròn nền xanh dương gradient -->
+                <circle cx="24" cy="24" r="22" fill="url(#blueGrad)"/>
+                <!-- Hình tờ giấy màu trắng -->
+                <rect x="14" y="12" width="20" height="24" rx="2" fill="white"/>
+                <!-- Các dòng chữ trên tờ giấy -->
+                <line x1="18" y1="18" x2="30" y2="18" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round"/>
+                <line x1="18" y1="23" x2="30" y2="23" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/>
+                <line x1="18" y1="28" x2="26" y2="28" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/>
+                <!-- Vòng tròn kính lúp nhỏ màu cam góc dưới phải -->
+                <circle cx="33" cy="33" r="8" fill="#ff9800" stroke="white" stroke-width="2"/>
+                <!-- Kính lúp (cán và kính) -->
+                <circle cx="32" cy="32" r="3.2" stroke="white" stroke-width="1.5"/>
+                <line x1="34.5" y1="34.5" x2="37.5" y2="37.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+                
+                <defs>
+                    <linearGradient id="blueGrad" x1="2" y1="2" x2="46" y2="46" gradientUnits="userSpaceOnUse">
+                        <stop stop-color="#3b82f6"/>
+                        <stop offset="1" stop-color="#1d4ed8"/>
+                    </linearGradient>
+                </defs>
+            </svg>
+        </div>
+        <div class="header-info">
+            <h1 class="header-title">HOU Quiz</h1>
+            <p class="header-subtitle">Tự động tìm và điền đáp án câu hỏi</p>
+        </div>
     </div>
     
-    <div class="section">
-        <div class="option-group">
-            <span class="option-label">Tự động chọn tài liệu</span>
-            <label class="switch">
-                <input type="checkbox" id="auto-select-docs" checked>
-                <span class="slider"></span>
-            </label>
+    <!-- Config card -->
+    <div class="config-card">
+        <div class="connection-status">
+            <span class="status-dot"></span>
+            <span>Kết nối ưu tiên: API Server (mạng)</span>
         </div>
         
-        <div class="option-group">
-            <span class="option-label">Highlight đáp án đúng</span>
-            <label class="switch">
-                <input type="checkbox" id="highlight-answers" checked>
-                <span class="slider"></span>
-            </label>
-        </div>
+        <h2 class="config-title">
+            <svg class="settings-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            Cấu hình quét
+        </h2>
+        
+        <!-- Options list -->
+        <label class="option-card">
+            <input type="checkbox" id="auto-select-docs" checked>
+            <span class="custom-checkbox"></span>
+            <div class="option-info">
+                <span class="option-title">Tự động chọn tài liệu</span>
+                <span class="option-desc">Tự động phát hiện môn học và tải tài liệu tương ứng từ cơ sở dữ liệu.</span>
+            </div>
+        </label>
+        
+        <label class="option-card">
+            <input type="checkbox" id="highlight-answers" checked>
+            <span class="custom-checkbox"></span>
+            <div class="option-info">
+                <span class="option-title">Highlight đáp án đúng</span>
+                <span class="option-desc">Tô màu xanh lá nổi bật cho các lựa chọn đáp án đúng trên trang làm bài.</span>
+            </div>
+        </label>
 
-        <div class="option-group">
-            <span class="option-label">Tự động chọn đáp án</span>
-            <label class="switch">
-                <input type="checkbox" id="auto-select-answers" checked>
-                <span class="slider"></span>
-            </label>
-        </div>
+        <label class="option-card">
+            <input type="checkbox" id="auto-select-answers" checked>
+            <span class="custom-checkbox"></span>
+            <div class="option-info">
+                <span class="option-title">Tự động chọn (Auto-select)</span>
+                <span class="option-desc">Khi bật, extension sẽ tự động click chọn đáp án đúng sau khi tìm thấy.</span>
+            </div>
+        </label>
 
-        <div class="option-group">
-            <span class="option-label">Hiển thị log hệ thống</span>
-            <label class="switch">
-                <input type="checkbox" id="enable-logs" checked>
-                <span class="slider"></span>
-            </label>
-        </div>
+        <label class="option-card">
+            <input type="checkbox" id="enable-logs" checked>
+            <span class="custom-checkbox"></span>
+            <div class="option-info">
+                <span class="option-title">Hiển thị log hệ thống</span>
+                <span class="option-desc">Hiển thị log chi tiết của extension trong console phục vụ kiểm tra lỗi.</span>
+            </div>
+        </label>
     </div>
-
+    
     <div class="footer">
         HOU Quiz Extension • Thuần JS
     </div>
