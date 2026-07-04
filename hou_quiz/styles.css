@@ -386,3 +386,16 @@
     transform: translateY(-2px);
     box-shadow: 0 12px 36px rgba(244, 67, 54, 0.4);
 }
+
+/* Style chung cho Lucide Icon SVG trong extension */
+.lucide-icon {
+    width: 1.2em;
+    height: 1.2em;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    fill: none;
+    display: inline-block;
+    vertical-align: middle;
+}

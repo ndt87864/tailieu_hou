@@ -6,6 +6,22 @@
 
   const QUIZ_RESULT_POPUP_ID = "hou-quiz-result-popup";
   const QUIZ_MINIMIZED_ID = "hou-quiz-minimized";
+
+  // Lucide Icons SVG
+  const LUCIDE_ICONS = {
+    bookOpen: `<svg class="lucide-icon" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`,
+    barChart: `<svg class="lucide-icon" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
+    checkCircle: `<svg class="lucide-icon" viewBox="0 0 24 24"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>`,
+    target: `<svg class="lucide-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>`,
+    alertTriangle: `<svg class="lucide-icon" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+    xCircle: `<svg class="lucide-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`,
+    database: `<svg class="lucide-icon" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg>`,
+    x: `<svg class="lucide-icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+    minus: `<svg class="lucide-icon" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
+    arrowRight: `<svg class="lucide-icon" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`,
+    edit: `<svg class="lucide-icon" viewBox="0 0 24 24" stroke="#ffffff"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`
+  };
+
   let lastQuizResult = null;
   let activeDocument = null;
   let dbQuestions = [];
@@ -181,7 +197,7 @@
     }
     widget.innerHTML = `
       <div class="widget-title">
-        <span>📖</span> Thông tin HOU Quiz
+        ${LUCIDE_ICONS.bookOpen} Thông tin HOU Quiz
       </div>
       <div class="widget-field">
         <span class="widget-label">Môn học:</span>
@@ -250,12 +266,7 @@
     const btn = document.createElement("div");
     btn.id = QUIZ_MINIMIZED_ID;
     btn.title = "Nhấn để mở rộng";
-    btn.innerHTML = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
-        <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
-      </svg>
-    `;
+    btn.innerHTML = LUCIDE_ICONS.edit;
     btn.addEventListener("click", () => {
       btn.remove();
       createResultPopup(result);
@@ -290,10 +301,10 @@
 
     popup.innerHTML = `
       <div class="quiz-result-header">
-        <span class="quiz-result-icon">📊</span>
+        <span class="quiz-result-icon">${LUCIDE_ICONS.barChart}</span>
         <span class="quiz-result-title">Kết quả điền đáp án</span>
-        <button class="quiz-result-minimize" title="Thu nhỏ">—</button>
-        <button class="quiz-result-close" title="Đóng">×</button>
+        <button class="quiz-result-minimize" title="Thu nhỏ">${LUCIDE_ICONS.minus}</button>
+        <button class="quiz-result-close" title="Đóng">${LUCIDE_ICONS.x}</button>
       </div>
       <div class="quiz-result-body">
         <div class="quiz-result-summary">
@@ -302,29 +313,29 @@
             <span class="quiz-stat-value">${totalPageQuestions}</span>
           </div>
           <div class="quiz-stat-item filled">
-            <span class="quiz-stat-icon">✅</span>
+            <span class="quiz-stat-icon">${LUCIDE_ICONS.checkCircle}</span>
             <span class="quiz-stat-label">Đã điền:</span>
             <span class="quiz-stat-value">${totalFilled} câu</span>
           </div>
           <div class="quiz-stat-item exact">
-            <span class="quiz-stat-icon">🎯</span>
+            <span class="quiz-stat-icon">${LUCIDE_ICONS.target}</span>
             <span class="quiz-stat-label">Khớp chính xác 100%:</span>
             <span class="quiz-stat-value">${exactMatch} câu</span>
           </div>
           <div class="quiz-stat-item fuzzy">
-            <span class="quiz-stat-icon">⚠️</span>
+            <span class="quiz-stat-icon">${LUCIDE_ICONS.alertTriangle}</span>
             <span class="quiz-stat-label">Khớp fuzzy 99.5%:</span>
             <span class="quiz-stat-value">${fuzzyMatch} câu</span>
           </div>
           <div class="quiz-stat-desc">Vui lòng kiểm tra lại các câu này!</div>
           <div class="quiz-stat-item not-found">
-            <span class="quiz-stat-icon">❌</span>
+            <span class="quiz-stat-icon">${LUCIDE_ICONS.xCircle}</span>
             <span class="quiz-stat-label">Không tìm thấy:</span>
             <span class="quiz-stat-value">${notFound} câu</span>
           </div>
           <div class="quiz-stat-divider"></div>
           <div class="quiz-stat-item db">
-            <span class="quiz-stat-icon">🗄️</span>
+            <span class="quiz-stat-icon">${LUCIDE_ICONS.database}</span>
             <span class="quiz-stat-label">Đáp án từ Dữ liệu (DB/Cached):</span>
             <span class="quiz-stat-value">${dbAnswers} câu</span>
           </div>
@@ -345,7 +356,7 @@
         </div>
       </div>
       <div class="quiz-result-footer">
-        <button class="quiz-btn-next">Trang Tiếp Theo →</button>
+        <button class="quiz-btn-next">Trang Tiếp Theo ${LUCIDE_ICONS.arrowRight}</button>
       </div>
     `;
 
@@ -382,14 +393,14 @@
           console.log("[HouQuiz Debug] -> Khớp thành công câu hỏi! Đáp án đúng:", match.answerText);
           solvedCount++;
           let status = "matched";
-          let statusIcon = "🎯";
+          let statusIcon = LUCIDE_ICONS.target;
           let confidence = 1.0;
           if (match.isExact) {
             exactMatch++;
           } else {
             fuzzyMatch++;
             status = "fuzzy";
-            statusIcon = "⚠️";
+            statusIcon = LUCIDE_ICONS.alertTriangle;
             confidence = 0.95;
           }
           
@@ -398,7 +409,7 @@
             answer: match.answerText,
             status: status,
             statusIcon: statusIcon,
-            sourceIcon: "🗄️",
+            sourceIcon: LUCIDE_ICONS.database,
             confidence: confidence
           });
 
@@ -438,7 +449,7 @@
             question: pq.text,
             answer: "",
             status: "not-found",
-            statusIcon: "❌",
+            statusIcon: LUCIDE_ICONS.xCircle,
             sourceIcon: "",
             confidence: 0
           });

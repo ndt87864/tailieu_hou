@@ -21,6 +21,22 @@
         .header h3 {
             margin: 0;
             color: #ff9800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        /* Style chung cho Lucide Icon SVG trong extension */
+        .lucide-icon {
+            width: 1.2em;
+            height: 1.2em;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            fill: none;
+            display: inline-block;
+            vertical-align: middle;
         }
         .section {
             background: white;
@@ -92,7 +108,10 @@
 </head>
 <body>
     <div class="header">
-        <h3>🚀 HOU Quiz Control</h3>
+        <h3>
+            <svg class="lucide-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 3.5-2 3.5s2.24-.5 3.5-2c1.26-1.5 2-3.5 2-3.5s-2.24.5-3.5 2z"/><path d="M12 5c.8-1 2.4-1.6 3.5-1.5C17.2 3.6 20 6.5 20.5 8c.1 1.1-.5 2.7-1.5 3.5-.8.6-2.5.5-3.5-.5-1-1-1.1-2.7-.5-3.5z"/><path d="M6 18l6-6"/><path d="M14.5 17.5c-.75-.75-1.5-1-2.5-.5-1 .5-1.5 1.5-2.5 1.5s-1.5-1-1.5-2.5 1-1.5 1.5-2.5c.5-1 .25-1.75-.5-2.5"/></svg>
+            HOU Quiz Control
+        </h3>
     </div>
     
     <div class="section">
@@ -116,6 +135,14 @@
             <span class="option-label">Tự động chọn đáp án</span>
             <label class="switch">
                 <input type="checkbox" id="auto-select-answers" checked>
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div class="option-group">
+            <span class="option-label">Hiển thị log hệ thống</span>
+            <label class="switch">
+                <input type="checkbox" id="enable-logs" checked>
                 <span class="slider"></span>
             </label>
         </div>
