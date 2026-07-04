@@ -29,53 +29,53 @@
     return s;
   }
 
+  function normalizeForCompare(str) {
+    let s = String(str || '');
+    try { if (s.normalize) s = s.normalize('NFKC'); } catch (e) { }
+    s = s.toLowerCase();
+    s = s.replace(/\s+/g, ' ').trim();
+    let key = s;
+    try {
+      if (key.normalize) key = key.normalize('NFD').replace(/\p{M}/gu, '');
+    } catch (e) { key = key.replace(/[\u0300-\u036f]/g, ''); }
+    try {
+      const unicodeLetterNumber = new RegExp('[^\\p{L}\\p{N}\\s]', 'gu');
+      key = key.replace(unicodeLetterNumber, '');
+    } catch (e) {
+      key = key.replace(/[^A-Za-z0-9\s]/g, '');
+    }
+    key = key.replace(/\s+/g, ' ').trim();
+    return { raw: s, key };
+  }
+
+  function levenshtein(a, b) {
+    if (a === b) return 0;
+    const al = a.length, bl = b.length;
+    if (al === 0) return bl;
+    if (bl === 0) return al;
+    const v0 = new Array(bl + 1).fill(0);
+    const v1 = new Array(bl + 1).fill(0);
+    for (let j = 0; j <= bl; j++) v0[j] = j;
+    for (let i = 0; i < al; i++) {
+      v1[0] = i + 1;
+      for (let j = 0; j < bl; j++) {
+        const cost = a[i] === b[j] ? 0 : 1;
+        v1[j + 1] = Math.min(v1[j] + 1, v0[j + 1] + 1, v0[j] + cost);
+      }
+      for (let j = 0; j <= bl; j++) v0[j] = v1[j];
+    }
+    return v1[bl];
+  }
+
   function compareNormalized(s1, s2) {
     if (!s1 || !s2) return false;
     
-    function normalizeForCompare(str) {
-      let s = String(str || '');
-      try { if (s.normalize) s = s.normalize('NFKC'); } catch (e) { }
-      s = s.toLowerCase();
-      s = s.replace(/\s+/g, ' ').trim();
-      let key = s;
-      try {
-        if (key.normalize) key = key.normalize('NFD').replace(/\p{M}/gu, '');
-      } catch (e) { key = key.replace(/[\u0300-\u036f]/g, ''); }
-      try {
-        const unicodeLetterNumber = new RegExp('[^\\p{L}\\p{N}\\s]', 'gu');
-        key = key.replace(unicodeLetterNumber, '');
-      } catch (e) {
-        key = key.replace(/[^A-Za-z0-9\s]/g, '');
-      }
-      key = key.replace(/\s+/g, ' ').trim();
-      return { raw: s, key };
-    }
-
     const A = normalizeForCompare(s1);
     const B = normalizeForCompare(s2);
     if (!A.key || !B.key) return false;
     if (A.key === B.key) return true;
     if (A.key.replace(/\s+/g, '') === B.key.replace(/\s+/g, '') && A.key.replace(/\s+/g, '').length > 0) return true;
     if (A.key.includes(B.key) || B.key.includes(A.key)) return true;
-
-    function levenshtein(a, b) {
-      if (a === b) return 0;
-      const al = a.length, bl = b.length;
-      if (al === 0) return bl;
-      if (bl === 0) return al;
-      const v0 = new Array(bl + 1).fill(0);
-      const v1 = new Array(bl + 1).fill(0);
-      for (let j = 0; j <= bl; j++) v0[j] = j;
-      for (let i = 0; i < al; i++) {
-        v1[0] = i + 1;
-        for (let j = 0; j < bl; j++) {
-          const cost = a[i] === b[j] ? 0 : 1;
-          v1[j + 1] = Math.min(v1[j] + 1, v0[j + 1] + 1, v0[j] + cost);
-        }
-        for (let j = 0; j <= bl; j++) v0[j] = v1[j];
-      }
-      return v1[bl];
-    }
 
     try {
       const lev = levenshtein(A.key, B.key);
@@ -87,9 +87,32 @@
     return false;
   }
 
+  function getSimilarityScore(s1, s2) {
+    if (!s1 || !s2) return 0;
+    const A = normalizeForCompare(s1);
+    const B = normalizeForCompare(s2);
+    if (!A.key || !B.key) return 0;
+    if (A.key === B.key) return 1.0;
+    if (A.key.replace(/\s+/g, '') === B.key.replace(/\s+/g, '')) return 0.99;
+
+    // Nếu một chuỗi chứa chuỗi còn lại, tính theo tỷ lệ độ dài
+    if (A.key.includes(B.key) || B.key.includes(A.key)) {
+      return 0.8 * (Math.min(A.key.length, B.key.length) / Math.max(A.key.length, B.key.length));
+    }
+
+    try {
+      const lev = levenshtein(A.key, B.key);
+      const maxLen = Math.max(A.key.length, B.key.length) || 1;
+      return 1.0 - (lev / maxLen);
+    } catch (e) {
+      return 0;
+    }
+  }
+
   window.houQuizUtils = {
     stripVietnameseDiacritics,
     compareNormalized,
-    normalizeTextForMatching
+    normalizeTextForMatching,
+    getSimilarityScore
   };
 })();

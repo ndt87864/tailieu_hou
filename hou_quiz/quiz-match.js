@@ -16,6 +16,13 @@
 
     if (candidates.length === 0) return null;
 
+    // Sắp xếp ứng viên theo độ tương đồng giảm dần để ưu tiên câu khớp nhất (tránh khớp nhầm câu dài gần giống)
+    candidates.sort((a, b) => {
+      const simA = utils.getSimilarityScore(cleanWebQ, utils.normalizeTextForMatching(a.question));
+      const simB = utils.getSimilarityScore(cleanWebQ, utils.normalizeTextForMatching(b.question));
+      return simB - simA;
+    });
+
     // Duyệt qua từng ứng viên trong DB để tìm match theo choices hoặc answer
     for (const dbQ of candidates) {
       const dbChoices = Array.isArray(dbQ.choices) ? dbQ.choices : [];
