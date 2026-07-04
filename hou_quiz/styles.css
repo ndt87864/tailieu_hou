@@ -60,8 +60,8 @@
 }
 
 .hou-highlight-option {
-    background-color: #e2f0d9 !important; /* Xanh nhạt pastel chuẩn Moodle */
-    border: 1px solid #28a745 !important; /* Viền xanh lá mảnh và rõ ràng */
+    background-color: #f79b07 !important;
+    /* Viền xanh lá mảnh và rõ ràng */
     border-radius: 4px !important;
     padding: 3px 8px !important;
     display: inline-block !important;
@@ -71,7 +71,8 @@
 
 .hou-highlight-option,
 .hou-highlight-option * {
-    color: #155724 !important; /* Chữ xanh lá sẫm sang trọng và tương phản tốt */
+    color: #155724 !important;
+    /* Chữ xanh lá sẫm sang trọng và tương phản tốt */
     font-weight: bold !important;
 }
 
