@@ -4,6 +4,7 @@
   // Danh sách settings keys lưu trữ ở chrome.storage.local
   const KEYS = {
     AUTO_SELECT_DOCS: "hou_auto_select_docs",
+    SHOW_INFO_WIDGET: "hou_show_info_widget",
     HIGHLIGHT_ANSWERS: "hou_highlight_answers",
     AUTO_SELECT_ANSWERS: "hou_auto_select_answers",
     ENABLE_LOGS: "hou_enable_logs"
@@ -11,26 +12,47 @@
 
   // Khởi tạo các phần tử DOM
   const autoSelectDocs = document.getElementById("auto-select-docs");
+  const showInfoWidget = document.getElementById("show-info-widget");
+  const showInfoWidgetCard = document.getElementById("show-info-widget-card");
   const highlightAnswers = document.getElementById("highlight-answers");
   const autoSelectAnswers = document.getElementById("auto-select-answers");
   const enableLogs = document.getElementById("enable-logs");
 
+  // Hàm cập nhật ẩn/hiện card "Hiển thị thông tin môn học"
+  function toggleWidgetOptionVisibility() {
+    if (autoSelectDocs.checked) {
+      showInfoWidgetCard.style.display = "flex";
+    } else {
+      showInfoWidgetCard.style.display = "none";
+    }
+  }
+
   // Load cài đặt cũ từ storage
   chrome.storage.local.get([
     KEYS.AUTO_SELECT_DOCS,
+    KEYS.SHOW_INFO_WIDGET,
     KEYS.HIGHLIGHT_ANSWERS,
     KEYS.AUTO_SELECT_ANSWERS,
     KEYS.ENABLE_LOGS
   ], (res) => {
     autoSelectDocs.checked = res[KEYS.AUTO_SELECT_DOCS] !== false; // mặc định true
+    showInfoWidget.checked = res[KEYS.SHOW_INFO_WIDGET] !== false; // mặc định true
     highlightAnswers.checked = res[KEYS.HIGHLIGHT_ANSWERS] !== false; // mặc định true
     autoSelectAnswers.checked = res[KEYS.AUTO_SELECT_ANSWERS] !== false; // mặc định true
     enableLogs.checked = res[KEYS.ENABLE_LOGS] !== false; // mặc định true
+    
+    // Cập nhật ẩn/hiện tùy chọn khi tải lại popup
+    toggleWidgetOptionVisibility();
   });
 
   // Gắn sự kiện lưu trữ cài đặt khi thay đổi
   autoSelectDocs.addEventListener("change", () => {
     chrome.storage.local.set({ [KEYS.AUTO_SELECT_DOCS]: autoSelectDocs.checked });
+    toggleWidgetOptionVisibility();
+  });
+
+  showInfoWidget.addEventListener("change", () => {
+    chrome.storage.local.set({ [KEYS.SHOW_INFO_WIDGET]: showInfoWidget.checked });
   });
 
   highlightAnswers.addEventListener("change", () => {
