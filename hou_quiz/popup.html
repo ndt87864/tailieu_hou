@@ -4,25 +4,140 @@
     <meta charset="utf-8">
     <title>HOU Quiz Control</title>
     <style>
+        /* ─── CSS Variables (Đồng bộ với Frontend & Glassmorphism) ─── */
+        :root {
+            /* Default Primary: Green */
+            --brand-50:  #e6f7e6;
+            --brand-500: #15a80a;
+            --brand-600: #118d05;
+            --brand-700: #0a6b04;
+            --brand-rgb: 17, 141, 5;
+
+            /* Semantic tokens sáng */
+            --bg:           #f1f5f9;
+            --bg-2:         rgba(248, 250, 252, 0.45);
+            --surface:      rgba(255, 255, 255, 0.7);
+            --surface-2:    rgba(248, 249, 250, 0.5);
+            --fg:           #0f172a;
+            --fg-2:         #1e293b;
+            --muted:        #64748b;
+            --border:       rgba(226, 232, 240, 0.4);
+            --border-soft:  rgba(241, 245, 249, 0.3);
+            --accent:       var(--brand-600);
+            --accent-hover: var(--brand-700);
+            --accent-on:    #ffffff;
+            --success:      #10b981;
+            --warn:         #f59e0b;
+            --danger:       #ef4444;
+            --shadow-sm:    0 2px 8px rgba(0, 0, 0, 0.04);
+            --shadow-md:    0 12px 32px rgba(0, 0, 0, 0.08);
+            --radius-sm:    8px;
+            --radius-md:    12px;
+            --radius-lg:    16px;
+
+            /* Glassmorphism tokens */
+            --glass-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.75) 0%, rgba(255, 255, 255, 0.35) 100%);
+            --glass-border: 1px solid rgba(255, 255, 255, 0.4);
+            --glass-border-top: 1px solid rgba(255, 255, 255, 0.75);
+            --glass-border-left: 1px solid rgba(255, 255, 255, 0.75);
+            --glass-blur: blur(20px);
+        }
+
+        /* Dark Mode */
+        .dark {
+            --bg:          #0f172a;
+            --bg-2:        rgba(31, 41, 55, 0.4);
+            --surface:     rgba(31, 41, 55, 0.7);
+            --surface-2:   rgba(55, 65, 81, 0.5);
+            --fg:          #f9fafb;
+            --fg-2:        #f3f4f6;
+            --muted:       #9ca3af;
+            --border:      rgba(55, 65, 81, 0.5);
+            --border-soft: rgba(31, 41, 55, 0.3);
+            --shadow-sm:   0 2px 8px rgba(0, 0, 0, 0.2);
+            --shadow-md:   0 12px 36px rgba(0, 0, 0, 0.4);
+            --brand-500:   #1bc70e;
+            --brand-600:   #15a80a;
+            --brand-700:   #0a6b04;
+
+            /* Glassmorphism tokens cho Dark */
+            --glass-bg: linear-gradient(135deg, rgba(31, 41, 55, 0.8) 0%, rgba(17, 24, 39, 0.5) 100%);
+            --glass-border: 1px solid rgba(255, 255, 255, 0.08);
+            --glass-border-top: 1px solid rgba(255, 255, 255, 0.16);
+            --glass-border-left: 1px solid rgba(255, 255, 255, 0.16);
+        }
+
+        /* Theme Colors */
+        .theme-green {
+            --brand-50: #e6f7e6; --brand-500: #15a80a; --brand-600: #118d05; --brand-700: #0a6b04; --brand-rgb: 17, 141, 5;
+        }
+        .theme-blue {
+            --brand-50: #e6f2ff; --brand-500: #0d74e7; --brand-600: #0066cc; --brand-700: #0055aa; --brand-rgb: 0, 102, 204;
+        }
+        .dark.theme-blue {
+            --brand-500: #60a5fa; --brand-600: #3b82f6; --brand-700: #2563eb; --brand-rgb: 59, 130, 246;
+        }
+        .theme-red {
+            --brand-50: #ffe6e6; --brand-500: #dc2626; --brand-600: #cc0000; --brand-700: #b91c1c; --brand-rgb: 204, 0, 0;
+        }
+        .dark.theme-red {
+            --brand-500: #f87171; --brand-600: #ef4444; --brand-700: #dc2626; --brand-rgb: 239, 68, 68;
+        }
+        .theme-purple {
+            --brand-50: #f2e6ff; --brand-500: #7c3aed; --brand-600: #6600cc; --brand-700: #5b21b6; --brand-rgb: 102, 0, 204;
+        }
+        .dark.theme-purple {
+            --brand-500: #a78bfa; --brand-600: #8b5cf6; --brand-700: #7c3aed; --brand-rgb: 139, 92, 246;
+        }
+        .theme-orange {
+            --brand-50: #fff7ed; --brand-500: #f97316; --brand-600: #ea580c; --brand-700: #c2410c; --brand-rgb: 234, 88, 12;
+        }
+        .dark.theme-orange {
+            --brand-500: #fb923c; --brand-600: #f97316; --brand-700: #ea580c; --brand-rgb: 249, 115, 22;
+        }
+        .theme-lime {
+            --brand-50: #f7fee7; --brand-500: #84cc16; --brand-600: #65a30d; --brand-700: #4d7c0f; --brand-rgb: 101, 163, 13;
+        }
+        .dark.theme-lime {
+            --brand-500: #a3e635; --brand-600: #84cc16; --brand-700: #65a30d; --brand-rgb: 132, 204, 22;
+        }
+        .theme-black {
+            --brand-50: #f3f4f6; --brand-500: #374151; --brand-600: #1f2937; --brand-700: #111827; --brand-rgb: 31, 41, 55;
+        }
+        .dark.theme-black {
+            --brand-500: #9ca3af; --brand-600: #d1d5db; --brand-700: #e5e7eb; --brand-rgb: 209, 213, 219;
+        }
+
         body {
             width: 340px;
             margin: 0;
             padding: 16px;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f1f5f9;
-            color: #1e293b;
+            background: radial-gradient(circle at 10% 20%, rgba(var(--brand-rgb), 0.08) 0%, rgba(226, 232, 240, 0.4) 90%);
+            color: var(--fg);
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+
+        body.dark {
+            background: radial-gradient(circle at 10% 20%, rgba(var(--brand-rgb), 0.15) 0%, #0f172a 90%);
         }
         
-        /* Header section */
+        /* Header section - Glassmorphism */
         .header-card {
-            background: white;
+            background: var(--glass-bg);
+            border: var(--glass-border);
+            border-top: var(--glass-border-top);
+            border-left: var(--glass-border-left);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
             padding: 16px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+            border-radius: 16px;
+            box-shadow: var(--shadow-sm);
             display: flex;
             align-items: center;
             gap: 14px;
             margin-bottom: 16px;
+            transition: background 0.2s ease;
         }
         
         .logo-wrapper {
@@ -41,29 +156,34 @@
         .header-title {
             margin: 0;
             font-size: 18px;
-            font-weight: 700;
-            color: #0f172a;
+            font-weight: 800;
+            color: var(--fg);
             letter-spacing: -0.5px;
         }
         
         .header-subtitle {
             font-size: 12px;
-            color: #64748b;
+            color: var(--muted);
             margin: 0;
         }
         
-        /* Main config card */
+        /* Main config card - Glassmorphism */
         .config-card {
-            background: white;
-            border-top: 4px solid #3b82f6;
-            border-radius: 12px;
+            background: var(--glass-bg);
+            border: var(--glass-border);
+            border-top: 4px solid var(--brand-600);
+            border-left: var(--glass-border-left);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border-radius: 16px;
             padding: 16px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+            box-shadow: var(--shadow-sm);
+            transition: background 0.2s ease, border-top-color 0.2s ease;
         }
         
         .connection-status {
             font-size: 11px;
-            color: #64748b;
+            color: var(--muted);
             margin-bottom: 12px;
             display: flex;
             align-items: center;
@@ -73,7 +193,7 @@
         .status-dot {
             width: 6px;
             height: 6px;
-            background-color: #10b981;
+            background-color: var(--success);
             border-radius: 50%;
             display: inline-block;
         }
@@ -83,7 +203,7 @@
             align-items: center;
             font-size: 15px;
             font-weight: 700;
-            color: #1e293b;
+            color: var(--fg-2);
             margin-top: 0;
             margin-bottom: 16px;
         }
@@ -91,10 +211,11 @@
         .settings-icon {
             width: 18px;
             height: 18px;
-            stroke: #3b82f6;
+            stroke: var(--brand-600);
             stroke-width: 2.5;
             fill: none;
             margin-right: 6px;
+            transition: stroke 0.2s ease;
         }
         
         /* Options layout as cards */
@@ -102,9 +223,9 @@
             display: flex;
             align-items: flex-start;
             gap: 12px;
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
+            background: rgba(var(--brand-rgb), 0.03);
+            border: 1px solid rgba(var(--brand-rgb), 0.08);
+            border-radius: 12px;
             padding: 12px;
             margin-bottom: 12px;
             cursor: pointer;
@@ -117,8 +238,8 @@
         }
         
         .option-card:hover {
-            background: #f1f5f9;
-            border-color: #cbd5e1;
+            background: rgba(var(--brand-rgb), 0.08);
+            border-color: var(--brand-400);
         }
         
         /* Custom checkbox */
@@ -134,8 +255,8 @@
             flex-shrink: 0;
             height: 20px;
             width: 20px;
-            background-color: #fff;
-            border: 2px solid #cbd5e1;
+            background-color: var(--surface-2);
+            border: 1.5px solid var(--border);
             border-radius: 6px;
             position: relative;
             transition: all 0.2s ease;
@@ -143,8 +264,8 @@
         }
         
         .option-card input:checked ~ .custom-checkbox {
-            background-color: #3b82f6;
-            border-color: #3b82f6;
+            background-color: var(--brand-600);
+            border-color: var(--brand-600);
         }
         
         .custom-checkbox:after {
@@ -173,23 +294,114 @@
         .option-title {
             font-size: 13.5px;
             font-weight: 600;
-            color: #1e293b;
+            color: var(--fg-2);
         }
         
         .option-desc {
             font-size: 11px;
-            color: #64748b;
+            color: var(--muted);
             line-height: 1.4;
         }
         
+        /* UI Settings Styles */
+        .ui-section-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--muted);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .theme-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .theme-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 8px;
+            background: rgba(var(--brand-rgb), 0.04);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--fg-2);
+            transition: all 0.2s ease;
+        }
+        .theme-btn svg {
+            stroke-width: 2.5;
+            width: 14px;
+            height: 14px;
+        }
+        .theme-btn:hover {
+            background: rgba(var(--brand-rgb), 0.08);
+            border-color: var(--brand-400);
+        }
+        .theme-btn.active {
+            background: rgba(var(--brand-rgb), 0.15);
+            border-color: var(--brand-600);
+            color: var(--brand-700);
+        }
+        .theme-btn.active svg {
+            stroke: var(--brand-600);
+        }
+        .color-grid {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 4px 2px;
+        }
+        .color-dot {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            box-shadow: var(--shadow-sm);
+        }
+        .color-dot:hover {
+            transform: scale(1.15);
+        }
+        .color-dot.active {
+            border-color: var(--fg);
+            transform: scale(1.1);
+        }
+        .color-dot.active::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 6px;
+            height: 6px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+        .color-dot.green { background-color: #118d05; }
+        .color-dot.blue { background-color: #0066cc; }
+        .color-dot.red { background-color: #cc0000; }
+        .color-dot.purple { background-color: #6600cc; }
+        .color-dot.orange { background-color: #f97316; }
+        .color-dot.lime { background-color: #84cc16; }
+        .color-dot.black { background-color: #333333; }
+
         /* Footer */
         .footer {
             text-align: center;
             font-size: 11px;
-            color: #94a3b8;
+            color: var(--muted);
             margin-top: 16px;
             padding-top: 8px;
-            border-top: 1px dashed #e2e8f0;
+            border-top: 1px dashed var(--border);
         }
     </style>
 </head>
@@ -198,12 +410,12 @@
     <div class="header-card">
         <div class="logo-wrapper">
             <svg width="44" height="44" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <!-- Vòng tròn nền xanh dương gradient -->
+                <!-- Vòng tròn nền xanh gradient -->
                 <circle cx="24" cy="24" r="22" fill="url(#blueGrad)"/>
                 <!-- Hình tờ giấy màu trắng -->
                 <rect x="14" y="12" width="20" height="24" rx="2" fill="white"/>
                 <!-- Các dòng chữ trên tờ giấy -->
-                <line x1="18" y1="18" x2="30" y2="18" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round"/>
+                <line x1="18" y1="18" x2="30" y2="18" stroke="var(--brand-600)" stroke-width="2.5" stroke-linecap="round"/>
                 <line x1="18" y1="23" x2="30" y2="23" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/>
                 <line x1="18" y1="28" x2="26" y2="28" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/>
                 <!-- Vòng tròn kính lúp nhỏ màu cam góc dưới phải -->
@@ -214,8 +426,8 @@
                 
                 <defs>
                     <linearGradient id="blueGrad" x1="2" y1="2" x2="46" y2="46" gradientUnits="userSpaceOnUse">
-                        <stop stop-color="#3b82f6"/>
-                        <stop offset="1" stop-color="#1d4ed8"/>
+                        <stop stop-color="var(--brand-500)"/>
+                        <stop offset="1" stop-color="var(--brand-600)"/>
                     </linearGradient>
                 </defs>
             </svg>
@@ -283,6 +495,43 @@
                 <span class="option-desc">Hiển thị log chi tiết của extension trong console phục vụ kiểm tra lỗi.</span>
             </div>
         </label>
+    </div>
+
+    <!-- UI Settings Card -->
+    <div class="config-card" style="margin-top: 16px;">
+        <h2 class="config-title">
+            <svg class="settings-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 2v20"/><path d="M12 12H2"/><path d="M12 12h10"/></svg>
+            Giao diện & Màu sắc
+        </h2>
+
+        <!-- Theme Selection Grid -->
+        <div class="ui-section-label">Chế độ hiển thị</div>
+        <div class="theme-grid">
+            <button class="theme-btn" id="theme-light" data-value="light">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M4.93 4.93l1.41 1.41"/><path d="M17.66 17.66l1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M6.34 17.66l-1.41 1.41"/><path d="M19.07 4.93l-1.41 1.41"/></svg>
+                <span>Sáng</span>
+            </button>
+            <button class="theme-btn" id="theme-dark" data-value="dark">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+                <span>Tối</span>
+            </button>
+            <button class="theme-btn" id="theme-system" data-value="system">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" rx="2" y="3" x="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                <span>Hệ thống</span>
+            </button>
+        </div>
+
+        <!-- Color Selection Grid -->
+        <div class="ui-section-label">Màu chủ đạo</div>
+        <div class="color-grid">
+            <button class="color-dot green" data-value="green" title="Xanh lá"></button>
+            <button class="color-dot blue" data-value="blue" title="Xanh dương"></button>
+            <button class="color-dot red" data-value="red" title="Đỏ"></button>
+            <button class="color-dot purple" data-value="purple" title="Tím"></button>
+            <button class="color-dot orange" data-value="orange" title="Cam"></button>
+            <button class="color-dot lime" data-value="lime" title="Vàng xanh"></button>
+            <button class="color-dot black" data-value="black" title="Đen"></button>
+        </div>
     </div>
     
     <div class="footer">

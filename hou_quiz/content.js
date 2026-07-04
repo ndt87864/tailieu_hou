@@ -26,6 +26,30 @@
   let activeDocument = null;
   let dbQuestions = [];
 
+  // Áp dụng theme và màu chủ đạo lên các phần tử UI của extension
+  function applyThemeToElement(el) {
+    if (!el) return;
+    chrome.storage.local.get(["hou_ui_theme_mode", "hou_ui_primary_color"], (res) => {
+      const mode = res.hou_ui_theme_mode || "system";
+      const color = res.hou_ui_primary_color || "green";
+
+      // 1. Áp dụng màu chủ đạo
+      const colorClasses = ["theme-green", "theme-blue", "theme-red", "theme-purple", "theme-orange", "theme-lime", "theme-black"];
+      el.classList.remove(...colorClasses);
+      el.classList.add(`theme-${color}`);
+
+      // 2. Áp dụng dark mode
+      const isDark =
+        mode === "dark" ||
+        (mode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      if (isDark) {
+        el.classList.add("dark");
+      } else {
+        el.classList.remove("dark");
+      }
+    });
+  }
+
   // Tạo và hiển thị Toast thông báo
   function showToast(message, duration = 3000) {
     let toast = document.querySelector(".hou-toast");
@@ -221,6 +245,7 @@
         widget.id = "hou-quiz-info-widget";
         document.body.appendChild(widget);
       }
+      applyThemeToElement(widget);
       widget.innerHTML = `
         <div class="widget-title">
           ${LUCIDE_ICONS.bookOpen} Thông tin HOU Quiz
@@ -294,6 +319,7 @@
     btn.id = QUIZ_MINIMIZED_ID;
     btn.title = "Nhấn để mở rộng";
     btn.innerHTML = LUCIDE_ICONS.edit;
+    applyThemeToElement(btn);
     btn.addEventListener("click", () => {
       btn.remove();
       createResultPopup(result);
@@ -323,6 +349,7 @@
 
     const popup = document.createElement("div");
     popup.id = QUIZ_RESULT_POPUP_ID;
+    applyThemeToElement(popup);
     
     const { totalPageQuestions, totalFilled, exactMatch, fuzzyMatch, notFound, dbAnswers, details } = result;
 
@@ -505,6 +532,7 @@
 
     const button = document.createElement("div");
     button.id = "hou-quiz-btn";
+    applyThemeToElement(button);
     button.innerHTML = `
       <div class="btn-content">
         <span class="btn-icon">🚀</span>
@@ -543,6 +571,17 @@
         } else {
           initDocument();
         }
+      }
+      // Cập nhật theme & màu chủ đạo realtime
+      if (changes.hou_ui_theme_mode || changes.hou_ui_primary_color) {
+        const widget = document.getElementById("hou-quiz-info-widget");
+        const popup = document.getElementById("hou-quiz-result-popup");
+        const minimized = document.getElementById("hou-quiz-minimized");
+        const btn = document.getElementById("hou-quiz-btn");
+        applyThemeToElement(widget);
+        applyThemeToElement(popup);
+        applyThemeToElement(minimized);
+        applyThemeToElement(btn);
       }
     }
   });

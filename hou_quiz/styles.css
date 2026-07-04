@@ -1,6 +1,109 @@
-/* Styles cho HOU Quiz */
+/* ─── CSS Variables cho HOU Quiz (Đồng bộ với Frontend & Glassmorphism) ─── */
+:root {
+  /* Default Primary: Green */
+  --brand-50:  #e6f7e6;
+  --brand-400: #4ebe41;
+  --brand-500: #15a80a;
+  --brand-600: #118d05;
+  --brand-700: #0a6b04;
+  --brand-rgb: 17, 141, 5;
 
-/* Nút LÀM BÀI NGAY */
+  /* Semantic tokens sáng */
+  --bg:           #f1f5f9;
+  --bg-2:         rgba(248, 250, 252, 0.45);
+  --surface:      rgba(255, 255, 255, 0.7);
+  --surface-2:    rgba(248, 249, 250, 0.5);
+  --fg:           #0f172a;
+  --fg-2:         #1e293b;
+  --muted:        #64748b;
+  --border:       rgba(226, 232, 240, 0.4);
+  --border-soft:  rgba(241, 245, 249, 0.3);
+  --accent:       var(--brand-600);
+  --accent-hover: var(--brand-700);
+  --accent-on:    #ffffff;
+  --success:      #10b981;
+  --warn:         #f59e0b;
+  --danger:       #ef4444;
+  --shadow-sm:    0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-md:    0 12px 32px rgba(0, 0, 0, 0.08);
+
+  /* Glassmorphism tokens */
+  --glass-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.75) 0%, rgba(255, 255, 255, 0.35) 100%);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.4);
+  --glass-border-top: 1px solid rgba(255, 255, 255, 0.75);
+  --glass-border-left: 1px solid rgba(255, 255, 255, 0.75);
+  --glass-blur: blur(20px);
+}
+
+.dark {
+  --bg:          #0f172a;
+  --bg-2:        rgba(31, 41, 55, 0.4);
+  --surface:     rgba(31, 41, 55, 0.7);
+  --surface-2:   rgba(55, 65, 81, 0.5);
+  --fg:          #f9fafb;
+  --fg-2:        #f3f4f6;
+  --muted:       #9ca3af;
+  --border:      rgba(55, 65, 81, 0.5);
+  --border-soft: rgba(31, 41, 55, 0.3);
+  --shadow-sm:   0 2px 8px rgba(0, 0, 0, 0.2);
+  --shadow-md:   0 12px 36px rgba(0, 0, 0, 0.4);
+  --brand-500:   #1bc70e;
+  --brand-600:   #15a80a;
+  --brand-700:   #0a6b04;
+  --brand-rgb:   21, 168, 10;
+
+  /* Glassmorphism tokens cho Dark */
+  --glass-bg: linear-gradient(135deg, rgba(31, 41, 55, 0.8) 0%, rgba(17, 24, 39, 0.5) 100%);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.08);
+  --glass-border-top: 1px solid rgba(255, 255, 255, 0.16);
+  --glass-border-left: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+/* Theme Colors */
+.theme-green {
+  --brand-5: #e6f7e6; --brand-400: #4ebe41; --brand-500: #15a80a; --brand-600: #118d05; --brand-700: #0a6b04; --brand-rgb: 17, 141, 5;
+}
+.dark.theme-green {
+  --brand-400: #4ebe41; --brand-500: #1bc70e; --brand-600: #15a80a; --brand-700: #0a6b04; --brand-rgb: 21, 168, 10;
+}
+.theme-blue {
+  --brand-50: #e6f2ff; --brand-400: #3396ff; --brand-500: #0d74e7; --brand-600: #0066cc; --brand-700: #0055aa; --brand-rgb: 0, 102, 204;
+}
+.dark.theme-blue {
+  --brand-400: #60a5fa; --brand-500: #60a5fa; --brand-600: #3b82f6; --brand-700: #2563eb; --brand-rgb: 59, 130, 246;
+}
+.theme-red {
+  --brand-50: #ffe6e6; --brand-400: #ff6666; --brand-500: #dc2626; --brand-600: #cc0000; --brand-700: #b91c1c; --brand-rgb: 204, 0, 0;
+}
+.dark.theme-red {
+  --brand-400: #f87171; --brand-500: #f87171; --brand-600: #ef4444; --brand-700: #dc2626; --brand-rgb: 239, 68, 68;
+}
+.theme-purple {
+  --brand-50: #f2e6ff; --brand-400: #9933ff; --brand-500: #7c3aed; --brand-600: #6600cc; --brand-700: #5b21b6; --brand-rgb: 102, 0, 204;
+}
+.dark.theme-purple {
+  --brand-400: #a78bfa; --brand-500: #a78bfa; --brand-600: #8b5cf6; --brand-700: #7c3aed; --brand-rgb: 139, 92, 246;
+}
+.theme-orange {
+  --brand-50: #fff7ed; --brand-400: #fb923c; --brand-500: #f97316; --brand-600: #ea580c; --brand-700: #c2410c; --brand-rgb: 234, 88, 12;
+}
+.dark.theme-orange {
+  --brand-400: #fb923c; --brand-500: #fb923c; --brand-600: #f97316; --brand-700: #ea580c; --brand-rgb: 249, 115, 22;
+}
+.theme-lime {
+  --brand-50: #f7fee7; --brand-400: #a3e635; --brand-500: #84cc16; --brand-600: #65a30d; --brand-700: #4d7c0f; --brand-rgb: 101, 163, 13;
+}
+.dark.theme-lime {
+  --brand-400: #a3e635; --brand-500: #a3e635; --brand-600: #84cc16; --brand-700: #65a30d; --brand-rgb: 132, 204, 22;
+}
+.theme-black {
+  --brand-50: #f3f4f6; --brand-400: #8c8c8c; --brand-500: #4b5563; --brand-600: #333333; --brand-700: #1f2937; --brand-rgb: 51, 51, 51;
+}
+.dark.theme-black {
+  --brand-400: #8c8c8c; --brand-500: #737373; --brand-600: #525252; --brand-700: #404040; --brand-rgb: 82, 82, 82;
+}
+
+/* Nút LÀM BÀI NGAY - Kính bóng gradient tươi */
 #hou-quiz-btn {
     position: fixed;
     right: 20px;
@@ -8,24 +111,28 @@
     transform: translateY(-50%);
     width: 200px;
     height: 70px;
-    background: linear-gradient(135deg, #ff9800 0%, #f44336 100%);
+    background: linear-gradient(135deg, var(--brand-500) 0%, var(--brand-600) 100%);
     border-radius: 35px;
-    box-shadow: 0 8px 25px rgba(244, 67, 54, 0.4);
+    box-shadow: 0 8px 24px rgba(var(--brand-rgb), 0.45);
     cursor: pointer;
     z-index: 999999;
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 3px solid rgba(255, 255, 255, 0.4);
-    transition: all 0.3s ease;
-    color: white;
+    border: 1.5px solid rgba(255, 255, 255, 0.25);
+    border-top: 1.5px solid rgba(255, 255, 255, 0.55);
+    border-left: 1.5px solid rgba(255, 255, 255, 0.55);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    color: var(--accent-on, white);
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-weight: bold;
 }
 
 #hou-quiz-btn:hover {
     transform: translateY(-50%) scale(1.05);
-    box-shadow: 0 10px 30px rgba(244, 67, 54, 0.6);
+    background: linear-gradient(135deg, var(--brand-400) 0%, var(--brand-500) 100%);
+    border-color: rgba(255, 255, 255, 0.4);
+    box-shadow: 0 12px 28px rgba(var(--brand-rgb), 0.55);
 }
 
 #hou-quiz-btn .btn-content {
@@ -46,12 +153,10 @@
 
 /* Highlight CSS */
 .hou-highlight-question {
-    color: #f44336 !important;
-    /* Bôi đỏ câu hỏi */
+    color: var(--danger, #ef4444) !important;
     font-weight: bold !important;
 }
 
-/* Trả lại màu chữ mặc định cho phần câu trả lời và chỉ dẫn, tránh bị ảnh hưởng khi câu hỏi bị bôi đỏ */
 .hou-highlight-question .answer,
 .hou-highlight-question .ablock,
 .hou-highlight-question .prompt {
@@ -64,8 +169,7 @@
     border: 1px solid #047857 !important;
     border-radius: 6px !important;
     padding: 6px 12px !important;
-    box-shadow: 0 2px 4px rgba(5, 150, 105, 0.3) !important;
-    /* Đổ bóng nhẹ */
+    box-shadow: 0 2px 4px rgba(var(--brand-rgb), 0.3) !important;
     display: inline-block !important;
     margin: 2px 0 !important;
     transition: all 0.3s ease;
@@ -74,21 +178,25 @@
 .hou-highlight-option,
 .hou-highlight-option * {
     color: #ffffff !important;
-    /* Chữ trắng hoàn toàn */
     font-weight: bold !important;
 }
 
-/* Thông báo nhỏ */
+/* Thông báo nhỏ - Glassmorphism */
 .hou-toast {
     position: fixed;
     bottom: 20px;
     right: 20px;
-    background-color: #333;
-    color: #fff;
+    background: var(--glass-bg);
+    border: var(--glass-border);
+    border-top: var(--glass-border-top);
+    border-left: var(--glass-border-left);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    color: var(--fg, #fff);
     padding: 12px 24px;
     border-radius: 8px;
     z-index: 1000000;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--shadow-md);
     font-size: 14px;
     font-family: sans-serif;
     pointer-events: none;
@@ -100,20 +208,24 @@
     opacity: 1;
 }
 
-/* Info Widget góc trên bên phải */
+/* Info Widget góc trên bên phải - Glassmorphism */
 #hou-quiz-info-widget {
     position: fixed;
     top: 20px;
     right: 20px;
     width: 280px;
-    background: rgba(255, 255, 255, 0.95);
-    border-left: 5px solid #ff9800;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
-    border-radius: 6px;
-    padding: 12px;
+    background: var(--glass-bg);
+    border: var(--glass-border);
+    border-top: var(--glass-border-top);
+    border-left: 5px solid var(--brand-600) !important;
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: var(--shadow-md);
+    border-radius: 12px;
+    padding: 14px;
     z-index: 1000000;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    color: #333;
+    color: var(--fg);
     pointer-events: auto;
     font-size: 13px;
     line-height: 1.4;
@@ -122,8 +234,8 @@
 
 #hou-quiz-info-widget .widget-title {
     font-weight: bold;
-    color: #e65100;
-    margin-bottom: 6px;
+    color: var(--brand-600);
+    margin-bottom: 8px;
     font-size: 14px;
     display: flex;
     align-items: center;
@@ -131,20 +243,20 @@
 }
 
 #hou-quiz-info-widget .widget-field {
-    margin-bottom: 4px;
+    margin-bottom: 6px;
 }
 
 #hou-quiz-info-widget .widget-label {
     font-weight: 600;
-    color: #555;
+    color: var(--muted);
 }
 
 #hou-quiz-info-widget .widget-value {
-    color: #111;
+    color: var(--fg-2);
     word-break: break-word;
 }
 
-/* Bảng kết quả trắc nghiệm HOU Quiz */
+/* Bảng kết quả trắc nghiệm HOU Quiz - Glassmorphism */
 #hou-quiz-result-popup {
     position: fixed;
     top: 50%;
@@ -152,9 +264,15 @@
     transform: translate(-50%, -50%);
     width: 550px;
     max-height: 80vh;
-    background: white;
-    border-radius: 16px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    background: var(--glass-bg);
+    border: var(--glass-border);
+    border-top: var(--glass-border-top);
+    border-left: var(--glass-border-left);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    color: var(--fg);
+    border-radius: 20px;
+    box-shadow: var(--shadow-md);
     z-index: 1000000;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     overflow: hidden;
@@ -163,8 +281,9 @@
 }
 
 #hou-quiz-result-popup .quiz-result-header {
-    background: linear-gradient(135deg, #ff9800 0%, #f44336 100%);
-    color: white;
+    background: linear-gradient(135deg, rgba(var(--brand-rgb), 0.15) 0%, rgba(var(--brand-rgb), 0.05) 100%);
+    color: var(--fg);
+    border-bottom: 1px solid var(--border);
     padding: 16px 20px;
     display: flex;
     align-items: center;
@@ -173,36 +292,46 @@
 
 #hou-quiz-result-popup .quiz-result-icon {
     font-size: 20px;
+    color: var(--brand-600);
+    display: flex;
+    align-items: center;
 }
 
 #hou-quiz-result-popup .quiz-result-title {
     flex: 1;
     font-size: 16px;
-    font-weight: 600;
+    font-weight: 700;
+    color: var(--fg);
 }
 
 #hou-quiz-result-popup .quiz-result-minimize,
 #hou-quiz-result-popup .quiz-result-close {
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(var(--brand-rgb), 0.1);
     border: none;
-    color: white;
+    color: var(--fg-2);
     width: 28px;
     height: 28px;
-    border-radius: 6px;
+    border-radius: 8px;
     cursor: pointer;
     font-size: 16px;
     font-weight: bold;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background 0.2s;
+    transition: background 0.2s, transform 0.2s;
     user-select: none;
     -webkit-user-select: none;
 }
 
 #hou-quiz-result-popup .quiz-result-minimize:hover,
 #hou-quiz-result-popup .quiz-result-close:hover {
-    background: rgba(255, 255, 255, 0.3);
+    background: rgba(var(--brand-rgb), 0.2);
+    transform: scale(1.05);
+}
+
+#hou-quiz-result-popup .quiz-result-minimize svg,
+#hou-quiz-result-popup .quiz-result-close svg {
+    stroke: var(--fg) !important;
 }
 
 #hou-quiz-result-popup .quiz-result-body {
@@ -226,45 +355,40 @@
 }
 
 #hou-quiz-result-popup .quiz-stat-item.filled {
-    background: #ECFDF5;
-    color: #059669;
+    background: rgba(16, 185, 129, 0.08);
+    color: var(--success);
 }
 
 #hou-quiz-result-popup .quiz-stat-item.exact {
-    background: #ECFDF5;
-    color: #059669;
+    background: rgba(16, 185, 129, 0.08);
+    color: var(--success);
 }
 
 #hou-quiz-result-popup .quiz-stat-item.fuzzy {
-    background: #FEF3C7;
-    color: #D97706;
+    background: rgba(245, 158, 11, 0.08);
+    color: var(--warn);
 }
 
 #hou-quiz-result-popup .quiz-stat-item.not-found {
-    background: #FEE2E2;
-    color: #DC2626;
-}
-
-#hou-quiz-result-popup .quiz-stat-item.ai {
-    background: #EDE9FE;
-    color: #7C3AED;
+    background: rgba(239, 68, 68, 0.08);
+    color: var(--danger);
 }
 
 #hou-quiz-result-popup .quiz-stat-item.db {
-    background: #E0F2FE;
-    color: #0284C7;
+    background: rgba(var(--brand-rgb), 0.08);
+    color: var(--brand-600);
 }
 
 #hou-quiz-result-popup .quiz-stat-desc {
     font-size: 12px;
-    color: #9CA3AF;
+    color: var(--muted);
     margin-left: 28px;
     margin-bottom: 10px;
 }
 
 #hou-quiz-result-popup .quiz-stat-divider {
     height: 1px;
-    background: #E5E7EB;
+    background: var(--border);
     margin: 12px 0;
 }
 
@@ -283,7 +407,7 @@
 #hou-quiz-result-popup .quiz-details-header {
     font-weight: 600;
     margin-bottom: 10px;
-    color: #374151;
+    color: var(--fg);
     display: flex;
     align-items: center;
     gap: 5px;
@@ -292,8 +416,8 @@
 #hou-quiz-result-popup .quiz-details-list {
     max-height: 200px;
     overflow-y: auto;
-    border: 1px solid #E5E7EB;
-    border-radius: 8px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
     padding: 8px;
 }
 
@@ -306,23 +430,23 @@
 }
 
 #hou-quiz-result-popup .quiz-detail-item.matched {
-    background: #ECFDF5;
+    background: rgba(16, 185, 129, 0.04);
 }
 
 #hou-quiz-result-popup .quiz-detail-item.fuzzy {
-    background: #FEF3C7;
+    background: rgba(245, 158, 11, 0.04);
 }
 
 #hou-quiz-result-popup .quiz-detail-item.not-found {
-    background: #FEE2E2;
+    background: rgba(239, 68, 68, 0.04);
 }
 
-#hou-quiz-result-popup .quiz-detail-icon {
+#hou-quiz-detail-icon {
     margin-right: 6px;
 }
 
 #hou-quiz-result-popup .quiz-detail-num {
-    color: #6B7280;
+    color: var(--muted);
     font-weight: 600;
     margin-right: 4px;
 }
@@ -332,40 +456,43 @@
 }
 
 #hou-quiz-result-popup .quiz-detail-text {
-    color: #374151;
+    color: var(--fg);
 }
 
 #hou-quiz-result-popup .quiz-detail-answer {
-    color: #059669;
+    color: var(--success);
     font-size: 11px;
     margin-right: 20px;
 }
 
 #hou-quiz-result-popup .quiz-result-footer {
     padding: 16px 20px;
-    background: #F9FAFB;
-    border-top: 1px solid #E5E7EB;
+    background: transparent;
+    border-top: 1px solid var(--border);
 }
 
 #hou-quiz-result-popup .quiz-btn-next {
     width: 100%;
     padding: 12px 20px;
-    background: linear-gradient(135deg, #ff9800 0%, #f44336 100%);
+    background: linear-gradient(135deg, var(--brand-500) 0%, var(--brand-600) 100%);
     color: white;
-    border: none;
-    border-radius: 8px;
+    border: 1.5px solid rgba(255, 255, 255, 0.25);
+    border-top: 1.5px solid rgba(255, 255, 255, 0.55);
+    border-left: 1.5px solid rgba(255, 255, 255, 0.55);
+    border-radius: 10px;
     font-size: 15px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 #hou-quiz-result-popup .quiz-btn-next:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(244, 67, 54, 0.4);
+    background: linear-gradient(135deg, var(--brand-400) 0%, var(--brand-500) 100%);
+    box-shadow: 0 6px 20px rgba(var(--brand-rgb), 0.45);
 }
 
-/* Nút thu nhỏ ("Nhấn để mở rộng") */
+/* Nút thu nhỏ ("Nhấn để mở rộng") - Kính bóng gradient */
 #hou-quiz-minimized {
     position: fixed;
     bottom: 20px;
@@ -376,17 +503,21 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    background: linear-gradient(135deg, #ff9800 0%, #f44336 100%);
+    background: linear-gradient(135deg, var(--brand-500) 0%, var(--brand-600) 100%);
     border-radius: 50%;
     font-size: 24px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    border: 1.5px solid rgba(255, 255, 255, 0.25);
+    border-top: 1.5px solid rgba(255, 255, 255, 0.5);
+    border-left: 1.5px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 8px 24px rgba(var(--brand-rgb), 0.35);
     z-index: 999998;
-    transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.2s;
+    transition: transform 0.2s ease, background 0.2s, box-shadow 0.2s;
 }
 
 #hou-quiz-minimized:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 36px rgba(244, 67, 54, 0.4);
+    transform: translateY(-2px) scale(1.05);
+    background: linear-gradient(135deg, var(--brand-400) 0%, var(--brand-500) 100%);
+    box-shadow: 0 12px 32px rgba(var(--brand-rgb), 0.45);
 }
 
 /* Style chung cho Lucide Icon SVG trong extension */
@@ -407,6 +538,5 @@
 #hou-quiz-result-popup .quiz-result-close svg {
     width: 14px !important;
     height: 14px !important;
-    stroke: #ffffff !important;
     display: block !important;
 }
