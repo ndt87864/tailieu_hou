@@ -4,6 +4,9 @@
   if (window.houQuizLoaded) return;
   window.houQuizLoaded = true;
 
+  const QUIZ_RESULT_POPUP_ID = "hou-quiz-result-popup";
+  const QUIZ_MINIMIZED_ID = "hou-quiz-minimized";
+  let lastQuizResult = null;
   let activeDocument = null;
   let dbQuestions = [];
 
@@ -195,6 +198,162 @@
     `;
   }
 
+  // Các hàm helper phục vụ hiển thị kết quả và điều hướng
+  function truncateText(text, maxLength) {
+    if (!text) return "";
+    const str = text.toString();
+    return str.length <= maxLength ? str : str.substring(0, maxLength) + "...";
+  }
+
+  function simulateFullClick(el) {
+    if (!el) return;
+    try {
+      el.focus();
+      const opts = { bubbles: true, cancelable: true, view: window };
+      el.dispatchEvent(new PointerEvent("pointerdown", { ...opts, pointerType: "mouse" }));
+      el.dispatchEvent(new MouseEvent("mousedown", opts));
+      setTimeout(() => {
+        el.dispatchEvent(new PointerEvent("pointerup", { ...opts, pointerType: "mouse" }));
+        el.dispatchEvent(new MouseEvent("mouseup", opts));
+        el.click();
+        if (el.tagName === "INPUT" || el.tagName === "SELECT") {
+          el.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+      }, 50);
+    } catch (e) {
+      el.click();
+    }
+  }
+
+  function navigateToNextPage() {
+    const moodleNext = document.querySelector('.submitbtns input[name="next"]') || document.querySelector('input[name="next"]');
+    if (moodleNext) {
+      simulateFullClick(moodleNext);
+      return;
+    }
+    const allBtns = Array.from(document.querySelectorAll('input[type="submit"], button, a'));
+    const nextBtn = allBtns.find(el => /tiếp\s+theo|tiếp\s+tục|next/i.test(el.value || el.textContent || ''));
+    if (nextBtn) {
+      simulateFullClick(nextBtn);
+    } else {
+      showToast("Không tìm thấy nút chuyển trang!");
+    }
+  }
+
+  function removeMinimizedButton() {
+    const btn = document.getElementById(QUIZ_MINIMIZED_ID);
+    if (btn) btn.remove();
+  }
+
+  function createMinimizedButton(result) {
+    removeMinimizedButton();
+    const btn = document.createElement("div");
+    btn.id = QUIZ_MINIMIZED_ID;
+    btn.title = "Nhấn để mở rộng";
+    btn.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+        <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+      </svg>
+    `;
+    btn.addEventListener("click", () => {
+      btn.remove();
+      createResultPopup(result);
+    });
+    document.body.appendChild(btn);
+  }
+
+  function setupResultPopupEvents(popup, result) {
+    popup.querySelector(".quiz-result-close")?.addEventListener("click", () => {
+      popup.remove();
+      removeMinimizedButton();
+    });
+    popup.querySelector(".quiz-result-minimize")?.addEventListener("click", () => {
+      popup.remove();
+      createMinimizedButton(result);
+    });
+    popup.querySelector(".quiz-btn-next")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      navigateToNextPage();
+    });
+  }
+
+  function createResultPopup(result) {
+    const existing = document.getElementById(QUIZ_RESULT_POPUP_ID);
+    if (existing) existing.remove();
+
+    const popup = document.createElement("div");
+    popup.id = QUIZ_RESULT_POPUP_ID;
+    
+    const { totalPageQuestions, totalFilled, exactMatch, fuzzyMatch, notFound, dbAnswers, details } = result;
+
+    popup.innerHTML = `
+      <div class="quiz-result-header">
+        <span class="quiz-result-icon">📊</span>
+        <span class="quiz-result-title">Kết quả điền đáp án</span>
+        <button class="quiz-result-minimize" title="Thu nhỏ">—</button>
+        <button class="quiz-result-close" title="Đóng">×</button>
+      </div>
+      <div class="quiz-result-body">
+        <div class="quiz-result-summary">
+          <div class="quiz-stat-item">
+            <span class="quiz-stat-label">Tổng số câu hỏi:</span>
+            <span class="quiz-stat-value">${totalPageQuestions}</span>
+          </div>
+          <div class="quiz-stat-item filled">
+            <span class="quiz-stat-icon">✅</span>
+            <span class="quiz-stat-label">Đã điền:</span>
+            <span class="quiz-stat-value">${totalFilled} câu</span>
+          </div>
+          <div class="quiz-stat-item exact">
+            <span class="quiz-stat-icon">🎯</span>
+            <span class="quiz-stat-label">Khớp chính xác 100%:</span>
+            <span class="quiz-stat-value">${exactMatch} câu</span>
+          </div>
+          <div class="quiz-stat-item fuzzy">
+            <span class="quiz-stat-icon">⚠️</span>
+            <span class="quiz-stat-label">Khớp fuzzy 99.5%:</span>
+            <span class="quiz-stat-value">${fuzzyMatch} câu</span>
+          </div>
+          <div class="quiz-stat-desc">Vui lòng kiểm tra lại các câu này!</div>
+          <div class="quiz-stat-item not-found">
+            <span class="quiz-stat-icon">❌</span>
+            <span class="quiz-stat-label">Không tìm thấy:</span>
+            <span class="quiz-stat-value">${notFound} câu</span>
+          </div>
+          <div class="quiz-stat-divider"></div>
+          <div class="quiz-stat-item db">
+            <span class="quiz-stat-icon">🗄️</span>
+            <span class="quiz-stat-label">Đáp án từ Dữ liệu (DB/Cached):</span>
+            <span class="quiz-stat-value">${dbAnswers} câu</span>
+          </div>
+        </div>
+        <div class="quiz-result-details">
+          <div class="quiz-details-header">Chi tiết:</div>
+          <div class="quiz-details-list">
+            ${details.map((d, idx) => `
+              <div class="quiz-detail-item ${d.status}">
+                <span class="quiz-detail-icon">${d.statusIcon}</span>
+                <span class="quiz-detail-num">Câu ${idx + 1}:</span>
+                <span class="quiz-detail-source">${d.sourceIcon}</span>
+                <span class="quiz-detail-text">${truncateText(d.question, 60)}</span>
+                ${d.answer ? `<br><span class="quiz-detail-answer">→ ${truncateText(d.answer, 40)} ${d.confidence ? `(${(d.confidence * 100).toFixed(1)}%)` : ""}</span>` : ""}
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      </div>
+      <div class="quiz-result-footer">
+        <button class="quiz-btn-next">Trang Tiếp Theo →</button>
+      </div>
+    `;
+
+    document.body.appendChild(popup);
+    setupResultPopupEvents(popup, result);
+    return popup;
+  }
+
   // Thực hiện làm bài: Quét, so khớp, highlight và tự động chọn đáp án
   function startSolving() {
     console.log("[HouQuiz Debug] Bắt đầu làm bài, số lượng câu hỏi trong DB:", dbQuestions.length);
@@ -211,6 +370,10 @@
       const pageQuestions = scanQuestionsOnPage();
       console.log("[HouQuiz Debug] Số câu hỏi quét được trên trang:", pageQuestions.length);
       let solvedCount = 0;
+      let exactMatch = 0;
+      let fuzzyMatch = 0;
+      let notFound = 0;
+      const details = [];
 
       pageQuestions.forEach(pq => {
         console.log("[HouQuiz Debug] Đang so khớp câu hỏi trên trang:", pq.text.substring(0, 50) + "...");
@@ -218,7 +381,27 @@
         if (match) {
           console.log("[HouQuiz Debug] -> Khớp thành công câu hỏi! Đáp án đúng:", match.answerText);
           solvedCount++;
+          let status = "matched";
+          let statusIcon = "🎯";
+          let confidence = 1.0;
+          if (match.isExact) {
+            exactMatch++;
+          } else {
+            fuzzyMatch++;
+            status = "fuzzy";
+            statusIcon = "⚠️";
+            confidence = 0.95;
+          }
           
+          details.push({
+            question: pq.text,
+            answer: match.answerText,
+            status: status,
+            statusIcon: statusIcon,
+            sourceIcon: "🗄️",
+            confidence: confidence
+          });
+
           // 1. Highlight câu hỏi màu đỏ
           if (highlightAnswersEnabled) {
             pq.element.classList.add("hou-highlight-question");
@@ -249,18 +432,30 @@
             }
           });
         } else {
-          console.log("[HouQuiz Debug] -> Không tìm thấy câu hỏi khớp trong DB. Chi tiết câu hỏi web:");
-          console.log("   - Web normalized:", window.houQuizUtils.normalizeTextForMatching(pq.text));
-          // Log thử 3 câu trong DB xem cấu trúc text thế nào để đối chiếu
-          if (dbQuestions.length > 0) {
-            console.log("   - Ví dụ 3 câu trong DB:");
-            dbQuestions.slice(0, 3).forEach((dbQ, dIdx) => {
-              console.log(`     DB [${dIdx}]:`, window.houQuizUtils.normalizeTextForMatching(dbQ.question));
-            });
-          }
+          console.log("[HouQuiz Debug] -> Không tìm thấy câu hỏi khớp trong DB.");
+          notFound++;
+          details.push({
+            question: pq.text,
+            answer: "",
+            status: "not-found",
+            statusIcon: "❌",
+            sourceIcon: "",
+            confidence: 0
+          });
         }
       });
 
+      lastQuizResult = {
+        totalPageQuestions: pageQuestions.length,
+        totalFilled: solvedCount,
+        exactMatch: exactMatch,
+        fuzzyMatch: fuzzyMatch,
+        notFound: notFound,
+        dbAnswers: solvedCount,
+        details: details
+      };
+
+      createResultPopup(lastQuizResult);
       showToast(`Đã hoàn thành tìm và xử lý: ${solvedCount}/${pageQuestions.length} câu.`);
     });
   }

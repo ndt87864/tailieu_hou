@@ -20,6 +20,7 @@
     for (const dbQ of candidates) {
       const dbChoices = Array.isArray(dbQ.choices) ? dbQ.choices : [];
       const dbAnswer = String(dbQ.answer || "").trim();
+      const isExactQuestion = cleanWebQ === utils.normalizeTextForMatching(dbQ.question);
 
       // Chiến lược 1: Khớp qua choices (nếu DB có choices)
       if (dbChoices.length > 0) {
@@ -27,10 +28,13 @@
         for (const optionText of pageQuestion.options) {
           const cleanOption = utils.normalizeTextForMatching(optionText);
           if (utils.compareNormalized(cleanOption, dbAnswer)) {
+            const isExactAnswer = cleanOption === utils.normalizeTextForMatching(dbAnswer);
             return {
               questionId: dbQ.id,
+              dbQuestionText: dbQ.question,
               answerText: dbAnswer,
-              matchedOptionText: optionText
+              matchedOptionText: optionText,
+              isExact: isExactQuestion && isExactAnswer
             };
           }
         }
@@ -44,10 +48,13 @@
           for (const optionText of pageQuestion.options) {
             const cleanOption = utils.normalizeTextForMatching(optionText);
             if (utils.compareNormalized(cleanOption, correctChoiceText)) {
+              const isExactAnswer = cleanOption === utils.normalizeTextForMatching(correctChoiceText);
               return {
                 questionId: dbQ.id,
+                dbQuestionText: dbQ.question,
                 answerText: correctChoiceText,
-                matchedOptionText: optionText
+                matchedOptionText: optionText,
+                isExact: isExactQuestion && isExactAnswer
               };
             }
           }
@@ -58,10 +65,13 @@
       for (const optionText of pageQuestion.options) {
         const cleanOption = utils.normalizeTextForMatching(optionText);
         if (utils.compareNormalized(cleanOption, dbAnswer)) {
+          const isExactAnswer = cleanOption === utils.normalizeTextForMatching(dbAnswer);
           return {
             questionId: dbQ.id,
+            dbQuestionText: dbQ.question,
             answerText: dbAnswer,
-            matchedOptionText: optionText
+            matchedOptionText: optionText,
+            isExact: isExactQuestion && isExactAnswer
           };
         }
       }
