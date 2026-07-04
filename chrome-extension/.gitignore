@@ -1,0 +1,4 @@
+# Runtime secrets - KHONG commit
+.env.extends
+
+# Icons generated/source keep; nothing to ignore

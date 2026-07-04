@@ -167,4 +167,26 @@ questionsRouter.delete("/:id", requireRole("management"), async (c) => {
   return c.json({ success: true, message: "Deleted" });
 });
 
+// SEARCH theo text (exact + fuzzy fallback). Body: { questions: string[], document_ids?: string[] }
+// Tra ve { results: { "<text>": Question[] } }.
+questionsRouter.post("/search", async (c) => {
+  try {
+    const body = await c.req.json();
+    const texts = Array.isArray(body?.questions) ? body.questions : [];
+    const documentIds = Array.isArray(body?.document_ids) ? body.document_ids : [];
+
+    if (texts.length === 0) {
+      return c.json({ error: "questions array is required and must not be empty" }, 400);
+    }
+    if (texts.length > 200) {
+      return c.json({ error: "Too many questions (max 200 per request)" }, 400);
+    }
+
+    const results = await questionService.searchQuestions(texts, documentIds);
+    return c.json({ results });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 export default questionsRouter;

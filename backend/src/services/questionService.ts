@@ -121,3 +121,87 @@ export const getQuestionById = async (id: string): Promise<Question | null> => {
   if (error) return null;
   return data;
 };
+
+// ========== SEARCH THEO TEXT ==========
+// Exact match: question IN (...texts) [optional scope theo document_ids].
+// Fuzzy: ilike '%text%' (bo sang trong nhieu text) -> fallback khi exact ko ra.
+// Tra ve map: result[text] = Question[].
+
+const SEARCH_TTL = 60_000; // cache 1 phut
+
+// Chuan hoa text cho fuzzy (bo dau tieng Viet, lowercase, thay space bang '*')
+function normalizeFuzzyPattern(text: string): string {
+  if (!text) return "";
+  let cleaned = text.normalize("NFD").replace(/[̀-ͯ]/g, "");
+  cleaned = cleaned.replace(
+    /https?:\/\/[^\s"']+\/pluginfile\.php\/[^\s"']+\/([A-Za-z0-9_\-]+\.(?:png|jpe?g|gif|svg))/gi,
+    "*$1"
+  );
+  let pattern = cleaned.toLowerCase().replace(/\s+/g, "*").replace(/\*+/g, "*");
+  pattern = pattern.replace(/^\*+|\*+$/g, "");
+  return pattern;
+}
+
+// Escape cho ilike: chi can % _ \\ (PostgREST encodeURIComponent ngoai route)
+function escapeIlike(str: string): string {
+  return String(str || "").replace(/[%_\\]/g, (m) => "\\" + m);
+}
+
+export const searchQuestions = async (
+  texts: string[],
+  documentIds: string[] = [],
+): Promise<{ [text: string]: Question[] }> => {
+  const queries = Array.isArray(texts)
+    ? texts.map((t) => String(t || "")).filter(Boolean)
+    : [];
+  if (queries.length === 0) return {};
+
+  const cacheKey = `search:${JSON.stringify({ queries, documentIds })}`;
+  const cached = await cacheGetOrSet(
+    cacheKey,
+    async () => {
+      const out: { [text: string]: Question[] } = {};
+
+      // 1. Exact (bulk): WHERE question IN (...) [AND document_id IN (...)]
+      const exactQuery = supabaseAdmin.from("questions").select("*");
+      if (documentIds.length > 0) {
+        exactQuery.in("document_id", documentIds);
+      }
+      const { data: exactRows, error: exactErr } = await exactQuery.in("question", queries);
+      if (!exactErr && Array.isArray(exactRows)) {
+        exactRows.forEach((row) => {
+          const t = String(row.question || "");
+          if (!t) return;
+          if (!out[t]) out[t] = [];
+          out[t].push(row);
+        });
+      }
+
+      // 2. Fuzzy cho nhung text chua co exact
+      const missing = queries.filter((t) => !out[t] || out[t].length === 0);
+      for (const t of missing) {
+        const pattern = normalizeFuzzyPattern(t);
+        if (!pattern || pattern.length < 3) {
+          out[t] = [];
+          continue;
+        }
+        let q = supabaseAdmin
+          .from("questions")
+          .select("*")
+          .ilike("question", `*${escapeIlike(pattern)}*`);
+        if (documentIds.length > 0) {
+          q = q.in("document_id", documentIds);
+        }
+        q = q.limit(20);
+        const { data, error } = await q;
+        out[t] = error || !Array.isArray(data) ? [] : data;
+      }
+
+      queries.forEach((t) => { if (!out[t]) out[t] = []; });
+      return out;
+    },
+    SEARCH_TTL
+  );
+
+  return cached;
+};

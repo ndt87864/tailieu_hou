@@ -1,0 +1,108 @@
+{
+  "manifest_version": 3,
+  "name": "Tailieu HOU - Tim dap an cau hoi",
+  "version": "0.1.0",
+  "description": "Tu dong tim va highlight dap an dung cho cau hoi trac nghiem tu backend Tailieu HOU.",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting",
+    "identity"
+  ],
+  "host_permissions": [
+    "https://*.ehou.edu.vn/*",
+    "https://elearning.neu.edu.vn/*",
+    "https://lmshub.hou.edu.vn/*",
+    "http://localhost:3001/*",
+    "http://localhost:3000/*",
+    "https://tailieu-hou.onrender.com/*",
+    "https://*.supabase.co/*"
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "Tailieu HOU",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.ehou.edu.vn/mod/quiz/attempt.php*",
+        "https://*.ehou.edu.vn/mod/quiz/review.php*",
+        "https://elearning.neu.edu.vn/mod/quiz/attempt.php*",
+        "https://elearning.neu.edu.vn/mod/quiz/review.php*",
+        "https://lmshub.hou.edu.vn/mod/quiz/attempt.php*",
+        "https://lmshub.hou.edu.vn/mod/quiz/review.php*"
+      ],
+      "js": [
+        "utils/debug.js",
+        "utils/textUtils.js",
+        "content/courseDetector.js",
+        "content/quizDetector.js",
+        "content/matcher.js",
+        "content/highlighter.js",
+        "content/panel.js",
+        "content/content.js",
+        "content/quizMode.js"
+      ],
+      "css": [
+        "content/content.css"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://*.ehou.edu.vn/*",
+        "https://lmshub.hou.edu.vn/*",
+        "https://elearning.neu.edu.vn/*",
+        "http://localhost:3000/*",
+        "https://tailieu-hou.onrender.com/*"
+      ],
+      "exclude_matches": [
+        "https://*.ehou.edu.vn/mod/quiz/attempt.php*",
+        "https://*.ehou.edu.vn/mod/quiz/review.php*",
+        "https://elearning.neu.edu.vn/mod/quiz/attempt.php*",
+        "https://elearning.neu.edu.vn/mod/quiz/review.php*",
+        "https://lmshub.hou.edu.vn/mod/quiz/attempt.php*",
+        "https://lmshub.hou.edu.vn/mod/quiz/review.php*"
+      ],
+      "js": [
+        "utils/debug.js",
+        "utils/textUtils.js",
+        "content/courseDetector.js",
+        "content/panel.js",
+        "content/content.js"
+      ],
+      "css": [
+        "content/content.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background/background.js"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' data: https:; connect-src 'self' http://localhost:3001 http://localhost:3000 https://tailieu-hou.onrender.com https://*.supabase.co;"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        ".env.extends",
+        "icons/*",
+        "content/content.css"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
