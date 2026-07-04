@@ -60,10 +60,12 @@
 }
 
 .hou-highlight-option {
-    background-color: #f79b07 !important;
-    /* Viền xanh lá mảnh và rõ ràng */
-    border-radius: 4px !important;
-    padding: 3px 8px !important;
+    background-color: #0ba806 !important;
+    border: 1px solid #047857 !important;
+    border-radius: 6px !important;
+    padding: 6px 12px !important;
+    box-shadow: 0 2px 4px rgba(5, 150, 105, 0.3) !important;
+    /* Đổ bóng nhẹ */
     display: inline-block !important;
     margin: 2px 0 !important;
     transition: all 0.3s ease;
@@ -71,8 +73,8 @@
 
 .hou-highlight-option,
 .hou-highlight-option * {
-    color: #155724 !important;
-    /* Chữ xanh lá sẫm sang trọng và tương phản tốt */
+    color: #ffffff !important;
+    /* Chữ trắng hoàn toàn */
     font-weight: bold !important;
 }
 
