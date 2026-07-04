@@ -22,14 +22,46 @@
     }, duration);
   }
 
+  // Highlight riêng phần text của đáp án, bỏ qua các thẻ chứa checkmark/icon/input
+  function highlightTextInOption(optEl) {
+    if (optEl.querySelector(".hou-highlight-option") || optEl.classList.contains("hou-highlight-option")) {
+      return;
+    }
+
+    const ignoreSelectors = ".feedbackspan, .icon, i, input, .accesshide, .feedback, img, .correct, .incorrect, .checkmark, .fa";
+    const nodesToMove = [];
+    
+    Array.from(optEl.childNodes).forEach(node => {
+      if (node.nodeType === 1) {
+        // Bỏ qua nếu khớp selector hoặc chứa ký tự checkmark/cross
+        if (node.matches(ignoreSelectors) || /[\u2713\u2714\u2611\u2705\u274c\u274e]/g.test(node.textContent)) {
+          return;
+        }
+      }
+      if (node.nodeType === 3 && node.textContent.trim().length === 0) {
+        return;
+      }
+      nodesToMove.push(node);
+    });
+
+    if (nodesToMove.length > 0) {
+      const span = document.createElement("span");
+      span.className = "hou-highlight-option";
+      optEl.insertBefore(span, nodesToMove[0]);
+      nodesToMove.forEach(node => span.appendChild(node));
+    } else {
+      optEl.classList.add("hou-highlight-option");
+    }
+  }
+
   // Quét các câu hỏi trên trang Moodle / LMS
   function scanQuestionsOnPage() {
     const pageQuestions = [];
     const questionContainers = document.querySelectorAll(".que, div.question, .question-container");
 
     questionContainers.forEach((container, idx) => {
-      // Tìm element câu hỏi
-      const qtextEl = container.querySelector(".qtext, .questiontext, .formulation");
+      // Tìm element câu hỏi (ưu tiên tìm câu hỏi đích danh trước formulation)
+      const qtextEl = container.querySelector(".qtext, .questiontext") || container.querySelector(".formulation");
       if (!qtextEl) return;
 
       // Clone để tránh ảnh hưởng trực tiếp đến DOM
@@ -64,7 +96,11 @@
       if (!answerContainer) return;
 
       // Tìm các option lựa chọn (radio hoặc checkbox labels)
-      const optionElements = Array.from(answerContainer.querySelectorAll("label, .flex-fill, div[role='option']"));
+      let optionElements = Array.from(answerContainer.querySelectorAll("label, .flex-fill, div[role='option']"));
+      // Lọc bỏ các phần tử cha nếu có phần tử con cũng nằm trong danh sách (tránh highlight cả block chứa đáp án)
+      optionElements = optionElements.filter(el => 
+        !optionElements.some(otherEl => otherEl !== el && el.contains(otherEl))
+      );
       const options = optionElements.map(el => {
         let txt = el.textContent.replace(/\s+/g, " ").trim();
         // Xóa ký tự checkmark hoặc các icon đúng/sai có thể dính vào text của option
@@ -198,7 +234,7 @@
             if (window.houQuizUtils.compareNormalized(optText, match.answerText)) {
               console.log("[HouQuiz Debug] -> Khớp đáp án lựa chọn!");
               if (highlightAnswersEnabled) {
-                optEl.classList.add("hou-highlight-option");
+                highlightTextInOption(optEl);
               }
               if (autoSelectAnswersEnabled) {
                 const input = optEl.querySelector("input[type='radio'], input[type='checkbox']") || 

@@ -41,21 +41,38 @@
 #hou-quiz-btn .btn-text {
     font-size: 18px;
     letter-spacing: 0.5px;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 /* Highlight CSS */
 .hou-highlight-question {
-    color: #f44336 !important; /* Đỏ cho câu hỏi được nhận diện */
+    color: #f44336 !important;
+    /* Bôi đỏ câu hỏi */
     font-weight: bold !important;
 }
 
+/* Trả lại màu chữ mặc định cho phần câu trả lời và chỉ dẫn, tránh bị ảnh hưởng khi câu hỏi bị bôi đỏ */
+.hou-highlight-question .answer,
+.hou-highlight-question .ablock,
+.hou-highlight-question .prompt {
+    color: revert !important;
+    font-weight: revert !important;
+}
+
 .hou-highlight-option {
-    background-color: #c8e6c9 !important; /* Xanh lá cho đáp án đúng */
-    border: 2px solid #4caf50 !important;
-    border-radius: 4px;
-    padding: 2px 6px;
-    transition: background-color 0.5s ease;
+    background-color: #e2f0d9 !important; /* Xanh nhạt pastel chuẩn Moodle */
+    border: 1px solid #28a745 !important; /* Viền xanh lá mảnh và rõ ràng */
+    border-radius: 4px !important;
+    padding: 3px 8px !important;
+    display: inline-block !important;
+    margin: 2px 0 !important;
+    transition: all 0.3s ease;
+}
+
+.hou-highlight-option,
+.hou-highlight-option * {
+    color: #155724 !important; /* Chữ xanh lá sẫm sang trọng và tương phản tốt */
+    font-weight: bold !important;
 }
 
 /* Thông báo nhỏ */
@@ -68,7 +85,7 @@
     padding: 12px 24px;
     border-radius: 8px;
     z-index: 1000000;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     font-size: 14px;
     font-family: sans-serif;
     pointer-events: none;
@@ -88,7 +105,7 @@
     width: 280px;
     background: rgba(255, 255, 255, 0.95);
     border-left: 5px solid #ff9800;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
     border-radius: 6px;
     padding: 12px;
     z-index: 1000000;
@@ -123,4 +140,3 @@
     color: #111;
     word-break: break-word;
 }
-
