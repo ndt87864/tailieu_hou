@@ -76,13 +76,42 @@
       const cleanWebTitle = window.houQuizUtils.normalizeTextForMatching(info.title);
       let matchedDoc = null;
 
+      function isCourseTitleMatch(webTitle, docTitle) {
+        const w = String(webTitle || "").toLowerCase().trim();
+        const d = String(docTitle || "").toLowerCase().trim();
+        if (w === d) return true;
+
+        const cleanW = window.houQuizUtils.stripVietnameseDiacritics(w).replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+        const cleanD = window.houQuizUtils.stripVietnameseDiacritics(d).replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+        if (cleanW === cleanD) return true;
+
+        const getBaseAndNumbers = (str) => {
+          const match = str.match(/^(.*?)\s*(\b\d+(?:[\s+,&/\\]+\d+)*\b)\s*$/);
+          if (match) {
+            const base = match[1].trim();
+            const nums = match[2].match(/\d+/g) || [];
+            return { base, nums };
+          }
+          return { base: str, nums: [] };
+        };
+
+        const parsedW = getBaseAndNumbers(cleanW);
+        const parsedD = getBaseAndNumbers(cleanD);
+
+        if (parsedW.base && parsedD.base && parsedW.base === parsedD.base) {
+          if (parsedW.nums.length > 0 && parsedD.nums.length > 0) {
+            const allNumsMatched = parsedW.nums.every(num => parsedD.nums.includes(num));
+            if (allNumsMatched) return true;
+          }
+        }
+
+        return cleanD.includes(cleanW) || cleanW.includes(cleanD);
+      }
+
       if (docList.length > 0) {
         matchedDoc = docList.find(doc => {
           const cleanDocTitle = window.houQuizUtils.normalizeTextForMatching(doc.title);
-          // 1. So khớp chính xác sau khi chuẩn hóa
-          if (cleanDocTitle === cleanWebTitle) return true;
-          // 2. Khớp một phần
-          return cleanDocTitle.includes(cleanWebTitle) || cleanWebTitle.includes(cleanDocTitle);
+          return isCourseTitleMatch(cleanWebTitle, cleanDocTitle);
         });
       }
 
