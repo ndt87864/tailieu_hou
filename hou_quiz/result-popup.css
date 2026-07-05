@@ -1,0 +1,282 @@
+/* Bảng kết quả trắc nghiệm HOU Quiz - Glassmorphism */
+#hou-quiz-result-popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 550px;
+    max-height: 80vh;
+    background: var(--glass-bg);
+    border: var(--glass-border);
+    border-top: var(--glass-border-top);
+    border-left: var(--glass-border-left);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    color: var(--fg);
+    border-radius: 20px;
+    box-shadow: var(--shadow-md);
+    z-index: 1000000;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+#hou-quiz-result-popup .quiz-result-header {
+    background: linear-gradient(135deg, rgba(var(--brand-rgb), 0.15) 0%, rgba(var(--brand-rgb), 0.05) 100%);
+    color: var(--fg);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#hou-quiz-result-popup .quiz-result-icon {
+    font-size: 20px;
+    color: var(--brand-600);
+    display: flex;
+    align-items: center;
+}
+
+#hou-quiz-result-popup .quiz-result-title {
+    flex: 1;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--fg);
+}
+
+#hou-quiz-result-popup .quiz-result-minimize,
+#hou-quiz-result-popup .quiz-result-close {
+    background: rgba(var(--brand-rgb), 0.1);
+    border: none;
+    color: var(--fg-2);
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, transform 0.2s;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+#hou-quiz-result-popup .quiz-result-minimize:hover,
+#hou-quiz-result-popup .quiz-result-close:hover {
+    background: rgba(var(--brand-rgb), 0.2);
+    transform: scale(1.05);
+}
+
+#hou-quiz-result-popup .quiz-result-minimize svg,
+#hou-quiz-result-popup .quiz-result-close svg {
+    stroke: var(--fg) !important;
+}
+
+#hou-quiz-result-popup .quiz-result-body {
+    padding: 20px;
+    max-height: 55vh;
+    overflow-y: auto;
+}
+
+#hou-quiz-result-popup .quiz-result-summary {
+    margin-bottom: 20px;
+}
+
+#hou-quiz-result-popup .quiz-stat-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin-bottom: 6px;
+    font-size: 14px;
+}
+
+#hou-quiz-result-popup .quiz-stat-item.filled {
+    background: rgba(16, 185, 129, 0.08);
+    color: var(--success);
+}
+
+#hou-quiz-result-popup .quiz-stat-item.exact {
+    background: rgba(16, 185, 129, 0.08);
+    color: var(--success);
+}
+
+#hou-quiz-result-popup .quiz-stat-item.fuzzy {
+    background: rgba(245, 158, 11, 0.08);
+    color: var(--warn);
+}
+
+#hou-quiz-result-popup .quiz-stat-item.not-found {
+    background: rgba(239, 68, 68, 0.08);
+    color: var(--danger);
+}
+
+#hou-quiz-result-popup .quiz-stat-item.db {
+    background: rgba(var(--brand-rgb), 0.08);
+    color: var(--brand-600);
+}
+
+#hou-quiz-result-popup .quiz-stat-desc {
+    font-size: 12px;
+    color: var(--muted);
+    margin-left: 28px;
+    margin-bottom: 10px;
+}
+
+#hou-quiz-result-popup .quiz-stat-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 12px 0;
+}
+
+#hou-quiz-result-popup .quiz-stat-icon {
+    font-size: 14px;
+}
+
+#hou-quiz-result-popup .quiz-stat-label {
+    flex: 1;
+}
+
+#hou-quiz-result-popup .quiz-stat-value {
+    font-weight: 600;
+}
+
+#hou-quiz-result-popup .quiz-details-header {
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: var(--fg);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+#hou-quiz-result-popup .quiz-details-list {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px;
+}
+
+#hou-quiz-result-popup .quiz-detail-item {
+    padding: 8px 10px;
+    border-radius: 6px;
+    margin-bottom: 4px;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+#hou-quiz-result-popup .quiz-detail-item.matched {
+    background: rgba(16, 185, 129, 0.04);
+}
+
+#hou-quiz-result-popup .quiz-detail-item.fuzzy {
+    background: rgba(245, 158, 11, 0.04);
+}
+
+#hou-quiz-result-popup .quiz-detail-item.not-found {
+    background: rgba(239, 68, 68, 0.04);
+}
+
+#hou-quiz-detail-icon {
+    margin-right: 6px;
+}
+
+#hou-quiz-result-popup .quiz-detail-num {
+    color: var(--muted);
+    font-weight: 600;
+    margin-right: 4px;
+}
+
+#hou-quiz-result-popup .quiz-detail-source {
+    margin-right: 4px;
+}
+
+#hou-quiz-result-popup .quiz-detail-text {
+    color: var(--fg);
+}
+
+#hou-quiz-result-popup .quiz-detail-answer {
+    color: var(--success);
+    font-size: 11px;
+    margin-right: 20px;
+}
+
+#hou-quiz-result-popup .quiz-result-footer {
+    padding: 16px 20px;
+    background: transparent;
+    border-top: 1px solid var(--border);
+}
+
+#hou-quiz-result-popup .quiz-btn-next {
+    width: 100%;
+    padding: 12px 20px;
+    background: linear-gradient(135deg, var(--brand-500) 0%, var(--brand-600) 100%);
+    color: white;
+    border: 1.5px solid rgba(255, 255, 255, 0.25);
+    border-top: 1.5px solid rgba(255, 255, 255, 0.55);
+    border-left: 1.5px solid rgba(255, 255, 255, 0.55);
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#hou-quiz-result-popup .quiz-btn-next:hover {
+    transform: translateY(-1px);
+    background: linear-gradient(135deg, var(--brand-400) 0%, var(--brand-500) 100%);
+    box-shadow: 0 6px 20px rgba(var(--brand-rgb), 0.45);
+}
+
+/* Nút thu nhỏ ("Nhấn để mở rộng") - Kính bóng gradient theo màu chủ đề */
+#hou-quiz-minimized {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    background: linear-gradient(135deg, var(--brand-500) 0%, var(--brand-600) 50%, var(--brand-700) 100%);
+    border-radius: 50%;
+    font-size: 24px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 8px 24px rgba(var(--brand-rgb), 0.4);
+    z-index: 999998;
+    transition: transform 0.2s ease, background 0.2s, box-shadow 0.2s;
+}
+
+#hou-quiz-minimized:hover {
+    transform: translateY(-2px) scale(1.05);
+    background: linear-gradient(135deg, var(--brand-400) 0%, var(--brand-500) 50%, var(--brand-600) 100%);
+    box-shadow: 0 12px 32px rgba(var(--brand-rgb), 0.5);
+}
+
+/* Style chung cho Lucide Icon SVG trong extension */
+.lucide-icon {
+    width: 1.2em !important;
+    height: 1.2em !important;
+    stroke: currentColor !important;
+    stroke-width: 2 !important;
+    stroke-linecap: round !important;
+    stroke-linejoin: round !important;
+    fill: none !important;
+    display: inline-block !important;
+    vertical-align: middle !important;
+}
+
+/* Fix hiển thị cho các icon thu nhỏ và đóng trên popup */
+#hou-quiz-result-popup .quiz-result-minimize svg,
+#hou-quiz-result-popup .quiz-result-close svg {
+    width: 14px !important;
+    height: 14px !important;
+    display: block !important;
+}

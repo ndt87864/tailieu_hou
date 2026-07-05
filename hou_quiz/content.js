@@ -311,116 +311,21 @@
     }
   }
 
-  function removeMinimizedButton() {
-    const btn = document.getElementById(QUIZ_MINIMIZED_ID);
-    if (btn) btn.remove();
-  }
-
   function createMinimizedButton(result) {
-    removeMinimizedButton();
-    const btn = document.createElement("div");
-    btn.id = QUIZ_MINIMIZED_ID;
-    btn.title = "Nhấn để mở rộng";
-    btn.innerHTML = LUCIDE_ICONS.edit;
-    applyThemeToElement(btn);
-    btn.addEventListener("click", () => {
-      btn.remove();
-      createResultPopup(result);
-    });
-    document.body.appendChild(btn);
-  }
-
-  function setupResultPopupEvents(popup, result) {
-    popup.querySelector(".quiz-result-close")?.addEventListener("click", () => {
-      popup.remove();
-      removeMinimizedButton();
-    });
-    popup.querySelector(".quiz-result-minimize")?.addEventListener("click", () => {
-      popup.remove();
-      createMinimizedButton(result);
-    });
-    popup.querySelector(".quiz-btn-next")?.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      navigateToNextPage();
-    });
+    if (window.houQuizResultPopup) {
+      window.houQuizResultPopup.createResultPopup(result);
+      // Xóa nút thu nhỏ nếu đang hiển thị
+      const btn = document.getElementById(QUIZ_MINIMIZED_ID);
+      if (btn) btn.remove();
+    }
   }
 
   function createResultPopup(result) {
-    const existing = document.getElementById(QUIZ_RESULT_POPUP_ID);
-    if (existing) existing.remove();
-
-    const popup = document.createElement("div");
-    popup.id = QUIZ_RESULT_POPUP_ID;
-    applyThemeToElement(popup);
-    
-    const { totalPageQuestions, totalFilled, exactMatch, fuzzyMatch, notFound, dbAnswers, details } = result;
-
-    popup.innerHTML = `
-      <div class="quiz-result-header">
-        <span class="quiz-result-icon">${LUCIDE_ICONS.barChart}</span>
-        <span class="quiz-result-title">Kết quả điền đáp án</span>
-        <span class="quiz-result-minimize" title="Thu nhỏ">${LUCIDE_ICONS.minus}</span>
-        <span class="quiz-result-close" title="Đóng">${LUCIDE_ICONS.x}</span>
-      </div>
-      <div class="quiz-result-body">
-        <div class="quiz-result-summary">
-          <div class="quiz-stat-item">
-            <span class="quiz-stat-label">Tổng số câu hỏi:</span>
-            <span class="quiz-stat-value">${totalPageQuestions}</span>
-          </div>
-          <div class="quiz-stat-item filled">
-            <span class="quiz-stat-icon">${LUCIDE_ICONS.checkCircle}</span>
-            <span class="quiz-stat-label">Đã điền:</span>
-            <span class="quiz-stat-value">${totalFilled} câu</span>
-          </div>
-          <div class="quiz-stat-item exact">
-            <span class="quiz-stat-icon">${LUCIDE_ICONS.target}</span>
-            <span class="quiz-stat-label">Khớp chính xác 100%:</span>
-            <span class="quiz-stat-value">${exactMatch} câu</span>
-          </div>
-          <div class="quiz-stat-item fuzzy">
-            <span class="quiz-stat-icon">${LUCIDE_ICONS.alertTriangle}</span>
-            <span class="quiz-stat-label">Khớp fuzzy 99.5%:</span>
-            <span class="quiz-stat-value">${fuzzyMatch} câu</span>
-          </div>
-          <div class="quiz-stat-desc">Vui lòng kiểm tra lại các câu này!</div>
-          <div class="quiz-stat-item not-found">
-            <span class="quiz-stat-icon">${LUCIDE_ICONS.xCircle}</span>
-            <span class="quiz-stat-label">Không tìm thấy:</span>
-            <span class="quiz-stat-value">${notFound} câu</span>
-          </div>
-          <div class="quiz-stat-divider"></div>
-          <div class="quiz-stat-item db">
-            <span class="quiz-stat-icon">${LUCIDE_ICONS.database}</span>
-            <span class="quiz-stat-label">Đáp án từ Dữ liệu (DB/Cached):</span>
-            <span class="quiz-stat-value">${dbAnswers} câu</span>
-          </div>
-        </div>
-        <div class="quiz-result-details">
-          <div class="quiz-details-header">Chi tiết:</div>
-          <div class="quiz-details-list">
-            ${details.map((d, idx) => `
-              <div class="quiz-detail-item ${d.status}">
-                <span class="quiz-detail-icon">${d.statusIcon}</span>
-                <span class="quiz-detail-num">Câu ${idx + 1}:</span>
-                <span class="quiz-detail-source">${d.sourceIcon}</span>
-                <span class="quiz-detail-text">${truncateText(d.question, 60)}</span>
-                ${d.answer ? `<br><span class="quiz-detail-answer">→ ${truncateText(d.answer, 40)} ${d.confidence ? `(${(d.confidence * 100).toFixed(1)}%)` : ""}</span>` : ""}
-              </div>
-            `).join("")}
-          </div>
-        </div>
-      </div>
-      <div class="quiz-result-footer">
-        <button class="quiz-btn-next">Trang Tiếp Theo ${LUCIDE_ICONS.arrowRight}</button>
-      </div>
-    `;
-
-    document.body.appendChild(popup);
-    setupResultPopupEvents(popup, result);
-    return popup;
+    if (window.houQuizResultPopup) {
+      window.houQuizResultPopup.createResultPopup(result);
+    }
   }
+
 
   // Thực hiện làm bài: Quét, so khớp, highlight và tự động chọn đáp án
   function startSolving() {
