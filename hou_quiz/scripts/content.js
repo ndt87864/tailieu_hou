@@ -32,21 +32,11 @@
     chrome.storage.local.get(["hou_ui_theme_mode", "hou_ui_primary_color"], (res) => {
       const mode = res.hou_ui_theme_mode || "system";
       const color = res.hou_ui_primary_color || "green";
-
-      // 1. Áp dụng màu chủ đạo
       const colorClasses = ["theme-green", "theme-blue", "theme-red", "theme-purple", "theme-orange", "theme-lime", "theme-black"];
       el.classList.remove(...colorClasses);
       el.classList.add(`theme-${color}`);
-
-      // 2. Áp dụng dark mode
-      const isDark =
-        mode === "dark" ||
-        (mode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-      if (isDark) {
-        el.classList.add("dark");
-      } else {
-        el.classList.remove("dark");
-      }
+      const isDark = mode === "dark" || (mode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      el.classList.toggle("dark", isDark);
     });
   }
 
@@ -311,15 +301,6 @@
     }
   }
 
-  function createMinimizedButton(result) {
-    if (window.houQuizResultPopup) {
-      window.houQuizResultPopup.createResultPopup(result);
-      // Xóa nút thu nhỏ nếu đang hiển thị
-      const btn = document.getElementById(QUIZ_MINIMIZED_ID);
-      if (btn) btn.remove();
-    }
-  }
-
   function createResultPopup(result) {
     if (window.houQuizResultPopup) {
       window.houQuizResultPopup.createResultPopup(result);
@@ -385,10 +366,12 @@
           let bestScore = -1;
 
           pq.optionElements.forEach(optEl => {
-            const optText = optEl.textContent.replace(/\s+/g, " ").trim();
+            let optText = optEl.textContent.replace(/\s+/g, " ").trim();
+            optText = optText.replace(/[\u2713\u2714\u2611\u2705]/g, "").trim();
+            const cleanOptText = window.houQuizUtils.normalizeTextForMatching(optText);
             // Chỉ xem xét nếu hàm so sánh nhận diện là khớp
-            if (window.houQuizUtils.compareNormalized(optText, match.answerText)) {
-              const score = window.houQuizUtils.getSimilarityScore(optText, match.answerText);
+            if (window.houQuizUtils.compareNormalized(cleanOptText, match.answerText)) {
+              const score = window.houQuizUtils.getSimilarityScore(cleanOptText, match.answerText);
               if (score > bestScore) {
                 bestScore = score;
                 bestOption = optEl;
