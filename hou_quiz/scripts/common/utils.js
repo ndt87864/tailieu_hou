@@ -120,6 +120,282 @@
     }
   }
 
+  function extractPostAudioQuestionText(element) {
+    if (!element || !element.querySelector) return '';
+
+    const audioEl = element.querySelector('.mediaplugin, audio, .mediafallbacklink');
+    if (!audioEl) return '';
+
+    let audioNode = audioEl;
+    while (audioNode && audioNode.parentElement !== element) {
+      audioNode = audioNode.parentElement;
+    }
+    if (!audioNode) return '';
+
+    const parts = [];
+    let next = audioNode.nextSibling;
+    while (next) {
+      if (next.nodeType === Node.ELEMENT_NODE) {
+        const tag = (next.tagName || '').toUpperCase();
+        if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT') {
+          next = next.nextSibling;
+          continue;
+        }
+        const txt = next.textContent || '';
+        if (txt && txt.trim()) parts.push(txt.trim());
+      } else if (next.nodeType === Node.TEXT_NODE && next.textContent && next.textContent.trim()) {
+        parts.push(next.textContent.trim());
+      }
+      next = next.nextSibling;
+    }
+
+    const afterAudioText = parts.join(' ').replace(/\s+/g, ' ').trim();
+    if (!afterAudioText) return '';
+
+    const withoutPrompt = afterAudioText
+      .replace(/^(listen( again)?|then listen( again)?|nghe( lại)?|lắng nghe)[\.:,\-\s]*/i, '')
+      .trim();
+
+    if (!withoutPrompt || withoutPrompt.length < 5) return '';
+
+    if (
+      /[?？]/.test(withoutPrompt) ||
+      /_{2,}|___/.test(withoutPrompt) ||
+      /\b(is interested in|complete|best completes|main idea|which|who|what|when|where|why|how|choose|circle|select|match|fill in)\b/i.test(withoutPrompt)
+    ) {
+      return withoutPrompt;
+    }
+
+    return '';
+  }
+
+  function cleanQuestionContent(text, element = null) {
+    if (!text) return '';
+    let processedText = text;
+
+    const markers = [
+      'Choose the best answer',
+      'Choose the correct answer',
+      'Select the best answer',
+      'Select the correct answer',
+      'Chọn câu trả lời đúng nhất',
+      'Chọn đáp án đúng nhất',
+      'Chọn một câu trả lời',
+      'Chọn câu trả lời',
+      'Choose one answer',
+      'Trả lời câu hỏi',
+      'Answer the question',
+      'Are these following sentences true \\(T\\) or false \\(F\\)',
+      'Are these following sentences true or false',
+      'Are the following sentences true or false',
+      'True or False',
+      'True \\(T\\) or false \\(F\\)',
+      'Read the text and do the activities that follow',
+      'Choose A, B, C or D to complete the following sentence:',
+      'Choose A, B, C or D to complete the sentence:',
+      'Choose A, B, C, or D to complete the following sentence:',
+      'Choose the lettered word or phrase'
+    ];
+
+    const titleMarkers = [
+      "Circle the best title for the reading text",
+      "Circle the best title for the text",
+      "Choose the best title",
+      "Choose the most suitable title",
+      "Select the best title",
+      "What is the best title",
+      "Which of the following is the best title",
+      "Which of the following is the most suitable title",
+      "Give a title to the passage",
+      "Chọn tiêu đề đúng nhất",
+      "Chọn tiêu đề phù hợp nhất",
+      "Chọn tiêu đề cho đoạn văn",
+      "Chọn tên đúng cho đoạn văn",
+    ];
+
+    const textLower = processedText.toLowerCase();
+    for (const marker of titleMarkers) {
+      if (textLower.includes(marker.toLowerCase())) {
+        const markerIdx = textLower.indexOf(marker.toLowerCase());
+        const endOfMarker = markerIdx + marker.length;
+        const afterMarker = processedText.substring(endOfMarker);
+        const firstSentenceMatch = afterMarker.match(/^[.\s:\n\r-]*/);
+        const instructionEnd = endOfMarker + (firstSentenceMatch ? firstSentenceMatch[0].length : 0);
+        const instruction = processedText.substring(0, instructionEnd).trim();
+
+        let title = "";
+        if (element) {
+          const bold = element.querySelector("strong, b");
+          if (bold) title = bold.textContent.trim();
+        }
+
+        if (!title) {
+          const remaining = processedText.substring(instructionEnd).trim();
+          if (remaining) {
+            const parts = remaining.split(/\r?\n|(?<=[.!?])\s+/);
+            const firstPart = parts[0].trim();
+            if (firstPart.length > 0 && firstPart.length < 150) {
+              title = firstPart;
+            }
+          }
+        }
+
+        if (instruction) {
+          return (instruction + (title ? " " + title : "")).trim();
+        }
+      }
+    }
+
+    if (processedText.includes("//]]>")) {
+      const parts = processedText.split("//]]>");
+      if (parts.length > 1) {
+        const afterScript = parts[parts.length - 1].trim();
+        if (afterScript.length > 5) processedText = afterScript;
+      }
+    }
+
+    if (element) {
+      const postAudioQuestionText = extractPostAudioQuestionText(element);
+      if (postAudioQuestionText) processedText = postAudioQuestionText;
+    }
+
+    const audioExtensions = [".mp3", ".wav", ".ogg"];
+    for (const ext of audioExtensions) {
+      const lower = processedText.toLowerCase();
+      const idx = lower.lastIndexOf(ext);
+      if (idx !== -1) {
+        let beforeAudio = processedText.substring(0, idx).trim();
+        let afterAudio = processedText.substring(idx + ext.length).trim();
+
+        beforeAudio = beforeAudio
+          .replace(/%20/g, " ")
+          .replace(/track\s*[\d\.%-]*/gi, "")
+          .replace(/\s+$/, "")
+          .replace(/\/\/.*$/, "")
+          .trim();
+        afterAudio = afterAudio.replace(/%20/g, " ").replace(/<\/?[a-z][^>]*>/gi, "").trim();
+
+        const isTrash = (text) => {
+          if (!text) return true;
+          const cleaned = text.replace(/track\s*[\d\.%-]*/gi, "").replace(/[\s\(\)\[\]\{\}\-\.\,]+/g, "").trim();
+          return cleaned.length < 3;
+        };
+
+        if (afterAudio.length > 5 && !isTrash(afterAudio)) {
+          processedText = afterAudio.replace(/https?:\/\/\S+/gi, "").trim();
+          processedText = processedText
+            .replace(/track\s*[\d\.%-]*/gi, "")
+            .replace(/(?:\/\/|-{2,}).*/g, "")
+            .trim();
+          break;
+        }
+
+        if (beforeAudio.length > 5) {
+          const imageUrls = [];
+          beforeAudio = beforeAudio.replace(/"(https?:\/\/[^"]+)"/g, (match, url) => {
+            const placeholder = `__IMG_${imageUrls.length}__`;
+            imageUrls.push(url);
+            return `"${placeholder}"`;
+          });
+
+          processedText = beforeAudio
+            .replace(/https?:\/\/\S+/gi, "")
+            .replace(/track\s*[\d\.%-]*/gi, "")
+            .replace(/(?:\/\/|-{2,}).*/g, "")
+            .trim();
+
+          imageUrls.forEach((url, i) => {
+            processedText = processedText.replace(`__IMG_${i}__`, url);
+          });
+          break;
+        }
+
+        const imageUrls = [];
+        let combined = (beforeAudio + " " + afterAudio).replace(/"(https?:\/\/[^"]+)"/g, (match, url) => {
+          const placeholder = `__IMG_${imageUrls.length}__`;
+          imageUrls.push(url);
+          return `"${placeholder}"`;
+        });
+
+        processedText = combined.replace(/https?:\/\/\S+/gi, "").trim();
+        imageUrls.forEach((url, i) => {
+          processedText = processedText.replace(`__IMG_${i}__`, url);
+        });
+      }
+    }
+
+    const imageUrlPlaceholders = [];
+    const imageUrlPattern = /"((?:https?:\/\/|(?:\.){3,}\/)[^"]+)"/g;
+    processedText = processedText.replace(imageUrlPattern, (match, url) => {
+      const placeholder = `__IMAGE_URL_${imageUrlPlaceholders.length}__`;
+      imageUrlPlaceholders.push(url);
+      return `"${placeholder}"`;
+    });
+    processedText = processedText.replace(/https?:\/\/\S+/gi, "");
+    imageUrlPlaceholders.forEach((url, index) => {
+      const placeholder = `__IMAGE_URL_${index}__`;
+      processedText = processedText.replace(new RegExp(placeholder, "g"), url);
+    });
+
+    processedText = processedText.trim();
+
+    for (const marker of markers) {
+      const regex = new RegExp(marker, "gi");
+      const matches = [...processedText.matchAll(regex)];
+
+      if (matches.length > 0) {
+        const lastMatch = matches[matches.length - 1];
+        const lastIndex = lastMatch.index || 0;
+        const contentAfter = processedText.substring(lastIndex + lastMatch[0].length).trim();
+        const contentBefore = processedText.substring(0, lastIndex).trim();
+
+        const looksLikeAnswerList = /(^|\n)\s*([A-Da-d]|\d+)[\.\)]\s+/m.test(contentAfter) ||
+          /(^|\n)\s*a\.\s+/im.test(contentAfter) ||
+          /\b(chọn|choose|select|circle|tick|đáp án)\b/i.test(contentAfter);
+
+        if ((contentAfter.length === 0 || looksLikeAnswerList) && contentBefore.length > 5) {
+          const segments = contentBefore.split(/\r?\n|(?<=[.!?])\s+(?=[A-Z])/);
+          const lastSegment = segments[segments.length - 1].trim();
+          processedText = lastSegment.length > 5 ? lastSegment : contentBefore;
+          break;
+        }
+
+        if (contentAfter.length > 5 && /[a-zA-Z0-9]/.test(contentAfter)) {
+          processedText = contentAfter;
+          break;
+        }
+      }
+    }
+
+    if (processedText.length > 800) {
+      const blankRegex = /([_.‥…\u2026]{2,}|_{2,}|(\.\s*){3,}|\[\s*\]|\(\s*\))/;
+      if (element) {
+        const boldEls = element.querySelectorAll("strong, b");
+        if (boldEls.length > 0) {
+          const lastBold = boldEls[boldEls.length - 1];
+          const boldTextRaw = (lastBold.textContent || "").replace(/[\u00A0\s]+/g, " ").trim();
+          const pTextRaw = processedText.replace(/[\u00A0\s]+/g, " ").trim();
+          if (boldTextRaw.length > 15 && pTextRaw.endsWith(boldTextRaw)) {
+            return lastBold.textContent.trim();
+          }
+        }
+      }
+
+      const segments = processedText.split(/(?<=[.!?]['"”’]*)\s+(?=[A-Z])/);
+      if (segments.length >= 2) {
+        const lastSegment = segments[segments.length - 1].trim();
+        if (lastSegment.length > 15 && lastSegment.length < 500 && lastSegment.length < processedText.length * 0.4) {
+          const qKeywords = /^(Which|What|Who|When|Where|Why|How|Is|Are|Do|Does|Did|Can|Could|It is probable|According to|In paragraph|The passage|The author|The word|The purpose|From|Based on|It can be|The statement|The phrase)/i;
+          if (qKeywords.test(lastSegment) || /[?？]/.test(lastSegment) || blankRegex.test(lastSegment)) {
+            processedText = lastSegment;
+          }
+        }
+      }
+    }
+
+    return processedText;
+  }
+
   async function fetchAPI(url, options = {}) {
     const showNetwork = await new Promise(resolve => {
       chrome.storage.local.get(["hou_show_network_status"], res => {
@@ -140,11 +416,27 @@
     }
   }
 
+  async function fetchQuestionsForDocuments(docIds) {
+    const promises = docIds.map(id => 
+      fetchAPI(`${window.houQuizConfig.API_URL}/questions/document/${id}`)
+        .then(res => res && res.questions ? res.questions : [])
+        .catch(err => {
+          console.error(`[HouQuiz] Lỗi tải tài liệu ${id}:`, err);
+          return [];
+        })
+    );
+    const results = await Promise.all(promises);
+    return results.flat();
+  }
+
   window.houQuizUtils = {
     stripVietnameseDiacritics,
     compareNormalized,
     normalizeTextForMatching,
     getSimilarityScore,
-    fetchAPI
+    fetchAPI,
+    extractPostAudioQuestionText,
+    cleanQuestionContent,
+    fetchQuestionsForDocuments
   };
 })();

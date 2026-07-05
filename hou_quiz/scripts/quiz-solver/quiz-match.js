@@ -141,7 +141,159 @@
     return null;
   }
 
+  // ==================== FILL IN THE BLANK LOGIC ====================
+  const BLANK_PATTERNS = [
+    /\.{2,}/g,
+    /…+/g,
+    /_{2,}/g,
+    /\[\s*\]/g,
+    /\(\s*\)/g,
+    /\{\s*\}/g,
+    /‥+/g,
+    /[\u2026]+/g,
+  ];
+
+  function normalizeForBlankComparison(text) {
+    if (!text) return "";
+    const utils = window.houQuizUtils;
+    let normalized = text;
+    const TEMP_PLACEHOLDER = "___BLANK___";
+
+    BLANK_PATTERNS.forEach((pattern) => {
+      normalized = normalized.replace(pattern, ` ${TEMP_PLACEHOLDER} `);
+    });
+
+    normalized = normalized.replace(/^\s*([a-z]|\d+)[\.\):]\s*/i, "");
+    normalized = normalized.replace(/[''`´]/g, " ");
+
+    normalized = normalized.replace(
+      /"(?:https?:\/\/[^"]+\/|(?:\.){3,}\/)([^"?]+)(?:\?[^"]*)?"/gi,
+      (match, filename) => " " + filename + " ",
+    );
+
+    normalized = normalized.replace(
+      /[^\p{L}\p{N}\s<>=≤≥≠±\+\-\*\/%^|{}\(\)\[\],]/gu,
+      " ",
+    );
+
+    normalized = normalized.split(TEMP_PLACEHOLDER).join("...");
+
+    normalized = normalized
+      .replace(/\s+/g, " ")
+      .replace(/\s*\.\.\.\s*/g, " ... ")
+      .trim()
+      .toLowerCase();
+
+    const questionStarters = /^(do|does|did|is|are|was|were|can|could|will|would|what|when|where|who|why|how)\s+/i;
+    if (questionStarters.test(normalized)) {
+      if (normalized.endsWith(" ...")) {
+        normalized = "... " + normalized.substring(0, normalized.length - 4).trim();
+      }
+    }
+
+    return normalized;
+  }
+
+  function calculateFillBlankSimilarity(str1, str2) {
+    if (str1 === str2) return 1.0;
+    if (!str1 || !str2) return 0;
+
+    const words1 = str1.split(/\s+/).filter((w) => w !== "...");
+    const words2 = str2.split(/\s+/).filter((w) => w !== "...");
+
+    if (words1.length === 0 && words2.length === 0) return 1.0;
+    if (words1.length === 0 || words2.length === 0) return 0;
+
+    const set1 = new Set(words1);
+    const set2 = new Set(words2);
+    const intersection = new Set([...set1].filter((w) => set2.has(w)));
+    const union = new Set([...words1, ...words2]);
+
+    return intersection.size / union.size;
+  }
+
+  function areFillBlankSentencesSimilar(sentence1, sentence2) {
+    const norm1 = normalizeForBlankComparison(sentence1);
+    const norm2 = normalizeForBlankComparison(sentence2);
+
+    if (norm1 === norm2) return true;
+    const similarity = calculateFillBlankSimilarity(norm1, norm2);
+    return similarity > 0.95;
+  }
+
+  function parseNumberedAnswers(answerText) {
+    if (!answerText) return [];
+    const answers = [];
+    const trimmedText = answerText.trim();
+
+    const numberedPattern = /(?:^|[,;\n]\s*)(\d+)\s*[.\):\-]\s*([^,;\n]+)/g;
+    let match;
+    let hasNumberedFormat = false;
+
+    const startsWithNumber = /^\s*\d+\s*[.\):\-]/.test(trimmedText);
+
+    if (startsWithNumber) {
+      while ((match = numberedPattern.exec(trimmedText)) !== null) {
+        const idx = parseInt(match[1]);
+        const ans = match[2].trim();
+        if (idx > 100) continue;
+        if (!ans) continue;
+        hasNumberedFormat = true;
+        answers.push({ index: idx, answer: ans });
+      }
+    }
+
+    if (!hasNumberedFormat || answers.length === 0) {
+      answers.length = 0;
+      let parts = [];
+
+      if (trimmedText.includes("\n")) {
+        parts = trimmedText.split(/\n+/).map((p) => p.trim()).filter((p) => p);
+      } else {
+        const listPattern = /^\s*\d+\s*[.\):\-]/;
+        if (listPattern.test(trimmedText)) {
+          parts = trimmedText.split(/(?=\d+\s*[.\):\-])/).map((p) => p.trim()).filter((p) => p);
+        } else {
+          const potentialParts = trimmedText.split(/[,;]+/).map((p) => p.trim()).filter((p) => p);
+          if (potentialParts.length <= 1 || potentialParts.every((p) => p.length > 30)) {
+            parts = [trimmedText];
+          } else {
+            parts = potentialParts;
+          }
+        }
+      }
+
+      parts.forEach((part, idx) => {
+        const numMatch = part.match(/^(\d{1,2})\s*[.\):\-]\s*(.+)$/);
+        if (numMatch && parseInt(numMatch[1]) <= 99) {
+          answers.push({ index: parseInt(numMatch[1]), answer: numMatch[2].trim() });
+        } else {
+          answers.push({ index: idx + 1, answer: part.trim() });
+        }
+      });
+    }
+
+    answers.sort((a, b) => a.index - b.index);
+    return answers;
+  }
+
+  function matchFillBlankQuestion(pageQuestionText, dbQuestions) {
+    if (!dbQuestions || dbQuestions.length === 0) return null;
+    if (!pageQuestionText || pageQuestionText.length < 5) return null;
+
+    for (const dbQ of dbQuestions) {
+      if (!dbQ.question) continue;
+      if (areFillBlankSentencesSimilar(pageQuestionText, dbQ.question)) {
+        return dbQ;
+      }
+    }
+    return null;
+  }
+
   window.houQuizMatch = {
-    matchQuestionWithDB
+    matchQuestionWithDB,
+    matchFillBlankQuestion,
+    parseNumberedAnswers,
+    normalizeForBlankComparison
   };
 })();

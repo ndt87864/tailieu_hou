@@ -10,132 +10,18 @@
   const QUIZ_RESULT_POPUP_ID = "hou-quiz-result-popup";
   const QUIZ_MINIMIZED_ID = "hou-quiz-minimized";
 
-  // Lucide Icons SVG
-  const LUCIDE_ICONS = {
-    bookOpen: `<svg class="lucide-icon" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`,
-    barChart: `<svg class="lucide-icon" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
-    checkCircle: `<svg class="lucide-icon" viewBox="0 0 24 24"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>`,
-    target: `<svg class="lucide-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>`,
-    alertTriangle: `<svg class="lucide-icon" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
-    xCircle: `<svg class="lucide-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`,
-    database: `<svg class="lucide-icon" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg>`,
-    x: `<svg class="lucide-icon" viewBox="0 0 24 24" width="14" height="14" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
-    minus: `<svg class="lucide-icon" viewBox="0 0 24 24" width="14" height="14" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
-    arrowRight: `<svg class="lucide-icon" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`,
-    edit: `<svg class="lucide-icon" viewBox="0 0 24 24" stroke="#ffffff"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`
-  };
-
   let lastQuizResult = null;
   let activeDocument = null;
   let dbQuestions = [];
 
-  // Áp dụng theme và màu chủ đạo lên các phần tử UI của extension
-  function applyThemeToElement(el) {
-    if (!el) return;
-    chrome.storage.local.get(["hou_ui_theme_mode", "hou_ui_primary_color"], (res) => {
-      const mode = res.hou_ui_theme_mode || "system";
-      const color = res.hou_ui_primary_color || "green";
-      const colorClasses = ["theme-green", "theme-blue", "theme-red", "theme-purple", "theme-orange", "theme-lime", "theme-black"];
-      el.classList.remove(...colorClasses);
-      el.classList.add(`theme-${color}`);
-      const isDark = mode === "dark" || (mode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-      el.classList.toggle("dark", isDark);
-    });
-  }
+  const getUI = () => window.houQuizUI || {};
+  const getLucideIcons = () => getUI().LUCIDE_ICONS || {};
+  const applyThemeToElement = (el) => getUI().applyThemeToElement?.(el);
+  const showToast = (msg, dur) => getUI().showToast?.(msg, dur);
+  const highlightTextInOption = (optEl, mode) => getUI().highlightTextInOption?.(optEl, mode);
+  const showFillBlankHint = (inputEl, ansText, hl) => getUI().showFillBlankHint?.(inputEl, ansText, hl);
 
-  // Tạo và hiển thị Toast thông báo
-  function showToast(message, duration = 3000) {
-    let toast = document.querySelector(".hou-toast");
-    if (!toast) {
-      toast = document.createElement("div");
-      toast.className = "hou-toast";
-      document.body.appendChild(toast);
-    }
-    toast.textContent = message;
-    toast.classList.add("show");
-    setTimeout(() => {
-      toast.classList.remove("show");
-    }, duration);
-  }
-
-  // Highlight phần text của đáp án đúng
-  // mode = 'bg' : bôi nền (highlight bật)
-  // mode = 'text': bôi màu chữ (highlight tắt)
-  function highlightTextInOption(optEl, mode = 'bg') {
-    const mainClass = mode === 'text' ? 'hou-highlight-option-text' : 'hou-highlight-option';
-    if (optEl.querySelector(`.${mainClass}`) || optEl.classList.contains(mainClass)) {
-      return;
-    }
-
-    const ignoreSelectors = ".feedbackspan, .icon, i, input, .accesshide, .feedback, img, .correct, .incorrect, .checkmark, .fa";
-    const nodesToMove = [];
-    
-    Array.from(optEl.childNodes).forEach(node => {
-      if (node.nodeType === 1) {
-        // Bỏ qua nếu khớp selector hoặc chứa ký tự checkmark/cross
-        if (node.matches(ignoreSelectors) || /[\u2713\u2714\u2611\u2705\u274c\u274e]/g.test(node.textContent)) {
-          return;
-        }
-      }
-      if (node.nodeType === 3 && node.textContent.trim().length === 0) {
-        return;
-      }
-      nodesToMove.push(node);
-    });
-
-    if (nodesToMove.length > 0) {
-      const span = document.createElement("span");
-      span.className = mainClass;
-      optEl.insertBefore(span, nodesToMove[0]);
-      nodesToMove.forEach(node => span.appendChild(node));
-    } else {
-      optEl.classList.add(mainClass);
-    }
-  }
-
-  // Quét các câu hỏi trên trang Moodle / LMS
-  function scanQuestionsOnPage() {
-    const pageQuestions = [];
-    const questionContainers = document.querySelectorAll(".que, div.question, .question-container");
-
-    questionContainers.forEach((container, idx) => {
-      // Tìm element câu hỏi (ưu tiên tìm câu hỏi đích danh trước formulation)
-      const qtextEl = container.querySelector(".qtext, .questiontext") || container.querySelector(".formulation");
-      if (!qtextEl) return;
-
-      // Clone để tránh ảnh hưởng trực tiếp đến DOM
-      const clonedQtext = qtextEl.cloneNode(true);
-      // Xóa các inline class hoặc các block chứa các đáp án bị chèn nhầm nếu có
-      clonedQtext.querySelectorAll(".answer, label, .prompt, .accesshide").forEach(el => el.remove());
-      
-      let questionText = clonedQtext.textContent.replace(/\s+/g, " ").trim();
-      questionText = questionText.replace(/^mô tả câu hỏi/i, "").trim();
-      
-      const instructions = [/chọn một câu trả lời:?/i, /chọn một:?/i, /chọn câu trả lời:?/i, /chọn đáp án:?/i, /trả lời câu hỏi:?/i, /\b[a-fA-F0-9][\.\)]\s*$/i];
-      instructions.forEach(regex => { questionText = questionText.replace(regex, "").trim(); });
-      
-      const optIndex = questionText.search(/\b[a-fA-F][\.\)]\s+/);
-      if (optIndex !== -1 && optIndex > 10) questionText = questionText.substring(0, optIndex).trim();
-
-      const answerContainer = container.querySelector(".answer");
-      if (!answerContainer) return;
-
-      let optionElements = Array.from(answerContainer.querySelectorAll("label, .flex-fill, div[role='option']"));
-      optionElements = optionElements.filter(el => !optionElements.some(otherEl => otherEl !== el && el.contains(otherEl)));
-      const options = optionElements.map(el => el.textContent.replace(/\s+/g, " ").replace(/[\u2713\u2714\u2611\u2705]/g, "").trim()).filter(Boolean);
-
-      pageQuestions.push({
-        id: idx,
-        container: container,
-        element: qtextEl,
-        text: questionText,
-        optionElements: optionElements,
-        options: options
-      });
-    });
-
-    return pageQuestions;
-  }
+  const scanQuestionsOnPage = () => getUI().scanQuestionsOnPage?.() || [];
 
   // Load tài liệu theo môn học (tự động hoặc thủ công)
   async function initDocument() {
@@ -186,17 +72,7 @@
         }
 
         try {
-          // Tải câu hỏi từ từng tài liệu song song (sử dụng API công khai không yêu cầu login)
-          const promises = docIds.map(id => 
-            window.houQuizUtils.fetchAPI(`${window.houQuizConfig.API_URL}/questions/document/${id}`)
-              .then(res => res && res.questions ? res.questions : [])
-              .catch(err => {
-                console.error(`[HouQuiz] Lỗi tải tài liệu ${id}:`, err);
-                return [];
-              })
-          );
-          const results = await Promise.all(promises);
-          dbQuestions = results.flat();
+          dbQuestions = await window.houQuizUtils.fetchQuestionsForDocuments(docIds);
           if (window.houQuizSearchPopup) {
             window.houQuizSearchPopup.setDbQuestions(dbQuestions);
           }
@@ -264,84 +140,10 @@
     });
   }
 
-  // Hiển thị panel thông tin góc trên bên phải
-  function showInfoWidget(courseName, docName, statusText) {
-    chrome.storage.local.get(["hou_show_info_widget"], (res) => {
-      const showInfoWidgetEnabled = res.hou_show_info_widget !== false;
-      if (!showInfoWidgetEnabled) {
-        const widget = document.getElementById("hou-quiz-info-widget");
-        if (widget) widget.remove();
-        return;
-      }
-
-      let widget = document.getElementById("hou-quiz-info-widget");
-      if (!widget) {
-        widget = document.createElement("div");
-        widget.id = "hou-quiz-info-widget";
-        document.body.appendChild(widget);
-      }
-      applyThemeToElement(widget);
-      widget.innerHTML = `
-        <div class="widget-title">
-          ${LUCIDE_ICONS.bookOpen} Thông tin HOU Quiz
-        </div>
-        <div class="widget-field">
-          <span class="widget-label">Môn học:</span>
-          <span class="widget-value">${courseName}</span>
-        </div>
-        <div class="widget-field">
-          <span class="widget-label">Tài liệu:</span>
-          <span class="widget-value">${docName}</span>
-        </div>
-        <div class="widget-field">
-          <span class="widget-label">Trạng thái:</span>
-          <span class="widget-value" style="color: #2e7d32; font-weight: bold;">${statusText}</span>
-        </div>
-      `;
-    });
-  }
-
-  // Các hàm helper phục vụ hiển thị kết quả và điều hướng
-  function truncateText(text, maxLength) {
-    if (!text) return "";
-    const str = text.toString();
-    return str.length <= maxLength ? str : str.substring(0, maxLength) + "...";
-  }
-
-  function simulateFullClick(el) {
-    if (!el) return;
-    try {
-      el.focus();
-      const opts = { bubbles: true, cancelable: true, view: window };
-      el.dispatchEvent(new PointerEvent("pointerdown", { ...opts, pointerType: "mouse" }));
-      el.dispatchEvent(new MouseEvent("mousedown", opts));
-      setTimeout(() => {
-        el.dispatchEvent(new PointerEvent("pointerup", { ...opts, pointerType: "mouse" }));
-        el.dispatchEvent(new MouseEvent("mouseup", opts));
-        el.click();
-        if (el.tagName === "INPUT" || el.tagName === "SELECT") {
-          el.dispatchEvent(new Event("change", { bubbles: true }));
-        }
-      }, 50);
-    } catch (e) {
-      el.click();
-    }
-  }
-
-  function navigateToNextPage() {
-    const moodleNext = document.querySelector('.submitbtns input[name="next"]') || document.querySelector('input[name="next"]');
-    if (moodleNext) {
-      simulateFullClick(moodleNext);
-      return;
-    }
-    const allBtns = Array.from(document.querySelectorAll('input[type="submit"], button, a'));
-    const nextBtn = allBtns.find(el => /tiếp\s+theo|tiếp\s+tục|next/i.test(el.value || el.textContent || ''));
-    if (nextBtn) {
-      simulateFullClick(nextBtn);
-    } else {
-      showToast("Không tìm thấy nút chuyển trang!");
-    }
-  }
+  const showInfoWidget = (c, d, s) => getUI().showInfoWidget?.(c, d, s);
+  const truncateText = (t, m) => getUI().truncateText?.(t, m) || "";
+  const simulateFullClick = (el) => getUI().simulateFullClick?.(el);
+  const navigateToNextPage = () => getUI().navigateToNextPage?.();
 
   function createResultPopup(result) {
     if (window.houQuizResultPopup) {
@@ -376,19 +178,130 @@
 
       pageQuestions.forEach(pq => {
         console.log("[HouQuiz Debug] Đang so khớp câu hỏi trên trang:", pq.text.substring(0, 50) + "...");
+        
+        if (pq.type === "fill_blank") {
+          let matchedDbQ = window.houQuizMatch.matchFillBlankQuestion(pq.text, dbQuestions);
+          if (matchedDbQ) {
+            solvedCount++;
+            exactMatch++;
+            details.push({
+              question: pq.text,
+              answer: matchedDbQ.answer,
+              status: "matched",
+              statusIcon: getLucideIcons().target,
+              sourceIcon: getLucideIcons().database,
+              confidence: 1.0,
+              matchType: "fill_blank_full"
+            });
+
+            if (highlightAnswersEnabled) {
+              pq.element.classList.add("hou-highlight-question");
+            }
+
+            const parsedAnsList = window.houQuizMatch.parseNumberedAnswers(matchedDbQ.answer);
+            pq.inputElements.forEach((inputEl, inputIdx) => {
+              const ansObj = parsedAnsList.find(a => a.index === (inputIdx + 1)) || parsedAnsList[inputIdx];
+              if (ansObj && ansObj.answer) {
+                showFillBlankHint(inputEl, ansObj.answer, highlightAnswersEnabled);
+                if (highlightAnswersEnabled) {
+                  inputEl.classList.add("hou-highlight-input");
+                }
+                if (autoSelectAnswersEnabled) {
+                  inputEl.value = ansObj.answer;
+                  inputEl.dispatchEvent(new Event("input", { bubbles: true }));
+                  inputEl.dispatchEvent(new Event("change", { bubbles: true }));
+                }
+              }
+            });
+          } else {
+            // Bước 2: Thử phân rã thành các câu hỏi con
+            const extractFillBlankSubQuestions = window.houQuizUI.extractFillBlankSubQuestions;
+            let subQs = [];
+            if (typeof extractFillBlankSubQuestions === "function") {
+              subQs = extractFillBlankSubQuestions(pq.container);
+            }
+            
+            if (subQs && subQs.length > 0) {
+              let subSolvedCount = 0;
+              subQs.forEach((subQ) => {
+                const subMatched = window.houQuizMatch.matchFillBlankQuestion(subQ.text, dbQuestions);
+                if (subMatched) {
+                  subSolvedCount++;
+                  details.push({
+                    question: `[Con] ${subQ.text}`,
+                    answer: subMatched.answer,
+                    status: "matched",
+                    statusIcon: getLucideIcons().target,
+                    sourceIcon: getLucideIcons().database,
+                    confidence: 1.0,
+                    matchType: "fill_blank_sub"
+                  });
+
+                  if (highlightAnswersEnabled) {
+                    subQ.element.classList.add("hou-highlight-question");
+                  }
+
+                  const parsedAnsList = window.houQuizMatch.parseNumberedAnswers(subMatched.answer);
+                  subQ.inputElements.forEach((inputEl, inputIdx) => {
+                    const ansObj = parsedAnsList.find(a => a.index === (inputIdx + 1)) || parsedAnsList[inputIdx];
+                    if (ansObj && ansObj.answer) {
+                      showFillBlankHint(inputEl, ansObj.answer, highlightAnswersEnabled);
+                      if (highlightAnswersEnabled) {
+                        inputEl.classList.add("hou-highlight-input");
+                      }
+                      if (autoSelectAnswersEnabled) {
+                        inputEl.value = ansObj.answer;
+                        inputEl.dispatchEvent(new Event("input", { bubbles: true }));
+                        inputEl.dispatchEvent(new Event("change", { bubbles: true }));
+                      }
+                    }
+                  });
+                } else {
+                  details.push({
+                    question: `[Con] ${subQ.text}`,
+                    answer: "",
+                    status: "not-found",
+                    statusIcon: getLucideIcons().xCircle,
+                    sourceIcon: "",
+                    confidence: 0
+                  });
+                }
+              });
+
+              if (subSolvedCount > 0) {
+                solvedCount++;
+                exactMatch++;
+              } else {
+                notFound++;
+              }
+            } else {
+              notFound++;
+              details.push({
+                question: pq.text,
+                answer: "",
+                status: "not-found",
+                statusIcon: getLucideIcons().xCircle,
+                sourceIcon: "",
+                confidence: 0
+              });
+            }
+          }
+          return;
+        }
+
         const match = window.houQuizMatch.matchQuestionWithDB(pq, dbQuestions);
         if (match) {
           console.log("[HouQuiz Debug] -> Khớp thành công câu hỏi! Đáp án đúng:", match.answerText);
           solvedCount++;
           let status = "matched";
-          let statusIcon = LUCIDE_ICONS.target;
+          let statusIcon = getLucideIcons().target;
           let confidence = 1.0;
           if (match.isExact) {
             exactMatch++;
           } else {
             fuzzyMatch++;
             status = "fuzzy";
-            statusIcon = LUCIDE_ICONS.alertTriangle;
+            statusIcon = getLucideIcons().alertTriangle;
             confidence = 0.95;
           }
           
@@ -397,17 +310,15 @@
             answer: match.answerText,
             status: status,
             statusIcon: statusIcon,
-            sourceIcon: LUCIDE_ICONS.database,
+            sourceIcon: getLucideIcons().database,
             confidence: confidence,
             matchType: match.matchType
           });
 
-          // 1. Highlight câu hỏi màu đỏ (chỉ khi bật)
           if (highlightAnswersEnabled) {
             pq.element.classList.add("hou-highlight-question");
           }
 
-          // 2. Tìm option khớp tốt nhất (dung sai nhỏ nhất / similarity score cao nhất)
           let bestOption = null;
           let bestScore = -1;
 
@@ -415,7 +326,6 @@
             let optText = optEl.textContent.replace(/\s+/g, " ").trim();
             optText = optText.replace(/[\u2713\u2714\u2611\u2705]/g, "").trim();
             const cleanOptText = window.houQuizUtils.normalizeTextForMatching(optText);
-            // Chỉ xem xét nếu hàm so sánh nhận diện là khớp
             if (window.houQuizUtils.compareNormalized(cleanOptText, match.answerText)) {
               const score = window.houQuizUtils.getSimilarityScore(cleanOptText, match.answerText);
               if (score > bestScore) {
@@ -427,7 +337,6 @@
 
           if (bestOption) {
             console.log(`[HouQuiz Debug] -> Chọn đáp án khớp nhất: "${bestOption.textContent.trim()}" (Score: ${bestScore})`);
-            // Highlight bật: bôi nền màu chủ đề; tắt: bôi màu chữ thay thế
             if (highlightAnswersEnabled) {
               highlightTextInOption(bestOption, 'bg');
             } else {
@@ -451,7 +360,7 @@
             question: pq.text,
             answer: "",
             status: "not-found",
-            statusIcon: LUCIDE_ICONS.xCircle,
+            statusIcon: getLucideIcons().xCircle,
             sourceIcon: "",
             confidence: 0
           });

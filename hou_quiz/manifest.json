@@ -32,6 +32,7 @@
         "scripts/common/utils.js",
         "scripts/auto-select-doc/auto-select-docs.js",
         "scripts/quiz-solver/quiz-match.js",
+        "scripts/quiz-solver/ui-helpers.js",
         "scripts/quiz-solver/result-popup.js",
         "scripts/question-search/search-popup.js",
         "scripts/question-search/scanner.js",
