@@ -147,6 +147,10 @@
         let questionText = clonedQtext.textContent.replace(/\s+/g, " ").trim();
         questionText = questionText.replace(/^mô tả câu hỏi/i, "").trim();
 
+        if (utils && typeof utils.cleanQuestionContent === "function") {
+          questionText = utils.cleanQuestionContent(questionText, qtextEl);
+        }
+
         const inputElements = container.querySelectorAll('input[type="text"], input:not([type]), textarea, select');
         const isFillBlank = inputElements.length > 0;
 

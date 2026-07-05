@@ -173,6 +173,19 @@
     if (!text) return '';
     let processedText = text;
 
+    if (element) {
+      try {
+        const cloned = element.cloneNode(true);
+        cloned.querySelectorAll("script, style, .answer, label, .prompt, .accesshide").forEach(el => el.remove());
+        cloned.querySelectorAll('p, div, br, li, h1, h2, h3, h4, h5, h6').forEach(el => {
+          el.after(document.createTextNode(' '));
+        });
+        processedText = cloned.textContent.replace(/\s+/g, " ").trim();
+      } catch (e) {
+        console.error("[HouQuiz Utils] Lỗi khi trích xuất text có khoảng trắng:", e);
+      }
+    }
+
     const markers = [
       'Choose the best answer',
       'Choose the correct answer',
@@ -367,7 +380,11 @@
       }
     }
 
-    if (processedText.length > 800) {
+    const isParagraphPrompt = processedText.length > 300 || 
+      /đọc (đoạn văn|đoạn hội thoại|bài khóa|bài đọc|đoạn thông tin|cuộc hội thoại|bài)/i.test(processedText) ||
+      /read the (text|passage|following|conversation|article)/i.test(processedText);
+
+    if (isParagraphPrompt) {
       const blankRegex = /([_.‥…\u2026]{2,}|_{2,}|(\.\s*){3,}|\[\s*\]|\(\s*\))/;
       if (element) {
         const boldEls = element.querySelectorAll("strong, b");
@@ -384,7 +401,7 @@
       const segments = processedText.split(/(?<=[.!?]['"”’]*)\s+(?=[A-Z])/);
       if (segments.length >= 2) {
         const lastSegment = segments[segments.length - 1].trim();
-        if (lastSegment.length > 15 && lastSegment.length < 500 && lastSegment.length < processedText.length * 0.4) {
+        if (lastSegment.length > 15 && lastSegment.length < 500 && lastSegment.length < processedText.length * 0.5) {
           const qKeywords = /^(Which|What|Who|When|Where|Why|How|Is|Are|Do|Does|Did|Can|Could|It is probable|According to|In paragraph|The passage|The author|The word|The purpose|From|Based on|It can be|The statement|The phrase)/i;
           if (qKeywords.test(lastSegment) || /[?？]/.test(lastSegment) || blankRegex.test(lastSegment)) {
             processedText = lastSegment;
