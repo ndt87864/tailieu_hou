@@ -182,9 +182,18 @@
     }
 
     if (rows.length > 0) {
-      rows.forEach(row => {
+      const rowsArray = Array.from(rows);
+      rowsArray.forEach(row => {
         const hasListItemChildren = row.querySelectorAll("li").length > 1;
         if (hasListItemChildren) return;
+
+        // Bỏ qua nếu row này bao bọc một row khác cũng có input để tránh lấy cả bài đọc
+        const hasSubRowWithInput = rowsArray.some(otherRow => {
+          if (otherRow === row) return false;
+          if (!row.contains(otherRow)) return false;
+          return otherRow.querySelectorAll('input[type="text"], input:not([type]), select').length > 0;
+        });
+        if (hasSubRowWithInput) return;
 
         const res = extractTextWithInputs(row);
         if (res && res.text.length > 3) {
@@ -224,7 +233,11 @@
       });
     }
 
-    return subQuestions;
+    const filteredSubQuestions = subQuestions.filter(sqA => {
+      return !subQuestions.some(sqB => sqB !== sqA && sqA.element.contains(sqB.element));
+    });
+
+    return filteredSubQuestions;
   }
 
   function scanQuestionsOnPage() {
