@@ -17,7 +17,7 @@
     "default_popup": "popup.html"
   },
   "background": {
-    "service_worker": "scripts/background.js"
+    "service_worker": "scripts/common/background.js"
   },
   "content_scripts": [
     {
@@ -28,17 +28,18 @@
         "https://lmshub.hou.edu.vn/mod/quiz/review.php*"
       ],
       "js": [
-        "scripts/config.js",
-        "scripts/utils.js",
-        "scripts/auto-select-docs.js",
-        "scripts/quiz-match.js",
-        "scripts/result-popup.js",
-        "scripts/search-popup.js",
-        "scripts/content.js"
+        "scripts/common/config.js",
+        "scripts/common/utils.js",
+        "scripts/auto-select-doc/auto-select-docs.js",
+        "scripts/quiz-solver/quiz-match.js",
+        "scripts/quiz-solver/result-popup.js",
+        "scripts/question-search/search-popup.js",
+        "scripts/quiz-solver/content.js"
       ],
       "css": [
-        "styles/styles.css",
-        "styles/result-popup.css"
+        "styles/common/styles.css",
+        "styles/quiz-solver/result-popup.css",
+        "styles/question-search/search-popup.css"
       ],
       "run_at": "document_idle"
     }
