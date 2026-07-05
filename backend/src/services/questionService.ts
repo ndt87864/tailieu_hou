@@ -111,6 +111,121 @@ export const deleteMultipleQuestions = async (ids: string[]): Promise<boolean> =
   return !error;
 };
 
+export type BulkCreateInput = {
+  document_id: string;
+  question: string;
+  answer: string;
+  choices?: string[];
+  url_question?: string | null;
+  url_answer?: string | null;
+  order_index?: number;
+};
+
+export type BulkCreateResult = {
+  inserted: number;
+  skipped: number;
+  updatedChoices?: number;
+  errors: string[];
+};
+
+/**
+ * Thêm hàng loạt câu hỏi vào DB.
+ * - Kiểm tra trùng lặp theo question và answer text trong cùng document_id.
+ * - Câu hỏi đã tồn tại sẽ bị bỏ qua (skip), không gây lỗi.
+ * - Trả về số lượng đã chèn, bỏ qua, và các lỗi nếu có.
+ */
+export const bulkCreateQuestions = async (
+  items: BulkCreateInput[]
+): Promise<BulkCreateResult> => {
+  if (!items || items.length === 0) return { inserted: 0, skipped: 0, updatedChoices: 0, errors: [] };
+
+  const documentId = items[0].document_id;
+
+  // Lấy toàn bộ câu hỏi hiện có của document để so sánh trùng lặp
+  const existing = await getQuestionsByDocument(documentId);
+
+  const normalize = (text: string) => (text || "").trim().toLowerCase();
+
+  // Lọc ra những câu hỏi chưa tồn tại
+  const newItems: BulkCreateInput[] = [];
+  let skipped = 0;
+  let updatedChoices = 0;
+  const errors: string[] = [];
+
+  for (const item of items) {
+    if (!item.question?.trim()) {
+      errors.push(`Bỏ qua câu hỏi rỗng.`);
+      continue;
+    }
+
+    const normQ = normalize(item.question);
+    const normA = normalize(item.answer);
+
+    // Tìm câu trùng khớp cả question và answer trong existing
+    const matchedDbQ = existing.find(
+      (dbQ) => normalize(dbQ.question) === normQ && normalize(dbQ.answer) === normA
+    );
+
+    if (matchedDbQ) {
+      const hasChoices = Array.isArray(matchedDbQ.choices) && matchedDbQ.choices.length > 0;
+      if (!hasChoices && Array.isArray(item.choices) && item.choices.length > 0) {
+        // Chưa có choices -> Tiến hành cập nhật choices
+        const { error: updateErr } = await supabaseAdmin
+          .from("questions")
+          .update({ choices: item.choices })
+          .eq("id", matchedDbQ.id);
+
+        if (updateErr) {
+          errors.push(`ID ${matchedDbQ.id}: Cập nhật choices thất bại - ${updateErr.message}`);
+        } else {
+          updatedChoices++;
+        }
+      } else {
+        // Đã có choices hoặc không có choices mới để cập nhật -> Bỏ qua
+        skipped++;
+      }
+      continue;
+    }
+
+    newItems.push(item);
+  }
+
+  if (newItems.length === 0) {
+    return { inserted: 0, skipped, updatedChoices, errors };
+  }
+
+  // Chèn hàng loạt vào DB
+  const { data, error } = await supabaseAdmin
+    .from("questions")
+    .insert(
+      newItems.map((item, idx) => ({
+        document_id: item.document_id,
+        question: item.question.trim(),
+        answer: item.answer?.trim() ?? "",
+        choices: item.choices ?? [],
+        url_question: item.url_question ?? null,
+        url_answer: item.url_answer ?? null,
+        order_index: item.order_index ?? existing.length + idx + 1,
+      }))
+    )
+    .select("id");
+
+  if (error) {
+    errors.push(error.message);
+    return { inserted: 0, skipped, updatedChoices, errors };
+  }
+
+  // Invalidate cache cho document này
+  cacheInvalidatePrefix(`${CACHE_PREFIX}:${documentId}`);
+
+  return {
+    inserted: data?.length ?? 0,
+    skipped,
+    updatedChoices,
+    errors,
+  };
+};
+
 export const getQuestionById = async (id: string): Promise<Question | null> => {
   const { data, error } = await supabaseAdmin
     .from("questions")
@@ -205,3 +320,59 @@ export const searchQuestions = async (
 
   return cached;
 };
+
+export type BulkUpdateChoicesInput = {
+  id: string;
+  choices: string[];
+};
+
+export type BulkUpdateChoicesResult = {
+  updated: number;
+  errors: string[];
+};
+
+/**
+ * Cập nhật hàng loạt `choices` cho các câu hỏi đã tồn tại trong DB nhưng chưa có lựa chọn.
+ */
+export const bulkUpdateChoices = async (
+  items: BulkUpdateChoicesInput[]
+): Promise<BulkUpdateChoicesResult> => {
+  if (!items || items.length === 0) return { updated: 0, errors: [] };
+
+  const errors: string[] = [];
+  let updated = 0;
+
+  // Cập nhật tuần tự từng câu để tránh race condition trên Supabase
+  for (const item of items) {
+    if (!item.id || !Array.isArray(item.choices) || item.choices.length === 0) {
+      errors.push(`ID ${item.id}: choices không hợp lệ.`);
+      continue;
+    }
+    const { error } = await supabaseAdmin
+      .from("questions")
+      .update({ choices: item.choices })
+      .eq("id", item.id);
+
+    if (error) {
+      errors.push(`ID ${item.id}: ${error.message}`);
+    } else {
+      updated++;
+    }
+  }
+
+  // Invalidate cache cho tất cả document liên quan
+  if (updated > 0 && items.length > 0) {
+    const { data: rows } = await supabaseAdmin
+      .from("questions")
+      .select("document_id")
+      .in("id", items.map((i) => i.id));
+
+    const docIds = Array.from(new Set((rows ?? []).map((r) => r.document_id).filter(Boolean)));
+    for (const docId of docIds) {
+      cacheInvalidatePrefix(`${CACHE_PREFIX}:${docId}`);
+    }
+  }
+
+  return { updated, errors };
+};
+

@@ -1,0 +1,367 @@
+/* CSS cho Popup kết quả quét câu hỏi lơ lửng */
+#hou-quiz-scanner-popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 680px;
+    max-width: 90vw;
+    max-height: 85vh;
+    background: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25), 0 4px 16px rgba(0, 0, 0, 0.12);
+    z-index: 10000002;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: popupFadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    color: #1a1a2e;
+}
+
+#hou-quiz-scanner-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 10000001;
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+#hou-quiz-scanner-popup .scanner-header {
+    background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%);
+    color: #1a1a2e;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+#hou-quiz-scanner-popup .scanner-header-title {
+    font-weight: 700;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#hou-quiz-scanner-popup .scanner-header-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+#hou-quiz-scanner-popup .scanner-count {
+    background: var(--brand-500);
+    color: white;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+#hou-quiz-scanner-popup .scanner-close {
+    background: rgba(var(--brand-rgb), 0.1);
+    border: none;
+    color: var(--fg-2);
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#hou-quiz-scanner-popup .scanner-close:hover {
+    background: var(--danger);
+    color: white;
+}
+
+#hou-quiz-scanner-popup .scanner-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+#hou-quiz-scanner-popup .scanner-warning {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.25);
+    border-radius: 12px;
+    padding: 12px 16px;
+    color: var(--fg);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+#hou-quiz-scanner-popup .scanner-questions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+#hou-quiz-scanner-popup .scanner-question-item {
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 16px;
+    position: relative;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+#hou-quiz-scanner-popup .scanner-question-item:hover {
+    background: #eef2ff;
+    border-color: #c7d2fe;
+}
+
+#hou-quiz-scanner-popup .scanner-question-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    font-size: 13px;
+}
+
+#hou-quiz-scanner-popup .scanner-q-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#hou-quiz-scanner-popup .scanner-q-checkbox {
+    cursor: pointer;
+    width: 15px;
+    height: 15px;
+    accent-color: var(--brand-500);
+}
+
+#hou-quiz-scanner-popup .scanner-q-num {
+    font-weight: 700;
+    color: var(--brand-600);
+}
+
+#hou-quiz-scanner-popup .scanner-q-type {
+    background: var(--border);
+    color: var(--muted);
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+#hou-quiz-scanner-popup .scanner-q-doc {
+    background: rgba(var(--brand-rgb), 0.08);
+    color: var(--brand-700);
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.dark #hou-quiz-scanner-popup .scanner-q-doc {
+    color: var(--brand-400);
+}
+
+#hou-quiz-scanner-popup .scanner-q-badge {
+    background: rgba(16, 185, 129, 0.12);
+    color: var(--success);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+#hou-quiz-scanner-popup .scanner-q-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#hou-quiz-scanner-popup .scanner-q-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#hou-quiz-scanner-popup .scanner-q-btn:hover {
+    background: rgba(var(--brand-rgb), 0.1);
+    color: var(--brand-600);
+}
+
+#hou-quiz-scanner-popup .scanner-q-btn.delete:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger);
+}
+
+#hou-quiz-scanner-popup .scanner-question-text {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--fg);
+    margin-bottom: 12px;
+}
+
+#hou-quiz-scanner-popup .scanner-answers {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+#hou-quiz-scanner-popup .scanner-answer-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    font-size: 13px;
+    line-height: 1.4;
+    color: #1a1a2e;
+}
+
+#hou-quiz-scanner-popup .scanner-answer-item.correct {
+    border-color: rgba(16, 185, 129, 0.3);
+    background: rgba(16, 185, 129, 0.08);
+}
+
+#hou-quiz-scanner-popup .scanner-ans-label {
+    font-weight: 700;
+    color: var(--brand-600);
+    min-width: 18px;
+}
+
+#hou-quiz-scanner-popup .scanner-ans-text {
+    color: var(--fg);
+}
+
+/* Edit form */
+#hou-quiz-scanner-popup .scanner-edit-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    background: #f1f5f9;
+    border: 1px dashed #6366f1;
+    border-radius: 12px;
+    margin-top: 10px;
+}
+
+#hou-quiz-scanner-popup .scanner-edit-form textarea {
+    width: 100%;
+    min-height: 80px;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    background: #ffffff;
+    color: #1a1a2e;
+    font-size: 13px;
+    resize: vertical;
+    outline: none;
+    box-sizing: border-box;
+}
+
+#hou-quiz-scanner-popup .edit-answers {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+#hou-quiz-scanner-popup .edit-answer-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#hou-quiz-scanner-popup .edit-answer-row input[type="text"] {
+    flex: 1;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    background: #ffffff;
+    color: #1a1a2e;
+    font-size: 13px;
+    outline: none;
+    box-sizing: border-box;
+}
+
+#hou-quiz-scanner-popup .edit-answer-row input[type="checkbox"] {
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+    accent-color: var(--brand-500);
+}
+
+#hou-quiz-scanner-popup .scanner-edit-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* Footer & Buttons */
+#hou-quiz-scanner-popup .scanner-footer {
+    padding: 16px 20px;
+    border-top: 1px solid #e5e7eb;
+    background: #f8fafc;
+    display: flex;
+    gap: 10px;
+}
+
+#hou-quiz-scanner-popup .scanner-btn {
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.2s;
+}
+
+#hou-quiz-scanner-popup .scanner-btn-secondary {
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    color: #4b5563;
+}
+
+#hou-quiz-scanner-popup .scanner-btn-secondary:hover {
+    background: rgba(var(--brand-rgb), 0.1);
+    color: var(--brand-600);
+}
+
+#hou-quiz-scanner-popup .scanner-btn-primary {
+    background: linear-gradient(135deg, var(--brand-500) 0%, var(--brand-600) 100%);
+    color: white;
+    border: none;
+    margin-left: auto;
+}
+
+#hou-quiz-scanner-popup .scanner-btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(var(--brand-rgb), 0.3);
+}
+
+#hou-quiz-scanner-popup .scanner-btn-add-row {
+    align-self: flex-start;
+    padding: 6px 12px;
+    font-size: 12px;
+}

@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { requireRole } from "../middlewares/role.js";
 import { questionLimitMiddleware, checkFullAccess, getQuestionRatios } from "../middlewares/questionLimit.js";
 import * as questionService from "../services/questionService.js";
+import type { BulkCreateInput, BulkUpdateChoicesInput } from "../services/questionService.js";
 import { supabaseAdmin } from "../config/db.js";
 import { cacheGetOrSet } from "../utils/cache.js";
 
@@ -165,6 +166,90 @@ questionsRouter.delete("/:id", requireRole("management"), async (c) => {
   const ok = await questionService.deleteQuestion(id);
   if (!ok) return c.json({ error: "Delete failed" }, 400);
   return c.json({ success: true, message: "Deleted" });
+});
+
+// BULK INSERT từ Extension Scanner
+// Body: { document_id: string, questions: { question, answer, choices?, order_index? }[] }
+questionsRouter.post("/bulk", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { document_id, questions } = body as {
+      document_id?: string;
+      questions?: Array<{
+        question: string;
+        answer: string;
+        choices?: string[];
+        url_question?: string;
+        url_answer?: string;
+        order_index?: number;
+      }>;
+    };
+
+    if (!document_id || typeof document_id !== "string") {
+      return c.json({ error: "document_id là bắt buộc" }, 400);
+    }
+    if (!Array.isArray(questions) || questions.length === 0) {
+      return c.json({ error: "questions phải là mảng không rỗng" }, 400);
+    }
+    if (questions.length > 500) {
+      return c.json({ error: "Tối đa 500 câu hỏi mỗi lần gửi" }, 400);
+    }
+
+    const items: BulkCreateInput[] = questions.map((q) => ({
+      document_id,
+      question: String(q.question ?? ""),
+      answer: String(q.answer ?? ""),
+      choices: Array.isArray(q.choices) ? q.choices : [],
+      url_question: q.url_question ?? null,
+      url_answer: q.url_answer ?? null,
+      order_index: typeof q.order_index === "number" ? q.order_index : undefined,
+    }));
+
+    const result = await questionService.bulkCreateQuestions(items);
+
+    let message = `Đã thêm ${result.inserted} câu hỏi, bỏ qua ${result.skipped} câu trùng lặp.`;
+    if (result.updatedChoices && result.updatedChoices > 0) {
+      message += ` Cập nhật choices cho ${result.updatedChoices} câu hỏi.`;
+    }
+
+    return c.json({
+      success: true,
+      inserted: result.inserted,
+      skipped: result.skipped,
+      updatedChoices: result.updatedChoices || 0,
+      errors: result.errors,
+      message,
+    }, 201);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+// BULK UPDATE CHOICES từ Extension Scanner
+// Body: { updates: { id: string, choices: string[] }[] }
+questionsRouter.post("/bulk-update-choices", async (c) => {
+  try {
+    const body = await c.req.json();
+    const updates = body?.updates as BulkUpdateChoicesInput[] | undefined;
+
+    if (!Array.isArray(updates) || updates.length === 0) {
+      return c.json({ error: "updates phải là mảng không rỗng" }, 400);
+    }
+    if (updates.length > 500) {
+      return c.json({ error: "Tối đa 500 mục mỗi lần gửi" }, 400);
+    }
+
+    const result = await questionService.bulkUpdateChoices(updates);
+
+    return c.json({
+      success: true,
+      updated: result.updated,
+      errors: result.errors,
+      message: `Đã cập nhật choices cho ${result.updated} câu hỏi.`,
+    });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
 });
 
 // SEARCH theo text (exact + fuzzy fallback). Body: { questions: string[], document_ids?: string[] }

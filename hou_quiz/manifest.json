@@ -34,12 +34,14 @@
         "scripts/quiz-solver/quiz-match.js",
         "scripts/quiz-solver/result-popup.js",
         "scripts/question-search/search-popup.js",
+        "scripts/question-search/scanner.js",
         "scripts/quiz-solver/content.js"
       ],
       "css": [
         "styles/common/styles.css",
         "styles/quiz-solver/result-popup.css",
-        "styles/question-search/search-popup.css"
+        "styles/question-search/search-popup.css",
+        "styles/question-search/scanner-popup.css"
       ],
       "run_at": "document_idle"
     }

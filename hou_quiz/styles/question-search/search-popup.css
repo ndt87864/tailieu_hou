@@ -225,3 +225,35 @@
     color: #81c784;
     border-left-color: #81c784;
 }
+
+/* Nút quét câu hỏi ở góc dưới bên phải */
+#hou-quiz-scanner-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    background: linear-gradient(135deg, var(--brand-500) 0%, var(--brand-600) 50%, var(--brand-700) 100%);
+    border-radius: 50%;
+    font-size: 24px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 8px 24px rgba(var(--brand-rgb), 0.4);
+    z-index: 999997;
+    transition: transform 0.2s ease, background 0.2s, box-shadow 0.2s;
+    color: white;
+}
+
+#hou-quiz-scanner-btn:hover {
+    transform: translateY(-2px) scale(1.05);
+    background: linear-gradient(135deg, var(--brand-400) 0%, var(--brand-500) 50%, var(--brand-600) 100%);
+    box-shadow: 0 12px 32px rgba(var(--brand-rgb), 0.5);
+}
+
+#hou-quiz-scanner-btn:active {
+    transform: translateY(0) scale(0.98);
+}
+
