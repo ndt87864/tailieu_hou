@@ -380,33 +380,41 @@
             pq.element.classList.add("hou-highlight-question");
           }
 
-          // 2. Tìm option khớp để highlight và click chọn
+          // 2. Tìm option khớp tốt nhất (dung sai nhỏ nhất / similarity score cao nhất)
+          let bestOption = null;
+          let bestScore = -1;
+
           pq.optionElements.forEach(optEl => {
             const optText = optEl.textContent.replace(/\s+/g, " ").trim();
-            const normalizedOpt = window.houQuizUtils.normalizeTextForMatching(optText);
-            const normalizedMatchAns = window.houQuizUtils.normalizeTextForMatching(match.answerText);
-            console.log(`[HouQuiz Debug] So sánh lựa chọn trên trang: "${normalizedOpt}" với đáp án DB: "${normalizedMatchAns}"`);
-            
+            // Chỉ xem xét nếu hàm so sánh nhận diện là khớp
             if (window.houQuizUtils.compareNormalized(optText, match.answerText)) {
-              console.log("[HouQuiz Debug] -> Khớp đáp án lựa chọn!");
-              // Highlight bật: bôi nền màu chủ đề; tắt: bôi màu chữ thay thế
-              if (highlightAnswersEnabled) {
-                highlightTextInOption(optEl, 'bg');
-              } else {
-                highlightTextInOption(optEl, 'text');
-              }
-              if (autoSelectAnswersEnabled) {
-                const input = optEl.querySelector("input[type='radio'], input[type='checkbox']") || 
-                              optEl.closest(".que")?.querySelector(`input[value="${optEl.getAttribute('for')}"]`);
-                if (input) {
-                  input.click();
-                  input.dispatchEvent(new Event("change", { bubbles: true }));
-                } else {
-                  optEl.click();
-                }
+              const score = window.houQuizUtils.getSimilarityScore(optText, match.answerText);
+              if (score > bestScore) {
+                bestScore = score;
+                bestOption = optEl;
               }
             }
           });
+
+          if (bestOption) {
+            console.log(`[HouQuiz Debug] -> Chọn đáp án khớp nhất: "${bestOption.textContent.trim()}" (Score: ${bestScore})`);
+            // Highlight bật: bôi nền màu chủ đề; tắt: bôi màu chữ thay thế
+            if (highlightAnswersEnabled) {
+              highlightTextInOption(bestOption, 'bg');
+            } else {
+              highlightTextInOption(bestOption, 'text');
+            }
+            if (autoSelectAnswersEnabled) {
+              const input = bestOption.querySelector("input[type='radio'], input[type='checkbox']") || 
+                            bestOption.closest(".que")?.querySelector(`input[value="${bestOption.getAttribute('for')}"]`);
+              if (input) {
+                input.click();
+                input.dispatchEvent(new Event("change", { bubbles: true }));
+              } else {
+                bestOption.click();
+              }
+            }
+          }
         } else {
           console.log("[HouQuiz Debug] -> Không tìm thấy câu hỏi khớp trong DB.");
           notFound++;
