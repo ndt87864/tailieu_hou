@@ -194,9 +194,8 @@
               matchType: "fill_blank_full"
             });
 
-            if (highlightAnswersEnabled) {
-              pq.element.classList.add("hou-highlight-question");
-            }
+
+
 
             const parsedAnsList = window.houQuizMatch.parseNumberedAnswers(matchedDbQ.answer);
             pq.inputElements.forEach((inputEl, inputIdx) => {
@@ -237,9 +236,8 @@
                     matchType: "fill_blank_sub"
                   });
 
-                  if (highlightAnswersEnabled) {
-                    subQ.element.classList.add("hou-highlight-question");
-                  }
+
+
 
                   const parsedAnsList = window.houQuizMatch.parseNumberedAnswers(subMatched.answer);
                   subQ.inputElements.forEach((inputEl, inputIdx) => {
