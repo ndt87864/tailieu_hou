@@ -8,6 +8,21 @@
   const POPUP_ID = "hou-quiz-scanner-popup";
   const OVERLAY_ID = "hou-quiz-scanner-overlay";
 
+  // Kiểm tra cờ tự động mở scanner sau khi reload trang
+  if (sessionStorage.getItem("hou_quiz_auto_open_scanner") === "true") {
+    sessionStorage.removeItem("hou_quiz_auto_open_scanner");
+    const runScanOnLoad = () => {
+      setTimeout(() => {
+        triggerManualScan();
+      }, 800);
+    };
+    if (document.readyState === "complete") {
+      runScanOnLoad();
+    } else {
+      window.addEventListener("load", runScanOnLoad);
+    }
+  }
+
   // Danh sách câu hỏi quét được đang lưu trong bộ nhớ tạm thời
   let scannedQuestionsList = [];
 
@@ -426,6 +441,11 @@
           showPageToast("Đã tồn tại trong DB, không có gì cần lưu.", false);
         } else {
           showPageToast(`Hoàn thành: ${parts.join(", ")}.`);
+          if (inserted > 0 || updated > 0) {
+            if (typeof window.houQuizReloadQuestions === "function") {
+              window.houQuizReloadQuestions();
+            }
+          }
         }
         closeScannerPopup();
       } catch (err) {
@@ -736,7 +756,12 @@
     }
 
     button.addEventListener("click", () => {
-      triggerManualScan();
+      if (sessionStorage.getItem("hou_quiz_solver_active") === "true") {
+        sessionStorage.setItem("hou_quiz_auto_open_scanner", "true");
+        window.location.reload();
+      } else {
+        triggerManualScan();
+      }
     });
 
     document.body.appendChild(button);

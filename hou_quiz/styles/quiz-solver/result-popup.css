@@ -207,6 +207,20 @@
     margin-right: 20px;
 }
 
+#hou-quiz-result-popup .quiz-detail-match-type {
+    font-size: 10px;
+    opacity: 0.8;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.05);
+    margin-left: 6px;
+    font-weight: 500;
+    display: inline-block;
+}
+.dark #hou-quiz-result-popup .quiz-detail-match-type {
+    background: rgba(255, 255, 255, 0.1);
+}
+
 #hou-quiz-result-popup .quiz-result-footer {
     padding: 16px 20px;
     background: transparent;

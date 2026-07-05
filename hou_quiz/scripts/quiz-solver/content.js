@@ -4,6 +4,9 @@
   if (window.houQuizLoaded) return;
   window.houQuizLoaded = true;
 
+  // Reset cờ solver active của trang/tab khi bắt đầu load trang
+  sessionStorage.removeItem("hou_quiz_solver_active");
+
   const QUIZ_RESULT_POPUP_ID = "hou-quiz-result-popup";
   const QUIZ_MINIMIZED_ID = "hou-quiz-minimized";
 
@@ -287,6 +290,9 @@
   // Thực hiện làm bài: Quét, so khớp, highlight và tự động chọn đáp án
   function startSolving() {
     console.log("[HouQuiz Debug] Bắt đầu làm bài, số lượng câu hỏi trong DB:", dbQuestions.length);
+    // Đánh dấu là Quiz Solver đã hoạt động trên trang hiện tại
+    sessionStorage.setItem("hou_quiz_solver_active", "true");
+
     if (dbQuestions.length === 0) {
       showToast("Không có câu hỏi trong database. Đang tải lại...");
       initDocument();
@@ -329,7 +335,8 @@
             status: status,
             statusIcon: statusIcon,
             sourceIcon: LUCIDE_ICONS.database,
-            confidence: confidence
+            confidence: confidence,
+            matchType: match.matchType
           });
 
           // 1. Highlight câu hỏi màu đỏ (chỉ khi bật)
@@ -432,6 +439,35 @@
     window.houQuizSearchPopup.setApplyThemeFn(applyThemeToElement);
     window.houQuizSearchPopup.createSearchButton();
   }
+  // Hàm tải lại dữ liệu câu hỏi từ DB cho solver
+  async function reloadQuestionsData() {
+    if (!activeDocument) return;
+    try {
+      showToast("Đang làm mới câu hỏi...");
+      const resData = await window.houQuizUtils.fetchAPI(`${window.houQuizConfig.API_URL}/questions/document/${activeDocument.id}`);
+      dbQuestions = resData.questions || [];
+      if (window.houQuizSearchPopup) {
+        window.houQuizSearchPopup.setDbQuestions(dbQuestions);
+      }
+      console.log(`[HouQuiz] Reloaded ${dbQuestions.length} questions from DB.`);
+      showToast(`Đã làm mới dữ liệu câu hỏi! Tổng số: ${dbQuestions.length} câu.`);
+      
+      let cleanCourseTitle = activeDocument.title;
+      if (cleanCourseTitle.includes("-") || cleanCourseTitle.includes("–") || cleanCourseTitle.includes("—")) {
+        cleanCourseTitle = cleanCourseTitle.split(/[-–—]/)[0].trim();
+      }
+      chrome.storage.local.get(["hou_show_info_widget"], (res) => {
+        if (res.hou_show_info_widget !== false) {
+          showInfoWidget(cleanCourseTitle, activeDocument.title, `Sẵn sàng (${dbQuestions.length} câu)`);
+        }
+      });
+    } catch (err) {
+      console.error("[HouQuiz] Error reloading questions:", err);
+      showToast("Lỗi làm mới câu hỏi.");
+    }
+  }
+  window.houQuizReloadQuestions = reloadQuestionsData;
+
   initDocument();
 
   // Lắng nghe thay đổi cấu hình từ popup để cập nhật UI realtime

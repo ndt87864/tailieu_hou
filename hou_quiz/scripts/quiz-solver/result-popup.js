@@ -181,7 +181,7 @@
                 <span class="quiz-detail-num">Câu ${idx + 1}:</span>
                 <span class="quiz-detail-source">${d.sourceIcon}</span>
                 <span class="quiz-detail-text">${truncateText(d.question, 60)}</span>
-                ${d.answer ? `<br><span class="quiz-detail-answer">→ ${truncateText(d.answer, 40)} ${d.confidence ? `(${(d.confidence * 100).toFixed(1)}%)` : ""}</span>` : ""}
+                ${d.answer ? `<br><span class="quiz-detail-answer">→ ${truncateText(d.answer, 40)} ${d.confidence ? `(${(d.confidence * 100).toFixed(1)}%)` : ""}${d.matchType ? `<span class="quiz-detail-match-type">[${d.matchType === 'choices' ? 'Khớp lựa chọn' : 'Khớp đáp án'}]</span>` : ""}</span>` : ""}
               </div>
             `).join("")}
           </div>
