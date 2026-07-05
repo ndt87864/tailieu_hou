@@ -65,9 +65,12 @@
     }, duration);
   }
 
-  // Highlight riêng phần text của đáp án, bỏ qua các thẻ chứa checkmark/icon/input
-  function highlightTextInOption(optEl) {
-    if (optEl.querySelector(".hou-highlight-option") || optEl.classList.contains("hou-highlight-option")) {
+  // Highlight phần text của đáp án đúng
+  // mode = 'bg' : bôi nền (highlight bật)
+  // mode = 'text': bôi màu chữ (highlight tắt)
+  function highlightTextInOption(optEl, mode = 'bg') {
+    const mainClass = mode === 'text' ? 'hou-highlight-option-text' : 'hou-highlight-option';
+    if (optEl.querySelector(`.${mainClass}`) || optEl.classList.contains(mainClass)) {
       return;
     }
 
@@ -89,11 +92,11 @@
 
     if (nodesToMove.length > 0) {
       const span = document.createElement("span");
-      span.className = "hou-highlight-option";
+      span.className = mainClass;
       optEl.insertBefore(span, nodesToMove[0]);
       nodesToMove.forEach(node => span.appendChild(node));
     } else {
-      optEl.classList.add("hou-highlight-option");
+      optEl.classList.add(mainClass);
     }
   }
 
@@ -467,12 +470,12 @@
             confidence: confidence
           });
 
-          // 1. Highlight câu hỏi màu đỏ
+          // 1. Highlight câu hỏi màu đỏ (chỉ khi bật)
           if (highlightAnswersEnabled) {
             pq.element.classList.add("hou-highlight-question");
           }
 
-          // 2. Tìm option khớp để highlight xanh lá và click chọn
+          // 2. Tìm option khớp để highlight và click chọn
           pq.optionElements.forEach(optEl => {
             const optText = optEl.textContent.replace(/\s+/g, " ").trim();
             const normalizedOpt = window.houQuizUtils.normalizeTextForMatching(optText);
@@ -481,8 +484,11 @@
             
             if (window.houQuizUtils.compareNormalized(optText, match.answerText)) {
               console.log("[HouQuiz Debug] -> Khớp đáp án lựa chọn!");
+              // Highlight bật: bôi nền màu chủ đề; tắt: bôi màu chữ thay thế
               if (highlightAnswersEnabled) {
-                highlightTextInOption(optEl);
+                highlightTextInOption(optEl, 'bg');
+              } else {
+                highlightTextInOption(optEl, 'text');
               }
               if (autoSelectAnswersEnabled) {
                 const input = optEl.querySelector("input[type='radio'], input[type='checkbox']") || 

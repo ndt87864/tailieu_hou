@@ -253,6 +253,20 @@
     font-weight: bold !important;
 }
 
+/* Bôi màu chữ thay vì nền - dùng khi tắt Highlight đáp án đúng */
+.hou-highlight-option-text {
+    color: var(--brand-500, #0ba806) !important;
+    font-weight: bold !important;
+    text-decoration: underline;
+    text-decoration-color: var(--brand-700, #047857);
+    text-underline-offset: 3px;
+}
+
+.hou-highlight-option-text * {
+    color: inherit !important;
+    font-weight: bold !important;
+}
+
 /* Thông báo nhỏ - Glassmorphism */
 .hou-toast {
     position: fixed;
