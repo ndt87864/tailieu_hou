@@ -207,8 +207,15 @@
       'Choose A, B, C or D to complete the following sentence:',
       'Choose A, B, C or D to complete the sentence:',
       'Choose A, B, C, or D to complete the following sentence:',
-      'Choose the lettered word or phrase'
+      'Choose the lettered word or phrase',
+      'Chọn câu trả lời đúng cho mỗi câu hoặc câu hỏi dưới đây',
+      'Chọn câu trả lời đúng cho các câu dưới đây',
+      'Chọn câu trả lời đúng cho các câu hỏi dưới đây',
+      'Chọn câu trả lời đúng',
+      'Chọn đáp án đúng'
     ];
+
+    markers.sort((a, b) => b.length - a.length);
 
     const titleMarkers = [
       "Circle the best title for the reading text",

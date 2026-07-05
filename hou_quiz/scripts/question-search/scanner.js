@@ -261,11 +261,20 @@
             const hasCorrectClass = (parent && parent.classList.contains("correct")) || el.classList.contains("correct") || !!el.querySelector(".correct");
             
             const correctnessIcon = el.querySelector(".questioncorrectnessicon") || (parent && parent.querySelector(".questioncorrectnessicon"));
-            const hasCorrectIcon = correctnessIcon && (
-              /đúng|correct/i.test(correctnessIcon.getAttribute("alt") || "") || 
-              /đúng|correct/i.test(correctnessIcon.getAttribute("title") || "") ||
-              /grade_correct/i.test(correctnessIcon.getAttribute("src") || "")
-            );
+            let hasCorrectIcon = false;
+            if (correctnessIcon) {
+              const alt = (correctnessIcon.getAttribute("alt") || "").toLowerCase();
+              const title = (correctnessIcon.getAttribute("title") || "").toLowerCase();
+              const src = (correctnessIcon.getAttribute("src") || "").toLowerCase();
+              
+              const isCorrectText = (text) => {
+                if (!text) return false;
+                if (text.includes("không") || text.includes("incorrect")) return false;
+                return text.includes("đúng") || text.includes("correct");
+              };
+              
+              hasCorrectIcon = isCorrectText(alt) || isCorrectText(title) || src.includes("grade_correct");
+            }
             
             const textContent = el.textContent || "";
             const hasTickChar = /[✓✔✅]/.test(textContent);
@@ -280,7 +289,21 @@
         }
 
         if (!rightAnswerText) {
-          const correctIconInContainer = container.querySelector('.questioncorrectnessicon[alt*="đúng"], .questioncorrectnessicon[alt*="correct"], .questioncorrectnessicon[title*="đúng"], .questioncorrectnessicon[title*="correct"], img[src*="grade_correct"]');
+          const icons = Array.from(container.querySelectorAll('.questioncorrectnessicon, img[src*="grade_"]'));
+          const correctIconInContainer = icons.find(icon => {
+            const alt = (icon.getAttribute("alt") || "").toLowerCase();
+            const title = (icon.getAttribute("title") || "").toLowerCase();
+            const src = (icon.getAttribute("src") || "").toLowerCase();
+            
+            const isCorrectText = (text) => {
+              if (!text) return false;
+              if (text.includes("không") || text.includes("incorrect")) return false;
+              return text.includes("đúng") || text.includes("correct");
+            };
+            
+            return isCorrectText(alt) || isCorrectText(title) || src.includes("grade_correct");
+          });
+
           if (correctIconInContainer) {
             const parentRow = correctIconInContainer.closest("label, li, .r0, .r1, .correct");
             if (parentRow) {
