@@ -25,16 +25,16 @@
         "https://lmshub.hou.edu.vn/mod/quiz/review.php*"
       ],
       "js": [
-        "config.js",
-        "utils.js",
-        "auto-select-docs.js",
-        "quiz-match.js",
-        "result-popup.js",
-        "content.js"
+        "scripts/config.js",
+        "scripts/utils.js",
+        "scripts/auto-select-docs.js",
+        "scripts/quiz-match.js",
+        "scripts/result-popup.js",
+        "scripts/content.js"
       ],
       "css": [
-        "styles.css",
-        "result-popup.css"
+        "styles/styles.css",
+        "styles/result-popup.css"
       ],
       "run_at": "document_idle"
     }
