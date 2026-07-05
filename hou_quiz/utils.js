@@ -75,14 +75,25 @@
     if (!A.key || !B.key) return false;
     if (A.key === B.key) return true;
     if (A.key.replace(/\s+/g, '') === B.key.replace(/\s+/g, '') && A.key.replace(/\s+/g, '').length > 0) return true;
-    if (A.key.includes(B.key) || B.key.includes(A.key)) return true;
+    
+    // Nếu hai chuỗi có cấu trúc quá giống nhau nhưng chỉ khác nhau số (như độ tuổi "14", "18", "12", "16")
+    // ta không được dùng so khớp mờ. Hãy đếm xem có số nào khác nhau không.
+    const numsA = A.key.match(/\d+/g) || [];
+    const numsB = B.key.match(/\d+/g) || [];
+    if (numsA.join(',') !== numsB.join(',')) {
+      return false; // Nếu các con số xuất hiện trong chuỗi không khớp hoàn toàn, loại bỏ ngay lập tức
+    }
 
-    try {
-      const lev = levenshtein(A.key, B.key);
-      const maxLen = Math.max(A.key.length, B.key.length) || 1;
-      const ratio = lev / maxLen;
-      if (ratio <= 0.15 || lev <= 2) return true;
-    } catch (e) { }
+    // Chỉ cho phép so khớp dạng includes hoặc Levenshtein khi đáp án đủ dài (ví dụ: > 8 ký tự)
+    if (A.key.length > 8 && B.key.length > 8) {
+      if (A.key.includes(B.key) || B.key.includes(A.key)) return true;
+      try {
+        const lev = levenshtein(A.key, B.key);
+        const maxLen = Math.max(A.key.length, B.key.length) || 1;
+        const ratio = lev / maxLen;
+        if (ratio <= 0.10 || lev <= 1) return true; // Siết chặt ngưỡng sai số từ 0.15 xuống 0.10 và lev từ 2 xuống 1
+      } catch (e) { }
+    }
 
     return false;
   }
