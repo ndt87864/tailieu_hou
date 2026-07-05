@@ -8,6 +8,7 @@
     HIGHLIGHT_ANSWERS: "hou_highlight_answers",
     AUTO_SELECT_ANSWERS: "hou_auto_select_answers",
     ENABLE_LOGS: "hou_enable_logs",
+    SHOW_NETWORK_STATUS: "hou_show_network_status",
     THEME_MODE: "hou_ui_theme_mode",
     PRIMARY_COLOR: "hou_ui_primary_color"
   };
@@ -19,8 +20,10 @@
   const highlightAnswers = document.getElementById("highlight-answers");
   const autoSelectAnswers = document.getElementById("auto-select-answers");
   const enableLogs = document.getElementById("enable-logs");
+  const showNetworkStatus = document.getElementById("show-network-status");
+  const connectionStatus = document.querySelector(".connection-status");
 
-  // Khởi tạo các phần tử DOM cho Giao diện & Màu sắc
+  // Khởi động các phần tử DOM cho Giao diện & Màu sắc
   const themeBtns = document.querySelectorAll(".theme-btn");
   const colorDots = document.querySelectorAll(".color-dot");
 
@@ -78,19 +81,22 @@
     KEYS.HIGHLIGHT_ANSWERS,
     KEYS.AUTO_SELECT_ANSWERS,
     KEYS.ENABLE_LOGS,
+    KEYS.SHOW_NETWORK_STATUS,
     KEYS.THEME_MODE,
     KEYS.PRIMARY_COLOR
   ], (res) => {
-    autoSelectDocs.checked = res[KEYS.AUTO_SELECT_DOCS] !== false; // mặc định true
-    showInfoWidget.checked = res[KEYS.SHOW_INFO_WIDGET] !== false; // mặc định true
-    highlightAnswers.checked = res[KEYS.HIGHLIGHT_ANSWERS] !== false; // mặc định true
-    autoSelectAnswers.checked = res[KEYS.AUTO_SELECT_ANSWERS] !== false; // mặc định true
-    enableLogs.checked = res[KEYS.ENABLE_LOGS] !== false; // mặc định true
+    autoSelectDocs.checked = res[KEYS.AUTO_SELECT_DOCS] !== false;
+    showInfoWidget.checked = res[KEYS.SHOW_INFO_WIDGET] !== false;
+    highlightAnswers.checked = res[KEYS.HIGHLIGHT_ANSWERS] !== false;
+    autoSelectAnswers.checked = res[KEYS.AUTO_SELECT_ANSWERS] !== false;
+    enableLogs.checked = res[KEYS.ENABLE_LOGS] !== false;
+    showNetworkStatus.checked = res[KEYS.SHOW_NETWORK_STATUS] !== false;
     
-    // Cập nhật ẩn/hiện tùy chọn thông tin môn học
+    if (connectionStatus) {
+      connectionStatus.style.display = showNetworkStatus.checked ? "flex" : "none";
+    }
     toggleWidgetOptionVisibility();
 
-    // Khởi tạo theme
     const activeTheme = res[KEYS.THEME_MODE] || "system";
     const activeColor = res[KEYS.PRIMARY_COLOR] || "green";
     applyThemeToDom(activeTheme, activeColor);
@@ -116,6 +122,13 @@
 
   enableLogs.addEventListener("change", () => {
     chrome.storage.local.set({ [KEYS.ENABLE_LOGS]: enableLogs.checked });
+  });
+
+  showNetworkStatus.addEventListener("change", () => {
+    chrome.storage.local.set({ [KEYS.SHOW_NETWORK_STATUS]: showNetworkStatus.checked });
+    if (connectionStatus) {
+      connectionStatus.style.display = showNetworkStatus.checked ? "flex" : "none";
+    }
   });
 
   // Gắn sự kiện cho các nút Theme

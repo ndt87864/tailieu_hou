@@ -66,11 +66,7 @@
     console.log("[HouQuiz] Đã nhận diện tên môn học:", info.title);
 
     try {
-      // Query danh sách tài liệu từ Backend Hono
-      const response = await fetch(`${window.houQuizConfig.API_URL}/documents`);
-      if (!response.ok) throw new Error("Không thể kết nối đến backend");
-      
-      const payload = await response.json();
+      const payload = await window.houQuizUtils.fetchAPI(`${window.houQuizConfig.API_URL}/documents`);
       const docList = Array.isArray(payload) ? payload : (payload && Array.isArray(payload.documents) ? payload.documents : []);
       
       const cleanWebTitle = window.houQuizUtils.normalizeTextForMatching(info.title);

@@ -120,10 +120,31 @@
     }
   }
 
+  async function fetchAPI(url, options = {}) {
+    const showNetwork = await new Promise(resolve => {
+      chrome.storage.local.get(["hou_show_network_status"], res => {
+        resolve(res.hou_show_network_status !== false);
+      });
+    });
+
+    if (showNetwork) {
+      const response = await fetch(url, options);
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      return await response.json();
+    } else {
+      const res = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ type: "FETCH_API", url, options }, resolve);
+      });
+      if (!res || !res.success) throw new Error(res ? res.error : "Không thể kết nối mạng");
+      return res.data;
+    }
+  }
+
   window.houQuizUtils = {
     stripVietnameseDiacritics,
     compareNormalized,
     normalizeTextForMatching,
-    getSimilarityScore
+    getSimilarityScore,
+    fetchAPI
   };
 })();

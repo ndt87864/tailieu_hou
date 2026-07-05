@@ -164,18 +164,15 @@
         }
         
         try {
-          const response = await fetch(`${window.houQuizConfig.API_URL}/questions/document/${doc.id}`);
-          if (response.ok) {
-            const resData = await response.json();
-            dbQuestions = resData.questions || [];
-            if (window.houQuizSearchPopup) {
-              window.houQuizSearchPopup.setDbQuestions(dbQuestions);
-            }
-            console.log(`[HouQuiz] Loaded ${dbQuestions.length} questions from DB.`);
-            showToast(`Sẵn sàng làm bài! Đã tải ${dbQuestions.length} câu hỏi.`);
-            if (showInfoWidgetEnabled) {
-              showInfoWidget(cleanCourseTitle, doc.title, `Sẵn sàng (${dbQuestions.length} câu)`);
-            }
+          const resData = await window.houQuizUtils.fetchAPI(`${window.houQuizConfig.API_URL}/questions/document/${doc.id}`);
+          dbQuestions = resData.questions || [];
+          if (window.houQuizSearchPopup) {
+            window.houQuizSearchPopup.setDbQuestions(dbQuestions);
+          }
+          console.log(`[HouQuiz] Loaded ${dbQuestions.length} questions from DB.`);
+          showToast(`Sẵn sàng làm bài! Đã tải ${dbQuestions.length} câu hỏi.`);
+          if (showInfoWidgetEnabled) {
+            showInfoWidget(cleanCourseTitle, doc.title, `Sẵn sàng (${dbQuestions.length} câu)`);
           }
         } catch (err) {
           console.error("[HouQuiz] Error loading questions:", err);

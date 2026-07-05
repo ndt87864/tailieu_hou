@@ -1,33 +1,37 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta charset="utf-8">
     <title>HOU Quiz Control</title>
     <link rel="stylesheet" href="styles/popup.css">
 </head>
+
 <body>
     <!-- Header card -->
     <div class="header-card">
         <div class="logo-wrapper">
             <svg width="44" height="44" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <!-- Vòng tròn nền xanh gradient -->
-                <circle cx="24" cy="24" r="22" fill="url(#blueGrad)"/>
+                <circle cx="24" cy="24" r="22" fill="url(#blueGrad)" />
                 <!-- Hình tờ giấy màu trắng -->
-                <rect x="14" y="12" width="20" height="24" rx="2" fill="white"/>
+                <rect x="14" y="12" width="20" height="24" rx="2" fill="white" />
                 <!-- Các dòng chữ trên tờ giấy -->
-                <line x1="18" y1="18" x2="30" y2="18" stroke="var(--brand-600)" stroke-width="2.5" stroke-linecap="round"/>
-                <line x1="18" y1="23" x2="30" y2="23" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/>
-                <line x1="18" y1="28" x2="26" y2="28" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/>
+                <line x1="18" y1="18" x2="30" y2="18" stroke="var(--brand-600)" stroke-width="2.5"
+                    stroke-linecap="round" />
+                <line x1="18" y1="23" x2="30" y2="23" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" />
+                <line x1="18" y1="28" x2="26" y2="28" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" />
                 <!-- Vòng tròn kính lúp nhỏ màu cam góc dưới phải -->
-                <circle cx="33" cy="33" r="8" fill="#ff9800" stroke="white" stroke-width="2"/>
+                <circle cx="33" cy="33" r="8" fill="#ff9800" stroke="white" stroke-width="2" />
                 <!-- Kính lúp (cán và kính) -->
-                <circle cx="32" cy="32" r="3.2" stroke="white" stroke-width="1.5"/>
-                <line x1="34.5" y1="34.5" x2="37.5" y2="37.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
-                
+                <circle cx="32" cy="32" r="3.2" stroke="white" stroke-width="1.5" />
+                <line x1="34.5" y1="34.5" x2="37.5" y2="37.5" stroke="white" stroke-width="1.5"
+                    stroke-linecap="round" />
+
                 <defs>
                     <linearGradient id="blueGrad" x1="2" y1="2" x2="46" y2="46" gradientUnits="userSpaceOnUse">
-                        <stop stop-color="var(--brand-500)"/>
-                        <stop offset="1" stop-color="var(--brand-600)"/>
+                        <stop stop-color="var(--brand-500)" />
+                        <stop offset="1" stop-color="var(--brand-600)" />
                     </linearGradient>
                 </defs>
             </svg>
@@ -37,19 +41,24 @@
             <p class="header-subtitle">Tự động tìm và điền đáp án câu hỏi</p>
         </div>
     </div>
-    
+
     <!-- Config card -->
     <div class="config-card">
         <div class="connection-status">
             <span class="status-dot"></span>
             <span>Kết nối ưu tiên: API Server (mạng)</span>
         </div>
-        
+
         <h2 class="config-title">
-            <svg class="settings-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            <svg class="settings-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3" />
+                <path
+                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
             Cấu hình quét
         </h2>
-        
+
         <!-- Options list -->
         <label class="option-card">
             <input type="checkbox" id="auto-select-docs" checked>
@@ -59,16 +68,17 @@
                 <span class="option-desc">Tự động phát hiện môn học và tải tài liệu tương ứng từ cơ sở dữ liệu.</span>
             </div>
         </label>
-        
+
         <label class="option-card" id="show-info-widget-card">
             <input type="checkbox" id="show-info-widget" checked>
             <span class="custom-checkbox"></span>
             <div class="option-info">
                 <span class="option-title">Hiển thị thông tin môn học</span>
-                <span class="option-desc">Hiển thị bảng thông tin môn học và tài liệu đã nhận diện ở góc trên bên phải.</span>
+                <span class="option-desc">Hiển thị bảng thông tin môn học và tài liệu đã nhận diện ở góc trên bên
+                    phải.</span>
             </div>
         </label>
-        
+
         <label class="option-card">
             <input type="checkbox" id="highlight-answers" checked>
             <span class="custom-checkbox"></span>
@@ -95,12 +105,27 @@
                 <span class="option-desc">Hiển thị log chi tiết của extension trong console phục vụ kiểm tra lỗi.</span>
             </div>
         </label>
+
+        <label class="option-card">
+            <input type="checkbox" id="show-network-status" checked>
+            <span class="custom-checkbox"></span>
+            <div class="option-info">
+                <span class="option-title">Hiển thị trạng thái mạng</span>
+                <span class="option-desc">Hiển thị thanh thông tin kết nối và mạng lưới.</span>
+            </div>
+        </label>
     </div>
 
     <!-- UI Settings Card -->
     <div class="config-card" style="margin-top: 16px;">
         <h2 class="config-title">
-            <svg class="settings-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 2v20"/><path d="M12 12H2"/><path d="M12 12h10"/></svg>
+            <svg class="settings-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+                <path d="M12 2v20" />
+                <path d="M12 12H2" />
+                <path d="M12 12h10" />
+            </svg>
             Giao diện & Màu sắc
         </h2>
 
@@ -108,15 +133,34 @@
         <div class="ui-section-label">Chế độ hiển thị</div>
         <div class="theme-grid">
             <button class="theme-btn" id="theme-light" data-value="light">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M4.93 4.93l1.41 1.41"/><path d="M17.66 17.66l1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M6.34 17.66l-1.41 1.41"/><path d="M19.07 4.93l-1.41 1.41"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="4" />
+                    <path d="M12 2v2" />
+                    <path d="M12 20v2" />
+                    <path d="M4.93 4.93l1.41 1.41" />
+                    <path d="M17.66 17.66l1.41 1.41" />
+                    <path d="M2 12h2" />
+                    <path d="M20 12h2" />
+                    <path d="M6.34 17.66l-1.41 1.41" />
+                    <path d="M19.07 4.93l-1.41 1.41" />
+                </svg>
                 <span>Sáng</span>
             </button>
             <button class="theme-btn" id="theme-dark" data-value="dark">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+                </svg>
                 <span>Tối</span>
             </button>
             <button class="theme-btn" id="theme-system" data-value="system">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" rx="2" y="3" x="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <rect width="20" height="14" rx="2" y="3" x="2" />
+                    <line x1="8" y1="21" x2="16" y2="21" />
+                    <line x1="12" y1="17" x2="12" y2="21" />
+                </svg>
                 <span>Hệ thống</span>
             </button>
         </div>
@@ -133,10 +177,11 @@
             <button class="color-dot black" data-value="black" title="Đen"></button>
         </div>
     </div>
-    
+
     <div class="footer">
         HOU Quiz Extension • Thuần JS
     </div>
     <script src="scripts/popup.js"></script>
 </body>
+
 </html>
