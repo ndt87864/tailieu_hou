@@ -30,6 +30,7 @@
         "scripts/auto-select-docs.js",
         "scripts/quiz-match.js",
         "scripts/result-popup.js",
+        "scripts/search-popup.js",
         "scripts/content.js"
       ],
       "css": [

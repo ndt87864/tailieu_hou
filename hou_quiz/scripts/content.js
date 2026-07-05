@@ -108,41 +108,18 @@
       let questionText = clonedQtext.textContent.replace(/\s+/g, " ").trim();
       questionText = questionText.replace(/^mô tả câu hỏi/i, "").trim();
       
-      // Loại bỏ các chỉ dẫn Moodle hoặc các đáp án bị dính vào cuối câu hỏi
-      const instructions = [
-        /chọn một câu trả lời:?/i,
-        /chọn một:?/i,
-        /chọn câu trả lời:?/i,
-        /chọn đáp án:?/i,
-        /trả lời câu hỏi:?/i,
-        /\b[a-fA-F0-9][\.\)]\s*$/i // loại bỏ kí tự lựa chọn dính ở cuối
-      ];
-      instructions.forEach(regex => {
-        questionText = questionText.replace(regex, "").trim();
-      });
+      const instructions = [/chọn một câu trả lời:?/i, /chọn một:?/i, /chọn câu trả lời:?/i, /chọn đáp án:?/i, /trả lời câu hỏi:?/i, /\b[a-fA-F0-9][\.\)]\s*$/i];
+      instructions.forEach(regex => { questionText = questionText.replace(regex, "").trim(); });
       
-      // Nếu có kí tự tùy chọn như "a. ..." dính vào câu hỏi, hãy cắt nó đi
       const optIndex = questionText.search(/\b[a-fA-F][\.\)]\s+/);
-      if (optIndex !== -1 && optIndex > 10) {
-        questionText = questionText.substring(0, optIndex).trim();
-      }
+      if (optIndex !== -1 && optIndex > 10) questionText = questionText.substring(0, optIndex).trim();
 
-      // Tìm container câu trả lời
       const answerContainer = container.querySelector(".answer");
       if (!answerContainer) return;
 
-      // Tìm các option lựa chọn (radio hoặc checkbox labels)
       let optionElements = Array.from(answerContainer.querySelectorAll("label, .flex-fill, div[role='option']"));
-      // Lọc bỏ các phần tử cha nếu có phần tử con cũng nằm trong danh sách (tránh highlight cả block chứa đáp án)
-      optionElements = optionElements.filter(el => 
-        !optionElements.some(otherEl => otherEl !== el && el.contains(otherEl))
-      );
-      const options = optionElements.map(el => {
-        let txt = el.textContent.replace(/\s+/g, " ").trim();
-        // Xóa ký tự checkmark hoặc các icon đúng/sai có thể dính vào text của option
-        txt = txt.replace(/[\u2713\u2714\u2611\u2705]/g, "").trim();
-        return txt;
-      }).filter(Boolean);
+      optionElements = optionElements.filter(el => !optionElements.some(otherEl => otherEl !== el && el.contains(otherEl)));
+      const options = optionElements.map(el => el.textContent.replace(/\s+/g, " ").replace(/[\u2713\u2714\u2611\u2705]/g, "").trim()).filter(Boolean);
 
       pageQuestions.push({
         id: idx,
@@ -186,12 +163,14 @@
           if (widget) widget.remove();
         }
         
-        // Load toàn bộ câu hỏi của document này về bộ nhớ client
         try {
           const response = await fetch(`${window.houQuizConfig.API_URL}/questions/document/${doc.id}`);
           if (response.ok) {
             const resData = await response.json();
             dbQuestions = resData.questions || [];
+            if (window.houQuizSearchPopup) {
+              window.houQuizSearchPopup.setDbQuestions(dbQuestions);
+            }
             console.log(`[HouQuiz] Loaded ${dbQuestions.length} questions from DB.`);
             showToast(`Sẵn sàng làm bài! Đã tải ${dbQuestions.length} câu hỏi.`);
             if (showInfoWidgetEnabled) {
@@ -452,6 +431,10 @@
   // Khởi động
   applyThemeToElement(document.body);
   createFloatingButton();
+  if (window.houQuizSearchPopup) {
+    window.houQuizSearchPopup.setApplyThemeFn(applyThemeToElement);
+    window.houQuizSearchPopup.createSearchButton();
+  }
   initDocument();
 
   // Lắng nghe thay đổi cấu hình từ popup để cập nhật UI realtime
@@ -486,6 +469,9 @@
         applyThemeToElement(popup);
         applyThemeToElement(minimized);
         applyThemeToElement(btn);
+        if (window.houQuizSearchPopup) {
+          window.houQuizSearchPopup.setApplyThemeFn(applyThemeToElement);
+        }
       }
     }
   });
