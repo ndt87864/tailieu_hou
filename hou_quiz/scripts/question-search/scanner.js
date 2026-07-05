@@ -191,17 +191,24 @@
 
     // Build nội dung danh sách câu hỏi
     const questionsHTML = questions.map(q => {
+      const cleanAns = window.houQuizUtils ? window.houQuizUtils.normalizeTextForMatching(q.answer) : q.answer;
       // Đánh dấu đáp án đúng trong list choices
       const answersListHTML = q.choices.map((c, cIdx) => {
         const letter = String.fromCharCode(65 + cIdx);
         const cleanC = window.houQuizUtils ? window.houQuizUtils.normalizeTextForMatching(c) : c;
-        const cleanAns = window.houQuizUtils ? window.houQuizUtils.normalizeTextForMatching(q.answer) : q.answer;
-        const isCorrect = cleanC === cleanAns || cleanC.includes(cleanAns) || cleanAns.includes(cleanC);
+        const isCorrect = cleanC === cleanAns || c === q.answer;
         
         return `
           <div class="scanner-answer-item ${isCorrect ? 'correct' : ''}">
             <span class="scanner-ans-label">${letter}</span>
             <span class="scanner-ans-text">${escapeHTML(c)}</span>
+            ${isCorrect ? `
+              <span class="scanner-ans-check">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </span>
+            ` : ''}
           </div>
         `;
       }).join("");
@@ -259,9 +266,6 @@
         </div>
       </div>
       <div class="scanner-body">
-        <div class="scanner-warning">
-          ⚠️ <strong>Cảnh báo:</strong> Dữ liệu câu hỏi trong Extension có thể đã lỗi thời. Vui lòng [Xóa cache] trong popup chính để cập nhật dữ liệu mới nhất nếu cần!
-        </div>
         <div class="scanner-questions-list">
           ${questionsHTML}
         </div>
@@ -576,11 +580,18 @@
       answersContainer.innerHTML = newChoices.map((c, cIdx) => {
         const letter = String.fromCharCode(65 + cIdx);
         const cleanC = window.houQuizUtils ? window.houQuizUtils.normalizeTextForMatching(c) : c;
-        const isCorrect = cleanC === cleanAns || cleanC.includes(cleanAns) || cleanAns.includes(cleanC);
+        const isCorrect = cleanC === cleanAns || c === questionData.answer;
         return `
           <div class="scanner-answer-item ${isCorrect ? 'correct' : ''}">
             <span class="scanner-ans-label">${letter}</span>
             <span class="scanner-ans-text">${escapeHTML(c)}</span>
+            ${isCorrect ? `
+              <span class="scanner-ans-check">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </span>
+            ` : ''}
           </div>
         `;
       }).join("");
@@ -773,4 +784,35 @@
   } else {
     window.addEventListener("load", createScannerButton);
   }
+
+  // Lắng nghe thay đổi cấu hình theme từ popup để cập nhật UI scanner realtime
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === "local") {
+      chrome.storage.local.get(["hou_ui_theme_mode", "hou_ui_primary_color"], (res) => {
+        const color = res.hou_ui_primary_color || "green";
+        
+        // Cập nhật cho Popup scanner
+        const popup = document.getElementById(POPUP_ID);
+        if (popup) {
+          popup.className = `theme-${color}`;
+          if (res.hou_ui_theme_mode === "dark") {
+            popup.classList.add("dark");
+          } else {
+            popup.classList.remove("dark");
+          }
+        }
+        
+        // Cập nhật cho Nút lơ lửng
+        const btn = document.getElementById(SCANNER_BTN_ID);
+        if (btn) {
+          btn.className = `theme-${color}`;
+          if (res.hou_ui_theme_mode === "dark") {
+            btn.classList.add("dark");
+          } else {
+            btn.classList.remove("dark");
+          }
+        }
+      });
+    }
+  });
 })();

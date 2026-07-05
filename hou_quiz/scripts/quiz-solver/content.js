@@ -137,65 +137,128 @@
     return pageQuestions;
   }
 
-  // Tự động load tài liệu theo môn học
+  // Load tài liệu theo môn học (tự động hoặc thủ công)
   async function initDocument() {
-    chrome.storage.local.get(["hou_auto_select_docs", "hou_show_info_widget"], async (res) => {
+    chrome.storage.local.get([
+      "hou_auto_select_docs", 
+      "hou_show_info_widget", 
+      "hou_selected_doc_id", 
+      "hou_selected_doc_ids",
+      "hou_selected_doc_titles"
+    ], async (res) => {
       const autoSelectDocsEnabled = res.hou_auto_select_docs !== false;
       const showInfoWidgetEnabled = res.hou_show_info_widget !== false;
-
-      if (!autoSelectDocsEnabled) {
-        showToast("Tự động chọn tài liệu đang bị tắt.");
-        const widget = document.getElementById("hou-quiz-info-widget");
-        if (widget) widget.remove();
-        return;
+      
+      let docIds = res.hou_selected_doc_ids || [];
+      // Tương thích ngược nếu người dùng chỉ có hou_selected_doc_id đơn lẻ
+      if (docIds.length === 0 && res.hou_selected_doc_id) {
+        docIds = [res.hou_selected_doc_id];
       }
 
-      showToast("Đang xác định môn học...");
-      const doc = await window.houQuizAutoSelect.detectAndFetchDocument();
-      if (doc) {
-        activeDocument = doc;
-        let cleanCourseTitle = doc.title;
-        if (cleanCourseTitle.includes("-") || cleanCourseTitle.includes("–") || cleanCourseTitle.includes("—")) {
-          cleanCourseTitle = cleanCourseTitle.split(/[-–—]/)[0].trim();
+      if (!autoSelectDocsEnabled) {
+        if (docIds.length === 0) {
+          showToast("Chưa chọn tài liệu thủ công.");
+          if (showInfoWidgetEnabled) {
+            showInfoWidget("Chưa xác định", "Chưa chọn tài liệu thủ công", "Chưa cấu hình");
+          } else {
+            const widget = document.getElementById("hou-quiz-info-widget");
+            if (widget) widget.remove();
+          }
+          return;
         }
-        showToast(`Đã nhận diện môn học: ${cleanCourseTitle}`);
+
+        showToast("Đang tải tài liệu thủ công...");
+        const titles = res.hou_selected_doc_titles || [];
+        let summaryTitle = "";
+        if (titles.length === 0) {
+          summaryTitle = "Tài liệu thủ công";
+        } else if (titles.length <= 2) {
+          summaryTitle = titles.join(", ");
+        } else {
+          summaryTitle = `${titles[0]}, ${titles[1]} +${titles.length - 2}`;
+        }
+
         if (showInfoWidgetEnabled) {
-          showInfoWidget(cleanCourseTitle, doc.title, "Đang tải câu hỏi...");
+          showInfoWidget("Thủ công", summaryTitle, "Đang tải câu hỏi...");
         } else {
           const widget = document.getElementById("hou-quiz-info-widget");
           if (widget) widget.remove();
         }
-        
+
         try {
-          const resData = await window.houQuizUtils.fetchAPI(`${window.houQuizConfig.API_URL}/questions/document/${doc.id}`);
-          dbQuestions = resData.questions || [];
+          // Tải câu hỏi từ từng tài liệu song song (sử dụng API công khai không yêu cầu login)
+          const promises = docIds.map(id => 
+            window.houQuizUtils.fetchAPI(`${window.houQuizConfig.API_URL}/questions/document/${id}`)
+              .then(res => res && res.questions ? res.questions : [])
+              .catch(err => {
+                console.error(`[HouQuiz] Lỗi tải tài liệu ${id}:`, err);
+                return [];
+              })
+          );
+          const results = await Promise.all(promises);
+          dbQuestions = results.flat();
           if (window.houQuizSearchPopup) {
             window.houQuizSearchPopup.setDbQuestions(dbQuestions);
           }
-          console.log(`[HouQuiz] Loaded ${dbQuestions.length} questions from DB.`);
+          console.log(`[HouQuiz] Loaded ${dbQuestions.length} questions from DB (Manual).`);
           showToast(`Sẵn sàng làm bài! Đã tải ${dbQuestions.length} câu hỏi.`);
           if (showInfoWidgetEnabled) {
-            showInfoWidget(cleanCourseTitle, doc.title, `Sẵn sàng (${dbQuestions.length} câu)`);
+            showInfoWidget("Thủ công", summaryTitle, `Sẵn sàng (${dbQuestions.length} câu)`);
           }
         } catch (err) {
           console.error("[HouQuiz] Error loading questions:", err);
+          showToast("Lỗi tải câu hỏi từ DB");
           if (showInfoWidgetEnabled) {
-            showInfoWidget(cleanCourseTitle, doc.title, "Lỗi tải câu hỏi từ DB");
+            showInfoWidget("Thủ công", summaryTitle, "Lỗi tải câu hỏi từ DB");
           }
         }
       } else {
-        showToast("Không tìm thấy tài liệu phù hợp cho môn học này.");
-        // Cố gắng lấy tên môn học thô để hiển thị và làm sạch dấu "-"
-        const info = document.querySelector(".page-header-headings h1") || document.querySelector(".coursename a");
-        let detectedName = info ? info.textContent.trim() : "Chưa xác định";
-        if (detectedName.includes("-") || detectedName.includes("–") || detectedName.includes("—")) {
-          detectedName = detectedName.split(/[-–—]/)[0].trim();
-        }
-        if (showInfoWidgetEnabled) {
-          showInfoWidget(detectedName, "Không tìm thấy tài liệu tương ứng", "Không khả dụng");
+        showToast("Đang xác định môn học...");
+        const doc = await window.houQuizAutoSelect.detectAndFetchDocument();
+        if (doc) {
+          activeDocument = doc;
+          let cleanCourseTitle = doc.title;
+          if (cleanCourseTitle.includes("-") || cleanCourseTitle.includes("–") || cleanCourseTitle.includes("—")) {
+            cleanCourseTitle = cleanCourseTitle.split(/[-–—]/)[0].trim();
+          }
+          showToast(`Môn học: ${cleanCourseTitle}`);
+          if (showInfoWidgetEnabled) {
+            showInfoWidget(cleanCourseTitle, doc.title, "Đang tải câu hỏi...");
+          } else {
+            const widget = document.getElementById("hou-quiz-info-widget");
+            if (widget) widget.remove();
+          }
+          
+          try {
+            const resData = await window.houQuizUtils.fetchAPI(`${window.houQuizConfig.API_URL}/questions/document/${doc.id}`);
+            dbQuestions = resData.questions || [];
+            if (window.houQuizSearchPopup) {
+              window.houQuizSearchPopup.setDbQuestions(dbQuestions);
+            }
+            console.log(`[HouQuiz] Loaded ${dbQuestions.length} questions from DB.`);
+            showToast(`Sẵn sàng làm bài! Đã tải ${dbQuestions.length} câu hỏi.`);
+            if (showInfoWidgetEnabled) {
+              showInfoWidget(cleanCourseTitle, doc.title, `Sẵn sàng (${dbQuestions.length} câu)`);
+            }
+          } catch (err) {
+            console.error("[HouQuiz] Error loading questions:", err);
+            if (showInfoWidgetEnabled) {
+              showInfoWidget(cleanCourseTitle, doc.title, "Lỗi tải câu hỏi từ DB");
+            }
+          }
         } else {
-          const widget = document.getElementById("hou-quiz-info-widget");
-          if (widget) widget.remove();
+          showToast("Không tìm thấy tài liệu phù hợp.");
+          if (showInfoWidgetEnabled) {
+            const info = document.querySelector(".page-header-headings h1") || document.querySelector(".coursename a");
+            let detectedName = info ? info.textContent.trim() : "Chưa xác định";
+            if (detectedName.includes("-") || detectedName.includes("–") || detectedName.includes("—")) {
+              detectedName = detectedName.split(/[-–—]/)[0].trim();
+            }
+            showInfoWidget(detectedName, "Không tìm thấy tài liệu tương ứng", "Không khả dụng");
+          } else {
+            const widget = document.getElementById("hou-quiz-info-widget");
+            if (widget) widget.remove();
+          }
         }
       }
     });
@@ -473,14 +536,8 @@
   // Lắng nghe thay đổi cấu hình từ popup để cập nhật UI realtime
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === "local") {
-      if (changes.hou_auto_select_docs) {
-        const enabled = changes.hou_auto_select_docs.newValue !== false;
-        if (!enabled) {
-          const widget = document.getElementById("hou-quiz-info-widget");
-          if (widget) widget.remove();
-        } else {
-          initDocument();
-        }
+      if (changes.hou_auto_select_docs || changes.hou_selected_doc_id || changes.hou_selected_doc_ids) {
+        initDocument();
       }
       if (changes.hou_show_info_widget) {
         const enabled = changes.hou_show_info_widget.newValue !== false;

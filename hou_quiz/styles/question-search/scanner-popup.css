@@ -8,7 +8,7 @@
     max-width: 90vw;
     max-height: 85vh;
     background: #ffffff;
-    border: 1px solid rgba(0, 0, 0, 0.12);
+    border: 1px solid var(--border);
     border-radius: 20px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25), 0 4px 16px rgba(0, 0, 0, 0.12);
     z-index: 10000002;
@@ -17,7 +17,7 @@
     flex-direction: column;
     overflow: hidden;
     animation: popupFadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    color: #1a1a2e;
+    color: var(--fg);
 }
 
 #hou-quiz-scanner-overlay {
@@ -35,9 +35,9 @@
 }
 
 #hou-quiz-scanner-popup .scanner-header {
-    background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%);
-    color: #1a1a2e;
-    border-bottom: 1px solid #e5e7eb;
+    background: linear-gradient(135deg, var(--brand-50) 0%, rgba(var(--brand-rgb), 0.08) 100%);
+    color: var(--fg);
+    border-bottom: 1px solid var(--border);
     padding: 16px 20px;
     display: flex;
     align-items: center;
@@ -68,21 +68,37 @@
 }
 
 #hou-quiz-scanner-popup .scanner-close {
-    background: rgba(var(--brand-rgb), 0.1);
-    border: none;
-    color: var(--fg-2);
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    background: rgba(var(--brand-rgb), 0.1) !important;
+    border: none !important;
+    color: var(--fg-2) !important;
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 28px !important;
+    min-height: 28px !important;
+    border-radius: 8px !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+    transition: all 0.2s ease !important;
 }
 
 #hou-quiz-scanner-popup .scanner-close:hover {
-    background: var(--danger);
-    color: white;
+    background: var(--danger) !important;
+    color: white !important;
+}
+
+#hou-quiz-scanner-popup .scanner-close svg {
+    width: 16px !important;
+    height: 16px !important;
+    min-width: 16px !important;
+    min-height: 16px !important;
+    display: block !important;
+    stroke: currentColor !important;
+    stroke-width: 2.5 !important;
+    fill: none !important;
 }
 
 #hou-quiz-scanner-popup .scanner-body {
@@ -94,15 +110,7 @@
     gap: 12px;
 }
 
-#hou-quiz-scanner-popup .scanner-warning {
-    background: rgba(245, 158, 11, 0.1);
-    border: 1px solid rgba(245, 158, 11, 0.25);
-    border-radius: 12px;
-    padding: 12px 16px;
-    color: var(--fg);
-    font-size: 13px;
-    line-height: 1.5;
-}
+
 
 #hou-quiz-scanner-popup .scanner-questions-list {
     display: flex;
@@ -120,8 +128,8 @@
 }
 
 #hou-quiz-scanner-popup .scanner-question-item:hover {
-    background: #eef2ff;
-    border-color: #c7d2fe;
+    background: rgba(var(--brand-rgb), 0.05);
+    border-color: rgba(var(--brand-rgb), 0.25);
 }
 
 #hou-quiz-scanner-popup .scanner-question-header {
@@ -234,12 +242,28 @@
     border: 1px solid #e5e7eb;
     font-size: 13px;
     line-height: 1.4;
-    color: #1a1a2e;
+    color: var(--fg);
 }
 
 #hou-quiz-scanner-popup .scanner-answer-item.correct {
     border-color: rgba(16, 185, 129, 0.3);
     background: rgba(16, 185, 129, 0.08);
+}
+
+#hou-quiz-scanner-popup .scanner-ans-check {
+    color: var(--success) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    margin-left: auto !important;
+    flex-shrink: 0 !important;
+}
+
+#hou-quiz-scanner-popup .scanner-ans-check svg {
+    width: 14px !important;
+    height: 14px !important;
+    min-width: 14px !important;
+    min-height: 14px !important;
+    display: block !important;
 }
 
 #hou-quiz-scanner-popup .scanner-ans-label {
@@ -259,7 +283,7 @@
     gap: 12px;
     padding: 16px;
     background: #f1f5f9;
-    border: 1px dashed #6366f1;
+    border: 1px dashed var(--brand-500);
     border-radius: 12px;
     margin-top: 10px;
 }
@@ -271,7 +295,7 @@
     border-radius: 8px;
     border: 1px solid #d1d5db;
     background: #ffffff;
-    color: #1a1a2e;
+    color: var(--fg);
     font-size: 13px;
     resize: vertical;
     outline: none;
@@ -296,7 +320,7 @@
     border-radius: 8px;
     border: 1px solid #d1d5db;
     background: #ffffff;
-    color: #1a1a2e;
+    color: var(--fg);
     font-size: 13px;
     outline: none;
     box-sizing: border-box;
@@ -318,7 +342,7 @@
 /* Footer & Buttons */
 #hou-quiz-scanner-popup .scanner-footer {
     padding: 16px 20px;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--border);
     background: #f8fafc;
     display: flex;
     gap: 10px;
@@ -340,7 +364,7 @@
 #hou-quiz-scanner-popup .scanner-btn-secondary {
     background: #ffffff;
     border: 1px solid #d1d5db;
-    color: #4b5563;
+    color: var(--fg-2);
 }
 
 #hou-quiz-scanner-popup .scanner-btn-secondary:hover {
@@ -364,4 +388,65 @@
     align-self: flex-start;
     padding: 6px 12px;
     font-size: 12px;
+}
+
+/* ─── Dark Mode overrides ─── */
+#hou-quiz-scanner-popup.dark {
+    background: #0f172a !important;
+    color: var(--fg) !important;
+    border-color: var(--border) !important;
+}
+
+#hou-quiz-scanner-popup.dark .scanner-header {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important;
+    color: var(--fg) !important;
+    border-bottom-color: var(--border) !important;
+}
+
+#hou-quiz-scanner-popup.dark .scanner-question-item {
+    background: #1e293b !important;
+    border-color: var(--border) !important;
+}
+
+#hou-quiz-scanner-popup.dark .scanner-question-item:hover {
+    background: rgba(var(--brand-rgb), 0.1) !important;
+    border-color: rgba(var(--brand-rgb), 0.4) !important;
+}
+
+#hou-quiz-scanner-popup.dark .scanner-answer-item {
+    background: #0f172a !important;
+    border-color: var(--border) !important;
+    color: var(--fg) !important;
+}
+
+#hou-quiz-scanner-popup.dark .scanner-answer-item.correct {
+    border-color: rgba(16, 185, 129, 0.4) !important;
+    background: rgba(16, 185, 129, 0.12) !important;
+}
+
+#hou-quiz-scanner-popup.dark .scanner-edit-form {
+    background: #1e293b !important;
+}
+
+#hou-quiz-scanner-popup.dark .scanner-edit-form textarea,
+#hou-quiz-scanner-popup.dark .edit-answer-row input[type="text"] {
+    background: #0f172a !important;
+    color: var(--fg) !important;
+    border-color: var(--border) !important;
+}
+
+#hou-quiz-scanner-popup.dark .scanner-footer {
+    background: #0f172a !important;
+    border-top-color: var(--border) !important;
+}
+
+#hou-quiz-scanner-popup.dark .scanner-btn-secondary {
+    background: #1e293b !important;
+    border-color: var(--border) !important;
+    color: var(--fg-2) !important;
+}
+
+#hou-quiz-scanner-popup.dark .scanner-btn-secondary:hover {
+    background: rgba(var(--brand-rgb), 0.15) !important;
+    color: var(--brand-400) !important;
 }
