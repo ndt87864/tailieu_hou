@@ -237,8 +237,8 @@
 }
 
 .hou-highlight-option {
-    background-color: #0ba806 !important;
-    border: 1px solid #047857 !important;
+    background-color: var(--brand-500, #0ba806) !important;
+    border: 1px solid var(--brand-700, #047857) !important;
     border-radius: 6px !important;
     padding: 6px 12px !important;
     box-shadow: 0 2px 4px rgba(var(--brand-rgb), 0.3) !important;

@@ -548,6 +548,7 @@
   }
 
   // Khởi động
+  applyThemeToElement(document.body);
   createFloatingButton();
   initDocument();
 
@@ -578,6 +579,7 @@
         const popup = document.getElementById("hou-quiz-result-popup");
         const minimized = document.getElementById("hou-quiz-minimized");
         const btn = document.getElementById("hou-quiz-btn");
+        applyThemeToElement(document.body);
         applyThemeToElement(widget);
         applyThemeToElement(popup);
         applyThemeToElement(minimized);
