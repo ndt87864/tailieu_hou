@@ -152,6 +152,8 @@ export const bulkCreateQuestions = async (
   let updatedChoices = 0;
   const errors: string[] = [];
 
+  const updatePromises: Promise<{ id: string; error: any }>[] = [];
+
   for (const item of items) {
     if (!item.question?.trim()) {
       errors.push(`Bỏ qua câu hỏi rỗng.`);
@@ -169,17 +171,14 @@ export const bulkCreateQuestions = async (
     if (matchedDbQ) {
       const hasChoices = Array.isArray(matchedDbQ.choices) && matchedDbQ.choices.length > 0;
       if (!hasChoices && Array.isArray(item.choices) && item.choices.length > 0) {
-        // Chưa có choices -> Tiến hành cập nhật choices
-        const { error: updateErr } = await supabaseAdmin
-          .from("questions")
-          .update({ choices: item.choices })
-          .eq("id", matchedDbQ.id);
-
-        if (updateErr) {
-          errors.push(`ID ${matchedDbQ.id}: Cập nhật choices thất bại - ${updateErr.message}`);
-        } else {
-          updatedChoices++;
-        }
+        // Queue parallel update
+        updatePromises.push((async () => {
+          const { error } = await supabaseAdmin
+            .from("questions")
+            .update({ choices: item.choices })
+            .eq("id", matchedDbQ.id);
+          return { id: matchedDbQ.id, error };
+        })());
       } else {
         // Đã có choices hoặc không có choices mới để cập nhật -> Bỏ qua
         skipped++;
@@ -188,6 +187,17 @@ export const bulkCreateQuestions = async (
     }
 
     newItems.push(item);
+  }
+
+  if (updatePromises.length > 0) {
+    const updateResults = await Promise.all(updatePromises);
+    for (const res of updateResults) {
+      if (res.error) {
+        errors.push(`ID ${res.id}: Cập nhật choices thất bại - ${res.error.message}`);
+      } else {
+        updatedChoices++;
+      }
+    }
   }
 
   if (newItems.length === 0) {
@@ -294,22 +304,28 @@ export const searchQuestions = async (
 
       // 2. Fuzzy cho nhung text chua co exact
       const missing = queries.filter((t) => !out[t] || out[t].length === 0);
-      for (const t of missing) {
-        const pattern = normalizeFuzzyPattern(t);
-        if (!pattern || pattern.length < 3) {
-          out[t] = [];
-          continue;
+      if (missing.length > 0) {
+        const fuzzyPromises = missing.map(async (t) => {
+          const pattern = normalizeFuzzyPattern(t);
+          if (!pattern || pattern.length < 3) {
+            return { text: t, data: [], error: null };
+          }
+          let q = supabaseAdmin
+            .from("questions")
+            .select("*")
+            .ilike("question", `*${escapeIlike(pattern)}*`);
+          if (documentIds.length > 0) {
+            q = q.in("document_id", documentIds);
+          }
+          q = q.limit(20);
+          const { data, error } = await q;
+          return { text: t, data: data ?? [], error };
+        });
+
+        const fuzzyResults = await Promise.all(fuzzyPromises);
+        for (const res of fuzzyResults) {
+          out[res.text] = res.error || !Array.isArray(res.data) ? [] : res.data;
         }
-        let q = supabaseAdmin
-          .from("questions")
-          .select("*")
-          .ilike("question", `*${escapeIlike(pattern)}*`);
-        if (documentIds.length > 0) {
-          q = q.in("document_id", documentIds);
-        }
-        q = q.limit(20);
-        const { data, error } = await q;
-        out[t] = error || !Array.isArray(data) ? [] : data;
       }
 
       queries.forEach((t) => { if (!out[t]) out[t] = []; });
@@ -342,19 +358,23 @@ export const bulkUpdateChoices = async (
   const errors: string[] = [];
   let updated = 0;
 
-  // Cập nhật tuần tự từng câu để tránh race condition trên Supabase
-  for (const item of items) {
+  // Run updates in parallel using Promise.all
+  const promises = items.map(async (item) => {
     if (!item.id || !Array.isArray(item.choices) || item.choices.length === 0) {
-      errors.push(`ID ${item.id}: choices không hợp lệ.`);
-      continue;
+      return { id: item.id, error: { message: "choices không hợp lệ." } };
     }
     const { error } = await supabaseAdmin
       .from("questions")
       .update({ choices: item.choices })
       .eq("id", item.id);
+    return { id: item.id, error };
+  });
 
-    if (error) {
-      errors.push(`ID ${item.id}: ${error.message}`);
+  const results = await Promise.all(promises);
+
+  for (const res of results) {
+    if (res.error) {
+      errors.push(`ID ${res.id}: ${res.error.message}`);
     } else {
       updated++;
     }
