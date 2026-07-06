@@ -368,7 +368,7 @@ const DocumentPage: React.FC = () => {
                             ))}
                           </div>
 
-                          {q.url_question && !q.question.includes("pluginfile.php") && (
+                          {q.url_question && !/\.(?:png|jpe?g|gif|svg|webp|bmp)\b/i.test(q.question || "") && (
                             <div 
                               className="mt-2 border rounded-lg p-1 max-w-sm inline-block doc-option-card"
                             >
@@ -404,7 +404,7 @@ const DocumentPage: React.FC = () => {
                               >
                                 {renderTextWithImages(q.answer, q.url_answer)}
                               </div>
-                              {q.url_answer && !q.answer.includes("pluginfile.php") && (
+                              {q.url_answer && !/\.(?:png|jpe?g|gif|svg|webp|bmp)\b/i.test(q.answer || "") && (
                                 <div 
                                   className="border rounded-lg p-1 max-w-xs mt-1.5 doc-option-card"
                                 >

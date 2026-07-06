@@ -35,7 +35,7 @@ export const renderTextWithImages = (text: string, storageUrlsString?: string | 
     ? storageUrlsString.split(",").map(url => url.trim()).filter(Boolean)
     : [];
   
-  const urlRegex = /(https?:\/\/[^\s"']+\/pluginfile\.php\/[^\s"']+\.(?:png|jpe?g|gif|svg|webp|bmp)(?:\?[^\s"']*)?|@@PLUGINFILE@@\/[^\s"']+\.(?:png|jpe?g|gif|svg|webp|bmp)|(?:\.){2,}\/[A-Za-z0-9_\-]+\.(?:png|jpe?g|gif|svg|webp|bmp))/gi;
+  const urlRegex = /(https?:\/\/[^\s"']+\/pluginfile\.php\/[^\s"']+\.(?:png|jpe?g|gif|svg|webp|bmp)(?:\?[^\s"']*)?|@@PLUGINFILE@@\/[^\s"']+\.(?:png|jpe?g|gif|svg|webp|bmp)|(?:\.){2,}\/[A-Za-z0-9_\-]+\.(?:png|jpe?g|gif|svg|webp|bmp)|[A-Za-z0-9_\-]+\.(?:png|jpe?g|gif|svg|webp|bmp))/gi;
   
   const parts = text.split(urlRegex);
   if (parts.length === 1) {
@@ -51,7 +51,7 @@ export const renderTextWithImages = (text: string, storageUrlsString?: string | 
     return clean;
   };
 
-  const imageUrlPattern = /https?:\/\/[^\s"']+\/pluginfile\.php\/[^\s"']+\.(?:png|jpe?g|gif|svg|webp|bmp)(?:\?[^\s"']*)?|@@PLUGINFILE@@\/[^\s"']+\.(?:png|jpe?g|gif|svg|webp|bmp)|(?:\.){2,}\/[A-Za-z0-9_\-]+\.(?:png|jpe?g|gif|svg|webp|bmp)/i;
+  const imageUrlPattern = /https?:\/\/[^\s"']+\/pluginfile\.php\/[^\s"']+\.(?:png|jpe?g|gif|svg|webp|bmp)(?:\?[^\s"']*)?|@@PLUGINFILE@@\/[^\s"']+\.(?:png|jpe?g|gif|svg|webp|bmp)|(?:\.){2,}\/[A-Za-z0-9_\-]+\.(?:png|jpe?g|gif|svg|webp|bmp)|[A-Za-z0-9_\-]+\.(?:png|jpe?g|gif|svg|webp|bmp)/i;
 
   return parts.map((part, index) => {
     if (imageUrlPattern.test(part)) {
@@ -59,9 +59,14 @@ export const renderTextWithImages = (text: string, storageUrlsString?: string | 
       if (src.startsWith('"') || src.startsWith("'")) src = src.slice(1);
       if (src.endsWith('"') || src.endsWith("'")) src = src.slice(0, -1);
 
-      // Trích xuất tên file từ URL LMS (Ví dụ: cau1.png)
-      const filenameMatch = src.match(/\/([^\/?#]+\.(?:png|jpe?g|gif|svg|webp|bmp))/i);
-      const filename = filenameMatch ? filenameMatch[1].toLowerCase() : "";
+      // Trích xuất tên file từ URL LMS hoặc tên file trực tiếp
+      let filename = "";
+      if (src.includes("/") || src.includes("\\")) {
+        const pathParts = src.split(/[/\\]/);
+        filename = pathParts[pathParts.length - 1].split("?")[0].toLowerCase();
+      } else {
+        filename = src.split("?")[0].toLowerCase();
+      }
 
       // Tìm kiếm link Supabase tương ứng có chứa tên file này
       let matchedSupabaseUrl = "";
@@ -83,10 +88,10 @@ export const renderTextWithImages = (text: string, storageUrlsString?: string | 
       if (matchedSupabaseUrl) {
         return (
           <img
-            key={index}
-            src={matchedSupabaseUrl}
-            alt="LMS Image"
-            className={className || "max-h-24 object-contain inline-block my-1 align-middle rounded border p-0.5 bg-white"}
+              key={index}
+              src={matchedSupabaseUrl}
+              alt="LMS Image"
+              className={className || "max-h-24 object-contain inline-block my-1 align-middle rounded border p-0.5 bg-white"}
           />
         );
       }
