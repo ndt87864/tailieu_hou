@@ -118,6 +118,7 @@ export type BulkCreateInput = {
   choices?: string[];
   url_question?: string | null;
   url_answer?: string | null;
+  url_choices?: string | null;
   order_index?: number;
 };
 
@@ -215,6 +216,7 @@ export const bulkCreateQuestions = async (
         choices: item.choices ?? [],
         url_question: item.url_question ?? null,
         url_answer: item.url_answer ?? null,
+        url_choices: item.url_choices ?? null,
         order_index: item.order_index ?? existing.length + idx + 1,
       }))
     )
@@ -342,6 +344,7 @@ export type BulkUpdateChoicesInput = {
   choices: string[];
   url_question?: string | null;
   url_answer?: string | null;
+  url_choices?: string | null;
 };
 
 export type BulkUpdateChoicesResult = {
@@ -374,6 +377,9 @@ export const bulkUpdateChoices = async (
     }
     if (item.url_answer !== undefined) {
       updatePayload.url_answer = item.url_answer;
+    }
+    if (item.url_choices !== undefined) {
+      updatePayload.url_choices = item.url_choices;
     }
 
     if (Object.keys(updatePayload).length === 0) {

@@ -29,6 +29,7 @@ export interface Question {
   choices: string[];
   url_question: string | null;
   url_answer: string | null;
+  url_choices: string | null;
   order_index: number;
 }
 

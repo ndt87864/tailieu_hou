@@ -242,18 +242,34 @@
 
         for (const q of activeQuestions) {
           if (q.rawQuestionImageUrl && !q.url_question) {
-            const reqKey = `question_url:${q.rawQuestionImageUrl}`;
-            if (!seenUrls.has(reqKey)) {
-              seenUrls.add(reqKey);
-              imageRequests.push({ rawUrl: q.rawQuestionImageUrl, folder: "question_url" });
-            }
+            const urls = q.rawQuestionImageUrl.split(",").map(u => u.trim()).filter(Boolean);
+            urls.forEach(url => {
+              const reqKey = `question_url:${url}`;
+              if (!seenUrls.has(reqKey)) {
+                seenUrls.add(reqKey);
+                imageRequests.push({ rawUrl: url, folder: "question_url" });
+              }
+            });
           }
           if (q.rawAnswerImageUrl && !q.url_answer) {
-            const reqKey = `answer_url:${q.rawAnswerImageUrl}`;
-            if (!seenUrls.has(reqKey)) {
-              seenUrls.add(reqKey);
-              imageRequests.push({ rawUrl: q.rawAnswerImageUrl, folder: "answer_url" });
-            }
+            const urls = q.rawAnswerImageUrl.split(",").map(u => u.trim()).filter(Boolean);
+            urls.forEach(url => {
+              const reqKey = `answer_url:${url}`;
+              if (!seenUrls.has(reqKey)) {
+                seenUrls.add(reqKey);
+                imageRequests.push({ rawUrl: url, folder: "answer_url" });
+              }
+            });
+          }
+          if (q.rawChoicesImageUrl && !q.url_choices) {
+            const urls = q.rawChoicesImageUrl.split(",").map(u => u.trim()).filter(Boolean);
+            urls.forEach(url => {
+              const reqKey = `choice_url:${url}`;
+              if (!seenUrls.has(reqKey)) {
+                seenUrls.add(reqKey);
+                imageRequests.push({ rawUrl: url, folder: "choice_url" });
+              }
+            });
           }
         }
 
@@ -263,10 +279,13 @@
             const { rawUrl, folder } = req;
             
             // Bộ lọc format URL
-            if (folder === "question_url" && !/\/pluginfile\.php\/.*\/question\/questiontext\//i.test(rawUrl)) {
+            if (folder === "question_url" && !/\/pluginfile\.php\/.*\/question\//i.test(rawUrl)) {
               return null;
             }
-            if (folder === "answer_url" && !/\/pluginfile\.php\/.*\/question\/answer\//i.test(rawUrl)) {
+            if (folder === "answer_url" && !/\/pluginfile\.php\/.*\/question\//i.test(rawUrl)) {
+              return null;
+            }
+            if (folder === "choice_url" && !/\/pluginfile\.php\/.*\/question\//i.test(rawUrl)) {
               return null;
             }
 
@@ -310,11 +329,20 @@
               });
 
               for (const q of activeQuestions) {
-                if (q.rawQuestionImageUrl && urlMap[q.rawQuestionImageUrl]) {
-                  q.url_question = urlMap[q.rawQuestionImageUrl];
+                if (q.rawQuestionImageUrl) {
+                  const rawUrls = q.rawQuestionImageUrl.split(",").map(u => u.trim()).filter(Boolean);
+                  const uploadedUrls = rawUrls.map(url => urlMap[url] || url);
+                  q.url_question = uploadedUrls.filter(u => u.includes("supabase.co") || u.includes("tailieuhou")).join(",");
                 }
-                if (q.rawAnswerImageUrl && urlMap[q.rawAnswerImageUrl]) {
-                  q.url_answer = urlMap[q.rawAnswerImageUrl];
+                if (q.rawAnswerImageUrl) {
+                  const rawUrls = q.rawAnswerImageUrl.split(",").map(u => u.trim()).filter(Boolean);
+                  const uploadedUrls = rawUrls.map(url => urlMap[url] || url);
+                  q.url_answer = uploadedUrls.filter(u => u.includes("supabase.co") || u.includes("tailieuhou")).join(",");
+                }
+                if (q.rawChoicesImageUrl) {
+                  const rawUrls = q.rawChoicesImageUrl.split(",").map(u => u.trim()).filter(Boolean);
+                  const uploadedUrls = rawUrls.map(url => urlMap[url] || url);
+                  q.url_choices = uploadedUrls.filter(u => u.includes("supabase.co") || u.includes("tailieuhou")).join(",");
                 }
               }
             }
@@ -381,6 +409,7 @@
                 choices: q.choices || [],
                 url_question: q.url_question ?? null,
                 url_answer: q.url_answer ?? null,
+                url_choices: q.url_choices ?? null,
                 order_index: q.stt ?? idx + 1
               }))
             })
@@ -400,7 +429,8 @@
                 id: q.dbId,
                 choices: q.choices || [],
                 url_question: q.url_question ?? null,
-                url_answer: q.url_answer ?? null
+                url_answer: q.url_answer ?? null,
+                url_choices: q.url_choices ?? null
               }))
             })
           });

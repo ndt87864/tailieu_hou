@@ -1,5 +1,6 @@
 import { Document, Packer, Paragraph, TextRun, ImageRun } from "docx";
 import { saveAs } from "file-saver";
+import { cleanQuestionText } from "./questionHelper.js";
 
 interface Question {
   id: string;
@@ -36,7 +37,7 @@ export async function exportQuestionsToWord(
     paragraphs.push(
       new Paragraph({
         children: [
-          new TextRun({ text: `Câu ${idx + 1}: ${q.question}`, bold: true }),
+          new TextRun({ text: `Câu ${idx + 1}: ${cleanQuestionText(q.question, !!q.url_question)}`, bold: true }),
         ],
         spacing: { before: 200, after: 100 },
       })
@@ -82,7 +83,7 @@ export async function exportQuestionsToWord(
     paragraphs.push(
       new Paragraph({
         children: [
-          new TextRun({ text: `Đáp án đúng: ${q.answer}`, bold: true }),
+          new TextRun({ text: `Đáp án đúng: ${cleanQuestionText(q.answer, !!q.url_answer)}`, bold: true }),
         ],
         spacing: { before: 100, after: 100 },
       })

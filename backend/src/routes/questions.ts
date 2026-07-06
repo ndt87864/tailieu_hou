@@ -117,9 +117,9 @@ questionsRouter.get("/by-documents", requireRole("management"), async (c) => {
 questionsRouter.post("/", requireRole("management"), async (c) => {
   try {
     const body = await c.req.json();
-    const { document_id, question, answer, choices, url_question, url_answer, order_index } = body;
+    const { document_id, question, answer, choices, url_question, url_answer, url_choices, order_index } = body;
     const q = await questionService.createQuestion({
-      document_id, question, answer, choices, url_question, url_answer, order_index,
+      document_id, question, answer, choices, url_question, url_answer, url_choices, order_index,
     });
     return c.json({ q }, 201);
   } catch (error: any) {
@@ -138,9 +138,9 @@ questionsRouter.put("/:id", requireRole("management"), async (c) => {
   try {
     const id = c.req.param("id");
     const body = await c.req.json();
-    const { question, answer, choices, url_question, url_answer, order_index } = body;
+    const { question, answer, choices, url_question, url_answer, url_choices, order_index } = body;
     const q = await questionService.updateQuestion(id, {
-      question, answer, choices, url_question, url_answer, order_index,
+      question, answer, choices, url_question, url_answer, url_choices, order_index,
     });
     if (!q) return c.json({ error: "Question not found" }, 404);
     return c.json({ q });
@@ -317,6 +317,7 @@ questionsRouter.post("/bulk", async (c) => {
         choices?: string[];
         url_question?: string;
         url_answer?: string;
+        url_choices?: string;
         order_index?: number;
       }>;
     };
@@ -338,6 +339,7 @@ questionsRouter.post("/bulk", async (c) => {
       choices: Array.isArray(q.choices) ? q.choices : [],
       url_question: q.url_question ?? null,
       url_answer: q.url_answer ?? null,
+      url_choices: q.url_choices ?? null,
       order_index: typeof q.order_index === "number" ? q.order_index : undefined,
     }));
 

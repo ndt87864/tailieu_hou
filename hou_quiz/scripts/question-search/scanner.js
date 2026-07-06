@@ -142,9 +142,11 @@
         const qtextEl = container.querySelector(".qtext, .questiontext") || container.querySelector(".formulation");
         if (!qtextEl) return;
 
-        // Trích xuất URL ảnh câu hỏi
-        const qimg = qtextEl.querySelector("img");
-        const rawQuestionImageUrl = qimg ? qimg.getAttribute("src") : null;
+        // Trích xuất toàn bộ URL ảnh câu hỏi
+        const qimgs = Array.from(qtextEl.querySelectorAll("img"));
+        const rawQuestionImageUrl = qimgs.length > 0
+          ? qimgs.map(img => img.getAttribute("src")).filter(src => src && !src.includes("grade_")).join(",")
+          : null;
         let rawAnswerImageUrl = null;
 
         const clonedQtext = qtextEl.cloneNode(true);
@@ -171,10 +173,10 @@
           let parsedRightAnswers = [];
           const rightAnswerEl = container.querySelector(".outcome .rightanswer, .rightanswer");
           if (rightAnswerEl) {
-            const aimg = rightAnswerEl.querySelector("img");
-            if (aimg) {
-              rawAnswerImageUrl = aimg.getAttribute("src");
-            }
+            const aimgs = Array.from(rightAnswerEl.querySelectorAll("img"));
+            rawAnswerImageUrl = aimgs.length > 0
+              ? aimgs.map(img => img.getAttribute("src")).filter(src => src && !src.includes("grade_")).join(",")
+              : null;
             let raText = rightAnswerEl.textContent.replace(/\s+/g, " ").trim();
             raText = raText
               .replace(/^The correct answer is:\s*/i, "")
@@ -257,14 +259,8 @@
         const answerContainer = container.querySelector(".answer");
         let choices = [];
         let optionElements = [];
+        const choiceImgs = [];
         if (answerContainer) {
-          const aimg = answerContainer.querySelector("img");
-          if (aimg) {
-            const src = aimg.getAttribute("src");
-            if (src && !src.includes("grade_correct") && !src.includes("grade_incorrect")) {
-              rawAnswerImageUrl = src;
-            }
-          }
           optionElements = Array.from(answerContainer.querySelectorAll(".r0, .r1, label, .flex-fill, div[role='option']"));
           optionElements = optionElements.filter(el => !optionElements.some(otherEl => otherEl !== el && el.contains(otherEl)));
           choices = optionElements.map(el => {
@@ -273,6 +269,9 @@
               const src = img.getAttribute("src");
               if (src && !src.includes("grade_correct") && !src.includes("grade_incorrect")) {
                 img.replaceWith(document.createTextNode(` "${src}" `));
+                if (!choiceImgs.includes(src)) {
+                  choiceImgs.push(src);
+                }
               } else {
                 img.remove();
               }
@@ -280,16 +279,18 @@
             return clonedEl.textContent.replace(/\s+/g, " ").replace(/[\u2713\u2714\u2611\u2705]/g, "").trim();
           }).filter(Boolean);
         }
+        const rawChoicesImageUrl = choiceImgs.length > 0 ? choiceImgs.join(",") : null;
 
         let rightAnswerText = "";
+        const ansImgs = [];
         const rightAnswerEl = container.querySelector(".outcome .rightanswer, .rightanswer");
         if (rightAnswerEl) {
-          if (!rawAnswerImageUrl) {
-            const aimg = rightAnswerEl.querySelector("img");
-            if (aimg) {
-              rawAnswerImageUrl = aimg.getAttribute("src");
+          rightAnswerEl.querySelectorAll("img").forEach(img => {
+            const src = img.getAttribute("src");
+            if (src && !src.includes("grade_") && !ansImgs.includes(src)) {
+              ansImgs.push(src);
             }
-          }
+          });
           rightAnswerText = rightAnswerEl.textContent.replace(/\s+/g, " ").trim();
           rightAnswerText = rightAnswerText
             .replace(/^The correct answer is:\s*/i, "")
@@ -330,15 +331,17 @@
           if (correctOptionEl) {
             const labelEl = correctOptionEl.querySelector("label") || correctOptionEl;
             rightAnswerText = labelEl.textContent.replace(/\s+/g, " ").replace(/[\u2713\u2714\u2611\u2705]/g, "").trim();
-            // Nếu option có ảnh, gán cho rawAnswerImageUrl
-            if (!rawAnswerImageUrl) {
-              const aimg = correctOptionEl.querySelector("img");
-              if (aimg) {
-                rawAnswerImageUrl = aimg.getAttribute("src");
+            // Nếu option có ảnh, gom toàn bộ ảnh
+            correctOptionEl.querySelectorAll("img").forEach(img => {
+              const src = img.getAttribute("src");
+              if (src && !src.includes("grade_") && !ansImgs.includes(src)) {
+                ansImgs.push(src);
               }
-            }
+            });
           }
         }
+
+        rawAnswerImageUrl = ansImgs.length > 0 ? ansImgs.join(",") : null;
 
         if (!rightAnswerText) {
           const icons = Array.from(container.querySelectorAll('.questioncorrectnessicon, img[src*="grade_"]'));
@@ -394,7 +397,8 @@
           dbStatusText: "Đang kiểm tra...",
           isChecked: true,
           rawQuestionImageUrl,
-          rawAnswerImageUrl
+          rawAnswerImageUrl,
+          rawChoicesImageUrl
         });
       } catch (e) {
         console.error("[HouQuiz Scanner] Lỗi khi quét câu hỏi:", e);
@@ -465,7 +469,43 @@
               badge.style.borderColor = "rgba(16, 185, 129, 0.2)";
             }
           } else {
-            if (q.type === "fill_blank") {
+            // Kiểm tra thiếu link ảnh khi đã có trong DB (chỉ áp dụng cho các câu hỏi có link ảnh hợp lệ từ LMS)
+            const isValQImg = q.rawQuestionImageUrl && q.rawQuestionImageUrl.includes("pluginfile.php");
+            const isValAnsImg = q.rawAnswerImageUrl && q.rawAnswerImageUrl.includes("pluginfile.php");
+            const isValChoiceImg = q.rawChoicesImageUrl && q.rawChoicesImageUrl.includes("pluginfile.php");
+
+            const needsQuestionUrl = isValQImg && !matchedDbQ.url_question;
+            const needsAnswerUrl = isValAnsImg && !matchedDbQ.url_answer;
+            const needsChoicesUrl = isValChoiceImg && !matchedDbQ.url_choices;
+
+            if (needsQuestionUrl) {
+              q.dbStatusText = "Chưa có url_question";
+              q.dbStatus = "missing_choices"; // để cho phép cập nhật thông tin qua bulk-update-choices
+              if (badge) {
+                badge.textContent = "Chưa có url_question";
+                badge.style.color = "#ef4444";
+                badge.style.background = "rgba(239, 68, 68, 0.12)";
+                badge.style.borderColor = "rgba(239, 68, 68, 0.2)";
+              }
+            } else if (needsAnswerUrl) {
+              q.dbStatusText = "Chưa có url_answer";
+              q.dbStatus = "missing_choices"; // để cho phép cập nhật thông tin qua bulk-update-choices
+              if (badge) {
+                badge.textContent = "Chưa có url_answer";
+                badge.style.color = "#ef4444";
+                badge.style.background = "rgba(239, 68, 68, 0.12)";
+                badge.style.borderColor = "rgba(239, 68, 68, 0.2)";
+              }
+            } else if (needsChoicesUrl) {
+              q.dbStatusText = "Chưa có url_choices";
+              q.dbStatus = "missing_choices"; // để cho phép cập nhật thông tin qua bulk-update-choices
+              if (badge) {
+                badge.textContent = "Chưa có url_choices";
+                badge.style.color = "#ef4444";
+                badge.style.background = "rgba(239, 68, 68, 0.12)";
+                badge.style.borderColor = "rgba(239, 68, 68, 0.2)";
+              }
+            } else if (q.type === "fill_blank") {
               q.dbStatusText = "Đã có trong DB";
               q.dbStatus = "exists";
               if (badge) {

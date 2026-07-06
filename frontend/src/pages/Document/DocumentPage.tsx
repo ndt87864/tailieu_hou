@@ -7,6 +7,7 @@ import * as Icons from "lucide-react";
 import { Header } from "../../components/layout/Layout.js";
 import * as XLSX from "xlsx";
 import { toast } from "react-toastify";
+import { cleanQuestionText, renderTextWithImages } from "../../utils/questionHelper.js";
 import "../../css/document.css";
 
 const { Lock, Search, Crown } = Icons;
@@ -18,6 +19,7 @@ interface Question {
   answer: string;
   url_question: string | null;
   url_answer: string | null;
+  url_choices: string | null;
   order_index: number;
   isPremiumLocked?: boolean;
 }
@@ -352,7 +354,7 @@ const DocumentPage: React.FC = () => {
                           {idx + 1}
                         </td>
                         <td className="py-4 px-4 align-top space-y-2">
-                          <div className="font-medium doc-text-fg">{q.question}</div>
+                          <div className="font-medium doc-text-fg">{renderTextWithImages(q.question, q.url_question)}</div>
                           
                           {/* Options choices list */}
                           <div 
@@ -361,12 +363,12 @@ const DocumentPage: React.FC = () => {
                             {(q.choices || []).map((opt, oIdx) => (
                               <div key={oIdx} className="text-xs doc-text-muted">
                                 <span className="font-semibold mr-1">{String.fromCharCode(65 + oIdx)}.</span>
-                                {opt}
+                                {renderTextWithImages(opt, q.url_choices)}
                               </div>
                             ))}
                           </div>
 
-                          {q.url_question && (
+                          {q.url_question && !q.question.includes("pluginfile.php") && (
                             <div 
                               className="mt-2 border rounded-lg p-1 max-w-sm inline-block doc-option-card"
                             >
@@ -400,9 +402,9 @@ const DocumentPage: React.FC = () => {
                               <div 
                                 className="font-semibold rounded-lg px-2.5 py-1.5 inline-block text-xs border doc-answer-badge"
                               >
-                                {q.answer}
+                                {renderTextWithImages(q.answer, q.url_answer)}
                               </div>
-                              {q.url_answer && (
+                              {q.url_answer && !q.answer.includes("pluginfile.php") && (
                                 <div 
                                   className="border rounded-lg p-1 max-w-xs mt-1.5 doc-option-card"
                                 >
@@ -444,7 +446,7 @@ const DocumentPage: React.FC = () => {
                     )}
                   </div>
                   
-                  <div className="text-sm font-semibold text-[var(--fg)] leading-relaxed">{q.question}</div>
+                  <div className="text-sm font-semibold text-[var(--fg)] leading-relaxed">{renderTextWithImages(q.question, q.url_question)}</div>
                   
                   {/* Choices list */}
                   {q.choices && q.choices.length > 0 && (
@@ -455,13 +457,13 @@ const DocumentPage: React.FC = () => {
                           className="flex items-start gap-2.5 p-2.5 rounded-xl text-xs bg-[var(--bg-2)] border border-[var(--border-soft)] text-[var(--fg-2)] transition-colors hover:bg-[var(--bg-3)]"
                         >
                           <span className="font-bold text-[var(--brand-600)] shrink-0">{String.fromCharCode(65 + oIdx)}.</span>
-                          <span className="leading-relaxed">{opt}</span>
+                          <span className="leading-relaxed">{renderTextWithImages(opt, q.url_choices)}</span>
                         </div>
                       ))}
                     </div>
                   )}
 
-                  {q.url_question && (
+                  {q.url_question && !q.question.includes("pluginfile.php") && (
                     <div 
                       className="border rounded-xl p-1 max-w-full bg-[var(--bg-2)] border-[var(--border-soft)] overflow-hidden"
                     >
@@ -487,7 +489,7 @@ const DocumentPage: React.FC = () => {
                       <div className="space-y-3">
                         <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10 text-emerald-700 dark:text-emerald-300">
                           <div className="text-[10px] uppercase font-bold tracking-wider text-emerald-600 dark:text-emerald-400 mb-1">Đáp án đúng</div>
-                          <div className="text-sm font-semibold leading-relaxed">{q.answer}</div>
+                          <div className="text-sm font-semibold leading-relaxed">{cleanQuestionText(q.answer, !!q.url_answer)}</div>
                         </div>
                         {q.url_answer && (
                           <div 

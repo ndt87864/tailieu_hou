@@ -1,5 +1,6 @@
 import React from "react";
 import { Edit2, Trash2 } from "lucide-react";
+import { cleanQuestionText, renderTextWithImages } from "../../utils/questionHelper.js";
 
 interface Question {
   id: string;
@@ -9,6 +10,7 @@ interface Question {
   choices: string[];
   url_question?: string | null;
   url_answer?: string | null;
+  url_choices?: string | null;
   order_index: number;
 }
 
@@ -60,8 +62,13 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
               )}
             </div>
             <h4 className="q-title font-semibold text-sm">
-              {q.question}
+              {renderTextWithImages(q.question, q.url_question)}
             </h4>
+            {q.url_question && !q.question.includes("pluginfile.php") && (
+              <div className="mt-2 border rounded-lg p-1 max-w-sm inline-block bg-[var(--bg-2)] border-[var(--border-soft)]">
+                <img src={q.url_question} alt="Ảnh câu hỏi" className="max-h-32 object-contain" />
+              </div>
+            )}
           </div>
           <div className="flex gap-1 shrink-0">
             <button
@@ -97,7 +104,7 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
                   {String.fromCharCode(65 + i)}
                 </span>
                 <span className={choice === q.answer ? "choice-text-correct" : "choice-text-neutral"}>
-                  {choice}
+                  {renderTextWithImages(choice, q.url_choices)}
                 </span>
               </div>
             ))}
@@ -106,8 +113,15 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
 
         {/* Answer if not in choices */}
         {(!Array.isArray(q.choices) || q.choices.length === 0) && q.answer && (
-          <div className="text-xs p-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 text-emerald-600">
-            <strong>Đáp án:</strong> {q.answer}
+          <div className="text-xs p-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 text-emerald-600 space-y-2">
+            <div>
+              <strong>Đáp án:</strong> {renderTextWithImages(q.answer, q.url_answer)}
+            </div>
+            {q.url_answer && (
+              <div className="mt-2 border rounded-lg p-1 max-w-sm inline-block bg-[var(--bg-2)] border-[var(--border-soft)]">
+                <img src={q.url_answer} alt="Ảnh đáp án" className="max-h-32 object-contain" />
+              </div>
+            )}
           </div>
         )}
       </div>

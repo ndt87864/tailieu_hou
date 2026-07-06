@@ -127,6 +127,7 @@ export const questionLimitMiddleware: MiddlewareHandler = async (c, next) => {
     choices: ["Khóa", "Khóa", "Khóa", "Khóa"],
     url_question: null,
     url_answer: null,
+    url_choices: null,
     isPremiumLocked: true,
   }));
 
