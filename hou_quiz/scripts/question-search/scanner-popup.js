@@ -359,8 +359,19 @@
         saveBtn.innerHTML = `Đang đồng bộ...`;
 
         let matchedDocId = popup.dataset.documentId;
+        let matchedDocIds = [];
 
-        if (!matchedDocId) {
+        if (matchedDocId === "__all_matched__") {
+          try {
+            matchedDocIds = JSON.parse(popup.dataset.matchedDocIds || "[]");
+          } catch (e) {
+            console.error("Lỗi parse matchedDocIds:", e);
+          }
+        } else if (matchedDocId) {
+          matchedDocIds = [matchedDocId];
+        }
+
+        if (matchedDocIds.length === 0) {
           const docRes = await window.houQuizUtils.fetchAPI(`${config.API_URL}/documents`);
           const docList = Array.isArray(docRes) ? docRes : (docRes && Array.isArray(docRes.documents) ? docRes.documents : []);
 
@@ -391,65 +402,92 @@
               body: JSON.stringify({ title: courseTitle, categoryId: categoryId })
             });
           }
-          matchedDocId = matchedDoc?.id;
+          if (matchedDoc) {
+            matchedDocIds = [matchedDoc.id];
+          }
         }
 
-        if (!matchedDocId) {
+        if (matchedDocIds.length === 0) {
           throw new Error("Không thể xác định hoặc tạo mới tài liệu trong cơ sở dữ liệu");
         }
 
-        const toInsert = activeQuestions.filter(q => q.dbStatus !== "missing_choices" && q.dbStatus !== "exists");
-        const toUpdateChoices = activeQuestions.filter(q => q.dbStatus === "missing_choices" && q.dbId);
+        let totalInserted = 0, totalSkipped = 0, totalUpdated = 0;
+        
+        for (const docId of matchedDocIds) {
+          const toInsertForDoc = [];
+          const toUpdateChoicesForDoc = [];
 
-        let inserted = 0, skipped = 0, updated = 0;
+          for (const q of activeQuestions) {
+            let statusType = "new";
+            let dbId = null;
+
+            if (q.allDocStatuses) {
+              const matchedStatus = q.allDocStatuses.find(s => s.docId === docId);
+              if (matchedStatus) {
+                statusType = matchedStatus.statusType;
+                dbId = matchedStatus.dbId;
+              }
+            } else {
+              statusType = q.dbStatus === "exists" ? "exists" : (q.dbStatus === "missing_choices" ? "missing_choices" : "new");
+              dbId = q.dbId;
+            }
+
+            if (statusType === "new" || (statusType !== "exists" && statusType !== "missing_choices")) {
+              toInsertForDoc.push(q);
+            } else if (statusType === "missing_choices" && dbId) {
+              toUpdateChoicesForDoc.push({ ...q, dbId });
+            }
+          }
+
+          if (toInsertForDoc.length > 0) {
+            const saveRes = await window.houQuizUtils.fetchAPI(`${config.API_URL}/questions/bulk`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                document_id: docId,
+                questions: toInsertForDoc.map((q, idx) => ({
+                  question: q.question,
+                  answer: q.answer,
+                  choices: q.choices || [],
+                  url_question: q.url_question ?? null,
+                  url_answer: q.url_answer ?? null,
+                  url_choices: q.url_choices ?? null,
+                  order_index: q.stt ?? idx + 1
+                }))
+              })
+            });
+            totalInserted += saveRes?.inserted ?? toInsertForDoc.length;
+            totalSkipped += saveRes?.skipped ?? 0;
+          }
+
+          if (toUpdateChoicesForDoc.length > 0) {
+            const updateRes = await window.houQuizUtils.fetchAPI(`${config.API_URL}/questions/bulk-update-choices`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                updates: toUpdateChoicesForDoc.map(q => ({
+                  id: q.dbId,
+                  choices: q.choices || [],
+                  url_question: q.url_question ?? null,
+                  url_answer: q.url_answer ?? null,
+                  url_choices: q.url_choices ?? null
+                }))
+              })
+            });
+            totalUpdated += updateRes?.updated ?? toUpdateChoicesForDoc.length;
+          }
+        }
+
         const parts = [];
-
-        if (toInsert.length > 0) {
-          const saveRes = await window.houQuizUtils.fetchAPI(`${config.API_URL}/questions/bulk`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              document_id: matchedDocId,
-              questions: toInsert.map((q, idx) => ({
-                question: q.question,
-                answer: q.answer,
-                choices: q.choices || [],
-                url_question: q.url_question ?? null,
-                url_answer: q.url_answer ?? null,
-                url_choices: q.url_choices ?? null,
-                order_index: q.stt ?? idx + 1
-              }))
-            })
-          });
-          inserted = saveRes?.inserted ?? toInsert.length;
-          skipped = saveRes?.skipped ?? 0;
-          if (inserted > 0) parts.push(`thêm ${inserted} câu mới`);
-          if (skipped > 0) parts.push(`bỏ qua ${skipped} trùng lặp`);
-        }
-
-        if (toUpdateChoices.length > 0) {
-          const updateRes = await window.houQuizUtils.fetchAPI(`${config.API_URL}/questions/bulk-update-choices`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              updates: toUpdateChoices.map(q => ({
-                id: q.dbId,
-                choices: q.choices || [],
-                url_question: q.url_question ?? null,
-                url_answer: q.url_answer ?? null,
-                url_choices: q.url_choices ?? null
-              }))
-            })
-          });
-          updated = updateRes?.updated ?? toUpdateChoices.length;
-          if (updated > 0) parts.push(`cập nhật choices cho ${updated} câu`);
-        }
+        if (totalInserted > 0) parts.push(`thêm ${totalInserted} câu mới`);
+        if (totalSkipped > 0) parts.push(`bỏ qua ${totalSkipped} trùng lặp`);
+        if (totalUpdated > 0) parts.push(`cập nhật choices cho ${totalUpdated} câu`);
 
         if (parts.length === 0) {
           showPageToast("Đã tồn tại trong DB, không có gì cần lưu.", false);
         } else {
           showPageToast(`Hoàn thành: ${parts.join(", ")}.`);
-          if (inserted > 0 || updated > 0) {
+          if (totalInserted > 0 || totalUpdated > 0) {
             if (typeof window.houQuizReloadQuestions === "function") {
               window.houQuizReloadQuestions();
             }

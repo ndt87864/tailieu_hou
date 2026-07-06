@@ -457,6 +457,14 @@
       const docSelect = popupEl.querySelector("#scanner-doc-select");
       if (docSelect) {
         docSelect.innerHTML = "";
+
+        // Add option to save to all matched documents if multiple
+        if (matchedDocs.length > 1) {
+          const allOpt = document.createElement("option");
+          allOpt.value = "__all_matched__";
+          allOpt.textContent = `Tất cả tài liệu khớp (${matchedDocs.length})`;
+          docSelect.appendChild(allOpt);
+        }
         
         matchedDocs.forEach(doc => {
           const opt = document.createElement("option");
@@ -488,9 +496,10 @@
       }
 
       // Set target document initial value
-      const initialDocId = matchedDocs.length > 0 ? matchedDocs[0].id : "__new__";
+      const initialDocId = matchedDocs.length > 1 ? "__all_matched__" : (matchedDocs.length > 0 ? matchedDocs[0].id : "__new__");
       if (docSelect) docSelect.value = initialDocId;
       popupEl.dataset.documentId = initialDocId === "__new__" ? "" : initialDocId;
+      popupEl.dataset.matchedDocIds = JSON.stringify(matchedDocs.map(d => d.id));
 
       if (docSelect) {
         docSelect.addEventListener("change", (e) => {
@@ -633,6 +642,25 @@
       const updateQuestionsActiveMapping = (targetDocId) => {
         questions.forEach(q => {
           if (!q.allDocStatuses) return;
+          if (targetDocId === "__all_matched__") {
+            const hasNew = q.allDocStatuses.some(s => s.statusType !== "exists" && s.statusType !== "missing_choices");
+            const hasMissing = q.allDocStatuses.some(s => s.statusType === "missing_choices");
+            if (hasNew) {
+              q.dbStatus = "checked";
+              q.dbStatusText = "Chưa có";
+              q.dbId = null;
+            } else if (hasMissing) {
+              q.dbStatus = "missing_choices";
+              q.dbStatusText = "Thiếu choices";
+              q.dbId = q.allDocStatuses.find(s => s.statusType === "missing_choices")?.dbId || null;
+            } else {
+              q.dbStatus = "exists";
+              q.dbStatusText = "Đã có";
+              q.dbId = q.allDocStatuses[0]?.dbId || null;
+            }
+            return;
+          }
+
           const activeStatus = q.allDocStatuses.find(s => s.docId === targetDocId);
           if (activeStatus) {
             q.dbStatus = activeStatus.statusType === "exists" ? "exists" : (activeStatus.statusType === "missing_choices" ? "missing_choices" : "checked");

@@ -171,17 +171,28 @@ export const bulkCreateQuestions = async (
 
     if (matchedDbQ) {
       const hasChoices = Array.isArray(matchedDbQ.choices) && matchedDbQ.choices.length > 0;
-      if (!hasChoices && Array.isArray(item.choices) && item.choices.length > 0) {
-        // Queue parallel update
+      const needsChoices = !hasChoices && Array.isArray(item.choices) && item.choices.length > 0;
+      const needsUrlQuestion = !matchedDbQ.url_question && item.url_question;
+      const needsUrlAnswer = !matchedDbQ.url_answer && item.url_answer;
+      const needsUrlChoices = !matchedDbQ.url_choices && item.url_choices;
+
+      if (needsChoices || needsUrlQuestion || needsUrlAnswer || needsUrlChoices) {
+        const updatePayload: any = {};
+        if (needsChoices) updatePayload.choices = item.choices;
+        if (needsUrlQuestion) updatePayload.url_question = item.url_question;
+        if (needsUrlAnswer) updatePayload.url_answer = item.url_answer;
+        if (needsUrlChoices) updatePayload.url_choices = item.url_choices;
+
         updatePromises.push((async () => {
           const { error } = await supabaseAdmin
             .from("questions")
-            .update({ choices: item.choices })
+            .update(updatePayload)
             .eq("id", matchedDbQ.id);
           return { id: matchedDbQ.id, error };
         })());
+        updatedChoices++; // Tăng biến đếm cập nhật
       } else {
-        // Đã có choices hoặc không có choices mới để cập nhật -> Bỏ qua
+        // Đã có đầy đủ thông tin -> Bỏ qua
         skipped++;
       }
       continue;
