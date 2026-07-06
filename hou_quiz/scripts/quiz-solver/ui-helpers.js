@@ -153,18 +153,35 @@
   function extractFillBlankSubQuestions(queContainer) {
     const subQuestions = [];
     const seenTexts = new Set();
-    
-    const rows = queContainer.querySelectorAll(
-      '.subq, .sub, [class*="subquestion"], ' +
-      ".answer > p, .answer > div, .answer > tr, .answer li, " +
-      ".formulation > p, .formulation > div, .formulation li, " +
-      ".ablock > p, .ablock > div, ol > li, ul > li, li"
-    );
+    const inputs = Array.from(queContainer.querySelectorAll('input[type="text"], input:not([type]), textarea, select'));
+    if (inputs.length === 0) return [];
 
-    function extractTextWithInputs(el) {
-      const inputs = el.querySelectorAll('input[type="text"], input:not([type]), textarea, select');
-      if (inputs.length === 0) return null;
+    const containerMap = new Map();
+
+    inputs.forEach(input => {
+      let container = input.closest('tr');
+      if (!container) {
+        container = input.closest('li');
+      }
+      if (!container) {
+        container = input.closest('p');
+      }
+      if (!container) {
+        container = input.closest('div');
+      }
+      if (!container || container === queContainer || !queContainer.contains(container)) {
+        container = input.parentElement;
+      }
       
+      if (container) {
+        if (!containerMap.has(container)) {
+          containerMap.set(container, []);
+        }
+        containerMap.get(container).push(input);
+      }
+    });
+
+    function extractTextWithInputs(el, inputElements) {
       const cloned = el.cloneNode(true);
       cloned.querySelectorAll('input[type="text"], input:not([type]), textarea, select').forEach(input => {
         const placeholder = document.createTextNode(" ... ");
@@ -177,61 +194,24 @@
       
       return {
         text: text,
-        inputElements: Array.from(inputs)
+        inputElements: inputElements
       };
     }
 
-    if (rows.length > 0) {
-      const rowsArray = Array.from(rows);
-      rowsArray.forEach(row => {
-        const hasListItemChildren = row.querySelectorAll("li").length > 1;
-        if (hasListItemChildren) return;
-
-        // Bỏ qua nếu row này bao bọc một row khác cũng có input để tránh lấy cả bài đọc
-        const hasSubRowWithInput = rowsArray.some(otherRow => {
-          if (otherRow === row) return false;
-          if (!row.contains(otherRow)) return false;
-          return otherRow.querySelectorAll('input[type="text"], input:not([type]), select').length > 0;
-        });
-        if (hasSubRowWithInput) return;
-
-        const res = extractTextWithInputs(row);
-        if (res && res.text.length > 3) {
-          const norm = res.text.toLowerCase().replace(/\s+/g, " ").trim();
-          if (!seenTexts.has(norm)) {
-            seenTexts.add(norm);
-            subQuestions.push({
-              element: row,
-              text: res.text,
-              inputElements: res.inputElements
-            });
-          }
+    containerMap.forEach((inputElements, element) => {
+      const res = extractTextWithInputs(element, inputElements);
+      if (res && res.text.length > 1) {
+        const norm = res.text.toLowerCase().replace(/\s+/g, " ").trim();
+        if (!seenTexts.has(norm)) {
+          seenTexts.add(norm);
+          subQuestions.push({
+            element: element,
+            text: res.text,
+            inputElements: res.inputElements
+          });
         }
-      });
-    }
-
-    if (subQuestions.length === 0) {
-      const inputs = queContainer.querySelectorAll('input[type="text"], input:not([type]), textarea, select');
-      const processedParents = new Set();
-      inputs.forEach(input => {
-        let parent = input.parentElement;
-        while (parent && parent !== queContainer) {
-          if (parent.textContent.trim().length > 5 && !processedParents.has(parent)) {
-            const res = extractTextWithInputs(parent);
-            if (res && res.text.length > 3) {
-              processedParents.add(parent);
-              subQuestions.push({
-                element: parent,
-                text: res.text,
-                inputElements: res.inputElements
-              });
-              break;
-            }
-          }
-          parent = parent.parentElement;
-        }
-      });
-    }
+      }
+    });
 
     const filteredSubQuestions = subQuestions.filter(sqA => {
       return !subQuestions.some(sqB => sqB !== sqA && sqA.element.contains(sqB.element));
