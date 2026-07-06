@@ -21,6 +21,15 @@
     return div.innerHTML;
   }
 
+  function formatTextWithImages(text) {
+    if (!text) return "";
+    let escaped = escapeHTML(text);
+    const urlRegex = /(?:&quot;|")?(https?:\/\/[^\s&"<>]+?\.(?:png|jpe?g|gif|svg|webp|bmp)(?:\?[^\s&"<>]*)*)(?:&quot;|")?/gi;
+    return escaped.replace(urlRegex, (match, url) => {
+      return `<img src="${url}" class="scanner-preview-img" style="max-height: 100px; max-width: 100%; display: inline-block; vertical-align: middle; margin: 2px 4px; border-radius: 2px;" />`;
+    });
+  }
+
   function showPageToast(message, isSuccess = true) {
     let toast = document.querySelector(".hou-toast");
     if (!toast) {
@@ -56,7 +65,7 @@
           answersListHTML = `
             <div class="scanner-answer-item correct">
               <span class="scanner-ans-label">Đáp án đúng</span>
-              <span class="scanner-ans-text">${escapeHTML(q.answer)}</span>
+              <span class="scanner-ans-text">${formatTextWithImages(q.answer)}</span>
             </div>
           `;
         } else {
@@ -68,7 +77,7 @@
             return `
               <div class="scanner-answer-item ${isCorrect ? 'correct' : ''}">
                 <span class="scanner-ans-label">${letter}</span>
-                <span class="scanner-ans-text">${escapeHTML(c)}</span>
+                <span class="scanner-ans-text">${formatTextWithImages(c)}</span>
                 ${isCorrect ? `
                   <span class="scanner-ans-check">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -106,7 +115,7 @@
                 </button>
               </div>
             </div>
-            <div class="scanner-question-text" id="qtext-${q.index}">${escapeHTML(q.question)}</div>
+            <div class="scanner-question-text" id="qtext-${q.index}">${formatTextWithImages(q.question)}</div>
             <div class="scanner-answers" id="qanswers-${q.index}">
               ${answersListHTML}
             </div>
@@ -225,6 +234,95 @@
       try {
         const config = window.houQuizConfig || { API_URL: "http://localhost:3001/api/v1" };
 
+        saveBtn.innerHTML = `Đang tải ảnh...`;
+
+        // 1. Thu thập và loại bỏ các liên kết ảnh trùng lặp cần tải
+        const imageRequests = [];
+        const seenUrls = new Set();
+
+        for (const q of activeQuestions) {
+          if (q.rawQuestionImageUrl && !q.url_question) {
+            const reqKey = `question_url:${q.rawQuestionImageUrl}`;
+            if (!seenUrls.has(reqKey)) {
+              seenUrls.add(reqKey);
+              imageRequests.push({ rawUrl: q.rawQuestionImageUrl, folder: "question_url" });
+            }
+          }
+          if (q.rawAnswerImageUrl && !q.url_answer) {
+            const reqKey = `answer_url:${q.rawAnswerImageUrl}`;
+            if (!seenUrls.has(reqKey)) {
+              seenUrls.add(reqKey);
+              imageRequests.push({ rawUrl: q.rawAnswerImageUrl, folder: "answer_url" });
+            }
+          }
+        }
+
+        // 2. Download các ảnh song song và chuyển đổi sang Base64 ở phía Client
+        if (imageRequests.length > 0) {
+          const downloadPromises = imageRequests.map(async (req) => {
+            const { rawUrl, folder } = req;
+            
+            // Bộ lọc format URL
+            if (folder === "question_url" && !/\/pluginfile\.php\/.*\/question\/questiontext\//i.test(rawUrl)) {
+              return null;
+            }
+            if (folder === "answer_url" && !/\/pluginfile\.php\/.*\/question\/answer\//i.test(rawUrl)) {
+              return null;
+            }
+
+            try {
+              const response = await fetch(rawUrl);
+              const blob = await response.blob();
+              const base64 = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+              });
+              const urlPath = new URL(rawUrl).pathname;
+              const fileName = urlPath.split('/').pop() || null;
+              
+              return { base64, folder, fileName, originalUrl: rawUrl };
+            } catch (err) {
+              console.error(`[HouQuiz Scanner] Lỗi khi tải ảnh (${rawUrl}):`, err);
+              return null;
+            }
+          });
+
+          const preparedImages = (await Promise.all(downloadPromises)).filter(Boolean);
+
+          // 3. Upload hàng loạt lên Supabase Storage qua API bulk-upload-images
+          if (preparedImages.length > 0) {
+            saveBtn.innerHTML = `Đang tải lên Storage...`;
+            const uploadRes = await window.houQuizUtils.fetchAPI(`${config.API_URL}/questions/bulk-upload-images`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ images: preparedImages })
+            });
+
+            if (uploadRes && uploadRes.success && Array.isArray(uploadRes.uploaded)) {
+              // 4. Ánh xạ các URL đã upload thành công trở lại các câu hỏi
+              const urlMap = {};
+              uploadRes.uploaded.forEach((item) => {
+                if (item && item.url && !item.error) {
+                  urlMap[item.originalUrl] = item.url;
+                }
+              });
+
+              for (const q of activeQuestions) {
+                if (q.rawQuestionImageUrl && urlMap[q.rawQuestionImageUrl]) {
+                  q.url_question = urlMap[q.rawQuestionImageUrl];
+                }
+                if (q.rawAnswerImageUrl && urlMap[q.rawAnswerImageUrl]) {
+                  q.url_answer = urlMap[q.rawAnswerImageUrl];
+                }
+              }
+            }
+          }
+        }
+
+        saveBtn.innerHTML = `Đang đồng bộ...`;
+
         let matchedDocId = popup.dataset.documentId;
 
         if (!matchedDocId) {
@@ -281,6 +379,8 @@
                 question: q.question,
                 answer: q.answer,
                 choices: q.choices || [],
+                url_question: q.url_question ?? null,
+                url_answer: q.url_answer ?? null,
                 order_index: q.stt ?? idx + 1
               }))
             })
@@ -298,7 +398,9 @@
             body: JSON.stringify({
               updates: toUpdateChoices.map(q => ({
                 id: q.dbId,
-                choices: q.choices || []
+                choices: q.choices || [],
+                url_question: q.url_question ?? null,
+                url_answer: q.url_answer ?? null
               }))
             })
           });

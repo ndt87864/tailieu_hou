@@ -340,6 +340,8 @@ export const searchQuestions = async (
 export type BulkUpdateChoicesInput = {
   id: string;
   choices: string[];
+  url_question?: string | null;
+  url_answer?: string | null;
 };
 
 export type BulkUpdateChoicesResult = {
@@ -348,7 +350,7 @@ export type BulkUpdateChoicesResult = {
 };
 
 /**
- * Cập nhật hàng loạt `choices` cho các câu hỏi đã tồn tại trong DB nhưng chưa có lựa chọn.
+ * Cập nhật hàng loạt `choices` và các trường URL (nếu có) cho các câu hỏi đã tồn tại trong DB.
  */
 export const bulkUpdateChoices = async (
   items: BulkUpdateChoicesInput[]
@@ -360,12 +362,27 @@ export const bulkUpdateChoices = async (
 
   // Run updates in parallel using Promise.all
   const promises = items.map(async (item) => {
-    if (!item.id || !Array.isArray(item.choices) || item.choices.length === 0) {
-      return { id: item.id, error: { message: "choices không hợp lệ." } };
+    if (!item.id) {
+      return { id: item.id, error: { message: "id không hợp lệ." } };
     }
+    const updatePayload: any = {};
+    if (Array.isArray(item.choices) && item.choices.length > 0) {
+      updatePayload.choices = item.choices;
+    }
+    if (item.url_question !== undefined) {
+      updatePayload.url_question = item.url_question;
+    }
+    if (item.url_answer !== undefined) {
+      updatePayload.url_answer = item.url_answer;
+    }
+
+    if (Object.keys(updatePayload).length === 0) {
+      return { id: item.id, error: { message: "Không có trường nào để cập nhật." } };
+    }
+
     const { error } = await supabaseAdmin
       .from("questions")
-      .update({ choices: item.choices })
+      .update(updatePayload)
       .eq("id", item.id);
     return { id: item.id, error };
   });

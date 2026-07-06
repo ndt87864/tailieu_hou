@@ -168,6 +168,142 @@ questionsRouter.delete("/:id", requireRole("management"), async (c) => {
   return c.json({ success: true, message: "Deleted" });
 });
 
+// UPLOAD IMAGE từ Extension Scanner lên Supabase Storage
+questionsRouter.post("/upload-image", async (c) => {
+  try {
+    const { base64, folder, fileName } = await c.req.json();
+    if (!base64 || typeof base64 !== "string") {
+      return c.json({ error: "Missing or invalid base64 data" }, 400);
+    }
+    if (folder !== "question_url" && folder !== "answer_url") {
+      return c.json({ error: "Invalid folder" }, 400);
+    }
+
+    const commaIndex = base64.indexOf(",");
+    const rawBase64 = commaIndex !== -1 ? base64.substring(commaIndex + 1) : base64;
+    const mimeMatch = base64.match(/^data:([^;]+);base64,/);
+    const mimeType = mimeMatch ? mimeMatch[1] : "image/png";
+
+    let ext = "png";
+    if (mimeType === "image/jpeg" || mimeType === "image/jpg") ext = "jpg";
+    else if (mimeType === "image/gif") ext = "gif";
+    else if (mimeType === "image/svg+xml") ext = "svg";
+    else if (mimeType === "image/webp") ext = "webp";
+
+    const buffer = Buffer.from(rawBase64, "base64");
+    const randomId = Math.random().toString(36).substring(2, 15);
+    const finalFileName = fileName ? fileName : `img_${Date.now()}_${randomId}.${ext}`;
+    const filePath = `${folder}/${finalFileName}`;
+
+    // Tự động kiểm tra và tạo bucket 'tailieuhou' nếu chưa tồn tại
+    try {
+      const { data: buckets } = await supabaseAdmin.storage.listBuckets();
+      const bucketExists = buckets?.some(b => b.name === "tailieuhou");
+      if (!bucketExists) {
+        await supabaseAdmin.storage.createBucket("tailieuhou", {
+          public: true,
+        });
+      }
+    } catch (bucketErr) {
+      console.warn("⚠️ Tự động tạo bucket 'tailieuhou' thất bại, bỏ qua:", bucketErr);
+    }
+
+    const { error } = await supabaseAdmin.storage
+      .from("tailieuhou")
+      .upload(filePath, buffer, {
+        contentType: mimeType,
+        upsert: true,
+      });
+
+    if (error) {
+      return c.json({ error: error.message }, 400);
+    }
+
+    const { data: publicUrlData } = supabaseAdmin.storage
+      .from("tailieuhou")
+      .getPublicUrl(filePath);
+
+    return c.json({
+      success: true,
+      url: publicUrlData.publicUrl,
+    }, 201);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// UPLOAD NHIỀU ẢNH ĐỒNG THỜI từ Extension Scanner lên Supabase Storage
+questionsRouter.post("/bulk-upload-images", async (c) => {
+  try {
+    const { images } = await c.req.json();
+    if (!Array.isArray(images) || images.length === 0) {
+      return c.json({ error: "Missing or invalid images array" }, 400);
+    }
+
+    // Tự động kiểm tra và tạo bucket 'tailieuhou' nếu chưa tồn tại
+    try {
+      const { data: buckets } = await supabaseAdmin.storage.listBuckets();
+      const bucketExists = buckets?.some(b => b.name === "tailieuhou");
+      if (!bucketExists) {
+        await supabaseAdmin.storage.createBucket("tailieuhou", {
+          public: true,
+        });
+      }
+    } catch (bucketErr) {
+      console.warn("⚠️ Tự động tạo bucket 'tailieuhou' thất bại, bỏ qua:", bucketErr);
+    }
+
+    const uploadPromises = images.map(async (img: any) => {
+      const { base64, folder, fileName, originalUrl } = img;
+      if (!base64 || !folder) {
+        return { originalUrl, error: "Dữ liệu ảnh không hợp lệ" };
+      }
+
+      try {
+        const commaIndex = base64.indexOf(",");
+        const rawBase64 = commaIndex !== -1 ? base64.substring(commaIndex + 1) : base64;
+        const mimeMatch = base64.match(/^data:([^;]+);base64,/);
+        const mimeType = mimeMatch ? mimeMatch[1] : "image/png";
+
+        let ext = "png";
+        if (mimeType === "image/jpeg" || mimeType === "image/jpg") ext = "jpg";
+        else if (mimeType === "image/gif") ext = "gif";
+        else if (mimeType === "image/svg+xml") ext = "svg";
+        else if (mimeType === "image/webp") ext = "webp";
+
+        const buffer = Buffer.from(rawBase64, "base64");
+        const randomId = Math.random().toString(36).substring(2, 15);
+        const finalFileName = fileName ? fileName : `img_${Date.now()}_${randomId}.${ext}`;
+        const filePath = `${folder}/${finalFileName}`;
+
+        const { error } = await supabaseAdmin.storage
+          .from("tailieuhou")
+          .upload(filePath, buffer, {
+            contentType: mimeType,
+            upsert: true,
+          });
+
+        if (error) {
+          return { originalUrl, error: error.message };
+        }
+
+        const { data: publicUrlData } = supabaseAdmin.storage
+          .from("tailieuhou")
+          .getPublicUrl(filePath);
+
+        return { originalUrl, url: publicUrlData.publicUrl };
+      } catch (err: any) {
+        return { originalUrl, error: err.message };
+      }
+    });
+
+    const results = await Promise.all(uploadPromises);
+    return c.json({ success: true, uploaded: results });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 // BULK INSERT từ Extension Scanner
 // Body: { document_id: string, questions: { question, answer, choices?, order_index? }[] }
 questionsRouter.post("/bulk", async (c) => {

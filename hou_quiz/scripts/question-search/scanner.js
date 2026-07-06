@@ -142,6 +142,11 @@
         const qtextEl = container.querySelector(".qtext, .questiontext") || container.querySelector(".formulation");
         if (!qtextEl) return;
 
+        // Trích xuất URL ảnh câu hỏi
+        const qimg = qtextEl.querySelector("img");
+        const rawQuestionImageUrl = qimg ? qimg.getAttribute("src") : null;
+        let rawAnswerImageUrl = null;
+
         const clonedQtext = qtextEl.cloneNode(true);
         clonedQtext.querySelectorAll("script, style, .answer, label, .prompt, .accesshide").forEach(el => el.remove());
         clonedQtext.querySelectorAll("img").forEach(img => {
@@ -166,6 +171,10 @@
           let parsedRightAnswers = [];
           const rightAnswerEl = container.querySelector(".outcome .rightanswer, .rightanswer");
           if (rightAnswerEl) {
+            const aimg = rightAnswerEl.querySelector("img");
+            if (aimg) {
+              rawAnswerImageUrl = aimg.getAttribute("src");
+            }
             let raText = rightAnswerEl.textContent.replace(/\s+/g, " ").trim();
             raText = raText
               .replace(/^The correct answer is:\s*/i, "")
@@ -199,7 +208,9 @@
                   stt: idx + 1,
                   dbStatus: "checking",
                   dbStatusText: "Đang kiểm tra...",
-                  isChecked: true
+                  isChecked: true,
+                  rawQuestionImageUrl,
+                  rawAnswerImageUrl
                 });
               }
             });
@@ -215,7 +226,9 @@
                 stt: idx + 1,
                 dbStatus: "checking",
                 dbStatusText: "Đang kiểm tra...",
-                isChecked: true
+                isChecked: true,
+                rawQuestionImageUrl,
+                rawAnswerImageUrl
               });
             }
           }
@@ -245,6 +258,13 @@
         let choices = [];
         let optionElements = [];
         if (answerContainer) {
+          const aimg = answerContainer.querySelector("img");
+          if (aimg) {
+            const src = aimg.getAttribute("src");
+            if (src && !src.includes("grade_correct") && !src.includes("grade_incorrect")) {
+              rawAnswerImageUrl = src;
+            }
+          }
           optionElements = Array.from(answerContainer.querySelectorAll(".r0, .r1, label, .flex-fill, div[role='option']"));
           optionElements = optionElements.filter(el => !optionElements.some(otherEl => otherEl !== el && el.contains(otherEl)));
           choices = optionElements.map(el => {
@@ -264,6 +284,12 @@
         let rightAnswerText = "";
         const rightAnswerEl = container.querySelector(".outcome .rightanswer, .rightanswer");
         if (rightAnswerEl) {
+          if (!rawAnswerImageUrl) {
+            const aimg = rightAnswerEl.querySelector("img");
+            if (aimg) {
+              rawAnswerImageUrl = aimg.getAttribute("src");
+            }
+          }
           rightAnswerText = rightAnswerEl.textContent.replace(/\s+/g, " ").trim();
           rightAnswerText = rightAnswerText
             .replace(/^The correct answer is:\s*/i, "")
@@ -304,6 +330,13 @@
           if (correctOptionEl) {
             const labelEl = correctOptionEl.querySelector("label") || correctOptionEl;
             rightAnswerText = labelEl.textContent.replace(/\s+/g, " ").replace(/[\u2713\u2714\u2611\u2705]/g, "").trim();
+            // Nếu option có ảnh, gán cho rawAnswerImageUrl
+            if (!rawAnswerImageUrl) {
+              const aimg = correctOptionEl.querySelector("img");
+              if (aimg) {
+                rawAnswerImageUrl = aimg.getAttribute("src");
+              }
+            }
           }
         }
 
@@ -328,6 +361,12 @@
             if (parentRow) {
               const labelEl = parentRow.querySelector("label") || parentRow;
               rightAnswerText = labelEl.textContent.replace(/\s+/g, " ").replace(/[\u2713\u2714\u2611\u2705]/g, "").trim();
+              if (!rawAnswerImageUrl) {
+                const aimg = parentRow.querySelector("img");
+                if (aimg) {
+                  rawAnswerImageUrl = aimg.getAttribute("src");
+                }
+              }
             }
           }
         }
@@ -353,7 +392,9 @@
           stt: idx + 1,
           dbStatus: "checking",
           dbStatusText: "Đang kiểm tra...",
-          isChecked: true
+          isChecked: true,
+          rawQuestionImageUrl,
+          rawAnswerImageUrl
         });
       } catch (e) {
         console.error("[HouQuiz Scanner] Lỗi khi quét câu hỏi:", e);
