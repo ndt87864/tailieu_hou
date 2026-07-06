@@ -233,6 +233,14 @@
 
       const clonedQtext = qtextEl.cloneNode(true);
       clonedQtext.querySelectorAll("script, style, .answer, label, .prompt, .accesshide").forEach(el => el.remove());
+      clonedQtext.querySelectorAll("img").forEach(img => {
+        const src = img.getAttribute("src");
+        if (src) {
+          img.replaceWith(document.createTextNode(` "${src}" `));
+        } else {
+          img.remove();
+        }
+      });
       
       let questionText = clonedQtext.textContent.replace(/\s+/g, " ").trim();
       questionText = questionText.replace(/^mô tả câu hỏi/i, "").trim();
@@ -241,10 +249,10 @@
         questionText = window.houQuizUtils.cleanQuestionContent(questionText, qtextEl);
       }
       
-      const instructions = [/chọn một câu trả lời:?/i, /chọn một:?/i, /chọn câu trả lời:?/i, /chọn đáp án:?/i, /trả lời câu hỏi:?/i, /\b[a-fA-F0-9][\.\)]\s*$/i];
+      const instructions = [/chọn một câu trả lời:?/i, /chọn một:?/i, /chọn câu trả lời:?/i, /chọn đáp án:?/i, /trả lời câu hỏi:?/i, /\b[a-fA-F][\.\)]\s*$/i];
       instructions.forEach(regex => { questionText = questionText.replace(regex, "").trim(); });
       
-      const optIndex = questionText.search(/\b[a-fA-F][\.\)]\s+/);
+      const optIndex = questionText.search(/\b[aA][\.\)]\s+/);
       if (optIndex !== -1 && optIndex > 10) questionText = questionText.substring(0, optIndex).trim();
 
       if (isFillBlank) {
@@ -264,7 +272,18 @@
 
       let optionElements = Array.from(answerContainer.querySelectorAll("label, .flex-fill, div[role='option']"));
       optionElements = optionElements.filter(el => !optionElements.some(otherEl => otherEl !== el && el.contains(otherEl)));
-      const options = optionElements.map(el => el.textContent.replace(/\s+/g, " ").replace(/[\u2713\u2714\u2611\u2705]/g, "").trim()).filter(Boolean);
+      const options = optionElements.map(el => {
+        const clonedEl = el.cloneNode(true);
+        clonedEl.querySelectorAll("img").forEach(img => {
+          const src = img.getAttribute("src");
+          if (src && !src.includes("grade_correct") && !src.includes("grade_incorrect")) {
+            img.replaceWith(document.createTextNode(` "${src}" `));
+          } else {
+            img.remove();
+          }
+        });
+        return clonedEl.textContent.replace(/\s+/g, " ").replace(/[\u2713\u2714\u2611\u2705]/g, "").trim();
+      }).filter(Boolean);
 
       pageQuestions.push({
         id: idx,

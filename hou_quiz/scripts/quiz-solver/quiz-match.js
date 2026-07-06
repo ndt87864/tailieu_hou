@@ -157,6 +157,10 @@
     if (!text) return "";
     const utils = window.houQuizUtils;
     let normalized = text;
+    const moodleUrlPattern = /https?:\/\/[^\s"']+\/pluginfile\.php\/[^\s"']+\/([A-Za-z0-9_\-]+\.(?:png|jpe?g|gif|svg|webp|bmp))/gi;
+    normalized = normalized.replace(moodleUrlPattern, '$1');
+    const truncatedUrlPattern = /(?:\.){2,}\/([A-Za-z0-9_\-]+\.(?:png|jpe?g|gif|svg|webp|bmp))/gi;
+    normalized = normalized.replace(truncatedUrlPattern, '$1');
     const TEMP_PLACEHOLDER = "___BLANK___";
 
     BLANK_PATTERNS.forEach((pattern) => {

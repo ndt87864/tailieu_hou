@@ -69,8 +69,9 @@
       const payload = await window.houQuizUtils.fetchAPI(`${window.houQuizConfig.API_URL}/documents`);
       const docList = Array.isArray(payload) ? payload : (payload && Array.isArray(payload.documents) ? payload.documents : []);
       
-      const cleanWebTitle = window.houQuizUtils.normalizeTextForMatching(info.title);
-      let matchedDoc = null;
+      const titleParts = info.title.split("/").map(t => t.trim()).filter(Boolean);
+      const cleanWebTitles = titleParts.map(part => window.houQuizUtils.normalizeTextForMatching(part));
+      const matchedDocs = [];
 
       function isCourseTitleMatch(webTitle, docTitle) {
         const w = String(webTitle || "").toLowerCase().trim();
@@ -105,21 +106,24 @@
       }
 
       if (docList.length > 0) {
-        matchedDoc = docList.find(doc => {
+        docList.forEach(doc => {
           const cleanDocTitle = window.houQuizUtils.normalizeTextForMatching(doc.title);
-          return isCourseTitleMatch(cleanWebTitle, cleanDocTitle);
+          const isMatched = cleanWebTitles.some(cleanWebTitle => isCourseTitleMatch(cleanWebTitle, cleanDocTitle));
+          if (isMatched) {
+            matchedDocs.push(doc);
+          }
         });
       }
 
       // Lưu tên môn học tìm kiếm
       chrome.storage.local.set({ 
         hou_current_course: info.title,
-        hou_current_doc: matchedDoc ? matchedDoc.title : "Không tìm thấy tài liệu phù hợp"
+        hou_current_doc: matchedDocs.length > 0 ? matchedDocs.map(d => d.title).join(", ") : "Không tìm thấy tài liệu phù hợp"
       });
 
-      if (matchedDoc) {
-        console.log("[HouQuiz] Đã tìm thấy tài liệu phù hợp từ Backend:", matchedDoc.title, "ID:", matchedDoc.id);
-        return matchedDoc;
+      if (matchedDocs.length > 0) {
+        console.log("[HouQuiz] Đã tìm thấy các tài liệu phù hợp từ Backend:", matchedDocs.map(d => d.title).join(", "));
+        return matchedDocs;
       }
     } catch (e) {
       console.error("[HouQuiz] Lỗi khi tải tài liệu từ backend:", e);

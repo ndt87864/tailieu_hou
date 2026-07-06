@@ -12,6 +12,7 @@
 
   let lastQuizResult = null;
   let activeDocument = null;
+  let activeDocuments = null;
   let dbQuestions = [];
 
   const getUI = () => window.houQuizUI || {};
@@ -90,36 +91,43 @@
         }
       } else {
         showToast("Đang xác định môn học...");
-        const doc = await window.houQuizAutoSelect.detectAndFetchDocument();
-        if (doc) {
-          activeDocument = doc;
-          let cleanCourseTitle = doc.title;
+        const docs = await window.houQuizAutoSelect.detectAndFetchDocument();
+        if (Array.isArray(docs) && docs.length > 0) {
+          activeDocuments = docs;
+          activeDocument = docs[0];
+          
+          const docTitles = docs.map(d => d.title).join(", ");
+          let cleanCourseTitle = docs[0].title;
           if (cleanCourseTitle.includes("-") || cleanCourseTitle.includes("–") || cleanCourseTitle.includes("—")) {
             cleanCourseTitle = cleanCourseTitle.split(/[-–—]/)[0].trim();
           }
+          if (docs.length > 1) {
+            cleanCourseTitle = `${cleanCourseTitle} +${docs.length - 1}`;
+          }
+
           showToast(`Môn học: ${cleanCourseTitle}`);
           if (showInfoWidgetEnabled) {
-            showInfoWidget(cleanCourseTitle, doc.title, "Đang tải câu hỏi...");
+            showInfoWidget(cleanCourseTitle, docTitles, "Đang tải câu hỏi...");
           } else {
             const widget = document.getElementById("hou-quiz-info-widget");
             if (widget) widget.remove();
           }
           
           try {
-            const resData = await window.houQuizUtils.fetchAPI(`${window.houQuizConfig.API_URL}/questions/document/${doc.id}`);
-            dbQuestions = resData.questions || [];
+            const docIds = docs.map(d => d.id);
+            dbQuestions = await window.houQuizUtils.fetchQuestionsForDocuments(docIds);
             if (window.houQuizSearchPopup) {
               window.houQuizSearchPopup.setDbQuestions(dbQuestions);
             }
-            console.log(`[HouQuiz] Loaded ${dbQuestions.length} questions from DB.`);
+            console.log(`[HouQuiz] Loaded ${dbQuestions.length} questions from DB (Auto).`);
             showToast(`Sẵn sàng làm bài! Đã tải ${dbQuestions.length} câu hỏi.`);
             if (showInfoWidgetEnabled) {
-              showInfoWidget(cleanCourseTitle, doc.title, `Sẵn sàng (${dbQuestions.length} câu)`);
+              showInfoWidget(cleanCourseTitle, docTitles, `Sẵn sàng (${dbQuestions.length} câu)`);
             }
           } catch (err) {
             console.error("[HouQuiz] Error loading questions:", err);
             if (showInfoWidgetEnabled) {
-              showInfoWidget(cleanCourseTitle, doc.title, "Lỗi tải câu hỏi từ DB");
+              showInfoWidget(cleanCourseTitle, docTitles, "Lỗi tải câu hỏi từ DB");
             }
           }
         } else {
@@ -320,9 +328,8 @@
           let bestOption = null;
           let bestScore = -1;
 
-          pq.optionElements.forEach(optEl => {
-            let optText = optEl.textContent.replace(/\s+/g, " ").trim();
-            optText = optText.replace(/[\u2713\u2714\u2611\u2705]/g, "").trim();
+          pq.optionElements.forEach((optEl, optIdx) => {
+            const optText = pq.options[optIdx] || "";
             const cleanOptText = window.houQuizUtils.normalizeTextForMatching(optText);
             if (window.houQuizUtils.compareNormalized(cleanOptText, match.answerText)) {
               const score = window.houQuizUtils.getSimilarityScore(cleanOptText, match.answerText);
@@ -411,24 +418,29 @@
   }
   // Hàm tải lại dữ liệu câu hỏi từ DB cho solver
   async function reloadQuestionsData() {
-    if (!activeDocument) return;
+    if (!activeDocument && (!window.houQuizAutoSelect || !activeDocuments)) return;
     try {
       showToast("Đang làm mới câu hỏi...");
-      const resData = await window.houQuizUtils.fetchAPI(`${window.houQuizConfig.API_URL}/questions/document/${activeDocument.id}`);
-      dbQuestions = resData.questions || [];
+      const docs = activeDocuments || [activeDocument];
+      const docIds = docs.map(d => d.id);
+      dbQuestions = await window.houQuizUtils.fetchQuestionsForDocuments(docIds);
       if (window.houQuizSearchPopup) {
         window.houQuizSearchPopup.setDbQuestions(dbQuestions);
       }
       console.log(`[HouQuiz] Reloaded ${dbQuestions.length} questions from DB.`);
       showToast(`Đã làm mới dữ liệu câu hỏi! Tổng số: ${dbQuestions.length} câu.`);
       
-      let cleanCourseTitle = activeDocument.title;
+      const docTitles = docs.map(d => d.title).join(", ");
+      let cleanCourseTitle = docs[0].title;
       if (cleanCourseTitle.includes("-") || cleanCourseTitle.includes("–") || cleanCourseTitle.includes("—")) {
         cleanCourseTitle = cleanCourseTitle.split(/[-–—]/)[0].trim();
       }
+      if (docs.length > 1) {
+        cleanCourseTitle = `${cleanCourseTitle} +${docs.length - 1}`;
+      }
       chrome.storage.local.get(["hou_show_info_widget"], (res) => {
         if (res.hou_show_info_widget !== false) {
-          showInfoWidget(cleanCourseTitle, activeDocument.title, `Sẵn sàng (${dbQuestions.length} câu)`);
+          showInfoWidget(cleanCourseTitle, docTitles, `Sẵn sàng (${dbQuestions.length} câu)`);
         }
       });
     } catch (err) {

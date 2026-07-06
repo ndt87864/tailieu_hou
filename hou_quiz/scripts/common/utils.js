@@ -6,6 +6,10 @@
     if (!text) return '';
     try {
       let s = text.toString();
+      const moodleUrlPattern = /https?:\/\/[^\s"']+\/pluginfile\.php\/[^\s"']+\/([A-Za-z0-9_\-]+\.(?:png|jpe?g|gif|svg|webp|bmp))/gi;
+      s = s.replace(moodleUrlPattern, '$1');
+      const truncatedUrlPattern = /(?:\.){2,}\/([A-Za-z0-9_\-]+\.(?:png|jpe?g|gif|svg|webp|bmp))/gi;
+      s = s.replace(truncatedUrlPattern, '$1');
       s = s.replace(/[\u00A0\u2000-\u200B\uFEFF\u202F\xa0]/g, ' ');
       s = s.replace(/^[a-zA-Z]\s*[\.\)\-:\/]\s*|^[0-9]{1,2}\s*[\.\)\-:\/]\s+/u, '');
       s = s.replace(/^[A-Za-z][\.\)](\S)/u, '$1');
@@ -31,6 +35,10 @@
 
   function normalizeForCompare(str) {
     let s = String(str || '');
+    const moodleUrlPattern = /https?:\/\/[^\s"']+\/pluginfile\.php\/[^\s"']+\/([A-Za-z0-9_\-]+\.(?:png|jpe?g|gif|svg|webp|bmp))/gi;
+    s = s.replace(moodleUrlPattern, '$1');
+    const truncatedUrlPattern = /(?:\.){2,}\/([A-Za-z0-9_\-]+\.(?:png|jpe?g|gif|svg|webp|bmp))/gi;
+    s = s.replace(truncatedUrlPattern, '$1');
     try { if (s.normalize) s = s.normalize('NFKC'); } catch (e) { }
     s = s.toLowerCase();
     s = s.replace(/\s+/g, ' ').trim();
@@ -177,6 +185,14 @@
       try {
         const cloned = element.cloneNode(true);
         cloned.querySelectorAll("script, style, .answer, label, .prompt, .accesshide").forEach(el => el.remove());
+        cloned.querySelectorAll("img").forEach(img => {
+          const src = img.getAttribute("src");
+          if (src) {
+            img.replaceWith(document.createTextNode(` "${src}" `));
+          } else {
+            img.remove();
+          }
+        });
         cloned.querySelectorAll('p, div, br, li, h1, h2, h3, h4, h5, h6').forEach(el => {
           el.after(document.createTextNode(' '));
         });
@@ -387,9 +403,10 @@
       }
     }
 
-    const isParagraphPrompt = processedText.length > 300 || 
-      /đọc (đoạn văn|đoạn hội thoại|bài khóa|bài đọc|đoạn thông tin|cuộc hội thoại|bài)/i.test(processedText) ||
-      /read the (text|passage|following|conversation|article)/i.test(processedText);
+    const textWithoutUrls = processedText.replace(/https?:\/\/\S+/gi, "").replace(/"__IMAGE_URL_\d+__"/g, "");
+    const isParagraphPrompt = textWithoutUrls.length > 300 || 
+      /đọc (đoạn văn|đoạn hội thoại|bài khóa|bài đọc|đoạn thông tin|cuộc hội thoại|bài)/i.test(textWithoutUrls) ||
+      /read the (text|passage|following|conversation|article)/i.test(textWithoutUrls);
 
     if (isParagraphPrompt) {
       const blankRegex = /([_.‥…\u2026]{2,}|_{2,}|(\.\s*){3,}|\[\s*\]|\(\s*\))/;
