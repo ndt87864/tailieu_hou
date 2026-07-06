@@ -403,35 +403,126 @@
       const docRes = await window.houQuizUtils.fetchAPI(`${config.API_URL}/documents`);
       const docList = Array.isArray(docRes) ? docRes : (docRes && Array.isArray(docRes.documents) ? docRes.documents : []);
 
-      const cleanWebTitle = (courseTitle || "").normalize().toLowerCase().replace(/\s+/g, " ").trim();
-      const matchedDoc = docList.find(doc => {
-        const cleanDocTitle = (doc.title || "").normalize().toLowerCase().replace(/\s+/g, " ").trim();
-        return cleanDocTitle === cleanWebTitle || cleanDocTitle.includes(cleanWebTitle) || cleanWebTitle.includes(cleanDocTitle);
-      });
+      const titleParts = (courseTitle || "").split("/").map(t => t.trim()).filter(Boolean);
+      const cleanWebTitles = titleParts.map(part => window.houQuizUtils.normalizeTextForMatching(part));
 
-      if (!matchedDoc) {
-        questions.forEach(q => {
-          q.dbStatus = "new";
-          q.dbStatusText = "Chưa có";
-          q.dbId = null;
-          const badge = document.getElementById(`badge-q-${q.index}`);
-          if (badge) {
-            badge.textContent = "Chưa có";
-            badge.style.color = "var(--success, #10b981)";
-            badge.style.background = "rgba(16, 185, 129, 0.12)";
-            badge.style.borderColor = "rgba(16, 185, 129, 0.2)";
+      function isCourseTitleMatch(webTitle, docTitle) {
+        const w = String(webTitle || "").toLowerCase().trim();
+        const d = String(docTitle || "").toLowerCase().trim();
+        if (w === d) return true;
+
+        const cleanW = window.houQuizUtils.stripVietnameseDiacritics(w).replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+        const cleanD = window.houQuizUtils.stripVietnameseDiacritics(d).replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+        if (cleanW === cleanD) return true;
+
+        const getBaseAndNumbers = (str) => {
+          const match = str.match(/^(.*?)\s*(\b\d+(?:[\s+,&/\\]+\d+)*\b)\s*$/);
+          if (match) {
+            const base = match[1].trim();
+            const nums = match[2].match(/\d+/g) || [];
+            return { base, nums };
           }
-        });
-        return;
+          return { base: str, nums: [] };
+        };
+
+        const parsedW = getBaseAndNumbers(cleanW);
+        const parsedD = getBaseAndNumbers(cleanD);
+
+        if (parsedW.base && parsedD.base && parsedW.base === parsedD.base) {
+          if (parsedW.nums.length > 0 && parsedD.nums.length > 0) {
+            const allNumsMatched = parsedW.nums.every(num => parsedD.nums.includes(num));
+            if (allNumsMatched) return true;
+          }
+        }
+
+        return cleanD.includes(cleanW) || cleanW.includes(cleanD);
       }
 
-      popupEl.dataset.documentId = matchedDoc.id;
+      const matchedDocs = [];
+      if (docList.length > 0) {
+        const tempMatched = [];
+        docList.forEach(doc => {
+          const cleanDocTitle = window.houQuizUtils.normalizeTextForMatching(doc.title);
+          const matchIndex = cleanWebTitles.findIndex(cleanWebTitle => isCourseTitleMatch(cleanWebTitle, cleanDocTitle));
+          if (matchIndex !== -1) {
+            tempMatched.push({ doc, matchIndex });
+          }
+        });
+        // Sắp xếp theo thứ tự xuất hiện trong tiêu đề môn học trên web
+        tempMatched.sort((a, b) => a.matchIndex - b.matchIndex);
+        matchedDocs.push(...tempMatched.map(item => item.doc));
+      }
 
-      const dbQuestions = await window.houQuizUtils.fetchAPI(`${config.API_URL}/questions/document/${matchedDoc.id}`);
-      const dbList = Array.isArray(dbQuestions) ? dbQuestions : (dbQuestions && Array.isArray(dbQuestions.questions) ? dbQuestions.questions : []);
+      // Populate document select dropdown
+      const docSelect = popupEl.querySelector("#scanner-doc-select");
+      if (docSelect) {
+        docSelect.innerHTML = "";
+        
+        matchedDocs.forEach(doc => {
+          const opt = document.createElement("option");
+          opt.value = doc.id;
+          opt.textContent = doc.title;
+          docSelect.appendChild(opt);
+        });
 
+        // Option to create a new document
+        const newOpt = document.createElement("option");
+        newOpt.value = "__new__";
+        newOpt.textContent = `+ Tạo mới: ${titleParts[titleParts.length - 1] || courseTitle}`;
+        docSelect.appendChild(newOpt);
+
+        // Add other documents from database (if any)
+        if (docList.length > matchedDocs.length) {
+          const optGroup = document.createElement("optgroup");
+          optGroup.label = "Tài liệu khác trong CSDL";
+          docList.forEach(doc => {
+            if (!matchedDocs.some(md => md.id === doc.id)) {
+              const opt = document.createElement("option");
+              opt.value = doc.id;
+              opt.textContent = doc.title;
+              optGroup.appendChild(opt);
+            }
+          });
+          docSelect.appendChild(optGroup);
+        }
+      }
+
+      // Set target document initial value
+      const initialDocId = matchedDocs.length > 0 ? matchedDocs[0].id : "__new__";
+      if (docSelect) docSelect.value = initialDocId;
+      popupEl.dataset.documentId = initialDocId === "__new__" ? "" : initialDocId;
+
+      if (docSelect) {
+        docSelect.addEventListener("change", (e) => {
+          popupEl.dataset.documentId = e.target.value === "__new__" ? "" : e.target.value;
+          updateQuestionsActiveMapping(e.target.value);
+        });
+      }
+
+      // Show loading status on all badges
       questions.forEach(q => {
+        const badge = document.getElementById(`badge-q-${q.index}`);
+        if (badge) {
+          badge.textContent = "Đang kiểm tra...";
+        }
+      });
+
+      // Fetch questions for all matched documents in parallel
+      const docsQuestionsMap = {};
+      await Promise.all(matchedDocs.map(async (doc) => {
         try {
+          const dbQuestions = await window.houQuizUtils.fetchAPI(`${config.API_URL}/questions/document/${doc.id}`);
+          docsQuestionsMap[doc.id] = Array.isArray(dbQuestions) ? dbQuestions : (dbQuestions && Array.isArray(dbQuestions.questions) ? dbQuestions.questions : []);
+        } catch (err) {
+          console.error(`[HouQuiz Scanner] Lỗi tải tài liệu ${doc.id}:`, err);
+          docsQuestionsMap[doc.id] = [];
+        }
+      }));
+
+      // Store status of each question on each document
+      questions.forEach(q => {
+        q.allDocStatuses = matchedDocs.map(doc => {
+          const dbList = docsQuestionsMap[doc.id] || [];
           const cleanQText = window.houQuizUtils.normalizeTextForMatching(q.question || "");
 
           const matchedDbQ = dbList.find(dbQ => {
@@ -445,20 +536,10 @@
             return cleanDBAns === cleanQAns || cleanDBAns.includes(cleanQAns) || cleanQAns.includes(cleanDBAns);
           });
 
-          q.dbStatus = "checked";
-          q.dbId = matchedDbQ ? matchedDbQ.id : null;
-          const badge = document.getElementById(`badge-q-${q.index}`);
+          let statusText = "Chưa có";
+          let statusType = "new";
 
-          if (!matchedDbQ) {
-            q.dbStatusText = "Chưa có";
-            if (badge) {
-              badge.textContent = "Chưa có";
-              badge.style.color = "var(--success, #10b981)";
-              badge.style.background = "rgba(16, 185, 129, 0.12)";
-              badge.style.borderColor = "rgba(16, 185, 129, 0.2)";
-            }
-          } else {
-            // Kiểm tra thiếu link ảnh khi đã có trong DB (chỉ áp dụng cho các câu hỏi có link ảnh hợp lệ từ LMS)
+          if (matchedDbQ) {
             const isValQImg = q.rawQuestionImageUrl && q.rawQuestionImageUrl.includes("pluginfile.php");
             const isValAnsImg = q.rawAnswerImageUrl && q.rawAnswerImageUrl.includes("pluginfile.php");
             const isValChoiceImg = q.rawChoicesImageUrl && q.rawChoicesImageUrl.includes("pluginfile.php");
@@ -467,69 +548,106 @@
             const needsAnswerUrl = isValAnsImg && !matchedDbQ.url_answer;
             const needsChoicesUrl = isValChoiceImg && !matchedDbQ.url_choices;
 
-            if (needsQuestionUrl) {
-              q.dbStatusText = "Chưa có url_question";
-              q.dbStatus = "missing_choices"; // để cho phép cập nhật thông tin qua bulk-update-choices
-              if (badge) {
-                badge.textContent = "Chưa có url_question";
-                badge.style.color = "#ef4444";
-                badge.style.background = "rgba(239, 68, 68, 0.12)";
-                badge.style.borderColor = "rgba(239, 68, 68, 0.2)";
-              }
-            } else if (needsAnswerUrl) {
-              q.dbStatusText = "Chưa có url_answer";
-              q.dbStatus = "missing_choices"; // để cho phép cập nhật thông tin qua bulk-update-choices
-              if (badge) {
-                badge.textContent = "Chưa có url_answer";
-                badge.style.color = "#ef4444";
-                badge.style.background = "rgba(239, 68, 68, 0.12)";
-                badge.style.borderColor = "rgba(239, 68, 68, 0.2)";
-              }
-            } else if (needsChoicesUrl) {
-              q.dbStatusText = "Chưa có url_choices";
-              q.dbStatus = "missing_choices"; // để cho phép cập nhật thông tin qua bulk-update-choices
-              if (badge) {
-                badge.textContent = "Chưa có url_choices";
-                badge.style.color = "#ef4444";
-                badge.style.background = "rgba(239, 68, 68, 0.12)";
-                badge.style.borderColor = "rgba(239, 68, 68, 0.2)";
-              }
+            if (needsQuestionUrl || needsAnswerUrl || needsChoicesUrl) {
+              statusText = "Thiếu ảnh";
+              statusType = "missing_choices";
             } else if (q.type === "fill_blank") {
-              q.dbStatusText = "Đã có trong DB";
-              q.dbStatus = "exists";
-              if (badge) {
-                badge.textContent = "Đã có trong DB";
-                badge.style.color = "#f59e0b";
-                badge.style.background = "rgba(245, 158, 11, 0.12)";
-                badge.style.borderColor = "rgba(245, 158, 11, 0.2)";
-              }
+              statusText = "Đã có";
+              statusType = "exists";
             } else {
               const hasChoices = Array.isArray(matchedDbQ.choices) && matchedDbQ.choices.length > 0;
               if (hasChoices) {
-                q.dbStatusText = "Đã có trong DB";
-                q.dbStatus = "exists";
-                if (badge) {
-                  badge.textContent = "Đã có trong DB";
-                  badge.style.color = "#f59e0b";
-                  badge.style.background = "rgba(245, 158, 11, 0.12)";
-                  badge.style.borderColor = "rgba(245, 158, 11, 0.2)";
-                }
+                statusText = "Đã có";
+                statusType = "exists";
               } else {
-                q.dbStatusText = "Chưa có choices";
-                q.dbStatus = "missing_choices";
-                if (badge) {
-                  badge.textContent = "Chưa có choices";
-                  badge.style.color = "#8b5cf6";
-                  badge.style.background = "rgba(139, 92, 246, 0.12)";
-                  badge.style.borderColor = "rgba(139, 92, 246, 0.2)";
-                }
+                statusText = "Thiếu choices";
+                statusType = "missing_choices";
               }
             }
           }
-        } catch (itemErr) {
-          console.error("[HouQuiz Scanner] Lỗi khi check trùng cho câu đơn lẻ:", itemErr, q);
+
+          return {
+            docId: doc.id,
+            docTitle: doc.title,
+            statusText: statusText,
+            statusType: statusType,
+            dbId: matchedDbQ ? matchedDbQ.id : null,
+            matchedDbQ: matchedDbQ
+          };
+        });
+
+        // Render badges as separate document tags
+        const badge = document.getElementById(`badge-q-${q.index}`);
+        if (badge) {
+          badge.style.background = "none";
+          badge.style.border = "none";
+          badge.style.padding = "0";
+          badge.textContent = "";
+
+          const renderTag = (status) => {
+            const span = document.createElement("span");
+            span.className = `scanner-status-tag tag-${status.statusType}`;
+            span.title = `${status.docTitle}: ${status.statusText}`;
+            span.textContent = `${status.docTitle}: ${status.statusText}`;
+            return span;
+          };
+
+          if (q.allDocStatuses.length === 0) {
+            badge.textContent = "Chưa có";
+            badge.style.color = "var(--success, #10b981)";
+            badge.style.background = "rgba(16, 185, 129, 0.12)";
+            badge.style.borderColor = "rgba(16, 185, 129, 0.2)";
+            badge.style.border = "1px solid";
+            badge.style.padding = "2px 8px";
+            badge.style.borderRadius = "6px";
+            badge.style.fontSize = "10px";
+            badge.style.fontWeight = "700";
+          } else if (q.allDocStatuses.length <= 2) {
+            q.allDocStatuses.forEach(status => {
+              badge.appendChild(renderTag(status));
+            });
+          } else {
+            q.allDocStatuses.slice(0, 2).forEach(status => {
+              badge.appendChild(renderTag(status));
+            });
+
+            const moreCount = q.allDocStatuses.length - 2;
+            const moreTag = document.createElement("span");
+            moreTag.className = "scanner-status-tag tag-more";
+            moreTag.textContent = `+${moreCount}`;
+            moreTag.title = "Nhấp để hiển thị toàn bộ tài liệu";
+            
+            moreTag.addEventListener("click", (e) => {
+              e.stopPropagation();
+              moreTag.remove();
+              q.allDocStatuses.slice(2).forEach(status => {
+                badge.appendChild(renderTag(status));
+              });
+            });
+            badge.appendChild(moreTag);
+          }
         }
       });
+
+      // Function to set the primary database ID and status based on the selected document ID
+      const updateQuestionsActiveMapping = (targetDocId) => {
+        questions.forEach(q => {
+          if (!q.allDocStatuses) return;
+          const activeStatus = q.allDocStatuses.find(s => s.docId === targetDocId);
+          if (activeStatus) {
+            q.dbStatus = activeStatus.statusType === "exists" ? "exists" : (activeStatus.statusType === "missing_choices" ? "missing_choices" : "checked");
+            q.dbStatusText = activeStatus.statusText;
+            q.dbId = activeStatus.dbId;
+          } else {
+            q.dbStatus = "new";
+            q.dbStatusText = "Chưa có";
+            q.dbId = null;
+          }
+        });
+      };
+
+      // Run initially for initialDocId
+      updateQuestionsActiveMapping(initialDocId);
     } catch (err) {
       console.error("[HouQuiz Scanner] Lỗi khi kiểm tra câu hỏi trùng lặp:", err);
     }

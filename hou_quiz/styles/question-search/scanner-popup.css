@@ -454,3 +454,40 @@
     background: rgba(var(--brand-rgb), 0.15) !important;
     color: var(--brand-400) !important;
 }
+
+#hou-quiz-scanner-popup .scanner-status-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    border: 1px solid transparent;
+    margin-right: 4px;
+    margin-bottom: 2px;
+    max-width: 320px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#hou-quiz-scanner-popup .scanner-status-tag.tag-new {
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.12);
+    border-color: rgba(16, 185, 129, 0.2);
+}
+#hou-quiz-scanner-popup .scanner-status-tag.tag-exists {
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.12);
+    border-color: rgba(245, 158, 11, 0.2);
+}
+#hou-quiz-scanner-popup .scanner-status-tag.tag-missing_choices {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.2);
+}
+#hou-quiz-scanner-popup .scanner-status-tag.tag-more {
+    color: #6b7280;
+    background: rgba(107, 114, 128, 0.12);
+    border-color: rgba(107, 114, 128, 0.2);
+    cursor: pointer;
+}

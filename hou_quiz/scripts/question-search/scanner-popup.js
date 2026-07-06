@@ -147,6 +147,10 @@
         </div>
       </div>
       <div class="scanner-body">
+        <div class="scanner-doc-selector-container" style="padding: 10px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.02);">
+          <span style="font-weight: 600; font-size: 13px;">Bộ tài liệu đích:</span>
+          <select id="scanner-doc-select" style="flex: 1; padding: 6px 12px; border-radius: 4px; border: 1px solid var(--border); font-size: 13px; background: var(--bg-card); color: var(--foreground); cursor: pointer;"></select>
+        </div>
         <div class="scanner-questions-list">
           ${buildQuestionsHTML()}
         </div>
