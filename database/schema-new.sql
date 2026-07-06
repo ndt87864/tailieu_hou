@@ -295,5 +295,6 @@ CREATE POLICY "admin_all_registration_queue" ON public.registration_queue FOR AL
 DROP TRIGGER IF EXISTS registration_queue_set_updated_at ON public.registration_queue;
 CREATE TRIGGER registration_queue_set_updated_at BEFORE UPDATE ON public.registration_queue FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
+ALTER TABLE questions ADD COLUMN url_choices TEXT DEFAULT NULL;
 
 
