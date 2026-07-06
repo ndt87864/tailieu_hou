@@ -184,6 +184,8 @@
     font-weight: 700;
     color: var(--fg);
     margin-bottom: 6px;
+    word-break: break-all;
+    overflow-wrap: break-word;
 }
 
 #hou-quiz-search-popup .search-res-choices {
@@ -199,6 +201,8 @@
     border-radius: 4px;
     background: rgba(var(--brand-rgb), 0.05);
     border: 1px solid transparent;
+    word-break: break-all;
+    overflow-wrap: break-word;
 }
 
 #hou-quiz-search-popup .search-res-choice-item.correct-choice {
@@ -219,6 +223,8 @@
     border-left: 4px solid #2e7d32;
     font-weight: 700;
     color: #2e7d32;
+    word-break: break-all;
+    overflow-wrap: break-word;
 }
 
 .dark #hou-quiz-search-popup .search-res-answer {

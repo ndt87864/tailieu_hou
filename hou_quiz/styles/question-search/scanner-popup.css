@@ -224,6 +224,8 @@
     line-height: 1.5;
     color: var(--fg);
     margin-bottom: 12px;
+    word-break: break-all;
+    overflow-wrap: break-word;
 }
 
 #hou-quiz-scanner-popup .scanner-answers {
@@ -274,6 +276,8 @@
 
 #hou-quiz-scanner-popup .scanner-ans-text {
     color: var(--fg);
+    word-break: break-all;
+    overflow-wrap: break-word;
 }
 
 /* Edit form */
