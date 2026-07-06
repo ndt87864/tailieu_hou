@@ -43,62 +43,53 @@
       return matchCount >= threshold;
     }
 
-    // --- GIAI ĐOẠN 1: Ưu tiên tìm câu hỏi trùng khớp cả bộ choices ---
-    if (Array.isArray(pageQuestion.options) && pageQuestion.options.length > 0) {
-      for (const dbQ of candidates) {
-        const dbChoices = Array.isArray(dbQ.choices) ? dbQ.choices : [];
-        if (dbChoices.length > 0 && checkChoicesMatch(pageQuestion.options, dbChoices)) {
-          const dbAnswer = String(dbQ.answer || "").trim();
-          const isExactQuestion = cleanWebQ === utils.normalizeTextForMatching(dbQ.question);
+    // Duyệt qua từng ứng viên đã được sắp xếp theo độ tương đồng giảm dần
+    for (const dbQ of candidates) {
+      const dbChoices = Array.isArray(dbQ.choices) ? dbQ.choices : [];
+      const dbAnswer = String(dbQ.answer || "").trim();
+      const isExactQuestion = cleanWebQ === utils.normalizeTextForMatching(dbQ.question);
 
-          // 1.1 Khớp qua choices (nếu DB có choices)
-          // Tìm xem lựa chọn trên web nào khớp với đáp án đúng (dbAnswer)
+      // Chiến lược 1: Nếu DB có choices và khớp bộ choices
+      if (dbChoices.length > 0 && checkChoicesMatch(pageQuestion.options, dbChoices)) {
+        // Tìm xem lựa chọn trên web nào khớp với đáp án đúng
+        for (const optionText of pageQuestion.options) {
+          const cleanOption = utils.normalizeTextForMatching(optionText);
+          if (utils.compareNormalized(cleanOption, dbAnswer)) {
+            const isExactAnswer = cleanOption === utils.normalizeTextForMatching(dbAnswer);
+            return {
+              questionId: dbQ.id,
+              dbQuestionText: dbQ.question,
+              answerText: dbAnswer,
+              matchedOptionText: optionText,
+              isExact: isExactQuestion && isExactAnswer,
+              matchType: "choices"
+            };
+          }
+        }
+
+        // Khớp qua index ký hiệu a, b, c, d
+        const alphabet = ["a", "b", "c", "d", "e", "f"];
+        const answerIndex = alphabet.indexOf(dbAnswer.toLowerCase());
+        if (answerIndex !== -1 && dbChoices[answerIndex]) {
+          const correctChoiceText = dbChoices[answerIndex];
           for (const optionText of pageQuestion.options) {
             const cleanOption = utils.normalizeTextForMatching(optionText);
-            if (utils.compareNormalized(cleanOption, dbAnswer)) {
-              const isExactAnswer = cleanOption === utils.normalizeTextForMatching(dbAnswer);
+            if (utils.compareNormalized(cleanOption, correctChoiceText)) {
+              const isExactAnswer = cleanOption === utils.normalizeTextForMatching(correctChoiceText);
               return {
                 questionId: dbQ.id,
                 dbQuestionText: dbQ.question,
-                answerText: dbAnswer,
+                answerText: correctChoiceText,
                 matchedOptionText: optionText,
                 isExact: isExactQuestion && isExactAnswer,
                 matchType: "choices"
               };
             }
           }
-
-          // 1.2 Nếu dbAnswer chỉ lưu ký hiệu như "A", "B", "C", "D" hoặc "a", "b", "c", "d"
-          const alphabet = ["a", "b", "c", "d", "e", "f"];
-          const answerIndex = alphabet.indexOf(dbAnswer.toLowerCase());
-          if (answerIndex !== -1 && dbChoices[answerIndex]) {
-            const correctChoiceText = dbChoices[answerIndex];
-            for (const optionText of pageQuestion.options) {
-              const cleanOption = utils.normalizeTextForMatching(optionText);
-              if (utils.compareNormalized(cleanOption, correctChoiceText)) {
-                const isExactAnswer = cleanOption === utils.normalizeTextForMatching(correctChoiceText);
-                return {
-                  questionId: dbQ.id,
-                  dbQuestionText: dbQ.question,
-                  answerText: correctChoiceText,
-                  matchedOptionText: optionText,
-                  isExact: isExactQuestion && isExactAnswer,
-                  matchType: "choices"
-                };
-              }
-            }
-          }
         }
       }
-    }
 
-    // --- GIAI ĐOẠN 2: Fallback so khớp theo câu hỏi và đáp án trực tiếp ---
-    for (const dbQ of candidates) {
-      const dbChoices = Array.isArray(dbQ.choices) ? dbQ.choices : [];
-      const dbAnswer = String(dbQ.answer || "").trim();
-      const isExactQuestion = cleanWebQ === utils.normalizeTextForMatching(dbQ.question);
-
-      // 2.1 Tìm trực tiếp khớp với answer
+      // Chiến lược 2: So khớp trực tiếp với answer (fallback hoặc khi DB không có choices)
       for (const optionText of pageQuestion.options) {
         const cleanOption = utils.normalizeTextForMatching(optionText);
         if (utils.compareNormalized(cleanOption, dbAnswer)) {
@@ -114,7 +105,7 @@
         }
       }
 
-      // 2.2 Nếu dbAnswer là ký hiệu và DB có choices
+      // Khớp trực tiếp qua index khi DB có choices
       if (dbChoices.length > 0) {
         const alphabet = ["a", "b", "c", "d", "e", "f"];
         const answerIndex = alphabet.indexOf(dbAnswer.toLowerCase());
