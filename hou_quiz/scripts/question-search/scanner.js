@@ -79,6 +79,23 @@
     return false;
   }
 
+  function getElementTextWithImages(element, collectImgsArray = null) {
+    if (!element) return "";
+    const clonedEl = element.cloneNode(true);
+    clonedEl.querySelectorAll("img").forEach(img => {
+      const src = img.getAttribute("src");
+      if (src && !src.includes("grade_correct") && !src.includes("grade_incorrect") && !src.includes("grade_")) {
+        img.replaceWith(document.createTextNode(` "${src}" `));
+        if (collectImgsArray && !collectImgsArray.includes(src)) {
+          collectImgsArray.push(src);
+        }
+      } else {
+        img.remove();
+      }
+    });
+    return clonedEl.textContent.replace(/\s+/g, " ").replace(/[\u2713\u2714\u2611\u2705]/g, "").trim();
+  }
+
   function extractSingleFillBlankRow(element, parsedRightAnswers) {
     if (!element) return null;
     const inputs = element.querySelectorAll('input[type="text"], input:not([type]), select');
@@ -264,19 +281,7 @@
           optionElements = Array.from(answerContainer.querySelectorAll(".r0, .r1, label, .flex-fill, div[role='option']"));
           optionElements = optionElements.filter(el => !optionElements.some(otherEl => otherEl !== el && el.contains(otherEl)));
           choices = optionElements.map(el => {
-            const clonedEl = el.cloneNode(true);
-            clonedEl.querySelectorAll("img").forEach(img => {
-              const src = img.getAttribute("src");
-              if (src && !src.includes("grade_correct") && !src.includes("grade_incorrect")) {
-                img.replaceWith(document.createTextNode(` "${src}" `));
-                if (!choiceImgs.includes(src)) {
-                  choiceImgs.push(src);
-                }
-              } else {
-                img.remove();
-              }
-            });
-            return clonedEl.textContent.replace(/\s+/g, " ").replace(/[\u2713\u2714\u2611\u2705]/g, "").trim();
+            return getElementTextWithImages(el, choiceImgs);
           }).filter(Boolean);
         }
         const rawChoicesImageUrl = choiceImgs.length > 0 ? choiceImgs.join(",") : null;
@@ -285,13 +290,7 @@
         const ansImgs = [];
         const rightAnswerEl = container.querySelector(".outcome .rightanswer, .rightanswer");
         if (rightAnswerEl) {
-          rightAnswerEl.querySelectorAll("img").forEach(img => {
-            const src = img.getAttribute("src");
-            if (src && !src.includes("grade_") && !ansImgs.includes(src)) {
-              ansImgs.push(src);
-            }
-          });
-          rightAnswerText = rightAnswerEl.textContent.replace(/\s+/g, " ").trim();
+          rightAnswerText = getElementTextWithImages(rightAnswerEl, ansImgs);
           rightAnswerText = rightAnswerText
             .replace(/^The correct answer is:\s*/i, "")
             .replace(/^Đáp án đúng là:\s*/i, "")
@@ -330,14 +329,7 @@
 
           if (correctOptionEl) {
             const labelEl = correctOptionEl.querySelector("label") || correctOptionEl;
-            rightAnswerText = labelEl.textContent.replace(/\s+/g, " ").replace(/[\u2713\u2714\u2611\u2705]/g, "").trim();
-            // Nếu option có ảnh, gom toàn bộ ảnh
-            correctOptionEl.querySelectorAll("img").forEach(img => {
-              const src = img.getAttribute("src");
-              if (src && !src.includes("grade_") && !ansImgs.includes(src)) {
-                ansImgs.push(src);
-              }
-            });
+            rightAnswerText = getElementTextWithImages(labelEl, ansImgs);
           }
         }
 
@@ -363,12 +355,9 @@
             const parentRow = correctIconInContainer.closest("label, li, .r0, .r1, .correct");
             if (parentRow) {
               const labelEl = parentRow.querySelector("label") || parentRow;
-              rightAnswerText = labelEl.textContent.replace(/\s+/g, " ").replace(/[\u2713\u2714\u2611\u2705]/g, "").trim();
+              rightAnswerText = getElementTextWithImages(labelEl, ansImgs);
               if (!rawAnswerImageUrl) {
-                const aimg = parentRow.querySelector("img");
-                if (aimg) {
-                  rawAnswerImageUrl = aimg.getAttribute("src");
-                }
+                rawAnswerImageUrl = ansImgs.join(",");
               }
             }
           }
