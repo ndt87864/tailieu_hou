@@ -139,7 +139,7 @@
         choicesHtml += `</div>`;
       }
 
-      const borderStyle = mIdx > 0 ? "border-top: 1px dashed var(--border); padding-top: 12px; margin-top: 12px;" : "";
+      const borderStyleClass = mIdx > 0 ? "search-res-item-border" : "";
 
       let scoreHtml = `Khớp câu: ${(match.qSimilarity * 100).toFixed(0)}%`;
       if (match.optSimilarity !== null) {
@@ -147,10 +147,10 @@
       }
 
       html += `
-        <div class="search-result-item" style="${borderStyle}">
-          <div class="search-res-question" style="display:flex; justify-content:space-between; gap:10px; align-items: flex-start;">
+        <div class="search-result-item ${borderStyleClass}">
+          <div class="search-res-question search-res-question-flex">
             <span>Câu ${mIdx + 1}: ${match.question}</span>
-            <span style="font-size:11px; color:var(--muted); font-weight:normal; flex-shrink:0; text-align:right;">${scoreHtml}</span>
+            <span class="search-res-score-badge">${scoreHtml}</span>
           </div>
           ${choicesHtml}
           <div class="search-res-answer">Đáp án đúng: ${match.answer}</div>

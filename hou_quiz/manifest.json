@@ -35,6 +35,9 @@
         "scripts/quiz-solver/ui-helpers.js",
         "scripts/quiz-solver/result-popup.js",
         "scripts/question-search/search-popup.js",
+        "scripts/question-search/scanner-core.js",
+        "scripts/question-search/scanner-popup-image.js",
+        "scripts/question-search/scanner-popup-edit.js",
         "scripts/question-search/scanner-popup.js",
         "scripts/question-search/scanner.js",
         "scripts/quiz-solver/content.js"

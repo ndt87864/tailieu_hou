@@ -144,7 +144,7 @@
         </div>
         <div class="widget-field">
           <span class="widget-label">Trạng thái:</span>
-          <span class="widget-value" style="color: #2e7d32; font-weight: bold;">${statusText}</span>
+          <span class="widget-value widget-value-success">${statusText}</span>
         </div>
       `;
     });
@@ -228,6 +228,7 @@
       const qtextEl = container.querySelector(".qtext, .questiontext") || container.querySelector(".formulation");
       if (!qtextEl) return;
 
+      // Chỉ nhận diện điền từ khi có các ô nhập liệu dạng text hiển thị hoặc textarea
       const inputElements = Array.from(container.querySelectorAll('input[type="text"], input:not([type]), textarea'));
       const isFillBlank = inputElements.length > 0;
 
@@ -236,7 +237,11 @@
       clonedQtext.querySelectorAll("img").forEach(img => {
         const src = img.getAttribute("src");
         if (src) {
-          img.replaceWith(document.createTextNode(` "${src}" `));
+          if (src.startsWith("data:")) {
+            img.replaceWith(document.createTextNode(' "image_data" '));
+          } else {
+            img.replaceWith(document.createTextNode(` "${src}" `));
+          }
         } else {
           img.remove();
         }
@@ -244,6 +249,8 @@
       
       let questionText = clonedQtext.textContent.replace(/\s+/g, " ").trim();
       questionText = questionText.replace(/^mô tả câu hỏi/i, "").trim();
+      questionText = questionText.replace(/^câu hỏi \d+\s*chưa trả lời/i, "").trim();
+      questionText = questionText.replace(/^câu hỏi \d+\s*đạt điểm\s*[\d\.,]+/i, "").trim();
       
       if (window.houQuizUtils && typeof window.houQuizUtils.cleanQuestionContent === "function") {
         questionText = window.houQuizUtils.cleanQuestionContent(questionText, qtextEl);

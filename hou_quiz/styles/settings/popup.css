@@ -102,6 +102,57 @@
     --brand-500: #9ca3af; --brand-600: #d1d5db; --brand-700: #e5e7eb; --brand-rgb: 209, 213, 219;
 }
 
+/* Các class hỗ trợ loại bỏ style inline cho popup.html */
+.u-display-none {
+    display: none !important;
+}
+
+.u-margin-top-16 {
+    margin-top: 16px !important;
+}
+
+.popup-search-input {
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--fg);
+    outline: none;
+    box-sizing: border-box;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.popup-select-group-margin {
+    margin-top: 10px;
+}
+
+.popup-flex-between-center {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2px;
+}
+
+.popup-all-check-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--brand-500);
+    user-select: none;
+}
+
+.popup-cursor-pointer-margin-0 {
+    cursor: pointer;
+    margin: 0;
+}
+
+
 body {
     width: 340px;
     margin: 0;

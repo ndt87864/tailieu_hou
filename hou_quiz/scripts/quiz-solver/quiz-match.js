@@ -11,10 +11,33 @@
     // Tìm các ứng viên có câu hỏi khớp tương đối
     const candidates = dbQuestions.filter(dbQ => {
       const cleanDbQ = utils.normalizeTextForMatching(dbQ.question);
-      return utils.compareNormalized(cleanWebQ, cleanDbQ);
+      const isMatch = utils.compareNormalized(cleanWebQ, cleanDbQ);
+      if (cleanDbQ.includes("This is a web page for people") || cleanWebQ.includes("This is a web page for people")) {
+        console.log("[HouQuiz Debug Match] So sánh:", {
+          cleanWebQ,
+          cleanDbQ,
+          isMatch
+        });
+      }
+      return isMatch;
     });
 
-    if (candidates.length === 0) return null;
+    if (candidates.length === 0) {
+      if (cleanWebQ.includes("This is a web page for people")) {
+        console.log("[HouQuiz Debug Match] Không tìm thấy candidates cho câu hỏi này. Thử tìm chứa chuỗi tương tự trong DB:");
+        dbQuestions.forEach(dbQ => {
+          const cleanDbQ = utils.normalizeTextForMatching(dbQ.question);
+          if (cleanDbQ.includes("This is a web page") || cleanDbQ.includes("career centre")) {
+            console.log("[HouQuiz Debug Match] DB candidate gần giống:", {
+              dbQText: dbQ.question,
+              cleanDbQ,
+              levenshtein: utils.getSimilarityScore(cleanWebQ, cleanDbQ)
+            });
+          }
+        });
+      }
+      return null;
+    }
 
     // Sắp xếp ứng viên theo độ tương đồng giảm dần để ưu tiên câu khớp nhất (tránh khớp nhầm câu dài gần giống)
     candidates.sort((a, b) => {

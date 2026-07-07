@@ -188,7 +188,12 @@
         cloned.querySelectorAll("img").forEach(img => {
           const src = img.getAttribute("src");
           if (src) {
-            img.replaceWith(document.createTextNode(` "${src}" `));
+            // Nếu là ảnh base64/data URI quá dài, loại bỏ nội dung data: để tránh làm nhiễu so khớp văn bản
+            if (src.startsWith("data:")) {
+              img.replaceWith(document.createTextNode(' "image_data" '));
+            } else {
+              img.replaceWith(document.createTextNode(` "${src}" `));
+            }
           } else {
             img.remove();
           }
@@ -250,6 +255,17 @@
     ];
 
     const textLower = processedText.toLowerCase();
+    
+    // Loại bỏ các tiền tố mô tả câu hỏi từ Moodle
+    processedText = processedText
+      .replace(/^mô tả câu hỏi\s*/i, "")
+      .replace(/^câu hỏi \d+\s*chưa trả lời\s*/i, "")
+      .replace(/^câu hỏi \d+\s*đạt điểm\s*[\d\.,]+\s*/i, "")
+      .replace(/^câu hỏi \d+\s*đã trả lời\s*/i, "")
+      .replace(/^câu hỏi \d+\s*đúng\s*/i, "")
+      .replace(/^câu hỏi \d+\s*sai\s*/i, "")
+      .trim();
+
     for (const marker of titleMarkers) {
       if (textLower.includes(marker.toLowerCase())) {
         const markerIdx = textLower.indexOf(marker.toLowerCase());

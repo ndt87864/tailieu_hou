@@ -263,3 +263,26 @@
     transform: translateY(0) scale(0.98);
 }
 
+/* Các class phụ trợ loại bỏ style inline cho search-popup.js */
+.search-res-item-border {
+    border-top: 1px dashed var(--border);
+    padding-top: 12px;
+    margin-top: 12px;
+}
+
+.search-res-question-flex {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: flex-start;
+}
+
+.search-res-score-badge {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: normal;
+    flex-shrink: 0;
+    text-align: right;
+}
+
+

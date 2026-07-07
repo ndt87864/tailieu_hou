@@ -185,7 +185,12 @@
       const details = [];
 
       pageQuestions.forEach(pq => {
-        console.log("[HouQuiz Debug] Đang so khớp câu hỏi trên trang:", pq.text.substring(0, 50) + "...");
+        console.log("[HouQuiz Debug] Đang so khớp câu hỏi trên trang:", pq.text.substring(0, 80) + "...");
+        console.log("[HouQuiz Debug] Chi tiết câu hỏi quét được trên trang:", {
+          text: pq.text,
+          type: pq.type,
+          options: pq.options
+        });
         
         if (pq.type === "fill_blank") {
           let matchedDbQ = window.houQuizMatch.matchFillBlankQuestion(pq.text, dbQuestions);

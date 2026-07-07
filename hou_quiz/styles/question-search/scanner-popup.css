@@ -491,3 +491,58 @@
     border-color: rgba(107, 114, 128, 0.2);
     cursor: pointer;
 }
+
+/* Các class hỗ trợ loại bỏ style inline theo quy định No Inline Styles */
+.scanner-preview-img {
+    max-height: 100px;
+    max-width: 100%;
+    display: inline-block;
+    vertical-align: middle;
+    margin: 2px 4px;
+    border-radius: 2px;
+}
+
+.scanner-doc-selector-container {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.scanner-doc-label {
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.scanner-doc-select-el {
+    flex: 1;
+    padding: 6px 12px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    font-size: 13px;
+    background: var(--bg-card);
+    color: var(--foreground);
+    cursor: pointer;
+}
+
+.scanner-edit-ans-label-correct {
+    font-weight: 700;
+    width: 100px;
+}
+
+.scanner-edit-ans-input-text {
+    width: 100%;
+}
+
+.scanner-edit-ans-letter {
+    font-weight: 700;
+    width: 20px;
+}
+
+.widget-value-success {
+    color: #2e7d32;
+    font-weight: bold;
+}
+
