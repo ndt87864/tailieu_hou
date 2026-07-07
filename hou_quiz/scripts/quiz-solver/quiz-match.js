@@ -182,6 +182,10 @@
     });
 
     normalized = normalized.replace(/^\s*([a-z]|\d+)[\.\):]\s*/i, "");
+    
+    // Loại bỏ feedback đáp án dạng [T], [F], [True], [False] thường xuất hiện ở trang xem lại sau input
+    normalized = normalized.replace(/\[\s*[T|F|True|False|t|f]\s*\]/gi, "");
+    
     normalized = normalized.replace(/[''`´]/g, " ");
 
     normalized = normalized.replace(

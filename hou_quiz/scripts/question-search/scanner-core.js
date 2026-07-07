@@ -109,8 +109,10 @@
     cloned.querySelectorAll('input[type="text"], input:not([type]), select').forEach(input => {
       input.replaceWith(document.createTextNode(" ... "));
     });
-    cloned.querySelectorAll(".feedback, .feedbackspan, .accesshide, .questioncorrectnessicon").forEach(e => e.remove());
+    cloned.querySelectorAll(".feedback, .feedbackspan, .accesshide, .questioncorrectnessicon, .aftergapfeedback").forEach(e => e.remove());
     let questionText = cloned.textContent.replace(/\s+/g, " ").trim();
+    // Loại bỏ feedback đáp án dạng [T], [F], hoặc [từ khoá] trong ngoặc vuông thường sinh ra ở trang review sau ô điền khuyết
+    questionText = questionText.replace(/\[\s*[^\]]+\s*\]/g, "").trim();
     questionText = questionText.replace(/^[a-zA-Z]\s*[\.\)\-:\/]\s*|^[0-9]{1,2}\s*[\.\)\-:\/]\s+/u, "").trim();
 
     return {

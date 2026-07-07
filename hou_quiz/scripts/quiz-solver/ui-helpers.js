@@ -156,21 +156,44 @@
     const inputs = Array.from(queContainer.querySelectorAll('input[type="text"], input:not([type]), textarea, select'));
     if (inputs.length === 0) return [];
 
+    // Tìm phần text dẫn đạo chung ở đầu câu hỏi (phía trước table/danh sách input)
+    // Lấy qtext hoặc formulation làm gốc để trích xuất text dẫn đạo chung
+    const qtextEl = queContainer.querySelector(".qtext, .questiontext") || queContainer.querySelector(".formulation");
+    let prefixInstructionText = "";
+    if (qtextEl) {
+      const clonedQText = qtextEl.cloneNode(true);
+      // Xóa các bảng, danh sách chứa input và feedback để chỉ lấy text dẫn đạo chung
+      clonedQText.querySelectorAll("table, ul, ol, .feedback, .feedbackspan, .accesshide, .questioncorrectnessicon, .aftergapfeedback").forEach(e => e.remove());
+      // Xóa bản thân các input
+      clonedQText.querySelectorAll('input[type="text"], input:not([type]), textarea, select').forEach(e => e.remove());
+      prefixInstructionText = clonedQText.textContent.replace(/\s+/g, " ").trim();
+      // Loại bỏ các chữ "Mô tả câu hỏi", "mô tả câu hỏi", v.v.
+      prefixInstructionText = prefixInstructionText.replace(/^mô tả câu hỏi/i, "").trim();
+    }
+
     const containerMap = new Map();
 
+    // Nếu các input nằm trong cùng một table, ta nên coi cả table là 1 container để không bị xé nhỏ các hàng
+    const tableContainer = queContainer.querySelector("table");
+
     inputs.forEach(input => {
-      let container = input.closest('tr');
-      if (!container) {
-        container = input.closest('li');
-      }
-      if (!container) {
-        container = input.closest('p');
-      }
-      if (!container) {
-        container = input.closest('div');
-      }
-      if (!container || container === queContainer || !queContainer.contains(container)) {
-        container = input.parentElement;
+      let container = null;
+      if (tableContainer && tableContainer.contains(input)) {
+        container = tableContainer;
+      } else {
+        container = input.closest('tr');
+        if (!container) {
+          container = input.closest('li');
+        }
+        if (!container) {
+          container = input.closest('p');
+        }
+        if (!container) {
+          container = input.closest('div');
+        }
+        if (!container || container === queContainer || !queContainer.contains(container)) {
+          container = input.parentElement;
+        }
       }
       
       if (container) {
@@ -187,11 +210,20 @@
         const placeholder = document.createTextNode(" ... ");
         input.replaceWith(placeholder);
       });
-      cloned.querySelectorAll(".feedback, .feedbackspan, .accesshide, .questioncorrectnessicon").forEach(e => e.remove());
+      cloned.querySelectorAll(".feedback, .feedbackspan, .accesshide, .questioncorrectnessicon, .aftergapfeedback").forEach(e => e.remove());
       
       let text = cloned.textContent.replace(/\s+/g, " ").trim();
+      // Loại bỏ feedback đáp án dạng [T], [F], hoặc [từ khoá] trong ngoặc vuông thường sinh ra ở trang review sau ô điền khuyết
+      text = text.replace(/\[\s*[^\]]+\s*\]/g, "").trim();
       text = text.replace(/^[a-zA-Z]\s*[\.\)\-:\/]\s*|^[0-9]{1,2}\s*[\.\)\-:\/]\s+/u, "").trim();
       
+      // Nếu text sau khi trích xuất quá ngắn hoặc chỉ chứa toàn dấu chấm/khoảng trắng (ví dụ "... ... ...")
+      // và có prefixInstructionText, ta sẽ ghép prefixInstructionText vào trước để làm dẫn đạo
+      const cleanCheck = text.replace(/[\s\.]/g, "");
+      if (cleanCheck.length < 5 && prefixInstructionText.length > 2) {
+        text = prefixInstructionText + " " + text;
+      }
+
       return {
         text: text,
         inputElements: inputElements
