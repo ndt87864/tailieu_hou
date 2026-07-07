@@ -167,18 +167,40 @@
       // Xóa bản thân các input
       clonedQText.querySelectorAll('input[type="text"], input:not([type]), textarea, select').forEach(e => e.remove());
       prefixInstructionText = clonedQText.textContent.replace(/\s+/g, " ").trim();
-      // Loại bỏ các chữ "Mô tả câu hỏi", "mô tả câu hỏi", v.v.
       prefixInstructionText = prefixInstructionText.replace(/^mô tả câu hỏi/i, "").trim();
     }
 
     const containerMap = new Map();
 
-    // Nếu các input nằm trong cùng một table, ta nên coi cả table là 1 container để không bị xé nhỏ các hàng
+    // Kiểm tra xem table có văn bản dẫn đạo chi tiết cho từng dòng hay không
     const tableContainer = queContainer.querySelector("table");
+    let shouldGroupTable = false;
+    if (tableContainer) {
+      const rows = Array.from(tableContainer.querySelectorAll("tr"));
+      let emptyOrDotRows = 0;
+      let totalRowsWithInput = 0;
+      rows.forEach(row => {
+        const rowInputs = row.querySelectorAll('input[type="text"], input:not([type]), textarea, select');
+        if (rowInputs.length > 0) {
+          totalRowsWithInput++;
+          const clonedRow = row.cloneNode(true);
+          clonedRow.querySelectorAll('input[type="text"], input:not([type]), textarea, select').forEach(input => input.remove());
+          clonedRow.querySelectorAll(".feedback, .feedbackspan, .accesshide, .questioncorrectnessicon, .aftergapfeedback").forEach(e => e.remove());
+          const cleanText = clonedRow.textContent.replace(/[\s\.]/g, "");
+          if (cleanText.length < 5) {
+            emptyOrDotRows++;
+          }
+        }
+      });
+      // Nếu phần lớn các dòng có input là rỗng hoặc chỉ có dấu chấm, ta mới gộp cả table
+      if (totalRowsWithInput > 0 && (emptyOrDotRows / totalRowsWithInput) > 0.6) {
+        shouldGroupTable = true;
+      }
+    }
 
     inputs.forEach(input => {
       let container = null;
-      if (tableContainer && tableContainer.contains(input)) {
+      if (shouldGroupTable && tableContainer && tableContainer.contains(input)) {
         container = tableContainer;
       } else {
         container = input.closest('tr');
