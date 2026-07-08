@@ -50,7 +50,7 @@
 
     const ignoreSelectors = ".feedbackspan, .icon, i, input, .accesshide, .feedback, img, .correct, .incorrect, .checkmark, .fa";
     const nodesToMove = [];
-    
+
     Array.from(optEl.childNodes).forEach(node => {
       if (node.nodeType === 1) {
         if (node.matches(ignoreSelectors) || /[\u2713\u2714\u2611\u2705\u274c\u274e]/g.test(node.textContent)) {
@@ -217,7 +217,7 @@
           container = input.parentElement;
         }
       }
-      
+
       if (container) {
         if (!containerMap.has(container)) {
           containerMap.set(container, []);
@@ -233,12 +233,12 @@
         input.replaceWith(placeholder);
       });
       cloned.querySelectorAll(".feedback, .feedbackspan, .accesshide, .questioncorrectnessicon, .aftergapfeedback").forEach(e => e.remove());
-      
+
       let text = cloned.textContent.replace(/\s+/g, " ").trim();
       // Loại bỏ feedback đáp án dạng [T], [F], hoặc [từ khoá] trong ngoặc vuông thường sinh ra ở trang review sau ô điền khuyết
       text = text.replace(/\[\s*[^\]]+\s*\]/g, "").trim();
       text = text.replace(/^[a-zA-Z]\s*[\.\)\-:\/]\s*|^[0-9]{1,2}\s*[\.\)\-:\/]\s+/u, "").trim();
-      
+
       // Nếu text sau khi trích xuất quá ngắn hoặc chỉ chứa toàn dấu chấm/khoảng trắng (ví dụ "... ... ...")
       // và có prefixInstructionText, ta sẽ ghép prefixInstructionText vào trước để làm dẫn đạo
       const cleanCheck = text.replace(/[\s\.]/g, "");
@@ -300,19 +300,19 @@
           img.remove();
         }
       });
-      
+
       let questionText = clonedQtext.textContent.replace(/\s+/g, " ").trim();
       questionText = questionText.replace(/^mô tả câu hỏi/i, "").trim();
       questionText = questionText.replace(/^câu hỏi \d+\s*chưa trả lời/i, "").trim();
       questionText = questionText.replace(/^câu hỏi \d+\s*đạt điểm\s*[\d\.,]+/i, "").trim();
-      
+
       if (window.houQuizUtils && typeof window.houQuizUtils.cleanQuestionContent === "function") {
         questionText = window.houQuizUtils.cleanQuestionContent(questionText, qtextEl);
       }
-      
+
       const instructions = [/chọn một câu trả lời:?/i, /chọn một:?/i, /chọn câu trả lời:?/i, /chọn đáp án:?/i, /trả lời câu hỏi:?/i, /\b[a-fA-F][\.\)]\s*$/i];
       instructions.forEach(regex => { questionText = questionText.replace(regex, "").trim(); });
-      
+
       const optIndex = questionText.search(/\b[aA][\.\)]\s+/);
       if (optIndex !== -1 && optIndex > 10) questionText = questionText.substring(0, optIndex).trim();
 
@@ -362,7 +362,7 @@
 
   function showFillBlankHint(inputEl, answerText, highlightAnswersEnabled) {
     if (!inputEl || !answerText) return;
-    
+
     const parent = inputEl.parentElement;
     let existingHint = null;
     if (inputEl.id) {
@@ -382,7 +382,7 @@
       hintSpan.setAttribute("data-input-id", inputEl.id);
     }
     hintSpan.textContent = `(Đáp án: ${answerText})`;
-    
+
     if (highlightAnswersEnabled) {
       hintSpan.classList.add("has-bg");
     } else {
