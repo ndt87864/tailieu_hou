@@ -4,7 +4,7 @@ import React from "react";
  * Làm sạch text câu hỏi/đáp án/lựa chọn bằng cách loại bỏ các link ảnh thô
  * như pluginfile.php, @@PLUGINFILE@@, hoặc các định dạng rút gọn.
  */
-export const cleanQuestionText = (text: string, hasUrl: boolean): string => {
+export const cleanQuestionText = (text: string, _hasUrl?: boolean): string => {
   if (!text) return "";
   
   let cleaned = text;

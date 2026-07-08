@@ -1,6 +1,6 @@
 import React from "react";
 import { Edit2, Trash2 } from "lucide-react";
-import { cleanQuestionText, renderTextWithImages } from "../../utils/questionHelper.js";
+import { renderTextWithImages } from "../../utils/questionHelper.js";
 
 interface Question {
   id: string;
