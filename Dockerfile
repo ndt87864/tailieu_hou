@@ -1,4 +1,4 @@
-# Stage 1: Build the backend and frontend
+# Stage 1: Build the backend
 FROM node:22-alpine AS builder
 
 WORKDIR /app
@@ -6,17 +6,15 @@ WORKDIR /app
 # Copy package config files
 COPY package*.json ./
 COPY backend/package*.json ./backend/
-COPY frontend/package*.json ./frontend/
 
-# Install all dependencies (including devDependencies for building)
+# Install all dependencies
 RUN npm ci
 
 # Copy the rest of the monorepo source files
 COPY . .
 
-# Build backend and frontend
+# Build backend
 RUN npm run build -w backend
-RUN npm run build -w frontend
 
 # Stage 2: Runner image for the backend
 FROM node:22-alpine AS runner
