@@ -26,13 +26,13 @@ dotenv.config();
 const app = new Hono();
 
 // Global Middlewares
+app.use("*", cors({ origin: "*", credentials: true }));
 app.use("*", securityHeaders);
 app.use("*", timeout(15000)); // Timeout 15s để bảo vệ resource
 app.use("/api/v1/auth/*", rateLimiter(20, 60000)); // Auth endpoints: 20 req/phút
 app.use("/api/v1/*", rateLimiter(100, 60000)); // API chung: 100 req/phút
 app.use("*", logger());
 app.use("*", compress()); // Nén Gzip/Brotli giảm bandwidth truyền tải dữ liệu
-app.use("*", cors({ origin: "*", credentials: true }));
 app.use("*", authMiddleware);
 
 // Global Error Handler

@@ -10,7 +10,8 @@
   "host_permissions": [
     "https://*.ehou.edu.vn/*",
     "https://lmshub.hou.edu.vn/*",
-    "http://localhost/*"
+    "http://localhost/*",
+    "http://180.93.43.58/*"
   ],
   "action": {
     "default_title": "HOU Quiz",

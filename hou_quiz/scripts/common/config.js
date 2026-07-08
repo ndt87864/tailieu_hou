@@ -73,11 +73,12 @@
 
   // Cấu hình môi trường API URL
   const CONFIG = {
-    // Chạy local kết nối trực tiếp đến Hono Backend (local test)
-    API_URL: "http://localhost:3001/api/v1"
+    // Chạy thực tế kết nối VPS HOU
+    API_URL: "http://180.93.43.58/api/v1",
 
-    // Bao giờ hoàn thành chạy thực tế sẽ dùng link online (được cấu hình sẵn ở đây)
-    // API_URL: "https://tailieu-hou.onrender.com/api/v1"
+    // Chạy local kết nối trực tiếp đến Hono Backend (local test)
+    LOCAL_API_URL: "http://localhost:3001/api/v1",
+    VPS_API_URL: "http://180.93.43.58/api/v1"
   };
 
   window.houQuizConfig = CONFIG;
