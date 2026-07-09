@@ -1,5 +1,6 @@
 const readline = require("readline");
 const cheerio = require("cheerio");
+const axios = require("axios");
 const { supabaseAdmin, processHtmlImagesAndUpload, cleanQuestionText, uploadFileToStorage } = require("./utils/db");
 const { getHtmlWithSso, postHtmlWithSso, getCookieHeader } = require("./utils/sso");
 require("dotenv").config();
@@ -346,7 +347,9 @@ async function main() {
         const activities = $secPage(sec).find("li.activity");
         for (let a = 0; a < activities.length; a++) {
           const act = activities[a];
-          const activityName = $secPage(act).find(".instancename").text().trim().replace(/File|URL|Quiz|Page|Forum/g, "").trim();
+          const rawName = $secPage(act).find(".instancename").text().trim().replace(/File|URL|Quiz|Page|Forum/g, "").trim();
+          // Tên hiển thị tạm thời; sẽ được ghi đè bằng tên file thực nếu rỗng
+          let activityName = rawName;
           const href = $secPage(act).find("a").attr("href");
 
           if (!href) continue;
@@ -355,19 +358,64 @@ async function main() {
             if (isTestMode && fileCount >= 1) {
               continue;
             }
-            // Fallback title nếu activityName rỗng
-            if (!activityName) {
-              console.log(`   ⏭️ Bỏ qua file activity không có tên.`);
-              continue;
-            }
             try {
-              if (await isResourceExists(activityName, "file", sectionName)) {
+              // Bước 1: Lấy tên file thực từ header mà không cần download toàn bộ
+              let resolvedName = activityName;
+              if (!resolvedName) {
+                try {
+                  const headRes = await axios.head(href, {
+                    headers: { Cookie: getCookieHeader() },
+                    maxRedirects: 5,
+                    timeout: 10000
+                  });
+                  const disposition = headRes.headers["content-disposition"] || "";
+                  if (disposition.includes("filename=")) {
+                    const match = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';\r\n]+)/i);
+                    if (match) resolvedName = decodeURIComponent(match[1].trim());
+                  }
+                  if (!resolvedName) {
+                    // Fallback: lấy từ URL sau redirect
+                    const finalHref = headRes.request?.res?.responseUrl || headRes.url || href;
+                    resolvedName = decodeURIComponent(finalHref.split("/").pop().split("?")[0]);
+                  }
+                } catch (_) { /* Bỏ qua nếu HEAD thất bại */ }
+              }
+              activityName = resolvedName || activityName;
+
+              // Bước 2: Kiểm tra record đã tồn tại chưa (kể cả record cũ có title rỗng)
+              const existingByTitle = activityName ? await findResourceAnyType(activityName, sectionName) : null;
+              const existingEmpty = !activityName ? null : await (async () => {
+                const { data } = await supabaseAdmin.from("crawler_resources")
+                  .select("id, title, content_url")
+                  .eq("course_id", dbCourse.id)
+                  .eq("week_name", sectionName)
+                  .eq("type", "file")
+                  .eq("title", "")
+                  .limit(1);
+                return data && data.length > 0 ? data[0] : null;
+              })();
+
+              if (existingByTitle) {
                 console.log(`   ⏭️ File "${activityName}" đã tồn tại trong DB. Bỏ qua.`);
                 fileCount++;
                 continue;
               }
+              if (existingEmpty) {
+                // Cập nhật title cho record cũ bị rỗng
+                await supabaseAdmin.from("crawler_resources").update({ title: activityName }).eq("id", existingEmpty.id);
+                console.log(`   🔄 Đã cập nhật title cho file: "${activityName}"`);
+                fileCount++;
+                continue;
+              }
+
+              // Bước 3: Upload và lưu mới
               console.log(`   📎 Đang tải file tài liệu: "${activityName}"...`);
               const filePublicUrl = await uploadFileToStorage(href, "files", getCookieHeader);
+              // Nếu vẫn chưa có tên sau upload, lấy từ storage URL
+              if (!activityName) {
+                const urlPart = filePublicUrl.split("/").pop().split("?")[0];
+                activityName = decodeURIComponent(urlPart).replace(/^\d+_/, "");
+              }
               await supabaseAdmin.from("crawler_resources").insert({
                 course_id: dbCourse.id,
                 type: "file",
@@ -376,7 +424,7 @@ async function main() {
                 week_name: sectionName
               });
               fileCount++;
-              console.log(`   ✅ Đã tải & lưu file thành công.`);
+              console.log(`   ✅ Đã tải & lưu file thành công: "${activityName}"`);
             } catch (err) {
               console.log(`   ⚠️ Lỗi tải file: ${err.message}`);
             }
@@ -531,20 +579,13 @@ async function main() {
               }
 
               // Trích xuất và thử tải các file đính kèm trong nội dung trang
-              // Bao gồm cả mod/resource/view.php (link tài liệu nhúng trong page) và file trực tiếp
-              const fileLinks = $page(
-                "a[href*='pluginfile.php'], a[href$='.pdf'], a[href$='.doc'], a[href$='.docx'], a[href*='mod/resource/view.php']"
-              );
+              const fileLinks = $page("a[href*='pluginfile.php'], a[href$='.pdf'], a[href$='.doc'], a[href$='.docx']");
               for (let fl = 0; fl < fileLinks.length; fl++) {
                 if (isTestMode && fileCount >= 1) break;
                 const fileHref = $page(fileLinks[fl]).attr("href");
-                // Lấy tên file từ text của link, xóa ký tự thừa
-                const fileLinkTitle = $page(fileLinks[fl]).text().replace(/\s+/g, " ").trim() || `Tệp ${fl + 1}`;
+                const fileLinkTitle = $page(fileLinks[fl]).text().trim() || `Tệp ${fl + 1}`;
                 if (!fileHref) continue;
-                if (await isResourceExists(fileLinkTitle, "file", sectionName)) {
-                  console.log(`   ⏭️ File đính kèm "${fileLinkTitle}" đã tồn tại. Bỏ qua.`);
-                  continue;
-                }
+                if (await isResourceExists(fileLinkTitle, "file", sectionName)) continue;
                 try {
                   const filePublicUrl = await uploadFileToStorage(fileHref, "files", getCookieHeader);
                   await supabaseAdmin.from("crawler_resources").insert({
