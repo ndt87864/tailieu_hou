@@ -436,89 +436,92 @@ async function main() {
            let activityName = rawName;
 
           if (href.includes("mod/resource/view.php")) {
-            if (isTestMode && fileCount >= 1) {
-              continue;
-            }
-            try {
-              // Bước 1: Lấy tên file thực từ header mà không cần download toàn bộ
-              let resolvedName = activityName;
-              if (!resolvedName) {
-                try {
-                  const headRes = await axios.head(href, {
-                    headers: { Cookie: getCookieHeader() },
-                    maxRedirects: 5,
-                    timeout: 10000
-                  });
-                  const disposition = headRes.headers["content-disposition"] || "";
-                  if (disposition.includes("filename=")) {
-                    const match = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';\r\n]+)/i);
-                    if (match) resolvedName = decodeURIComponent(match[1].trim());
-                  }
-                  if (!resolvedName) {
-                    // Fallback: lấy từ URL sau redirect
-                    const finalHref = headRes.request?.res?.responseUrl || headRes.url || href;
-                    resolvedName = decodeURIComponent(finalHref.split("/").pop().split("?")[0]);
-                  }
-                } catch (_) { /* Bỏ qua nếu HEAD thất bại */ }
-              }
-              activityName = resolvedName || activityName;
+             if (isTestMode && fileCount >= 1) {
+               continue;
+             }
+             try {
+               // 1. Bắt buộc lấy tên file thực tế từ header Content-Disposition của Moodle
+               let resolvedName = "";
+               try {
+                 const headRes = await axios.head(href, {
+                   headers: { Cookie: getCookieHeader() },
+                   maxRedirects: 5,
+                   timeout: 10000
+                 });
+                 const disposition = headRes.headers["content-disposition"] || "";
+                 if (disposition.includes("filename=")) {
+                   const match = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';\r\n]+)/i);
+                   if (match) resolvedName = decodeURIComponent(match[1].trim());
+                 }
+                 if (!resolvedName) {
+                   const finalHref = (headRes.request && headRes.request.res ? headRes.request.res.responseUrl : null) || headRes.url || href;
+                   resolvedName = decodeURIComponent(finalHref.split("/").pop().split("?")[0]);
+                 }
+               } catch (headErr) {
+                 console.log(`   ⚠️ Lỗi lấy header của file (sử dụng tên hiển thị thay thế): ${headErr.message}`);
+               }
 
-              // Bước 2: Kiểm tra record đã tồn tại chưa (kể cả record cũ có title rỗng)
-              const existingByTitle = activityName ? await findResourceAnyType(activityName, sectionName) : null;
-              const existingEmpty = !activityName ? null : await (async () => {
-                const { data } = await supabaseAdmin.from("crawler_resources")
-                  .select("id, title, content_url")
-                  .eq("course_id", dbCourse.id)
-                  .eq("week_name", sectionName)
-                  .eq("type", "file")
-                  .eq("title", "")
-                  .limit(1);
-                return data && data.length > 0 ? data[0] : null;
-              })();
+               // Ưu tiên dùng tên file thực tế đầy đủ làm activityName
+               if (resolvedName) {
+                 activityName = resolvedName;
+               }
 
-              if (existingByTitle) {
-                console.log(`   ⏭️ File "${activityName}" đã tồn tại trong DB. Bỏ qua.`);
-                fileCount++;
-                continue;
-              }
-              if (existingEmpty) {
-                // Cập nhật title cho record cũ bị rỗng
-                await supabaseAdmin.from("crawler_resources").update({ title: activityName }).eq("id", existingEmpty.id);
-                console.log(`   🔄 Đã cập nhật title cho file: "${activityName}"`);
-                fileCount++;
-                continue;
-              }
+               // Bước 2: Kiểm tra record đã tồn tại chưa bằng tên file thực tế mới
+               const existingRecord = await findResourceAnyType(activityName, sectionName);
+               
+               // Đồng thời kiểm tra xem có record cũ nào dùng tên hiển thị cũ (ví dụ: "Wordlist" hay "Transcripts") không để cập nhật
+               const displayTitle = subName || rawName;
+               const existingOldDisplay = (displayTitle && displayTitle !== activityName) 
+                 ? await findResourceAnyType(displayTitle, sectionName) 
+                 : null;
 
-              // Bước 3: Upload và lưu mới
-              console.log(`   📎 Đang tải file tài liệu: "${resolvedName || activityName}"...`);
-              const filePublicUrl = await uploadFileToStorage(href, "files", getCookieHeader);
-              // Nếu vẫn chưa có tên sau upload, lấy từ storage URL
-              let finalTitle = resolvedName || activityName;
-              if (!finalTitle) {
-                const urlPart = filePublicUrl.split("/").pop().split("?")[0];
-                finalTitle = decodeURIComponent(urlPart).replace(/^\d+_/, "");
-              }
-              // Đảm bảo không đặt tên chung chung dạng "Bài giảng điện tử (ID...)" nếu lấy được tên file thực tế từ URL
-              if (finalTitle.startsWith("Bài giảng điện tử (ID") && filePublicUrl.includes(".")) {
-                const urlPart = filePublicUrl.split("/").pop().split("?")[0];
-                finalTitle = decodeURIComponent(urlPart).replace(/^\d+_/, "");
-              }
+               if (existingRecord) {
+                 console.log(`   ⏭️ File "${activityName}" đã tồn tại trong DB. Bỏ qua.`);
+                 fileCount++;
+                 continue;
+               }
 
-              await supabaseAdmin.from("crawler_resources").insert({
-                course_id: dbCourse.id,
-                type: "file",
-                title: finalTitle,
-                content_url: filePublicUrl,
-                week_name: sectionName
-              });
-              fileCount++;
-              console.log(`   ✅ Đã tải & lưu file thành công: "${finalTitle}"`);
-            } catch (err) {
-              console.log(`   ⚠️ Lỗi tải file: ${err.message}`);
-            }
-          }
+               if (existingOldDisplay) {
+                 // Cập nhật đổi tên record cũ thành tên file thực tế đầy đủ mới
+                 await supabaseAdmin.from("crawler_resources")
+                   .update({ title: activityName })
+                   .eq("id", existingOldDisplay.id);
+                 console.log(`   🔄 Đã chuẩn hóa và cập nhật tên file thực tế mới cho record cũ: "${displayTitle}" ➔ "${activityName}"`);
+                 fileCount++;
+                 continue;
+               }
 
-          else if (href.includes("mod/url/view.php") || href.includes("mod/bigbluebuttonbn/view.php")) {
+               // Bước 3: Upload và lưu mới
+               console.log(`   📎 Đang tải file tài liệu: "${activityName}"...`);
+               const filePublicUrl = await uploadFileToStorage(href, "files", getCookieHeader);
+               
+               // Nếu vẫn chưa có tên sau upload, lấy từ storage URL
+               let finalTitle = activityName;
+               if (!finalTitle) {
+                 const urlPart = filePublicUrl.split("/").pop().split("?")[0];
+                 finalTitle = decodeURIComponent(urlPart).replace(/^\d+_/, "");
+               }
+               // Đảm bảo không đặt tên chung chung dạng "Bài giảng điện tử (ID...)" nếu lấy được tên file thực tế từ URL
+               if (finalTitle.startsWith("Bài giảng điện tử (ID") && filePublicUrl.includes(".")) {
+                 const urlPart = filePublicUrl.split("/").pop().split("?")[0];
+                 finalTitle = decodeURIComponent(urlPart).replace(/^\d+_/, "");
+               }
+
+               await supabaseAdmin.from("crawler_resources").insert({
+                 course_id: dbCourse.id,
+                 type: "file",
+                 title: finalTitle,
+                 content_url: filePublicUrl,
+                 week_name: sectionName
+               });
+               fileCount++;
+               console.log(`   ✅ Đã tải & lưu file thành công: "${finalTitle}"`);
+             } catch (err) {
+               console.log(`   ⚠️ Lỗi tải file: ${err.message}`);
+             }
+           }
+
+           else if (href.includes("mod/url/view.php") || href.includes("mod/bigbluebuttonbn/view.php")) {
             try {
               console.log(`   🔗 Đang trích xuất link: "${activityName}"...`);
               const urlRes = await getHtmlWithSso(href);
@@ -530,8 +533,8 @@ async function main() {
 
               // Kiểm tra nếu trang đích là BigBlueButton (lớp học trực tuyến đã ghi)
               const isBBB = finalUrl.includes("mod/bigbluebuttonbn/view.php")
-                || urlRes.data?.includes("mod/bigbluebuttonbn")
-                || $urlPage("body").attr("class")?.includes("bigbluebuttonbn");
+                || (urlRes.data ? urlRes.data.includes : undefined)("mod/bigbluebuttonbn")
+                || ($urlPage("body").attr("class") ? $urlPage("body").attr("class").includes : undefined)("bigbluebuttonbn");
 
               if (isBBB) {
                 // Tải trang BBB để lấy link playback thực sự
