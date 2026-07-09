@@ -138,45 +138,52 @@ async function main() {
     const res1 = await getHtmlWithSso(loginUrl);
 
     const $1 = cheerio.load(res1.data);
-    const lt = $1('input[name="lt"]').val();
-    const execution = $1('input[name="execution"]').val();
+    let loginRes = null;
+    const isAlreadyLoggedIn = $1('a[href*="login/logout.php"]').length > 0;
 
-    let loginRes;
-    if (lt && execution) {
-      console.log("🔑 Phát hiện cổng CAS SSO. Tiến hành đăng nhập qua CAS...");
-      const casLoginUrl = res1.config.url || "https://cas.ehou.edu.vn/cas/login?service=https%3A%2F%2Flearning.ehou.edu.vn%2Flogin%2Findex.php&gateway=true";
-      const loginParams = new URLSearchParams({
-        username: username,
-        password: password,
-        lt: lt,
-        execution: execution,
-        _eventId: "submit",
-        submit: "ĐĂNG NHẬP"
-      }).toString();
-
-      loginRes = await postHtmlWithSso(casLoginUrl, loginParams);
+    if (isAlreadyLoggedIn) {
+      console.log("✅ Đã khôi phục phiên đăng nhập cũ thành công (sử dụng session cookie từ cookies.txt)!");
+      loginRes = res1;
     } else {
-      const logintoken = $1('input[name="logintoken"]').val();
-      if (!logintoken) {
-        throw new Error("Không tìm thấy các trường đăng nhập bảo mật (lt, execution hoặc logintoken).");
+      const lt = $1('input[name="lt"]').val();
+      const execution = $1('input[name="execution"]').val();
+
+      if (lt && execution) {
+        console.log("🔑 Phát hiện cổng CAS SSO. Tiến hành đăng nhập qua CAS...");
+        const casLoginUrl = res1.config.url || "https://cas.ehou.edu.vn/cas/login?service=https%3A%2F%2Flearning.ehou.edu.vn%2Flogin%2Findex.php&gateway=true";
+        const loginParams = new URLSearchParams({
+          username: username,
+          password: password,
+          lt: lt,
+          execution: execution,
+          _eventId: "submit",
+          submit: "ĐĂNG NHẬP"
+        }).toString();
+
+        loginRes = await postHtmlWithSso(casLoginUrl, loginParams);
+      } else {
+        const logintoken = $1('input[name="logintoken"]').val();
+        if (!logintoken) {
+          throw new Error("Không tìm thấy các trường đăng nhập bảo mật (lt, execution hoặc logintoken).");
+        }
+
+        console.log("🔑 Tiến hành đăng nhập trực tiếp (Moodle truyền thống)...");
+        const loginParams = new URLSearchParams({
+          username: username,
+          password: password,
+          logintoken: logintoken
+        }).toString();
+
+        loginRes = await postHtmlWithSso(loginUrl, loginParams);
       }
 
-      console.log("🔑 Tiến hành đăng nhập trực tiếp (Moodle truyền thống)...");
-      const loginParams = new URLSearchParams({
-        username: username,
-        password: password,
-        logintoken: logintoken
-      }).toString();
-
-      loginRes = await postHtmlWithSso(loginUrl, loginParams);
-    }
-
-    if (loginRes && loginRes.config && loginRes.config.url) {
-      const finalUrl = loginRes.config.url;
-      if (finalUrl.includes("cas.ehou.edu.vn/cas/login")) {
-        const $err = cheerio.load(loginRes.data);
-        const errMsg = $err("#msg, .errors, .alert-danger, .status, #status, .error").text().trim();
-        throw new Error(`Đăng nhập cổng CAS thất bại. Chi tiết lỗi từ trường: "${errMsg || "Sai tài khoản/mật khẩu hoặc bị chặn bot"}"`);
+      if (loginRes && loginRes.config && loginRes.config.url) {
+        const finalUrl = loginRes.config.url;
+        if (finalUrl.includes("cas.ehou.edu.vn/cas/login")) {
+          const $err = cheerio.load(loginRes.data);
+          const errMsg = $err("#msg, .errors, .alert-danger, .status, #status, .error").text().trim();
+          throw new Error(`Đăng nhập cổng CAS thất bại. Chi tiết lỗi từ trường: "${errMsg || "Sai tài khoản/mật khẩu hoặc bị chặn bot"}"`);
+        }
       }
     }
 
