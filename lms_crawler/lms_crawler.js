@@ -435,27 +435,15 @@ async function main() {
                 try {
                   const reportRes = await getHtmlWithSso(reportUrl);
                   const $reportPage = cheerio.load(reportRes.data);
-                  // Duyệt theo từng hàng trong bảng báo cáo để lấy điểm tương ứng
-                  $reportPage("table tbody tr").each((i, row) => {
-                    const link = $reportPage(row).find("a[href*='mod/quiz/review.php?attempt=']").first();
-                    if (!link.length) return;
-                    const attemptHref = link.attr("href");
-
-                    // Lấy điểm từ ô "Grade/10" (hoặc tương tự) trong hàng đó
-                    // Moodle thường hiển thị điểm ở cột gần cuối, dạng "8.50/10" hoặc "85.00/100"
-                    const gradeCell = $reportPage(row).find("td").last();
-                    const gradeText = gradeCell.text().trim();
-                    // Tìm pattern số/tổng (ví dụ: "8.50/10", "27.00/30", "85.00/100")
-                    const gradeMatch = gradeText.match(/([\d.]+)\s*\/\s*([\d.]+)/);
-                    if (gradeMatch) {
-                      const earned = parseFloat(gradeMatch[1]);
-                      const total = parseFloat(gradeMatch[2]);
-                      const percent = total > 0 ? (earned / total) * 100 : 0;
-                      if (percent > 80) {
-                        attemptLinks.push(attemptHref);
-                      }
-                    } else {
-                      // Không đọc được điểm, bỏ qua
+                  // Điểm nằm trong thẻ <a> bên trong <td class="cell ... bold">
+                  // ví dụ: <td class="cell c7 bold"><a href="...review.php?attempt=...">90,00</a></td>
+                  $reportPage("td.bold a[href*='review.php?attempt=']").each((i, el) => {
+                    const attemptHref = $reportPage(el).attr("href");
+                    // Điểm hiển thị dạng "90,00" (locale tiếng Việt dùng dấu phẩy)
+                    const gradeText = $reportPage(el).text().trim().replace(",", ".");
+                    const grade = parseFloat(gradeText);
+                    if (!isNaN(grade) && grade > 80) {
+                      attemptLinks.push(attemptHref);
                     }
                   });
                   console.log(`   📊 Tìm thấy ${attemptLinks.length} lượt bài làm đạt >80 điểm.`);
