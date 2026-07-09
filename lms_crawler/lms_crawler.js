@@ -702,31 +702,111 @@ async function main() {
 
           else if (href.includes("mod/scorm/view.php")) {
             try {
-              // SCORM chỉ skip khi trùng khớp cả title, tuần học và URL đích
+              console.log(`   📦 Phát hiện bài giảng điện tử SCORM: "${activityName}"...`);
+              
+              // Tải trang view SCORM
+              const scormRes = await getHtmlWithSso(href);
+              const $scormPage = cheerio.load(scormRes.data);
+              
+              const form = $scormPage("#scormviewform");
+              let finalUrl = href;
+
+              if (form.length) {
+                const actionUrl = form.attr("action") || "https://learning.ehou.edu.vn/mod/scorm/player.php";
+                const postParams = new URLSearchParams();
+                
+                // Thu thập tất cả các input của form
+                form.find("input").each((i, el) => {
+                  const name = $scormPage(el).attr("name");
+                  const val = $scormPage(el).attr("value") || "";
+                  if (name) postParams.append(name, val);
+                });
+
+                // 1. POST để vào player.php
+                const playerRes = await axios.post(actionUrl, postParams.toString(), {
+                  headers: {
+                    "Cookie": getCookieHeader(),
+                    "Content-Type": "application/x-www-form-urlencoded"
+                  }
+                });
+
+                // 2. Trích xuất scorm_id (a) và scoid từ player HTML bằng regex tin cậy hơn
+                let scormId = "";
+                let scoid = "";
+
+                // Thử tìm scorm_id và scoid trong M.scorm_api.init
+                // Ví dụ: M.scorm_api.init(Y, ..., "4564", "1", "normal", 7566, ...);
+                // Tham số chứa "sesskey", "scoid", "1", "normal", <scorm_id> ở cuối
+                const apiInitMatch = playerRes.data.match(/M\.scorm_api\.init\([\s\S]*?,\s*"(\d+)"\s*,\s*"1"\s*,\s*"normal"\s*,\s*(\d+)/i)
+                  || playerRes.data.match(/M\.scorm_api\.init\([\s\S]*?,\s*"(\d+)"\s*,\s*"\d+"\s*,\s*"normal"\s*,\s*(\d+)/i);
+
+                if (apiInitMatch) {
+                  scoid = apiInitMatch[1];
+                  scormId = apiInitMatch[2];
+                }
+
+                // Nếu chưa tìm được, quét JSON cấu hình trong M.mod_scorm.init
+                if (!scormId || !scoid) {
+                  const scormInitMatch = playerRes.data.match(/M\.mod_scorm\.init\([\s\S]*?,\s*"(\d+)"\s*,\s*"(\{[\s\S]*?\})"/i);
+                  if (scormInitMatch) {
+                    scoid = scormInitMatch[1];
+                    // Tìm scorm_id (a) trong các tham số khác hoặc query string của chính player.php
+                    const aMatch = playerRes.data.match(/[?&]a=(\d+)/);
+                    if (aMatch) scormId = aMatch[1];
+                  }
+                }
+
+                // Fallback cuối cùng nếu vẫn rỗng
+                if (!scormId || !scoid) {
+                  const aMatch = playerRes.data.match(/[?&]a=(\d+)/);
+                  const scoidMatch = playerRes.data.match(/[?&]scoid=(\d+)/);
+                  if (aMatch) scormId = aMatch[1];
+                  if (scoidMatch) scoid = scoidMatch[1];
+                }
+
+                if (scormId && scoid) {
+                  // 3. Tải loadSCO.php để lấy link slide thật
+                  const loadScoUrl = `https://learning.ehou.edu.vn/mod/scorm/loadSCO.php?a=${scormId}&scoid=${scoid}`;
+                  const loadScoRes = await getHtmlWithSso(loadScoUrl);
+                  
+                  // 4. Trích xuất pluginfile url từ HTML hoặc noscript refresh
+                  const urlMatch = loadScoRes.data.match(/url=(https?:\/\/[^"]+pluginfile\.php[^"]+index[a-zA-Z0-9_\-\.]*\.html)/i)
+                    || loadScoRes.data.match(/location\s*=\s*"([^"]+pluginfile\.php[^"]+)"/i)
+                    || loadScoRes.data.match(/url=(https?:\/\/[^"'\s<>]+index[a-zA-Z0-9_\-\.]*\.html)/i);
+
+                  if (urlMatch) {
+                    finalUrl = urlMatch[1].replace(/&amp;/g, "&");
+                    console.log(`   ✅ Đã trích xuất được link slide động thực tế: ${finalUrl}`);
+                  }
+                }
+              }
+
+              // Kiểm tra xem link slide thực tế này đã tồn tại trong DB chưa
               const { data } = await supabaseAdmin
                 .from("crawler_resources")
                 .select("id")
                 .eq("course_id", dbCourse.id)
                 .eq("week_name", sectionName)
                 .eq("type", "link")
-                .eq("content_url", href)
+                .eq("content_url", finalUrl)
                 .limit(1);
 
               if (data && data.length > 0) {
                 console.log(`   ⏭️ Bài giảng điện tử "${activityName}" đã tồn tại. Bỏ qua.`);
                 continue;
               }
-              // SCORM lưu dạng link trỏ trực tiếp đến Moodle package URL
+
+              // SCORM lưu dạng link
               await supabaseAdmin.from("crawler_resources").insert({
                 course_id: dbCourse.id,
                 type: "link",
                 title: activityName,
-                content_url: href,
+                content_url: finalUrl,
                 week_name: sectionName
               });
               console.log(`   ✅ Đã lưu bài giảng điện tử SCORM: "${activityName}"`);
             } catch (err) {
-              console.log(`   ⚠️ Lỗi lưu SCORM: ${err.message}`);
+              console.log(`   ⚠️ Lỗi crawl SCORM: ${err.message}`);
             }
           }
 
