@@ -240,28 +240,35 @@ async function main() {
       console.log("💾 Đã lưu thông tin môn học mới vào DB.");
     }
 
+    // Hàm chuẩn hóa title bằng cách loại bỏ các hậu tố loại hình Moodle Việt hóa/Anh hóa thừa
+    const cleanTitle = (t) => {
+      if (!t) return "";
+      return t.replace(/\s*(Trang|Tệp|File|URL|Quiz|Page|Forum|Bài trắc nghiệm|Diễn đàn|Liên kết)$/gi, "").trim();
+    };
+
     // Trả về record đầy đủ hoặc null nếu không tồn tại (lọc theo type)
     const findResource = async (title, type, weekName) => {
+      const cleaned = cleanTitle(title);
+      // Tìm bằng title gốc hoặc title đã được chuẩn hóa
       const { data } = await supabaseAdmin
         .from("crawler_resources")
-        .select("id, content_url, type")
+        .select("id, content_url, type, title")
         .eq("course_id", dbCourse.id)
-        .eq("title", title)
         .eq("type", type)
         .eq("week_name", weekName)
-        .limit(1);
+        .or(`title.eq."${title}",title.eq."${cleaned}"`);
       return data && data.length > 0 ? data[0] : null;
     };
 
-    // Tìm record theo title + weekName, không lọc theo type (dùng khi type có thể đã bị sai)
+    // Tìm record theo title + weekName, không lọc theo type
     const findResourceAnyType = async (title, weekName) => {
+      const cleaned = cleanTitle(title);
       const { data } = await supabaseAdmin
         .from("crawler_resources")
-        .select("id, content_url, type")
+        .select("id, content_url, type, title")
         .eq("course_id", dbCourse.id)
-        .eq("title", title)
         .eq("week_name", weekName)
-        .limit(1);
+        .or(`title.eq."${title}",title.eq."${cleaned}"`);
       return data && data.length > 0 ? data[0] : null;
     };
 
@@ -567,12 +574,21 @@ async function main() {
               const $page = cheerio.load(pageRes.data);
 
               // Lấy phần content thực sự bên trong Page/Lesson
-              // Ưu tiên các container nội dung hẹp thay vì lấy toàn bộ vùng #region-main (vùng này chứa cả breadcrumb, header và navigation progress bar)
-              const pageContent = $page(".no-overflow").first().html() 
-                || $page(".box.generalbox").first().html()
-                || $page(".lessonpage").first().html()
-                || $page("#region-main").first().html()
-                || "";
+              // Chỉ lấy HTML của block chứa nội dung học liệu, bỏ hoàn toàn các phần layout ngoài của Moodle
+              let pageContent = "";
+              const contentSelector = ".no-overflow, .box.generalbox, .lessonpage, .generalbox";
+              const contentEl = $page(contentSelector).first();
+              
+              if (contentEl.length) {
+                // Chỉ lấy nội dung sạch bên trong
+                pageContent = contentEl.html();
+              } else {
+                // Fallback nếu không có class đặc trưng, bóc tách vùng chính và xóa bỏ rác bằng Cheerio
+                const mainRegion = $page("#region-main").clone();
+                mainRegion.find(".section_progress, .navigation, .modified, #page-footer, .footer_menu, .copyright, script, style").remove();
+                pageContent = mainRegion.html() || "";
+              }
+
               const { cleanHtml: cleanPageContent } = await processHtmlImagesAndUpload(pageContent, getCookieHeader);
 
               if (existingRecord && existingRecord.type === "announcement") {
