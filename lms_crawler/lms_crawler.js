@@ -490,22 +490,29 @@ async function main() {
               }
 
               // Bước 3: Upload và lưu mới
-              console.log(`   📎 Đang tải file tài liệu: "${activityName}"...`);
+              console.log(`   📎 Đang tải file tài liệu: "${resolvedName || activityName}"...`);
               const filePublicUrl = await uploadFileToStorage(href, "files", getCookieHeader);
               // Nếu vẫn chưa có tên sau upload, lấy từ storage URL
-              if (!activityName) {
+              let finalTitle = resolvedName || activityName;
+              if (!finalTitle) {
                 const urlPart = filePublicUrl.split("/").pop().split("?")[0];
-                activityName = decodeURIComponent(urlPart).replace(/^\d+_/, "");
+                finalTitle = decodeURIComponent(urlPart).replace(/^\d+_/, "");
               }
+              // Đảm bảo không đặt tên chung chung dạng "Bài giảng điện tử (ID...)" nếu lấy được tên file thực tế từ URL
+              if (finalTitle.startsWith("Bài giảng điện tử (ID") && filePublicUrl.includes(".")) {
+                const urlPart = filePublicUrl.split("/").pop().split("?")[0];
+                finalTitle = decodeURIComponent(urlPart).replace(/^\d+_/, "");
+              }
+
               await supabaseAdmin.from("crawler_resources").insert({
                 course_id: dbCourse.id,
                 type: "file",
-                title: activityName,
+                title: finalTitle,
                 content_url: filePublicUrl,
                 week_name: sectionName
               });
               fileCount++;
-              console.log(`   ✅ Đã tải & lưu file thành công: "${activityName}"`);
+              console.log(`   ✅ Đã tải & lưu file thành công: "${finalTitle}"`);
             } catch (err) {
               console.log(`   ⚠️ Lỗi tải file: ${err.message}`);
             }
