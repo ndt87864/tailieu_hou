@@ -568,8 +568,8 @@ async function main() {
               const existingRecord = await findResourceAnyType(activityName, sectionName);
               let shouldCrawl = true;
 
-              if (existingRecord && existingRecord.type === "announcement") {
-                // Lấy thông tin chi tiết của record cũ
+              if (existingRecord) {
+                // Lấy thông tin raw_content để check xem có bẩn không
                 const { data } = await supabaseAdmin
                   .from("crawler_resources")
                   .select("raw_content")
@@ -578,12 +578,13 @@ async function main() {
                 
                 const oldContent = data && data[0] ? data[0].raw_content : "";
                 const hasTrashHtml = oldContent && (oldContent.includes("progress-bar") || oldContent.includes("footer_menu") || oldContent.includes("breadcrumb"));
-                
-                if (!hasTrashHtml) {
+                const typeChanged = existingRecord.type !== "announcement";
+
+                if (!hasTrashHtml && !typeChanged) {
                   console.log(`   ⏭️ Trang "${activityName}" đã tồn tại và nội dung sạch. Bỏ qua.`);
                   shouldCrawl = false;
                 } else {
-                  console.log(`   🔄 Phát hiện trang cũ "${activityName}" chứa navbar/footer dư thừa. Tiến hành crawl lại để dọn dẹp...`);
+                  console.log(`   🔄 Phát hiện trang cũ "${activityName}" (type: ${existingRecord.type}) cần dọn dẹp/chuyển đổi sang announcement. Tiến hành crawl...`);
                 }
               }
 
@@ -596,16 +597,13 @@ async function main() {
               const $page = cheerio.load(pageRes.data);
 
               // Lấy phần content thực sự bên trong Page/Lesson
-              // Chỉ lấy HTML của block chứa nội dung học liệu, bỏ hoàn toàn các phần layout ngoài của Moodle
               let pageContent = "";
               const contentSelector = ".no-overflow, .box.generalbox, .lessonpage, .generalbox";
               const contentEl = $page(contentSelector).first();
               
               if (contentEl.length) {
-                // Chỉ lấy nội dung sạch bên trong
                 pageContent = contentEl.html();
               } else {
-                // Fallback nếu không có class đặc trưng, bóc tách vùng chính và xóa bỏ rác bằng Cheerio
                 const mainRegion = $page("#region-main").clone();
                 mainRegion.find(".section_progress, .navigation, .modified, #page-footer, .footer_menu, .copyright, script, style").remove();
                 pageContent = mainRegion.html() || "";
@@ -613,15 +611,18 @@ async function main() {
 
               const { cleanHtml: cleanPageContent } = await processHtmlImagesAndUpload(pageContent, getCookieHeader);
 
-              if (existingRecord && existingRecord.type === "announcement") {
-                // Cập nhật lại record cũ
+              if (existingRecord) {
+                // Cập nhật lại record cũ: đổi type thành announcement và lưu content sạch
                 await supabaseAdmin
                   .from("crawler_resources")
-                  .update({ raw_content: cleanPageContent })
+                  .update({ 
+                    raw_content: cleanPageContent,
+                    type: "announcement" 
+                  })
                   .eq("id", existingRecord.id);
-                console.log(`   ✅ Đã cập nhật và dọn dẹp nội dung trang.`);
+                console.log(`   ✅ Đã cập nhật, dọn dẹp và chuyển đổi type thành announcement cho trang cũ.`);
               } else {
-                // Lưu record mới
+                // Lưu record mới nếu thực sự chưa có
                 await supabaseAdmin.from("crawler_resources").insert({
                   course_id: dbCourse.id,
                   type: "announcement",
