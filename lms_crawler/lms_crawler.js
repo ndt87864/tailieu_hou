@@ -1,7 +1,7 @@
 const readline = require("readline");
-const axios = require("axios");
 const cheerio = require("cheerio");
-const { createClient } = require("@supabase/supabase-js");
+const { supabaseAdmin, processHtmlImagesAndUpload, cleanQuestionText, uploadFileToStorage } = require("./utils/db");
+const { getHtmlWithSso, postHtmlWithSso, getCookieHeader } = require("./utils/sso");
 require("dotenv").config();
 
 const rl = readline.createInterface({
@@ -12,210 +12,6 @@ const rl = readline.createInterface({
 const askQuestion = (query) => {
   return new Promise((resolve) => rl.question(query, resolve));
 };
-
-const supabaseUrl = process.env.SUPABASE_URL || "";
-const supabaseServiceRole = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRole);
-
-let cookieJar = [];
-
-function getCookieHeader() {
-  return cookieJar.join("; ");
-}
-
-function updateCookies(setCookieHeaders) {
-  if (!setCookieHeaders) return;
-  for (const cookie of setCookieHeaders) {
-    const parts = cookie.split(';');
-    const mainCookie = parts[0].trim();
-    if (mainCookie) {
-      const [name] = mainCookie.split('=');
-      cookieJar = cookieJar.filter(c => !c.startsWith(name + '='));
-      cookieJar.push(mainCookie);
-    }
-  }
-}
-
-async function uploadFileToStorage(url, prefix) {
-  const downloadRes = await axios.get(url, {
-    headers: { Cookie: getCookieHeader() },
-    responseType: "arraybuffer",
-    timeout: 15000
-  });
-
-  let filename = `file_${Date.now()}`;
-  const disposition = downloadRes.headers["content-disposition"];
-  if (disposition && disposition.includes("filename=")) {
-    const match = disposition.match(/filename="?([^";]+)"?/);
-    if (match) {
-      filename = decodeURIComponent(match[1]).replace(/[/\\?%*:|"<>\s]/g, "_");
-    }
-  } else {
-    const contentType = downloadRes.headers["content-type"] || "";
-    if (contentType.includes("pdf")) filename += ".pdf";
-    else if (contentType.includes("word") || contentType.includes("officedocument")) filename += ".docx";
-    else if (contentType.includes("image")) {
-      const ext = contentType.split("/")[1] || "png";
-      filename += `.${ext}`;
-    }
-  }
-
-  const storagePath = `${prefix}/${Date.now()}_${filename}`;
-  const { error } = await supabaseAdmin.storage
-    .from("lms-crawler-assets")
-    .upload(storagePath, downloadRes.data, {
-      contentType: downloadRes.headers["content-type"] || "application/octet-stream"
-    });
-
-  if (error) throw error;
-
-  const { data: { publicUrl } } = supabaseAdmin.storage
-    .from("lms-crawler-assets")
-    .getPublicUrl(storagePath);
-
-  return publicUrl;
-}
-
-async function processHtmlImagesAndUpload(html) {
-  if (!html) return { cleanHtml: "", uploadedUrls: [] };
-  const $ = cheerio.load(html);
-  const uploadedUrls = [];
-  const imgs = $("img");
-
-  for (let i = 0; i < imgs.length; i++) {
-    const img = imgs[i];
-    const src = $(img).attr("src");
-    if (src && src.startsWith("http")) {
-      try {
-        const publicUrl = await uploadFileToStorage(src, "images");
-        $(img).attr("src", publicUrl);
-        uploadedUrls.push(publicUrl);
-      } catch (err) {
-        console.log(`   ⚠️ Không tải được ảnh: ${src}. Lỗi: ${err.message}`);
-      }
-    }
-  }
-  return {
-    cleanHtml: $("body").html() || html,
-    uploadedUrls
-  };
-}
-
-function cleanQuestionText($, qtextEl) {
-  const cloned = $(qtextEl).clone();
-  cloned.find("script, style, .answer, label, .prompt, .accesshide, .feedback, .generalfeedback").remove();
-  cloned.find("img").remove();
-  
-  let questionText = cloned.text().replace(/\s+/g, " ").trim();
-  
-  questionText = questionText
-    .replace(/^mô tả câu hỏi/i, "")
-    .replace(/^câu hỏi \d+\s*chưa trả lời/i, "")
-    .replace(/^câu hỏi \d+\s*đạt điểm\s*[\d\.,]+/i, "")
-    .trim();
-    
-  const instructions = [
-    /chọn một câu trả lời:?/i,
-    /chọn một:?/i,
-    /chọn câu trả lời:?/i,
-    /chọn đáp án:?/i,
-    /trả lời câu hỏi:?/i,
-    /\b[a-fA-F][\.\)]\s*$/i
-  ];
-  instructions.forEach(regex => {
-    questionText = questionText.replace(regex, "").trim();
-  });
-  
-  const optIndex = questionText.search(/\b[aA][\.\)]\s+/);
-  if (optIndex !== -1 && optIndex > 10) {
-    questionText = questionText.substring(0, optIndex).trim();
-  }
-  
-  return questionText;
-}
-
-async function getHtmlWithSso(url) {
-  let currentUrl = url;
-  let response;
-  let redirectsCount = 0;
-
-  while (redirectsCount < 10) {
-    try {
-      response = await axios.get(currentUrl, {
-        headers: {
-          "Cookie": getCookieHeader(),
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-        },
-        maxRedirects: 0,
-        validateStatus: (status) => status >= 200 && status < 400
-      });
-    } catch (err) {
-      if (err.response) {
-        response = err.response;
-      } else {
-        throw err;
-      }
-    }
-
-    updateCookies(response.headers["set-cookie"]);
-    console.log(`    ➡️ [SSO DEBUG] GET -> ${currentUrl} | Status: ${response.status}`);
-
-    if (response.status >= 300 && response.status < 400 && response.headers.location) {
-      currentUrl = response.headers.location;
-      redirectsCount++;
-    } else {
-      break;
-    }
-  }
-  return response;
-}
-
-async function postHtmlWithSso(url, data) {
-  let currentUrl = url;
-  let response;
-  let redirectsCount = 0;
-  let method = "POST";
-  let requestData = data;
-
-  while (redirectsCount < 10) {
-    try {
-      const config = {
-        headers: {
-          "Cookie": getCookieHeader(),
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-        },
-        maxRedirects: 0,
-        validateStatus: (status) => status >= 200 && status < 400
-      };
-
-      if (method === "POST") {
-        config.headers["Content-Type"] = "application/x-www-form-urlencoded";
-        response = await axios.post(currentUrl, requestData, config);
-      } else {
-        response = await axios.get(currentUrl, config);
-      }
-    } catch (err) {
-      if (err.response) {
-        response = err.response;
-      } else {
-        throw err;
-      }
-    }
-
-    updateCookies(response.headers["set-cookie"]);
-    console.log(`    ➡️ [SSO DEBUG] ${method} -> ${currentUrl} | Status: ${response.status}`);
-
-    if (response.status >= 300 && response.status < 400 && response.headers.location) {
-      currentUrl = response.headers.location;
-      method = "GET";
-      requestData = null;
-      redirectsCount++;
-    } else {
-      break;
-    }
-  }
-  return response;
-}
 
 async function main() {
   console.log("=================================================");
@@ -386,27 +182,32 @@ async function main() {
 
     const dashRes = await getHtmlWithSso("https://learning.ehou.edu.vn/my/");
     const $dash = cheerio.load(dashRes.data);
-    if ($dash('a[href*="login/logout.php"]').length === 0 && $dash(".usermenu, .userbutton, .avatars").length === 0) {
+    const logoutBtn = $dash('a[href*="login/logout.php"]');
+
+    if (logoutBtn.length === 0) {
       throw new Error("Đăng nhập thất bại! Vui lòng kiểm tra lại tài khoản & mật khẩu.");
     }
+
     console.log("✅ Đăng nhập LMS thành công!");
 
     console.log(`🔍 Đang tìm môn học khớp với tài liệu: "${selectedDoc.title}"...`);
     const searchUrl = `https://learning.ehou.edu.vn/course/search.php?search=${encodeURIComponent(selectedDoc.title)}`;
     const searchRes = await getHtmlWithSso(searchUrl);
     const $search = cheerio.load(searchRes.data);
-    const courseLink = $search(".coursebox .coursename a").first().attr("href");
+
+    const courseLinkEl = $search(".coursebox .coursename a").first();
+    const courseLink = courseLinkEl.attr("href");
+    const courseTitle = courseLinkEl.text().trim();
 
     if (!courseLink) {
-      throw new Error(`Không tìm thấy môn học nào trên LMS khớp với tài liệu: "${selectedDoc.title}"`);
+      throw new Error(`Không tìm thấy môn học nào khớp với tài liệu đối chiếu: "${selectedDoc.title}"`);
     }
 
-    const courseTitle = $search(".coursebox .coursename a").first().text().trim();
-    const courseIdMatch = courseLink.match(/id=(\d+)/);
-    const moodleCourseId = courseIdMatch ? courseIdMatch[1] : "";
+    const moodleCourseIdMatch = courseLink.match(/id=(\d+)/);
+    const moodleCourseId = moodleCourseIdMatch ? moodleCourseIdMatch[1] : "";
     console.log(`📚 Đã tìm thấy môn học: "${courseTitle}" (LMS ID: ${moodleCourseId})`);
 
-    const { data: dbCourse, error: courseErr } = await supabaseAdmin.from("crawler_courses").insert({
+    const { data: dbCourse, error: courseErr } = await supabaseAdmin.from("crawler_courses").upsert({
       document_id: selectedDoc.id,
       moodle_course_id: moodleCourseId,
       title: courseTitle,
@@ -422,7 +223,6 @@ async function main() {
     const courseRes = await getHtmlWithSso(courseLink);
     const $course = cheerio.load(courseRes.data);
 
-    // Thu thập toàn bộ section ID của các tuần học
     const sectionLinks = [];
     $course("a[href*='section=']").each((i, el) => {
       const href = $course(el).attr("href");
@@ -479,7 +279,7 @@ async function main() {
             }
             try {
               console.log(`   📎 Đang tải file tài liệu: "${activityName}"...`);
-              const filePublicUrl = await uploadFileToStorage(href, "files");
+              const filePublicUrl = await uploadFileToStorage(href, "files", getCookieHeader);
               await supabaseAdmin.from("crawler_resources").insert({
                 course_id: dbCourse.id,
                 type: "file",
@@ -540,7 +340,7 @@ async function main() {
                 console.log(`   ✅ Đã trích xuất link video từ Page: ${iframeSrc}`);
               } else {
                 const pageContent = $page(".no-overflow, #region-main").html() || "";
-                const { cleanHtml: cleanPageContent } = await processHtmlImagesAndUpload(pageContent);
+                const { cleanHtml: cleanPageContent } = await processHtmlImagesAndUpload(pageContent, getCookieHeader);
                 
                 await supabaseAdmin.from("crawler_resources").insert({
                   course_id: dbCourse.id,
@@ -568,7 +368,6 @@ async function main() {
               const quizIdMatch = href.match(/id=(\d+)/);
               const quizId = quizIdMatch ? quizIdMatch[1] : "";
 
-              // 1. Quét report overview lấy tất cả các attempts
               const attemptLinks = [];
               if (quizId) {
                 const reportUrl = `https://learning.ehou.edu.vn/mod/quiz/report.php?id=${quizId}&mode=overview`;
@@ -584,7 +383,6 @@ async function main() {
                 }
               }
 
-              // 2. Fallback lấy lượt làm bài của cá nhân
               if (attemptLinks.length === 0) {
                 const attemptLink = $quizPage("a[href*='mod/quiz/review.php?attempt=']").first().attr("href");
                 if (attemptLink) {
@@ -594,7 +392,7 @@ async function main() {
 
               let uniqueAttempts = [...new Set(attemptLinks)];
               if (isTestMode && uniqueAttempts.length > 0) {
-                uniqueAttempts = [uniqueAttempts[0]]; // Chỉ lấy 1 attempt đầu tiên khi TEST
+                uniqueAttempts = [uniqueAttempts[0]];
               }
               console.log(`   📊 Tìm thấy ${uniqueAttempts.length} lượt bài làm để crawl câu hỏi.`);
 
@@ -615,7 +413,7 @@ async function main() {
                     const qtextEl = $review(qBlock).find(".qtext");
                     const qTextHtml = qtextEl.html() || "";
 
-                    const { cleanHtml: qTextCleanHtml, uploadedUrls: qImgs } = await processHtmlImagesAndUpload(qTextHtml);
+                    const { cleanHtml: qTextCleanHtml, uploadedUrls: qImgs } = await processHtmlImagesAndUpload(qTextHtml, getCookieHeader);
                     const $tempQ = cheerio.load(qTextCleanHtml);
                     const qTextClean = cleanQuestionText($tempQ, $tempQ("body"));
 
@@ -628,14 +426,14 @@ async function main() {
                         const src = $review(imgTags[i]).attr("src");
                         if (src && !src.includes("grade_")) {
                           try {
-                            const publicUrl = await uploadFileToStorage(src, "images");
+                            const publicUrl = await uploadFileToStorage(src, "images", getCookieHeader);
                             choiceImgsList.push(publicUrl);
                           } catch (e) {}
                         }
                       }
 
                       const choiceHtml = $review(choiceBlocks[c]).html() || "";
-                      const { cleanHtml: choiceClean } = await processHtmlImagesAndUpload(choiceHtml);
+                      const { cleanHtml: choiceClean } = await processHtmlImagesAndUpload(choiceHtml, getCookieHeader);
                       const $temp = cheerio.load(choiceClean);
                       $temp("input, span.control").remove();
                       choices.push($temp.text().trim());
@@ -653,7 +451,7 @@ async function main() {
                         const src = $review(imgTags[i]).attr("src");
                         if (src && !src.includes("grade_")) {
                           try {
-                            const publicUrl = await uploadFileToStorage(src, "images");
+                            const publicUrl = await uploadFileToStorage(src, "images", getCookieHeader);
                             ansImgsList.push(publicUrl);
                           } catch (e) {}
                         }
