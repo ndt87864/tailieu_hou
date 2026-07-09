@@ -704,40 +704,101 @@ async function main() {
             try {
               console.log(`   📦 Phát hiện bài giảng điện tử SCORM: "${activityName}"...`);
               
-              // Trích xuất cm ID từ href (vd: id=7566)
-              const cmIdMatch = href.match(/id=(\d+)/);
-              const cmId = cmIdMatch ? cmIdMatch[1] : "";
+              // Tải trang view SCORM
+              const scormRes = await getHtmlWithSso(href);
+              const $scormPage = cheerio.load(scormRes.data);
               
-              if (!cmId) {
-                console.log(`   ⚠️ Không tìm thấy CM ID của SCORM. Bỏ qua.`);
+              const form = $scormPage("#scormviewform");
+              let finalUrl = href;
+
+              if (form.length) {
+                const actionUrl = form.attr("action") || "https://learning.ehou.edu.vn/mod/scorm/player.php";
+                const postParams = new URLSearchParams();
+                
+                // Thu thập tất cả các input của form
+                form.find("input").each((i, el) => {
+                  const name = $scormPage(el).attr("name");
+                  const val = $scormPage(el).attr("value") || "";
+                  if (name) postParams.append(name, val);
+                });
+
+                // 1. POST để vào player.php
+                const playerRes = await axios.post(actionUrl, postParams.toString(), {
+                  headers: {
+                    "Cookie": getCookieHeader(),
+                    "Content-Type": "application/x-www-form-urlencoded"
+                  }
+                });
+
+                // 2. Trích xuất scorm_id (a) và scoid từ player HTML
+                let scormId = "";
+                let scoid = "";
+
+                // Quét hàm init của SCORM player để lấy chính xác các ID này
+                // Ví dụ tham số cuối cùng của M.scorm_api.init chứa scorm_id và scoid thực tế
+                const apiInitMatch = playerRes.data.match(/M\.scorm_api\.init\([\s\S]*?,\s*"(\d+)"\s*,\s*"[^"]*"\s*,\s*"normal"\s*,\s*(\d+)/i)
+                  || playerRes.data.match(/M\.scorm_api\.init\([\s\S]*?,\s*"(\d+)"\s*,\s*"\d+"\s*,\s*"normal"\s*,\s*(\d+)/i)
+                  || playerRes.data.match(/M\.scorm_api\.init\([\s\S]*?,\s*"(\d+)"/i);
+
+                if (apiInitMatch) {
+                  scoid = apiInitMatch[1];
+                  // Nếu match đầu tiên thành công, group 2 là scorm_id
+                  scormId = apiInitMatch[2] || "";
+                }
+
+                // Nếu không có scormId từ init, thử tìm biến scorm_id (a) trong player.php URL hoặc các script
+                if (!scormId) {
+                  const aMatch = playerRes.data.match(/[?&]a=(\d+)/) || scormRes.data.match(/[?&]a=(\d+)/);
+                  if (aMatch) scormId = aMatch[1];
+                }
+
+                if (scormId && scoid) {
+                  // 3. Tải loadSCO.php với scorm_id thực tế để lấy link slide thật
+                  const loadScoUrl = `https://learning.ehou.edu.vn/mod/scorm/loadSCO.php?a=${scormId}&scoid=${scoid}`;
+                  const loadScoRes = await getHtmlWithSso(loadScoUrl);
+                  
+                  // 4. Trích xuất pluginfile url từ HTML hoặc noscript refresh
+                  const urlMatch = loadScoRes.data.match(/url=(https?:\/\/[^"]+pluginfile\.php[^"]+index[a-zA-Z0-9_\-\.]*\.html)/i)
+                    || loadScoRes.data.match(/location\s*=\s*"([^"]+pluginfile\.php[^"]+)"/i)
+                    || loadScoRes.data.match(/url=(https?:\/\/[^"'\s<>]+index[a-zA-Z0-9_\-\.]*\.html)/i);
+
+                  if (urlMatch) {
+                    finalUrl = urlMatch[1].replace(/&amp;/g, "&");
+                    console.log(`   ✅ Đã trích xuất được link slide động thực tế: ${finalUrl}`);
+                  } else {
+                    console.log(`   ⚠️ Không tìm thấy link pluginfile trong loadSCO.php.`);
+                  }
+                } else {
+                  console.log(`   ⚠️ Không xác định được scormId (${scormId}) hoặc scoid (${scoid}).`);
+                }
+              }
+
+              // Kiểm tra xem link slide thực tế này đã tồn tại trong DB chưa
+              const { data } = await supabaseAdmin
+                .from("crawler_resources")
+                .select("id")
+                .eq("course_id", dbCourse.id)
+                .eq("week_name", sectionName)
+                .eq("type", "link")
+                .eq("content_url", finalUrl)
+                .limit(1);
+
+              if (data && data.length > 0) {
+                console.log(`   ⏭️ Bài giảng điện tử "${activityName}" đã tồn tại. Bỏ qua.`);
                 continue;
               }
 
-              const downloadUrl = `https://learning.ehou.edu.vn/mod/scorm/download.php?id=${cmId}`;
-              let resolvedName = `${activityName}.zip`;
-
-              // Check xem file ZIP này đã được tải và tồn tại trong DB chưa
-              const existingRecord = await findResourceAnyType(resolvedName, sectionName);
-              if (existingRecord) {
-                console.log(`   ⏭️ Bài giảng điện tử "${resolvedName}" đã tồn tại trong DB. Bỏ qua.`);
-                continue;
-              }
-
-              console.log(`   📎 Đang tải gói bài giảng ZIP từ Moodle: "${resolvedName}"...`);
-              const filePublicUrl = await uploadFileToStorage(downloadUrl, "files", getCookieHeader);
-
-              // Lưu vào DB dưới dạng file
+              // SCORM lưu dạng link
               await supabaseAdmin.from("crawler_resources").insert({
                 course_id: dbCourse.id,
-                type: "file",
-                title: resolvedName,
-                content_url: filePublicUrl,
+                type: "link",
+                title: activityName,
+                content_url: finalUrl,
                 week_name: sectionName
               });
-              fileCount++;
-              console.log(`   ✅ Đã tải & lưu trọn gói bài giảng thành công: "${resolvedName}"`);
+              console.log(`   ✅ Đã lưu bài giảng điện tử SCORM: "${activityName}"`);
             } catch (err) {
-              console.log(`   ⚠️ Lỗi tải SCORM ZIP: ${err.message}`);
+              console.log(`   ⚠️ Lỗi crawl SCORM: ${err.message}`);
             }
           }
 
