@@ -734,27 +734,31 @@ async function main() {
                 let scormId = "";
                 let scoid = "";
 
-                // Quét hàm init của SCORM player để lấy chính xác các ID này
-                // Ví dụ tham số cuối cùng của M.scorm_api.init chứa scorm_id và scoid thực tế
-                const apiInitMatch = playerRes.data.match(/M\.scorm_api\.init\([\s\S]*?,\s*"(\d+)"\s*,\s*"[^"]*"\s*,\s*"normal"\s*,\s*(\d+)/i)
-                  || playerRes.data.match(/M\.scorm_api\.init\([\s\S]*?,\s*"(\d+)"\s*,\s*"\d+"\s*,\s*"normal"\s*,\s*(\d+)/i)
-                  || playerRes.data.match(/M\.scorm_api\.init\([\s\S]*?,\s*"(\d+)"/i);
+                // Chỉ quét thuộc tính "url" nằm trong cấu hình JSON của player để lấy chính xác cặp a và scoid
+                // Định dạng: "url":"a=367&scoid=4514..." hoặc "url":"a=367&amp;scoid=4514..."
+                const urlParamMatch = playerRes.data.match(/"url"\s*:\s*"[^"]*?[?&]a=(\d+)&amp;scoid=(\d+)/i)
+                  || playerRes.data.match(/"url"\s*:\s*"[^"]*?[?&]a=(\d+)&scoid=(\d+)/i);
 
-                if (apiInitMatch) {
-                  scoid = apiInitMatch[1];
-                  // Nếu match đầu tiên thành công, group 2 là scorm_id
-                  scormId = apiInitMatch[2] || "";
+                if (urlParamMatch) {
+                  scormId = urlParamMatch[1];
+                  scoid = urlParamMatch[2];
                 }
 
-                // Nếu không có scormId từ init, thử tìm biến scorm_id (a) trong player.php URL hoặc các script
-                if (!scormId) {
-                  const aMatch = playerRes.data.match(/[?&]a=(\d+)/) || scormRes.data.match(/[?&]a=(\d+)/);
-                  if (aMatch) scormId = aMatch[1];
+                // Fallback nếu JSON config không hoạt động: Quét trực tiếp các tham số trong M.scorm_api.init
+                if (!scormId || !scoid) {
+                  const apiInitMatch = playerRes.data.match(/M\.scorm_api\.init\([\s\S]*?,\s*"(\d+)"\s*,\s*"1"\s*,\s*"normal"\s*,\s*(\d+)/i)
+                    || playerRes.data.match(/M\.scorm_api\.init\([\s\S]*?,\s*"(\d+)"\s*,\s*"\d+"\s*,\s*"normal"\s*,\s*(\d+)/i)
+                    || playerRes.data.match(/M\.scorm_api\.init\([\s\S]*?,\s*"\d+"\s*,\s*"(\d+)"\s*,\s*"normal"\s*,\s*(\d+)/i);
+                  if (apiInitMatch) {
+                    scoid = apiInitMatch[1];
+                    scormId = apiInitMatch[2];
+                  }
                 }
 
                 if (scormId && scoid) {
                   // 3. Tải loadSCO.php với scorm_id thực tế để lấy link slide thật
                   const loadScoUrl = `https://learning.ehou.edu.vn/mod/scorm/loadSCO.php?a=${scormId}&scoid=${scoid}`;
+                  console.log(`   ➡️ [SSO DEBUG] GET -> ${loadScoUrl}`);
                   const loadScoRes = await getHtmlWithSso(loadScoUrl);
                   
                   // 4. Trích xuất pluginfile url từ HTML hoặc noscript refresh
