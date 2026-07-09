@@ -435,18 +435,29 @@ async function main() {
                 try {
                   const reportRes = await getHtmlWithSso(reportUrl);
                   const $reportPage = cheerio.load(reportRes.data);
-                  // Điểm nằm trong thẻ <a> bên trong <td class="cell ... bold">
-                  // ví dụ: <td class="cell c7 bold"><a href="...review.php?attempt=...">90,00</a></td>
-                  $reportPage("td.bold a[href*='review.php?attempt=']").each((i, el) => {
-                    const attemptHref = $reportPage(el).attr("href");
-                    // Điểm hiển thị dạng "90,00" (locale tiếng Việt dùng dấu phẩy)
-                    const gradeText = $reportPage(el).text().trim().replace(",", ".");
-                    const grade = parseFloat(gradeText);
-                    if (!isNaN(grade) && grade > 80) {
-                      attemptLinks.push(attemptHref);
-                    }
-                  });
-                  console.log(`   📊 Tìm thấy ${attemptLinks.length} lượt bài làm đạt >80 điểm.`);
+
+                  // Nếu trang chỉ hiển thị biểu đồ phân phối điểm (không có bảng bài làm cá nhân)
+                  // thì bỏ qua, không thể lấy câu hỏi
+                  const hasGradeChartOnly = $reportPage("h3").filter((i, el) =>
+                    $reportPage(el).text().includes("Overall number of students achieving grade ranges")
+                  ).length > 0;
+
+                  if (hasGradeChartOnly) {
+                    console.log(`   ℹ️ Trang báo cáo chỉ hiển thị biểu đồ điểm, không có bài làm cá nhân. Bỏ qua.`);
+                  } else {
+                    // Điểm nằm trong thẻ <a> bên trong <td class="cell ... bold">
+                    // ví dụ: <td class="cell c7 bold"><a href="...review.php?attempt=...">90,00</a></td>
+                    $reportPage("td.bold a[href*='review.php?attempt=']").each((i, el) => {
+                      const attemptHref = $reportPage(el).attr("href");
+                      // Điểm hiển thị dạng "90,00" (locale tiếng Việt dùng dấu phẩy)
+                      const gradeText = $reportPage(el).text().trim().replace(",", ".");
+                      const grade = parseFloat(gradeText);
+                      if (!isNaN(grade) && grade > 80) {
+                        attemptLinks.push(attemptHref);
+                      }
+                    });
+                    console.log(`   📊 Tìm thấy ${attemptLinks.length} lượt bài làm đạt >80 điểm.`);
+                  }
                 } catch (reportErr) {
                   console.log(`   ℹ️ Không truy cập được báo cáo bài làm (Có thể tài khoản là sinh viên thường).`);
                 }
