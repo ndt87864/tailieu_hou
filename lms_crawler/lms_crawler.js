@@ -226,6 +226,28 @@ async function main() {
     }
     console.log("💾 Đã lưu thông tin môn học vào DB.");
 
+    const isResourceExists = async (title, type, weekName) => {
+      const { data } = await supabaseAdmin
+        .from("crawler_resources")
+        .select("id")
+        .eq("course_id", dbCourse.id)
+        .eq("title", title)
+        .eq("type", type)
+        .eq("week_name", weekName)
+        .limit(1);
+      return data && data.length > 0;
+    };
+
+    const isQuestionExists = async (questionText) => {
+      const { data } = await supabaseAdmin
+        .from("crawler_questions")
+        .select("id")
+        .eq("course_id", dbCourse.id)
+        .eq("question", questionText)
+        .limit(1);
+      return data && data.length > 0;
+    };
+
     console.log(`\n🌐 Đang tải cấu trúc môn học từ: ${courseLink}...`);
     const courseRes = await getHtmlWithSso(courseLink);
     const $course = cheerio.load(courseRes.data);
@@ -285,6 +307,11 @@ async function main() {
               continue;
             }
             try {
+              if (await isResourceExists(activityName, "file", sectionName)) {
+                console.log(`   ⏭️ File "${activityName}" đã tồn tại trong DB. Bỏ qua.`);
+                fileCount++;
+                continue;
+              }
               console.log(`   📎 Đang tải file tài liệu: "${activityName}"...`);
               const filePublicUrl = await uploadFileToStorage(href, "files", getCookieHeader);
               await supabaseAdmin.from("crawler_resources").insert({
@@ -306,6 +333,11 @@ async function main() {
               continue;
             }
             try {
+              if (await isResourceExists(activityName, "youtube", sectionName)) {
+                console.log(`   ⏭️ Video "${activityName}" đã tồn tại trong DB. Bỏ qua.`);
+                youtubeCount++;
+                continue;
+              }
               console.log(`   🎥 Đang trích xuất link bài giảng: "${activityName}"...`);
               const urlRes = await getHtmlWithSso(href);
               const $urlPage = cheerio.load(urlRes.data);
@@ -327,6 +359,14 @@ async function main() {
 
           else if (href.includes("mod/page/view.php")) {
             try {
+              const isYtExists = await isResourceExists(activityName, "youtube", sectionName);
+              const isAnnExists = await isResourceExists(activityName, "announcement", sectionName);
+              if (isYtExists || isAnnExists) {
+                console.log(`   ⏭️ Trang Page "${activityName}" đã tồn tại trong DB. Bỏ qua.`);
+                if (isYtExists) youtubeCount++;
+                continue;
+              }
+
               console.log(`   📄 Phát hiện trang nội dung/bài giảng: "${activityName}"...`);
               const pageRes = await getHtmlWithSso(href);
               const $page = cheerio.load(pageRes.data);
@@ -423,6 +463,11 @@ async function main() {
                     const { cleanHtml: qTextCleanHtml, uploadedUrls: qImgs } = await processHtmlImagesAndUpload(qTextHtml, getCookieHeader);
                     const $tempQ = cheerio.load(qTextCleanHtml);
                     const qTextClean = cleanQuestionText($tempQ, $tempQ("body"));
+
+                    if (await isQuestionExists(qTextClean)) {
+                      console.log(`      ⏭️ Câu hỏi [${q + 1}] đã tồn tại trong DB. Bỏ qua.`);
+                      continue;
+                    }
 
                     const choices = [];
                     const choiceImgsList = [];
