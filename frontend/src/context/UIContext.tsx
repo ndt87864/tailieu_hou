@@ -30,9 +30,11 @@ interface UIContextType {
   themeMode: ThemeMode;
   primaryColor: PrimaryColor;
   viewMode: ViewMode;
+  lessonMode: boolean;
   setThemeMode: (mode: ThemeMode) => Promise<void>;
   setPrimaryColor: (color: PrimaryColor) => Promise<void>;
   setViewMode: (mode: ViewMode) => void;
+  setLessonMode: (mode: boolean) => void;
   loadingSettings: boolean;
 }
 
@@ -55,6 +57,10 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       return "responsive";
     }
     return (localStorage.getItem("ui-view-mode") as ViewMode) || "responsive";
+  });
+
+  const [lessonMode, setLessonModeState] = useState<boolean>(() => {
+    return localStorage.getItem("ui-lesson-mode") === "true";
   });
 
   const [loadingSettings, setLoadingSettings] = useState<boolean>(true);
@@ -191,8 +197,13 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     }
   }, []);
 
+  const setLessonMode = useCallback((mode: boolean) => {
+    setLessonModeState(mode);
+    localStorage.setItem("ui-lesson-mode", String(mode));
+  }, []);
+
   return (
-    <UIContext.Provider value={{ themeMode, primaryColor, viewMode, setThemeMode, setPrimaryColor, setViewMode, loadingSettings }}>
+    <UIContext.Provider value={{ themeMode, primaryColor, viewMode, lessonMode, setThemeMode, setPrimaryColor, setViewMode, setLessonMode, loadingSettings }}>
       {children}
     </UIContext.Provider>
   );

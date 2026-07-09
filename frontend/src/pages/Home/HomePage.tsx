@@ -4,8 +4,11 @@ import apiClient from "../../services/client.js";
 import { cachedGet } from "../../utils/apiCache.js";
 import { SkeletonCard } from "../../components/common/LoadingSpinner.js";
 import { useAuth } from "../../context/AuthContext.js";
+import { useUI } from "../../context/UIContext.js";
+import LessonHomePage from "./LessonHomePage.js";
 import * as Icons from "lucide-react";
 import "../../css/home.css";
+import "../../css/lesson.css";
 
 const { BookOpen, Search, FileText, ChevronRight, Filter, X, Crown } = Icons;
 
@@ -31,7 +34,12 @@ interface GroupedCategory {
 }
 
 const HomePage: React.FC = () => {
+  const { lessonMode } = useUI();
   const { loading: authLoading } = useAuth();
+
+  if (lessonMode) {
+    return <LessonHomePage />;
+  }
   const [groupedCategories, setGroupedCategories] = useState<GroupedCategory[]>([]);
   const [allDocuments, setAllDocuments] = useState<Document[]>([]);
   const [allDocumentsLoaded, setAllDocumentsLoaded] = useState(false);

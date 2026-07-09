@@ -3,12 +3,15 @@ import { useParams, Link } from "react-router-dom";
 import apiClient from "../../services/client.js";
 import LoadingSpinner from "../../components/common/LoadingSpinner.js";
 import { useAuth } from "../../context/AuthContext.js";
+import { useUI } from "../../context/UIContext.js";
+import LessonDocumentPage from "./LessonDocumentPage.js";
 import * as Icons from "lucide-react";
 import { Header } from "../../components/layout/Layout.js";
 import * as XLSX from "xlsx";
 import { toast } from "react-toastify";
 import { cleanQuestionText, renderTextWithImages } from "../../utils/questionHelper.js";
 import "../../css/document.css";
+import "../../css/lesson.css";
 
 const { Lock, Search, Crown } = Icons;
 
@@ -39,8 +42,13 @@ interface Document {
 }
 
 const DocumentPage: React.FC = () => {
+  const { lessonMode } = useUI();
   const { id } = useParams<{ id: string }>();
   const { role, profile, user, loading: authLoading } = useAuth();
+
+  if (lessonMode) {
+    return <LessonDocumentPage />;
+  }
   const [doc, setDoc] = useState<Document | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [limitApplied, setLimitApplied] = useState<boolean>(false);

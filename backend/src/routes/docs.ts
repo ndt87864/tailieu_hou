@@ -50,6 +50,31 @@ docsRouter.get("/:id", async (c) => {
   return c.json({ document });
 });
 
+docsRouter.get("/:id/lessons", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const userRole = (c.get("role") as UserRole | undefined);
+    
+    const document = await docService.getDocumentById(id);
+    if (!document) {
+      return c.json({ error: "Document not found" }, 404);
+    }
+
+    const isPremiumUser = ["plus", "pro", "ultra", "management", "admin"].includes(userRole ?? "");
+    if (document.premium && !isPremiumUser) {
+      return c.json({ error: "Tài liệu này chỉ dành cho tài khoản Premium", isPremiumLocked: true }, 403);
+    }
+
+    const crawlerData = await docService.getCrawlerDataForDoc(id);
+    return c.json({
+      document,
+      ...crawlerData
+    });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 docsRouter.post("/", requireRole("management"), async (c) => {
   try {
     const body = await c.req.json();

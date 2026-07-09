@@ -1,5 +1,5 @@
 import React from "react";
-import { X, Sun, Moon, Laptop, Check, Monitor, Tablet, Smartphone, Maximize } from "lucide-react";
+import { X, Sun, Moon, Laptop, Check, Monitor, Tablet, Smartphone, Maximize, FileText, BookOpen } from "lucide-react";
 import { useUI, type ThemeMode, type PrimaryColor, type ViewMode } from "../../context/UIContext.js";
 import "../../css/modal.css";
 
@@ -10,7 +10,7 @@ interface UISettingsModalProps {
 }
 
 const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) => {
-  const { themeMode, primaryColor, viewMode, setThemeMode, setPrimaryColor, setViewMode } = useUI();
+  const { themeMode, primaryColor, viewMode, lessonMode, setThemeMode, setPrimaryColor, setViewMode, setLessonMode } = useUI();
 
   if (!isOpen) return null;
 
@@ -113,6 +113,33 @@ const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) =>
                 </button>
               );
             })}
+          </div>
+        </div>
+
+        {/* Chế độ học tập */}
+        <div className="mb-5">
+          <label className="ui-settings-modal-label">
+            Chế độ học tập
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setLessonMode(false)}
+              className={`flex flex-col items-center gap-1.5 p-3 rounded-xl text-xs font-medium transition-all duration-200 ${
+                !lessonMode ? "ui-settings-btn-option-active" : "ui-settings-btn-option"
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              <span>Luyện câu hỏi</span>
+            </button>
+            <button
+              onClick={() => setLessonMode(true)}
+              className={`flex flex-col items-center gap-1.5 p-3 rounded-xl text-xs font-medium transition-all duration-200 ${
+                lessonMode ? "ui-settings-btn-option-active" : "ui-settings-btn-option"
+              }`}
+            >
+              <BookOpen className="w-4 h-4" />
+              <span>Bài học & Tài liệu</span>
+            </button>
           </div>
         </div>
 

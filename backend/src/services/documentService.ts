@@ -16,7 +16,7 @@ export const listDocuments = async (
   const fetcher = async () => {
     let query = supabaseAdmin
       .from("documents")
-      .select("*, category:categories(title, logo, stt)")
+      .select("*, category:categories(title, logo, stt), crawler_courses(id)")
       .eq("active", true)
       .order("created_at", { ascending: true });
 
@@ -97,7 +97,7 @@ async function _fetchGroupedDocuments(isPremiumUser = false, preview = true): Pr
   // 2. Lấy tất cả active documents
   let docQuery = supabaseAdmin
     .from("documents")
-    .select("*, category:categories(title, logo)")
+    .select("*, category:categories(title, logo), crawler_courses(id)")
     .eq("active", true)
     .order("created_at", { ascending: true });
 
@@ -218,3 +218,39 @@ export const deleteDocument = async (id: string): Promise<boolean> => {
   }
   return !error;
 };
+
+export const getCrawlerDataForDoc = async (documentId: string) => {
+  const { data: course, error: courseError } = await supabaseAdmin
+    .from("crawler_courses")
+    .select("*")
+    .eq("document_id", documentId)
+    .maybeSingle();
+
+  if (courseError) {
+    console.error("Error fetching crawler course:", courseError.message);
+    return { course: null, resources: [], questions: [] };
+  }
+
+  if (!course) {
+    return { course: null, resources: [], questions: [] };
+  }
+
+  const { data: resources, error: resError } = await supabaseAdmin
+    .from("crawler_resources")
+    .select("*")
+    .eq("course_id", course.id)
+    .order("created_at", { ascending: true });
+
+  const { data: questions, error: qError } = await supabaseAdmin
+    .from("crawler_questions")
+    .select("*")
+    .eq("course_id", course.id)
+    .order("created_at", { ascending: true });
+
+  return {
+    course,
+    resources: resources || [],
+    questions: questions || [],
+  };
+};
+

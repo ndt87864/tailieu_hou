@@ -1,15 +1,17 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import apiClient from "../../services/client.js";
 import * as Icons from "lucide-react";
+import { useUI } from "../../context/UIContext.js";
 
-const { BookOpen, ChevronDown, ChevronRight, ChevronLeft, X, Crown } = Icons;
+const { BookOpen, ChevronDown, ChevronRight, ChevronLeft, X, Crown, Search } = Icons;
 
 interface Document {
   id: string;
   title: string;
   description: string;
   premium?: boolean;
+  crawler_courses?: any;
   category_id?: string | null;
   category?: {
     title: string;
@@ -35,8 +37,52 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
   currentDocId,
   isContactPage: _isContactPage = false,
 }) => {
+  const { lessonMode } = useUI();
   const [sidebarCategories, setSidebarCategories] = useState<SidebarCategory[]>([]);
+
+  const hasCrawlerData = (doc: Document) => {
+    if (!doc.crawler_courses) return false;
+    if (Array.isArray(doc.crawler_courses)) return doc.crawler_courses.length > 0;
+    return true;
+  };
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const displayedCategories = useMemo(() => {
+    let cats = sidebarCategories;
+    
+    // Lọc theo mode
+    if (lessonMode) {
+      cats = cats.map((cat) => ({
+        ...cat,
+        documents: cat.documents.filter(hasCrawlerData),
+      }));
+    }
+
+    // Lọc theo tìm kiếm
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      cats = cats.map(cat => ({
+        ...cat,
+        documents: cat.documents.filter(d => d.title.toLowerCase().includes(q))
+      }));
+    }
+
+    return cats.filter((cat) => cat.documents.length > 0);
+  }, [sidebarCategories, lessonMode, searchQuery]);
+
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  
+  // Tự động mở category khi có tìm kiếm
+  useEffect(() => {
+    if (searchQuery.trim() && displayedCategories.length > 0) {
+      const newExpanded: Record<string, boolean> = {};
+      displayedCategories.forEach(cat => {
+        newExpanded[cat.id] = true;
+      });
+      setExpandedCategories(prev => ({ ...prev, ...newExpanded }));
+    }
+  }, [searchQuery, displayedCategories]);
+
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeTabletPopover, setActiveTabletPopover] = useState<string | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -65,15 +111,15 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
   }, []);
 
   useEffect(() => {
-    if (currentDocId && sidebarCategories.length > 0) {
-      const activeCat = sidebarCategories.find((cat) =>
+    if (currentDocId && displayedCategories.length > 0) {
+      const activeCat = displayedCategories.find((cat) =>
         cat.documents.some((d) => d.id === currentDocId)
       );
       if (activeCat) {
         setExpandedCategories((prev) => ({ ...prev, [activeCat.id]: true }));
       }
     }
-  }, [currentDocId, sidebarCategories]);
+  }, [currentDocId, displayedCategories]);
 
   useEffect(() => {
     const handleOutsideClick = () => {
@@ -131,8 +177,30 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
                 <X className="w-6 h-6" />
               </button>
             </div>
+            
+            <div className="px-4 py-3 shrink-0 border-b doc-border-brand">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50" />
+                <input
+                  type="text"
+                  placeholder="Tìm môn học..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-8 py-1.5 rounded-lg bg-[rgba(255,255,255,0.08)] border border-white/10 text-white text-sm focus:outline-none focus:border-white/30 placeholder:text-white/50 transition-colors"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+
             <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
-              {sidebarCategories.map((cat) => {
+              {displayedCategories.map((cat) => {
                 const isExpanded = !!expandedCategories[cat.id];
                 return (
                   <div key={cat.id} className="space-y-1">
@@ -203,7 +271,7 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
           <ChevronRight className="w-5 h-5" />
         </button>
         <div className="flex-1 w-full space-y-4 px-2 flex flex-col items-center">
-          {sidebarCategories.map((cat) => {
+          {displayedCategories.map((cat) => {
             const catInfo = getCategoryInfo(cat.id, cat.title, cat.logo);
             const isPopoverOpen = activeTabletPopover === cat.id;
             return (
@@ -288,11 +356,30 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
               <ChevronLeft className="w-4 h-4" />
             </button>
           </div>
+
+          <div className="relative mb-2">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50" />
+            <input
+              type="text"
+              placeholder="Tìm môn học..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-8 py-1.5 rounded-lg bg-[rgba(255,255,255,0.08)] border border-white/10 text-white text-sm focus:outline-none focus:border-white/30 placeholder:text-white/50 transition-colors"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 pt-2 pb-24 space-y-4">
           <div className="space-y-2">
-            {sidebarCategories.map((cat) => {
+            {displayedCategories.map((cat) => {
               const isExpanded = !!expandedCategories[cat.id];
               return (
                 <div key={cat.id} className="space-y-1">

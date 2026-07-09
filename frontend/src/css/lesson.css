@@ -1,0 +1,594 @@
+/* =============================================
+   CSS CHẾ ĐỘ XEM BÀI HỌC (LESSON MODE)
+   Tối ưu bố cục, hiển thị hợp lý hơn
+   ============================================= */
+
+/* Home Page */
+.lesson-home-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.lesson-title-section { margin-bottom: 2rem; }
+
+.lesson-title {
+  font-size: 1.875rem;
+  font-weight: 800;
+  color: var(--fg);
+  margin-bottom: 0.5rem;
+}
+
+.lesson-subtitle {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+/* Group Grid & Cards */
+.lesson-grid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .lesson-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1024px) {
+  .lesson-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+.lesson-card {
+  background-color: var(--bg-card, #ffffff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.dark .lesson-card {
+  background-color: var(--bg-2, #1f2937);
+  border-color: var(--border, #374151);
+}
+
+.lesson-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.02);
+  border-color: var(--brand-500);
+}
+
+.lesson-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.lesson-card-icon-wrapper {
+  width: 2.75rem; height: 2.75rem;
+  border-radius: 0.75rem;
+  display: flex; align-items: center; justify-content: center;
+  background-color: rgba(var(--brand-rgb), 0.1);
+  color: var(--brand-600);
+}
+
+.lesson-card-title {
+  font-size: 1.125rem; font-weight: 700;
+  color: var(--fg); margin-bottom: 0.5rem; line-height: 1.4;
+}
+
+.lesson-card-desc {
+  font-size: 0.875rem; color: var(--muted);
+  flex-grow: 1; margin-bottom: 1.25rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+.lesson-card-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: 1rem; border-top: 1px dashed var(--border);
+}
+
+.lesson-badge {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  padding: 0.25rem 0.625rem; border-radius: 9999px;
+  font-size: 0.75rem; font-weight: 600;
+}
+
+.lesson-badge-lms { background-color: rgba(16,185,129,0.1); color: #10b981; }
+.lesson-badge-empty { background-color: var(--bg-3); color: var(--muted); }
+
+.lesson-card-link {
+  font-size: 0.875rem; font-weight: 600;
+  color: var(--brand-600);
+  display: flex; align-items: center; gap: 0.25rem;
+}
+.lesson-card-link:hover { color: var(--brand-700); }
+
+/* =============================================
+   DETAIL PAGE LAYOUT
+   ============================================= */
+
+.lesson-detail-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 1rem 1.25rem;
+  flex: 1;
+  width: 100%;
+}
+
+/* Banner (legacy, kept for backward compat) */
+.lesson-header-banner {
+  background: linear-gradient(135deg, var(--brand-600) 0%, var(--brand-700) 100%);
+  border-radius: 1rem; padding: 1.5rem 2rem;
+  color: #ffffff !important; margin-bottom: 2rem;
+  position: relative; overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.lesson-banner-content { position: relative; z-index: 10; }
+.lesson-banner-title { color: #ffffff !important; font-size: 1.75rem; font-weight: 800; margin-bottom: 0.5rem; }
+.lesson-banner-subtitle { color: rgba(255,255,255,0.85) !important; font-size: 0.875rem; }
+
+/* =============================================
+   LAYOUT 1 CỘT: WEEK CHIPS + NỘI DUNG
+   ============================================= */
+
+.lesson-layout-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+/* =============================================
+   WEEK CHIPS BAR — CUỘN NGANG
+   ============================================= */
+
+.lesson-week-chips-bar {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding: 0.25rem 0.25rem 0.75rem 0.25rem;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.lesson-week-chips-bar::-webkit-scrollbar { display: none; }
+
+.lesson-week-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.625rem 1.25rem;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--fg-2);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+  line-height: 1.5;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.lesson-week-chip:hover {
+  color: var(--brand-600);
+  border-color: rgba(var(--brand-rgb), 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+}
+
+.lesson-week-chip-active {
+  background: var(--brand-50);
+  color: var(--brand-700);
+  border-color: var(--brand-300);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(var(--brand-rgb), 0.1);
+}
+
+.lesson-week-chip-active:hover {
+  background: var(--brand-100);
+  border-color: var(--brand-400);
+  color: var(--brand-800);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px -1px rgba(var(--brand-rgb), 0.1), 0 2px 4px -1px rgba(var(--brand-rgb), 0.06);
+}
+
+/* =============================================
+   MAIN CONTENT CARD
+   ============================================= */
+
+.lesson-week-card {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.875rem;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Header tuần: title + tab switcher */
+.lesson-week-header {
+  padding: 0.875rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-2);
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+@media (min-width: 640px) {
+  .lesson-week-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.lesson-week-title {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--fg);
+  line-height: 1.5;
+  flex: 1;
+  min-width: 0;
+}
+
+/* =============================================
+   TAB SWITCHER
+   ============================================= */
+
+.lesson-tab-switcher {
+  display: inline-flex;
+  background-color: var(--bg-3);
+  padding: 3px;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.lesson-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--fg-2);
+  border-radius: 0.375rem;
+  transition: all 0.18s;
+  background: transparent;
+  border: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.lesson-tab-btn:hover {
+  color: var(--fg);
+  background-color: rgba(var(--brand-rgb), 0.06);
+}
+
+.lesson-tab-btn-active {
+  background-color: var(--brand-600) !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(var(--brand-rgb), 0.4);
+}
+
+.dark .lesson-tab-btn-active {
+  background-color: var(--brand-600) !important;
+  color: #ffffff !important;
+}
+
+/* =============================================
+   NỘI DUNG TAB (padding đồng đều)
+   ============================================= */
+
+.lesson-tab-content {
+  padding: 1.25rem;
+}
+
+.lesson-material-section {
+  margin-bottom: 1.25rem;
+}
+.lesson-material-section:last-child { margin-bottom: 0; }
+
+.lesson-section-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.lesson-material-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.lesson-material-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.625rem 0.875rem;
+  border-radius: 0.5rem;
+  background-color: var(--bg-2);
+  border: 1px solid var(--border);
+  transition: all 0.15s;
+  gap: 0.75rem;
+}
+
+.lesson-material-item:hover {
+  border-color: var(--brand-300);
+  background-color: var(--bg-3);
+}
+
+.lesson-material-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.lesson-material-icon { color: var(--brand-600); flex-shrink: 0; }
+
+.lesson-material-name {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lesson-material-link {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--brand-700);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: rgba(var(--brand-rgb), 0.07);
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  border: none;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.lesson-material-link:hover {
+  background: var(--brand-600);
+  color: #ffffff;
+}
+
+/* Video Grid */
+.lesson-video-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .lesson-video-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.lesson-video-card {
+  border-radius: 0.625rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+}
+
+.lesson-video-iframe-wrapper {
+  position: relative;
+  padding-bottom: 56.25%;
+  height: 0;
+}
+
+.lesson-video-iframe-wrapper iframe {
+  position: absolute; top: 0; left: 0;
+  width: 100%; height: 100%; border: 0;
+}
+
+.lesson-video-title {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--fg);
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Empty State */
+.lesson-empty-state {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+}
+.lesson-empty-icon { margin: 0 auto 1rem; color: var(--muted); width: 3.5rem; height: 3.5rem; }
+.lesson-empty-title { font-size: 1.125rem; font-weight: 750; color: var(--fg); margin-bottom: 0.25rem; }
+.lesson-empty-desc { font-size: 0.875rem; color: var(--muted); margin-bottom: 1.25rem; }
+
+.lesson-btn-primary {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  background-color: var(--brand-600); color: white;
+  padding: 0.625rem 1.25rem; border-radius: 0.75rem;
+  font-size: 0.875rem; font-weight: 600;
+  transition: background-color 0.2s;
+}
+.lesson-btn-primary:hover { background-color: var(--brand-700); }
+
+/* =============================================
+   QUIZ SECTION
+   ============================================= */
+
+/* Toolbar: search + export */
+.lesson-quiz-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.lesson-quiz-search-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.lesson-quiz-search {
+  width: 100%;
+  height: 1.875rem;
+  padding-left: 2rem;
+  padding-right: 2rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  background: var(--bg-2);
+  color: var(--fg);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.lesson-quiz-search:focus { border-color: var(--brand-500); }
+.lesson-quiz-search::placeholder { color: var(--muted); }
+
+.lesson-quiz-search-icon {
+  position: absolute; left: 0.5rem; top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted); pointer-events: none;
+}
+
+.lesson-quiz-clear-btn {
+  position: absolute; right: 0.4rem; top: 50%;
+  transform: translateY(-50%);
+  padding: 2px; border-radius: 9999px;
+  color: var(--muted); transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center;
+}
+.lesson-quiz-clear-btn:hover { background: var(--bg-3); color: var(--fg); }
+
+/* Scroll container */
+.lesson-quiz-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  max-height: calc(100vh - 15rem);
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.lesson-quiz-scroll::-webkit-scrollbar { width: 4px; }
+.lesson-quiz-scroll::-webkit-scrollbar-track { background: transparent; }
+.lesson-quiz-scroll::-webkit-scrollbar-thumb { background-color: var(--border); border-radius: 9999px; }
+
+/* Câu hỏi */
+.lesson-quiz-question-box {
+  background-color: var(--bg-2);
+  border-radius: 0.5rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--border);
+}
+
+.lesson-quiz-q-number {
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--brand-600);
+  margin-bottom: 0.2rem;
+}
+
+.lesson-quiz-question-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--fg);
+  margin-bottom: 0.5rem;
+  line-height: 1.55;
+}
+
+.lesson-quiz-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.lesson-quiz-choice-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.4rem 0.625rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--border);
+  cursor: default;
+  font-size: 0.8125rem;
+  color: var(--fg-2);
+  width: 100%;
+  background: var(--surface);
+  line-height: 1.45;
+  user-select: none;
+  pointer-events: none;
+}
+
+.lesson-quiz-choice-correct {
+  border-color: #10b981;
+  background-color: rgba(16,185,129,0.08);
+  color: var(--fg);
+}
+.lesson-quiz-choice-correct span:first-child { color: #059669; font-weight: 700; }
+
+.dark .lesson-quiz-choice-correct {
+  background-color: rgba(16,185,129,0.13);
+  border-color: rgba(16,185,129,0.35);
+}
+
+.lesson-quiz-answer-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #059669;
+  background: rgba(16,185,129,0.09);
+  border: 1px solid rgba(16,185,129,0.2);
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.375rem;
+}
+.dark .lesson-quiz-answer-badge {
+  color: #34d399;
+  background: rgba(16,185,129,0.13);
+  border-color: rgba(16,185,129,0.3);
+}
+
+/* legacy quiz states */
+.lesson-quiz-choice-selected {
+  border-color: var(--brand-500);
+  background-color: rgba(var(--brand-rgb), 0.05);
+}
+.lesson-quiz-choice-wrong {
+  border-color: #ef4444;
+  background-color: rgba(239,68,68,0.08);
+  color: #ef4444;
+}
+.dark .lesson-quiz-choice-wrong {
+  color: #f87171;
+  background-color: rgba(239,68,68,0.15);
+}
