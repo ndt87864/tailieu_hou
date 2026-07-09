@@ -435,9 +435,30 @@ async function main() {
                 try {
                   const reportRes = await getHtmlWithSso(reportUrl);
                   const $reportPage = cheerio.load(reportRes.data);
-                  $reportPage("a[href*='mod/quiz/review.php?attempt=']").each((i, el) => {
-                    attemptLinks.push($reportPage(el).attr("href"));
+                  // Duyệt theo từng hàng trong bảng báo cáo để lấy điểm tương ứng
+                  $reportPage("table tbody tr").each((i, row) => {
+                    const link = $reportPage(row).find("a[href*='mod/quiz/review.php?attempt=']").first();
+                    if (!link.length) return;
+                    const attemptHref = link.attr("href");
+
+                    // Lấy điểm từ ô "Grade/10" (hoặc tương tự) trong hàng đó
+                    // Moodle thường hiển thị điểm ở cột gần cuối, dạng "8.50/10" hoặc "85.00/100"
+                    const gradeCell = $reportPage(row).find("td").last();
+                    const gradeText = gradeCell.text().trim();
+                    // Tìm pattern số/tổng (ví dụ: "8.50/10", "27.00/30", "85.00/100")
+                    const gradeMatch = gradeText.match(/([\d.]+)\s*\/\s*([\d.]+)/);
+                    if (gradeMatch) {
+                      const earned = parseFloat(gradeMatch[1]);
+                      const total = parseFloat(gradeMatch[2]);
+                      const percent = total > 0 ? (earned / total) * 100 : 0;
+                      if (percent > 80) {
+                        attemptLinks.push(attemptHref);
+                      }
+                    } else {
+                      // Không đọc được điểm, bỏ qua
+                    }
                   });
+                  console.log(`   📊 Tìm thấy ${attemptLinks.length} lượt bài làm đạt >80 điểm.`);
                 } catch (reportErr) {
                   console.log(`   ℹ️ Không truy cập được báo cáo bài làm (Có thể tài khoản là sinh viên thường).`);
                 }
@@ -447,6 +468,7 @@ async function main() {
                 const attemptLink = $quizPage("a[href*='mod/quiz/review.php?attempt=']").first().attr("href");
                 if (attemptLink) {
                   attemptLinks.push(attemptLink);
+                  console.log(`   ℹ️ Fallback: lấy lượt làm bài duy nhất trong trang quiz.`);
                 }
               }
 
@@ -454,7 +476,12 @@ async function main() {
               if (isTestMode && uniqueAttempts.length > 0) {
                 uniqueAttempts = [uniqueAttempts[0]];
               }
-              console.log(`   📊 Tìm thấy ${uniqueAttempts.length} lượt bài làm để crawl câu hỏi.`);
+              if (uniqueAttempts.length === 0) {
+                console.log(`   ℹ️ Không có lượt bài làm nào đạt >80 điểm. Bỏ qua bài trắc nghiệm này.`);
+                quizCount++;
+                continue;
+              }
+              console.log(`   🔎 Sẽ crawl ${uniqueAttempts.length} lượt bài làm đạt >80 điểm.`);
 
               for (let attIdx = 0; attIdx < uniqueAttempts.length; attIdx++) {
                 const attemptUrl = uniqueAttempts[attIdx];
