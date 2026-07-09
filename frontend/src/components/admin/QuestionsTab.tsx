@@ -17,6 +17,8 @@ import { useConfirm } from "../../context/ConfirmContext.js";
 import QuestionCard from "./QuestionCard.js";
 import { useAdminCategories } from "../../hooks/useAdminCategories.js";
 import { exportQuestionsToWord } from "../../utils/wordExport.js";
+import * as XLSX from "xlsx";
+
 
 interface Question {
   id: string;
@@ -259,15 +261,17 @@ const QuestionsTab: React.FC = () => {
     setShowFilterModal(false);
   };
 
-  const filtered = questions.filter((q) => {
-    const docTitle = documents.find((d) => d.id === q.document_id)?.title || "";
-    const term = search.toLowerCase();
-    return (
-      q.question.toLowerCase().includes(term) ||
-      (q.answer || "").toLowerCase().includes(term) ||
-      docTitle.toLowerCase().includes(term)
-    );
-  });
+  const filtered = questions
+    .filter((q) => {
+      const docTitle = documents.find((d) => d.id === q.document_id)?.title || "";
+      const term = search.toLowerCase();
+      return (
+        q.question.toLowerCase().includes(term) ||
+        (q.answer || "").toLowerCase().includes(term) ||
+        docTitle.toLowerCase().includes(term)
+      );
+    })
+    .sort((a, b) => a.order_index - b.order_index);
 
   const toggleSelectQuestion = (id: string) => {
     setSelectedQuestionIds((prev) =>
@@ -302,36 +306,46 @@ const QuestionsTab: React.FC = () => {
     }
 
     if (type === "excel") {
-      // Create CSV content with UTF-8 BOM to prevent Vietnamese font corruption in Excel
-      const headers = ["STT", "Câu hỏi", "Lựa chọn A", "Lựa chọn B", "Lựa chọn C", "Lựa chọn D", "Đáp án đúng", "Tài liệu"];
-      const rows = filtered.map((q, idx) => {
-        const docTitle = documents.find((d) => d.id === q.document_id)?.title || "";
-        const choices = q.choices || [];
-        return [
-          idx + 1,
-          q.question,
-          choices[0] || "",
-          choices[1] || "",
-          choices[2] || "",
-          choices[3] || "",
-          q.answer,
-          docTitle
+      try {
+        const headers = ["STT", "Câu hỏi", "Lựa chọn A", "Lựa chọn B", "Lựa chọn C", "Lựa chọn D", "Đáp án đúng", "Tài liệu"];
+        const rows = filtered.map((q, idx) => {
+          const docTitle = documents.find((d) => d.id === q.document_id)?.title || "";
+          const choices = q.choices || [];
+          return [
+            idx + 1,
+            q.question,
+            choices[0] || "",
+            choices[1] || "",
+            choices[2] || "",
+            choices[3] || "",
+            q.answer,
+            docTitle
+          ];
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Danh sách câu hỏi");
+
+        // Set column widths
+        const wscols = [
+          { wch: 8 },   // STT
+          { wch: 40 },  // Câu hỏi
+          { wch: 25 },  // Lựa chọn A
+          { wch: 25 },  // Lựa chọn B
+          { wch: 25 },  // Lựa chọn C
+          { wch: 25 },  // Lựa chọn D
+          { wch: 25 },  // Đáp án đúng
+          { wch: 30 },  // Tài liệu
         ];
-      });
+        ws["!cols"] = wscols;
 
-      const csvContent = [headers, ...rows]
-        .map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(","))
-        .join("\n");
-
-      const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", `Danh_sach_cau_hoi_${new Date().getTime()}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      toast.success("Xuất file Excel thành công!");
+        XLSX.writeFile(wb, `Danh_sach_cau_hoi_${new Date().getTime()}.xlsx`);
+        toast.success("Xuất file Excel thành công!");
+      } catch (err) {
+        console.error("Export Excel error:", err);
+        toast.error("Lỗi khi xuất file Excel.");
+      }
     } else if (type === "word") {
       let docTitle = "Danh sách câu hỏi";
       if (selectedDocId) {
@@ -480,10 +494,11 @@ const QuestionsTab: React.FC = () => {
                 </label>
               </div>
 
-              {filtered.map((q) => (
+              {filtered.map((q, idx) => (
                 <QuestionCard
                   key={q.id}
                   q={q}
+                  displayIndex={idx + 1}
                   documents={documents}
                   selectedDocIds={selectedDocIds}
                   selectedQuestionIds={selectedQuestionIds}

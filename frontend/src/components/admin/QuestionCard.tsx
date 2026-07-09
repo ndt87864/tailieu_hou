@@ -22,6 +22,7 @@ interface Document {
 
 interface QuestionCardProps {
   q: Question;
+  displayIndex: number;
   documents: Document[];
   selectedDocIds: string[];
   selectedQuestionIds: string[];
@@ -32,6 +33,7 @@ interface QuestionCardProps {
 
 const QuestionCard: React.FC<QuestionCardProps> = ({
   q,
+  displayIndex,
   documents,
   selectedDocIds,
   selectedQuestionIds,
@@ -54,7 +56,7 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="q-label">Câu hỏi #{q.order_index}</span>
+              <span className="q-label">Câu hỏi #{displayIndex}</span>
               {selectedDocIds.length > 1 && (
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium">
                   {doc?.title || "Chưa phân loại"}
