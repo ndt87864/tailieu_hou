@@ -734,24 +734,43 @@ async function main() {
                 let scormId = "";
                 let scoid = "";
 
-                // Chỉ quét thuộc tính "url" nằm trong cấu hình JSON của player để lấy chính xác cặp a và scoid
-                // Định dạng: "url":"a=367&scoid=4514..." hoặc "url":"a=367&amp;scoid=4514..."
-                const urlParamMatch = playerRes.data.match(/"url"\s*:\s*"[^"]*?[?&]a=(\d+)&amp;scoid=(\d+)/i)
-                  || playerRes.data.match(/"url"\s*:\s*"[^"]*?[?&]a=(\d+)&scoid=(\d+)/i);
-
-                if (urlParamMatch) {
-                  scormId = urlParamMatch[1];
-                  scoid = urlParamMatch[2];
+                // Quét hàm khởi tạo M.scorm_api.init
+                // Định dạng: M.scorm_api.init(Y, ..., "367", "https://learning.ehou.edu.vn", "sesskey", "4514", "1", "normal", 6315, ...)
+                // Tham số đứng trước Moodle URL chính là SCORM ID (a)
+                const scormIdMatch = playerRes.data.match(/"(\d+)"\s*,\s*"https?:\\\/\\\/learning\.ehou\.edu\.vn/i)
+                  || playerRes.data.match(/'(\d+)'\s*,\s*'https?:\\\/\\\/learning\.ehou\.edu\.vn/i);
+                
+                if (scormIdMatch) {
+                  scormId = scormIdMatch[1];
                 }
 
-                // Fallback nếu JSON config không hoạt động: Quét trực tiếp các tham số trong M.scorm_api.init
+                // Tham số scoid nằm giữa sesskey (chuỗi ngẫu nhiên 10 ký tự) và "1" (attempt)
+                // Ví dụ: "c8kNDGOML5", "4514", "1", "normal"
+                const scoidMatch = playerRes.data.match(/"[a-zA-Z0-9]{10}"\s*,\s*"(\d+)"\s*,\s*"1"/i)
+                  || playerRes.data.match(/'[a-zA-Z0-9]{10}'\s*,\s*'(\d+)'\s*,\s*'1'/i)
+                  || playerRes.data.match(/"[a-zA-Z0-9]{10}"\s*,\s*"(\d+)"/i);
+
+                if (scoidMatch) {
+                  scoid = scoidMatch[1];
+                }
+
+                // Fallback 1: Quét thuộc tính "url" nằm trong cấu hình JSON
                 if (!scormId || !scoid) {
-                  const apiInitMatch = playerRes.data.match(/M\.scorm_api\.init\([\s\S]*?,\s*"(\d+)"\s*,\s*"1"\s*,\s*"normal"\s*,\s*(\d+)/i)
-                    || playerRes.data.match(/M\.scorm_api\.init\([\s\S]*?,\s*"(\d+)"\s*,\s*"\d+"\s*,\s*"normal"\s*,\s*(\d+)/i)
-                    || playerRes.data.match(/M\.scorm_api\.init\([\s\S]*?,\s*"\d+"\s*,\s*"(\d+)"\s*,\s*"normal"\s*,\s*(\d+)/i);
-                  if (apiInitMatch) {
-                    scoid = apiInitMatch[1];
-                    scormId = apiInitMatch[2];
+                  const urlParamMatch = playerRes.data.match(/"url"\s*:\s*"[^"]*?[?&]a=(\d+)&amp;scoid=(\d+)/i)
+                    || playerRes.data.match(/"url"\s*:\s*"[^"]*?[?&]a=(\d+)&scoid=(\d+)/i);
+                  if (urlParamMatch) {
+                    scormId = urlParamMatch[1];
+                    scoid = urlParamMatch[2];
+                  }
+                }
+
+                // Fallback 2: Quét trực tiếp các cặp a= và scoid=
+                if (!scormId || !scoid) {
+                  const scormInitMatch = playerRes.data.match(/M\.scorm_api\.init\([\s\S]*?,\s*"(\d+)"\s*,\s*"1"\s*,\s*"normal"\s*,\s*(\d+)/i)
+                    || playerRes.data.match(/M\.scorm_api\.init\([\s\S]*?,\s*"(\d+)"\s*,\s*"\d+"\s*,\s*"normal"\s*,\s*(\d+)/i);
+                  if (scormInitMatch) {
+                    scoid = scormInitMatch[1];
+                    scormId = scormInitMatch[2];
                   }
                 }
 
