@@ -341,16 +341,40 @@ async function main() {
             }
           }
 
-          else if (href.includes("mod/url/view.php")) {
+          else if (href.includes("mod/url/view.php") || href.includes("mod/bigbluebuttonbn/view.php")) {
             try {
               console.log(`   🔗 Đang trích xuất link: "${activityName}"...`);
               const urlRes = await getHtmlWithSso(href);
               const $urlPage = cheerio.load(urlRes.data);
               // Lấy URL đích thực sau khi redirect
-              const finalUrl = $urlPage(".urlworkaround a").attr("href")
+              let finalUrl = $urlPage(".urlworkaround a").attr("href")
                 || $urlPage("iframe").attr("src")
-                || urlRes.request?.res?.responseUrl
                 || href;
+
+              // Kiểm tra nếu trang đích là BigBlueButton (lớp học trực tuyến đã ghi)
+              const isBBB = finalUrl.includes("mod/bigbluebuttonbn/view.php")
+                || urlRes.data?.includes("mod/bigbluebuttonbn")
+                || $urlPage("body").attr("class")?.includes("bigbluebuttonbn");
+
+              if (isBBB) {
+                // Tải trang BBB để lấy link playback thực sự
+                const bbbUrl = finalUrl.includes("mod/bigbluebuttonbn")
+                  ? finalUrl
+                  : $urlPage("a[href*='mod/bigbluebuttonbn']").attr("href") || finalUrl;
+                console.log(`   🎥 Phát hiện lớp học BBB, đang vào trang ghi hình: ${bbbUrl}`);
+                const bbbRes = await getHtmlWithSso(bbbUrl);
+                const $bbb = cheerio.load(bbbRes.data);
+                // Tìm link bản ghi: "trình chiếu", "presentation", hoặc link playback BBB
+                const playbackLink = $bbb("a[href*='playback'], a[href*='bbb'], a[title*='trình chiếu'], a[title*='presentation']").first().attr("href")
+                  || $bbb("a[href*='bbb']").first().attr("href");
+                if (playbackLink) {
+                  finalUrl = playbackLink;
+                  console.log(`   ✅ Đã lấy được link bản ghi lớp học: ${finalUrl}`);
+                } else {
+                  console.log(`   ℹ️ Chưa có bản ghi cho lớp học này. Lưu link BBB.`);
+                  finalUrl = bbbUrl;
+                }
+              }
 
               const isYoutube = /youtube\.com|youtu\.be/i.test(finalUrl);
               const isFile = /\.(pdf|doc|docx|ppt|pptx|xls|xlsx|mp3|mp4|zip|rar)(\?|$)/i.test(finalUrl)
