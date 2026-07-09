@@ -371,15 +371,25 @@ async function main() {
         console.log(`📖 Đang crawl tuần/phần: "${sectionName}"`);
         console.log(`-------------------------------------------------`);
 
-        const activities = $secPage(sec).find("li.activity");
-        for (let a = 0; a < activities.length; a++) {
-          const act = activities[a];
-          const rawName = $secPage(act).find(".instancename").text().trim().replace(/File|URL|Quiz|Page|Forum/g, "").trim();
-          // Tên hiển thị tạm thời; sẽ được ghi đè bằng tên file thực nếu rỗng
-          let activityName = rawName;
-          const href = $secPage(act).find("a").attr("href");
+         const activities = $secPage(sec).find("li.activity");
+         for (let a = 0; a < activities.length; a++) {
+           const act = activities[a];
+           const $link = $secPage(act).find("a").first();
+           const href = $link.attr("href");
 
-          if (!href) continue;
+           if (!href) continue;
+
+           // Tiêu đề của hoạt động
+           let rawName = $secPage(act).find(".instancename").text().trim();
+           if (!rawName) {
+             // Fallback: nếu không có class instancename (vd: các tab ẩn hoặc scorm), lấy trực tiếp text của link
+             rawName = $link.text().trim();
+           }
+           
+           // Clean hậu tố loại hình
+           rawName = rawName.replace(/File|URL|Quiz|Page|Forum|SCORM package/gi, "").trim();
+           
+           let activityName = rawName;
 
           if (href.includes("mod/resource/view.php")) {
             if (isTestMode && fileCount >= 1) {
@@ -677,6 +687,26 @@ async function main() {
               }
             } catch (err) {
               console.log(`   ⚠️ Lỗi trích xuất trang Page: ${err.message}`);
+            }
+          }
+
+          else if (href.includes("mod/scorm/view.php")) {
+            try {
+              if (await isResourceExists(activityName, "link", sectionName)) {
+                console.log(`   ⏭️ Bài giảng điện tử "${activityName}" đã tồn tại. Bỏ qua.`);
+                continue;
+              }
+              // SCORM lưu dạng link trỏ trực tiếp đến Moodle package URL
+              await supabaseAdmin.from("crawler_resources").insert({
+                course_id: dbCourse.id,
+                type: "link",
+                title: activityName,
+                content_url: href,
+                week_name: sectionName
+              });
+              console.log(`   ✅ Đã lưu bài giảng điện tử SCORM: "${activityName}"`);
+            } catch (err) {
+              console.log(`   ⚠️ Lỗi lưu SCORM: ${err.message}`);
             }
           }
 
