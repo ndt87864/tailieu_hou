@@ -1,35 +1,29 @@
-version: '3.8'
-
 services:
   backend:
     build:
       context: ..
       dockerfile: Dockerfile
-    environment:
-      - PORT=3001
-      - NODE_ENV=production
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
-      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
-      - REDIS_URL=redis://redis:6379
+    ports:
+      - "3001:3001"
+    env_file:
+      - ../backend/.env
     depends_on:
       - redis
     restart: always
+    networks:
+      - app_network
+      - supabase_network
 
   redis:
     image: redis:7-alpine
     restart: always
+    networks:
+      - app_network
 
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ../frontend/dist:/usr/share/nginx/html:ro
-      # Uncomment lines below after setting up SSL certificates
-      # - C:\Certbot\archive:/etc/letsencrypt:ro
-    depends_on:
-      - backend
-    restart: always
+networks:
+  app_network:
+    driver: bridge
+    name: vps-deployment_app_network
+  supabase_network:
+    external: true
+    name: supabase_default

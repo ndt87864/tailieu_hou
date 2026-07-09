@@ -71,8 +71,8 @@
     showInfoWidget.checked = res[KEYS.SHOW_INFO_WIDGET] !== false;
     highlightAnswers.checked = res[KEYS.HIGHLIGHT_ANSWERS] !== false;
     autoSelectAnswers.checked = res[KEYS.AUTO_SELECT_ANSWERS] !== false;
-    enableLogs.checked = res[KEYS.ENABLE_LOGS] !== false;
-    showNetworkStatus.checked = res[KEYS.SHOW_NETWORK_STATUS] !== false;
+    enableLogs.checked = res[KEYS.ENABLE_LOGS] === true;
+    showNetworkStatus.checked = res[KEYS.SHOW_NETWORK_STATUS] === true;
     
     if (connectionStatus) {
       if (showNetworkStatus.checked) {

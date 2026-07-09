@@ -1,5 +1,5 @@
 frontend/.env.local
-frontend/.env.local
+frontend/.env
 /frontend/node_modules
 /open-design
 /scripts

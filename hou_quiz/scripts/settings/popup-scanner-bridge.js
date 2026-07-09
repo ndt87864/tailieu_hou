@@ -59,7 +59,7 @@
 
               const fetchShowNetwork = await new Promise(resolve => {
                 chrome.storage.local.get(["hou_show_network_status"], res => {
-                  resolve(res.hou_show_network_status !== false);
+                  resolve(res.hou_show_network_status === true);
                 });
               });
 
