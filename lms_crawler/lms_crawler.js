@@ -382,8 +382,18 @@ async function main() {
            // Tiêu đề của hoạt động
            let rawName = $secPage(act).find(".instancename").text().trim();
            if (!rawName) {
-             // Fallback: nếu không có class instancename (vd: các tab ẩn hoặc scorm), lấy trực tiếp text của link
+             // Fallback 1: lấy trực tiếp text của link
              rawName = $link.text().trim();
+           }
+           if (!rawName) {
+             // Fallback 2: nếu link chỉ chứa hình ảnh, lấy alt hoặc title của ảnh đó
+             const $img = $link.find("img").first();
+             rawName = $img.attr("title") || $img.attr("alt") || "";
+           }
+           if (!rawName) {
+             // Fallback 3: dùng ID từ URL để định danh
+             const idMatch = href.match(/id=(\d+)/);
+             rawName = idMatch ? `Bài giảng điện tử (ID ${idMatch[1]})` : "";
            }
            
            // Clean hậu tố loại hình
@@ -692,7 +702,17 @@ async function main() {
 
           else if (href.includes("mod/scorm/view.php")) {
             try {
-              if (await isResourceExists(activityName, "link", sectionName)) {
+              // SCORM chỉ skip khi trùng khớp cả title, tuần học và URL đích
+              const { data } = await supabaseAdmin
+                .from("crawler_resources")
+                .select("id")
+                .eq("course_id", dbCourse.id)
+                .eq("week_name", sectionName)
+                .eq("type", "link")
+                .eq("content_url", href)
+                .limit(1);
+
+              if (data && data.length > 0) {
                 console.log(`   ⏭️ Bài giảng điện tử "${activityName}" đã tồn tại. Bỏ qua.`);
                 continue;
               }
