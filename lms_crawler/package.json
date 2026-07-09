@@ -1,0 +1,16 @@
+{
+  "name": "lms-crawler",
+  "version": "1.0.0",
+  "description": "EHOU LMS Moodle Học liệu Crawler",
+  "main": "lms_crawler.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node lms_crawler.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.43.4",
+    "axios": "^1.7.2",
+    "cheerio": "^1.0.0-rc.12",
+    "dotenv": "^16.4.5"
+  }
+}
