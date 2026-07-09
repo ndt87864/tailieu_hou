@@ -256,11 +256,14 @@ async function main() {
       return (await findResource(title, type, weekName)) !== null;
     };
 
-    // Trả về true nếu URL hiện tại là Moodle internal, rỗng, hoặc chưa có link bản ghi thực sự
+    // Trả về true nếu URL hiện tại cần được cập nhật bằng newUrl tốt hơn
     const needsUrlUpdate = (existingUrl, newUrl) => {
       if (!existingUrl || existingUrl.trim() === "") return true;
-      const isMoodleInternal = /\/mod\/(url|bigbluebuttonbn)\/view\.php/i.test(existingUrl);
-      if (isMoodleInternal && newUrl && !(/\/mod\/(url|bigbluebuttonbn)\/view\.php/i.test(newUrl))) return true;
+      if (!newUrl || newUrl === existingUrl) return false;
+      // mod/url/view.php là wrapper trung gian → luôn cập nhật sang destination thực sự (dù là BBB hay playback)
+      if (/\/mod\/url\/view\.php/i.test(existingUrl)) return true;
+      // mod/bigbluebuttonbn/view.php → chỉ cập nhật khi newUrl là link playback thực sự (ngoài BBB)
+      if (/\/mod\/bigbluebuttonbn\/view\.php/i.test(existingUrl) && !/\/mod\/bigbluebuttonbn\/view\.php/i.test(newUrl)) return true;
       return false;
     };
 
