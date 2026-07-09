@@ -239,16 +239,33 @@ async function main() {
       console.log("💾 Đã lưu thông tin môn học mới vào DB.");
     }
 
-    const isResourceExists = async (title, type, weekName) => {
+    // Trả về record đầy đủ hoặc null nếu không tồn tại
+    const findResource = async (title, type, weekName) => {
       const { data } = await supabaseAdmin
         .from("crawler_resources")
-        .select("id")
+        .select("id, content_url")
         .eq("course_id", dbCourse.id)
         .eq("title", title)
         .eq("type", type)
         .eq("week_name", weekName)
         .limit(1);
-      return data && data.length > 0;
+      return data && data.length > 0 ? data[0] : null;
+    };
+
+    const isResourceExists = async (title, type, weekName) => {
+      return (await findResource(title, type, weekName)) !== null;
+    };
+
+    // Trả về true nếu URL hiện tại là Moodle internal, rỗng, hoặc chưa có link bản ghi thực sự
+    const needsUrlUpdate = (existingUrl, newUrl) => {
+      if (!existingUrl || existingUrl.trim() === "") return true;
+      const isMoodleInternal = /\/mod\/(url|bigbluebuttonbn)\/view\.php/i.test(existingUrl);
+      if (isMoodleInternal && newUrl && !(/\/mod\/(url|bigbluebuttonbn)\/view\.php/i.test(newUrl))) return true;
+      return false;
+    };
+
+    const updateResourceUrl = async (id, newUrl) => {
+      await supabaseAdmin.from("crawler_resources").update({ content_url: newUrl }).eq("id", id);
     };
 
     const isQuestionExists = async (questionText) => {
@@ -379,51 +396,53 @@ async function main() {
               const isYoutube = /youtube\.com|youtu\.be/i.test(finalUrl);
               const isFile = /\.(pdf|doc|docx|ppt|pptx|xls|xlsx|mp3|mp4|zip|rar)(\?|$)/i.test(finalUrl)
                 || finalUrl.includes("pluginfile.php");
+              const resourceType = isYoutube ? "youtube" : isFile ? "file" : "link";
 
-              if (isYoutube) {
-                if (await isResourceExists(activityName, "youtube", sectionName)) {
-                  console.log(`   ⏭️ Video "${activityName}" đã tồn tại trong DB. Bỏ qua.`);
-                } else if (!isTestMode || youtubeCount < 1) {
-                  await supabaseAdmin.from("crawler_resources").insert({
-                    course_id: dbCourse.id,
-                    type: "youtube",
-                    title: activityName,
-                    content_url: finalUrl,
-                    week_name: sectionName
-                  });
-                  youtubeCount++;
-                  console.log(`   ✅ Đã lưu link video: ${finalUrl}`);
+              const existingRecord = await findResource(activityName, resourceType, sectionName);
+              if (existingRecord) {
+                if (needsUrlUpdate(existingRecord.content_url, finalUrl)) {
+                  await updateResourceUrl(existingRecord.id, finalUrl);
+                  console.log(`   🔄 Đã cập nhật link cho "${activityName}": ${finalUrl}`);
+                } else {
+                  console.log(`   ⏭️ "${activityName}" đã tồn tại và link đúng. Bỏ qua.`);
                 }
-              } else if (isFile) {
-                if (await isResourceExists(activityName, "file", sectionName)) {
-                  console.log(`   ⏭️ File "${activityName}" đã tồn tại trong DB. Bỏ qua.`);
-                } else if (!isTestMode || fileCount < 1) {
-                  try {
-                    const filePublicUrl = await uploadFileToStorage(finalUrl, "files", getCookieHeader);
+              } else {
+                if (isYoutube) {
+                  if (!isTestMode || youtubeCount < 1) {
                     await supabaseAdmin.from("crawler_resources").insert({
                       course_id: dbCourse.id,
-                      type: "file",
-                      title: activityName,
-                      content_url: filePublicUrl,
-                      week_name: sectionName
-                    });
-                    fileCount++;
-                    console.log(`   ✅ Đã tải & lưu file từ URL: ${finalUrl}`);
-                  } catch (dlErr) {
-                    // Không tải được, lưu như link URL
-                    await supabaseAdmin.from("crawler_resources").insert({
-                      course_id: dbCourse.id,
-                      type: "link",
+                      type: "youtube",
                       title: activityName,
                       content_url: finalUrl,
                       week_name: sectionName
                     });
-                    console.log(`   ✅ Lưu link URL (không tải được file): ${finalUrl}`);
+                    youtubeCount++;
+                    console.log(`   ✅ Đã lưu link video: ${finalUrl}`);
                   }
-                }
-              } else {
-                if (await isResourceExists(activityName, "link", sectionName)) {
-                  console.log(`   ⏭️ Link "${activityName}" đã tồn tại trong DB. Bỏ qua.`);
+                } else if (isFile) {
+                  if (!isTestMode || fileCount < 1) {
+                    try {
+                      const filePublicUrl = await uploadFileToStorage(finalUrl, "files", getCookieHeader);
+                      await supabaseAdmin.from("crawler_resources").insert({
+                        course_id: dbCourse.id,
+                        type: "file",
+                        title: activityName,
+                        content_url: filePublicUrl,
+                        week_name: sectionName
+                      });
+                      fileCount++;
+                      console.log(`   ✅ Đã tải & lưu file từ URL: ${finalUrl}`);
+                    } catch (dlErr) {
+                      await supabaseAdmin.from("crawler_resources").insert({
+                        course_id: dbCourse.id,
+                        type: "link",
+                        title: activityName,
+                        content_url: finalUrl,
+                        week_name: sectionName
+                      });
+                      console.log(`   ✅ Lưu link URL (không tải được file): ${finalUrl}`);
+                    }
+                  }
                 } else {
                   await supabaseAdmin.from("crawler_resources").insert({
                     course_id: dbCourse.id,
