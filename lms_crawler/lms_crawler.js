@@ -355,6 +355,11 @@ async function main() {
             if (isTestMode && fileCount >= 1) {
               continue;
             }
+            // Fallback title nếu activityName rỗng
+            if (!activityName) {
+              console.log(`   ⏭️ Bỏ qua file activity không có tên.`);
+              continue;
+            }
             try {
               if (await isResourceExists(activityName, "file", sectionName)) {
                 console.log(`   ⏭️ File "${activityName}" đã tồn tại trong DB. Bỏ qua.`);
@@ -526,13 +531,20 @@ async function main() {
               }
 
               // Trích xuất và thử tải các file đính kèm trong nội dung trang
-              const fileLinks = $page("a[href*='pluginfile.php'], a[href$='.pdf'], a[href$='.doc'], a[href$='.docx']");
+              // Bao gồm cả mod/resource/view.php (link tài liệu nhúng trong page) và file trực tiếp
+              const fileLinks = $page(
+                "a[href*='pluginfile.php'], a[href$='.pdf'], a[href$='.doc'], a[href$='.docx'], a[href*='mod/resource/view.php']"
+              );
               for (let fl = 0; fl < fileLinks.length; fl++) {
                 if (isTestMode && fileCount >= 1) break;
                 const fileHref = $page(fileLinks[fl]).attr("href");
-                const fileLinkTitle = $page(fileLinks[fl]).text().trim() || `Tệp ${fl + 1}`;
+                // Lấy tên file từ text của link, xóa ký tự thừa
+                const fileLinkTitle = $page(fileLinks[fl]).text().replace(/\s+/g, " ").trim() || `Tệp ${fl + 1}`;
                 if (!fileHref) continue;
-                if (await isResourceExists(fileLinkTitle, "file", sectionName)) continue;
+                if (await isResourceExists(fileLinkTitle, "file", sectionName)) {
+                  console.log(`   ⏭️ File đính kèm "${fileLinkTitle}" đã tồn tại. Bỏ qua.`);
+                  continue;
+                }
                 try {
                   const filePublicUrl = await uploadFileToStorage(fileHref, "files", getCookieHeader);
                   await supabaseAdmin.from("crawler_resources").insert({
