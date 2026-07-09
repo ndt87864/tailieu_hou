@@ -342,74 +342,146 @@ async function main() {
           }
 
           else if (href.includes("mod/url/view.php")) {
-            if (isTestMode && youtubeCount >= 1) {
-              continue;
-            }
             try {
-              if (await isResourceExists(activityName, "youtube", sectionName)) {
-                console.log(`   ⏭️ Video "${activityName}" đã tồn tại trong DB. Bỏ qua.`);
-                youtubeCount++;
-                continue;
-              }
-              console.log(`   🎥 Đang trích xuất link bài giảng: "${activityName}"...`);
+              console.log(`   🔗 Đang trích xuất link: "${activityName}"...`);
               const urlRes = await getHtmlWithSso(href);
               const $urlPage = cheerio.load(urlRes.data);
-              const finalUrl = $urlPage(".urlworkaround a").attr("href") || $urlPage("iframe").attr("src") || href;
+              // Lấy URL đích thực sau khi redirect
+              const finalUrl = $urlPage(".urlworkaround a").attr("href")
+                || $urlPage("iframe").attr("src")
+                || urlRes.request?.res?.responseUrl
+                || href;
 
-              await supabaseAdmin.from("crawler_resources").insert({
-                course_id: dbCourse.id,
-                type: "youtube",
-                title: activityName,
-                content_url: finalUrl,
-                week_name: sectionName
-              });
-              youtubeCount++;
-              console.log(`   ✅ Đã lưu link video: ${finalUrl}`);
+              const isYoutube = /youtube\.com|youtu\.be/i.test(finalUrl);
+              const isFile = /\.(pdf|doc|docx|ppt|pptx|xls|xlsx|mp3|mp4|zip|rar)(\?|$)/i.test(finalUrl)
+                || finalUrl.includes("pluginfile.php");
+
+              if (isYoutube) {
+                if (await isResourceExists(activityName, "youtube", sectionName)) {
+                  console.log(`   ⏭️ Video "${activityName}" đã tồn tại trong DB. Bỏ qua.`);
+                } else if (!isTestMode || youtubeCount < 1) {
+                  await supabaseAdmin.from("crawler_resources").insert({
+                    course_id: dbCourse.id,
+                    type: "youtube",
+                    title: activityName,
+                    content_url: finalUrl,
+                    week_name: sectionName
+                  });
+                  youtubeCount++;
+                  console.log(`   ✅ Đã lưu link video: ${finalUrl}`);
+                }
+              } else if (isFile) {
+                if (await isResourceExists(activityName, "file", sectionName)) {
+                  console.log(`   ⏭️ File "${activityName}" đã tồn tại trong DB. Bỏ qua.`);
+                } else if (!isTestMode || fileCount < 1) {
+                  try {
+                    const filePublicUrl = await uploadFileToStorage(finalUrl, "files", getCookieHeader);
+                    await supabaseAdmin.from("crawler_resources").insert({
+                      course_id: dbCourse.id,
+                      type: "file",
+                      title: activityName,
+                      content_url: filePublicUrl,
+                      week_name: sectionName
+                    });
+                    fileCount++;
+                    console.log(`   ✅ Đã tải & lưu file từ URL: ${finalUrl}`);
+                  } catch (dlErr) {
+                    // Không tải được, lưu như link URL
+                    await supabaseAdmin.from("crawler_resources").insert({
+                      course_id: dbCourse.id,
+                      type: "link",
+                      title: activityName,
+                      content_url: finalUrl,
+                      week_name: sectionName
+                    });
+                    console.log(`   ✅ Lưu link URL (không tải được file): ${finalUrl}`);
+                  }
+                }
+              } else {
+                if (await isResourceExists(activityName, "link", sectionName)) {
+                  console.log(`   ⏭️ Link "${activityName}" đã tồn tại trong DB. Bỏ qua.`);
+                } else {
+                  await supabaseAdmin.from("crawler_resources").insert({
+                    course_id: dbCourse.id,
+                    type: "link",
+                    title: activityName,
+                    content_url: finalUrl,
+                    week_name: sectionName
+                  });
+                  console.log(`   ✅ Đã lưu link URL: ${finalUrl}`);
+                }
+              }
             } catch (err) {
               console.log(`   ⚠️ Lỗi trích xuất link: ${err.message}`);
             }
           }
 
-          else if (href.includes("mod/page/view.php")) {
+          else if (href.includes("mod/page/view.php") || href.includes("mod/lesson/view.php")) {
             try {
-              const isYtExists = await isResourceExists(activityName, "youtube", sectionName);
               const isAnnExists = await isResourceExists(activityName, "announcement", sectionName);
-              if (isYtExists || isAnnExists) {
-                console.log(`   ⏭️ Trang Page "${activityName}" đã tồn tại trong DB. Bỏ qua.`);
-                if (isYtExists) youtubeCount++;
+              if (isAnnExists) {
+                console.log(`   ⏭️ Trang "${activityName}" đã tồn tại trong DB. Bỏ qua.`);
                 continue;
               }
 
-              console.log(`   📄 Phát hiện trang nội dung/bài giảng: "${activityName}"...`);
+              console.log(`   📄 Đang crawl nội dung trang: "${activityName}"...`);
               const pageRes = await getHtmlWithSso(href);
               const $page = cheerio.load(pageRes.data);
-              
-              const iframeSrc = $page("iframe[src*='youtube.com'], iframe[src*='youtu.be']").first().attr("src");
-              if (iframeSrc) {
-                if (isTestMode && youtubeCount >= 1) {
-                  continue;
-                }
+
+              // Lấy toàn bộ nội dung trang (bao gồm các tab Giới thiệu/Đọc/Viết/Nghe/Nói/Từ mới)
+              const pageContent = $page(".no-overflow, #region-main, .box.generalbox, .lessonpage").html() || "";
+              const { cleanHtml: cleanPageContent } = await processHtmlImagesAndUpload(pageContent, getCookieHeader);
+
+              await supabaseAdmin.from("crawler_resources").insert({
+                course_id: dbCourse.id,
+                type: "announcement",
+                title: activityName,
+                raw_content: cleanPageContent,
+                week_name: sectionName
+              });
+              console.log(`   ✅ Đã lưu nội dung trang.`);
+
+              // Lưu thêm các YouTube iframe trong trang nếu có
+              const iframes = $page("iframe[src*='youtube.com'], iframe[src*='youtu.be']");
+              for (let fi = 0; fi < iframes.length; fi++) {
+                if (isTestMode && youtubeCount >= 1) break;
+                const iframeSrc = $page(iframes[fi]).attr("src");
+                if (!iframeSrc) continue;
+                const ytTitle = `${activityName} (video ${fi + 1})`;
+                if (await isResourceExists(ytTitle, "youtube", sectionName)) continue;
                 await supabaseAdmin.from("crawler_resources").insert({
                   course_id: dbCourse.id,
                   type: "youtube",
-                  title: activityName,
+                  title: ytTitle,
                   content_url: iframeSrc,
                   week_name: sectionName
                 });
                 youtubeCount++;
-                console.log(`   ✅ Đã trích xuất link video từ Page: ${iframeSrc}`);
-              } else {
-                const pageContent = $page(".no-overflow, #region-main").html() || "";
-                const { cleanHtml: cleanPageContent } = await processHtmlImagesAndUpload(pageContent, getCookieHeader);
-                
-                await supabaseAdmin.from("crawler_resources").insert({
-                  course_id: dbCourse.id,
-                  type: "announcement",
-                  title: activityName,
-                  raw_content: cleanPageContent,
-                  week_name: sectionName
-                });
-                console.log(`   ✅ Đã lưu nội dung văn bản của Page.`);
+                console.log(`   ✅ Đã lưu video từ Page: ${iframeSrc}`);
+              }
+
+              // Trích xuất và thử tải các file đính kèm trong nội dung trang
+              const fileLinks = $page("a[href*='pluginfile.php'], a[href$='.pdf'], a[href$='.doc'], a[href$='.docx']");
+              for (let fl = 0; fl < fileLinks.length; fl++) {
+                if (isTestMode && fileCount >= 1) break;
+                const fileHref = $page(fileLinks[fl]).attr("href");
+                const fileLinkTitle = $page(fileLinks[fl]).text().trim() || `Tệp ${fl + 1}`;
+                if (!fileHref) continue;
+                if (await isResourceExists(fileLinkTitle, "file", sectionName)) continue;
+                try {
+                  const filePublicUrl = await uploadFileToStorage(fileHref, "files", getCookieHeader);
+                  await supabaseAdmin.from("crawler_resources").insert({
+                    course_id: dbCourse.id,
+                    type: "file",
+                    title: fileLinkTitle,
+                    content_url: filePublicUrl,
+                    week_name: sectionName
+                  });
+                  fileCount++;
+                  console.log(`   ✅ Đã tải file đính kèm trong trang: "${fileLinkTitle}"`);
+                } catch (flErr) {
+                  console.log(`   ⚠️ Không tải được file đính kèm "${fileLinkTitle}": ${flErr.message}`);
+                }
               }
             } catch (err) {
               console.log(`   ⚠️ Lỗi trích xuất trang Page: ${err.message}`);
