@@ -29,21 +29,21 @@
   // Khởi tạo lấy cấu hình log từ storage
   if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
     chrome.storage.local.get(["hou_enable_logs"], (res) => {
-      // Mặc định bật log nếu chưa được cài đặt
-      const enabled = res.hou_enable_logs !== false;
+      // Mặc định tắt log nếu chưa được cài đặt
+      const enabled = res.hou_enable_logs === true;
       applyLogState(enabled);
     });
 
     // Lắng nghe thay đổi từ popup để cập nhật realtime không cần reload trang
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area === "local" && changes.hou_enable_logs) {
-        const enabled = changes.hou_enable_logs.newValue !== false;
+        const enabled = changes.hou_enable_logs.newValue === true;
         applyLogState(enabled);
       }
     });
   } else {
     // Dự phòng nếu chạy ngoài Extension context
-    applyLogState(true);
+    applyLogState(false);
   }
 
   // Ghi đè console.log, console.warn, console.error
@@ -73,10 +73,10 @@
 
   // Cấu hình môi trường API URL
   const CONFIG = {
-    // Mặc định chạy local kết nối trực tiếp đến Hono Backend (local test)
-    API_URL: "http://localhost:3001/api/v1",
+    // Backend chính trên VPS (production)
+    API_URL: "https://tailieu-hou.duckdns.org/api/v1",
     LOCAL_API_URL: "http://localhost:3001/api/v1",
-    VPS_API_URL: "http://localhost:3001/api/v1" // Sẽ được cập nhật khi có IP VPS Linux mới
+    VPS_API_URL: "https://tailieu-hou.duckdns.org/api/v1"
   };
 
   window.houQuizConfig = CONFIG;
