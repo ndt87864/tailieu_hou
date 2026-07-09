@@ -239,14 +239,26 @@ async function main() {
       console.log("💾 Đã lưu thông tin môn học mới vào DB.");
     }
 
-    // Trả về record đầy đủ hoặc null nếu không tồn tại
+    // Trả về record đầy đủ hoặc null nếu không tồn tại (lọc theo type)
     const findResource = async (title, type, weekName) => {
       const { data } = await supabaseAdmin
         .from("crawler_resources")
-        .select("id, content_url")
+        .select("id, content_url, type")
         .eq("course_id", dbCourse.id)
         .eq("title", title)
         .eq("type", type)
+        .eq("week_name", weekName)
+        .limit(1);
+      return data && data.length > 0 ? data[0] : null;
+    };
+
+    // Tìm record theo title + weekName, không lọc theo type (dùng khi type có thể đã bị sai)
+    const findResourceAnyType = async (title, weekName) => {
+      const { data } = await supabaseAdmin
+        .from("crawler_resources")
+        .select("id, content_url, type")
+        .eq("course_id", dbCourse.id)
+        .eq("title", title)
         .eq("week_name", weekName)
         .limit(1);
       return data && data.length > 0 ? data[0] : null;
@@ -269,6 +281,10 @@ async function main() {
 
     const updateResourceUrl = async (id, newUrl) => {
       await supabaseAdmin.from("crawler_resources").update({ content_url: newUrl }).eq("id", id);
+    };
+
+    const updateResourceUrlAndType = async (id, newUrl, newType) => {
+      await supabaseAdmin.from("crawler_resources").update({ content_url: newUrl, type: newType }).eq("id", id);
     };
 
     const isQuestionExists = async (questionText) => {
@@ -401,11 +417,14 @@ async function main() {
                 || finalUrl.includes("pluginfile.php");
               const resourceType = isYoutube ? "youtube" : isFile ? "file" : "link";
 
-              const existingRecord = await findResource(activityName, resourceType, sectionName);
+              // Tìm không phân biệt type để bắt cả các record cũ có type sai
+              const existingRecord = await findResourceAnyType(activityName, sectionName);
               if (existingRecord) {
-                if (needsUrlUpdate(existingRecord.content_url, finalUrl)) {
-                  await updateResourceUrl(existingRecord.id, finalUrl);
-                  console.log(`   🔄 Đã cập nhật link cho "${activityName}": ${finalUrl}`);
+                const needsUpdate = needsUrlUpdate(existingRecord.content_url, finalUrl);
+                const typeChanged = existingRecord.type !== resourceType;
+                if (needsUpdate || typeChanged) {
+                  await updateResourceUrlAndType(existingRecord.id, finalUrl, resourceType);
+                  console.log(`   🔄 Đã cập nhật link${typeChanged ? ` (type: ${existingRecord.type}→${resourceType})` : ""} cho "${activityName}": ${finalUrl}`);
                 } else {
                   console.log(`   ⏭️ "${activityName}" đã tồn tại và link đúng. Bỏ qua.`);
                 }
