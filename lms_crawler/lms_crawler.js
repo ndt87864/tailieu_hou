@@ -546,8 +546,13 @@ async function main() {
               const pageRes = await getHtmlWithSso(href);
               const $page = cheerio.load(pageRes.data);
 
-              // Lấy toàn bộ nội dung trang (bao gồm các tab Giới thiệu/Đọc/Viết/Nghe/Nói/Từ mới)
-              const pageContent = $page(".no-overflow, #region-main, .box.generalbox, .lessonpage").html() || "";
+              // Lấy phần content thực sự bên trong Page/Lesson
+              // Ưu tiên các container nội dung hẹp thay vì lấy toàn bộ vùng #region-main (vùng này chứa cả breadcrumb, header và navigation progress bar)
+              const pageContent = $page(".no-overflow").first().html() 
+                || $page(".box.generalbox").first().html()
+                || $page(".lessonpage").first().html()
+                || $page("#region-main").first().html()
+                || "";
               const { cleanHtml: cleanPageContent } = await processHtmlImagesAndUpload(pageContent, getCookieHeader);
 
               await supabaseAdmin.from("crawler_resources").insert({
