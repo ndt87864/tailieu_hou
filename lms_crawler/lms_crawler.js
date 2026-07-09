@@ -240,7 +240,7 @@ async function main() {
       console.log("💾 Đã lưu thông tin môn học mới vào DB.");
     }
 
-    // Hàm chuẩn hóa title bằng cách loại bỏ các hậu tố loại hình Moodle Việt hóa/Anh hóa thừa
+    // Hàm chuẩn hóa title bằng cách loại bỏ các hậu tố loại hình Moodle Việt hóa/Anh hóa thừa ở cuối
     const cleanTitle = (t) => {
       if (!t) return "";
       return t.replace(/\s*(Trang|Tệp|File|URL|Quiz|Page|Forum|Bài trắc nghiệm|Diễn đàn|Liên kết)$/gi, "").trim();
@@ -249,26 +249,40 @@ async function main() {
     // Trả về record đầy đủ hoặc null nếu không tồn tại (lọc theo type)
     const findResource = async (title, type, weekName) => {
       const cleaned = cleanTitle(title);
-      // Tìm bằng title gốc hoặc title đã được chuẩn hóa
+      // Các hậu tố Moodle cũ có thể được lưu kèm
+      const suffix = type === "announcement" ? "Trang" : type === "file" ? "Tệp" : type === "link" ? "Liên kết" : "";
+      const titleWithSuffix = suffix ? `${cleaned} ${suffix}` : cleaned;
+
+      // Tìm bằng title gốc, title sạch, hoặc title có kèm hậu tố Moodle Việt hóa
       const { data } = await supabaseAdmin
         .from("crawler_resources")
         .select("id, content_url, type, title")
         .eq("course_id", dbCourse.id)
         .eq("type", type)
         .eq("week_name", weekName)
-        .or(`title.eq."${title}",title.eq."${cleaned}"`);
+        .or(`title.eq."${title}",title.eq."${cleaned}",title.eq."${titleWithSuffix}"`);
       return data && data.length > 0 ? data[0] : null;
     };
 
     // Tìm record theo title + weekName, không lọc theo type
     const findResourceAnyType = async (title, weekName) => {
       const cleaned = cleanTitle(title);
+      // Tìm thử với mọi hậu tố có thể có
+      const suffixes = ["Trang", "Tệp", "Liên kết", "File", "URL", "Quiz", "Page"];
+      const orConditions = [
+        `title.eq."${title}"`,
+        `title.eq."${cleaned}"`
+      ];
+      suffixes.forEach(s => {
+        orConditions.push(`title.eq."${cleaned} ${s}"`);
+      });
+
       const { data } = await supabaseAdmin
         .from("crawler_resources")
         .select("id, content_url, type, title")
         .eq("course_id", dbCourse.id)
         .eq("week_name", weekName)
-        .or(`title.eq."${title}",title.eq."${cleaned}"`);
+        .or(orConditions.join(","));
       return data && data.length > 0 ? data[0] : null;
     };
 
@@ -280,10 +294,16 @@ async function main() {
     const needsUrlUpdate = (existingUrl, newUrl) => {
       if (!existingUrl || existingUrl.trim() === "") return true;
       if (!newUrl || newUrl === existingUrl) return false;
+      
+      // Nếu link cũ là "None" và link mới là một link thực tế (không phải None) → Cập nhật link mới
+      if (existingUrl === "None" && newUrl !== "None") return true;
+
       // mod/url/view.php là wrapper trung gian → luôn cập nhật sang destination thực sự (dù là BBB hay playback)
       if (/\/mod\/url\/view\.php/i.test(existingUrl)) return true;
-      // mod/bigbluebuttonbn/view.php → chỉ cập nhật khi newUrl là link playback thực sự (ngoài BBB)
-      if (/\/mod\/bigbluebuttonbn\/view\.php/i.test(existingUrl) && !/\/mod\/bigbluebuttonbn\/view\.php/i.test(newUrl)) return true;
+
+      // mod/bigbluebuttonbn/view.php → luôn cập nhật khi có link playback thực sự, hoặc cập nhật sang None nếu chưa có
+      if (/\/mod\/bigbluebuttonbn\/view\.php/i.test(existingUrl)) return true;
+      
       return false;
     };
 
@@ -467,8 +487,10 @@ async function main() {
                   finalUrl = playbackLink;
                   console.log(`   ✅ Đã lấy được link bản ghi lớp học: ${finalUrl}`);
                 } else {
-                  console.log(`   ℹ️ Chưa có bản ghi cho lớp học này. Lưu link BBB.`);
-                  finalUrl = bbbUrl;
+                  // Moodle BBB chưa có bản ghi (ví dụ: "This conference has not started yet")
+                  // Lưu "None" thay vì link BBB nội bộ của Moodle theo yêu cầu
+                  console.log(`   ℹ️ Chưa có bản ghi lớp học (Trang hiển thị lớp học chưa bắt đầu). Gán link là "None".`);
+                  finalUrl = "None";
                 }
               }
 
