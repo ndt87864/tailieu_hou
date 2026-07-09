@@ -536,9 +536,29 @@ async function main() {
 
           else if (href.includes("mod/page/view.php") || href.includes("mod/lesson/view.php")) {
             try {
-              const isAnnExists = await isResourceExists(activityName, "announcement", sectionName);
-              if (isAnnExists) {
-                console.log(`   ⏭️ Trang "${activityName}" đã tồn tại trong DB. Bỏ qua.`);
+              const existingRecord = await findResourceAnyType(activityName, sectionName);
+              let shouldCrawl = true;
+
+              if (existingRecord && existingRecord.type === "announcement") {
+                // Lấy thông tin chi tiết của record cũ
+                const { data } = await supabaseAdmin
+                  .from("crawler_resources")
+                  .select("raw_content")
+                  .eq("id", existingRecord.id)
+                  .limit(1);
+                
+                const oldContent = data && data[0] ? data[0].raw_content : "";
+                const hasTrashHtml = oldContent && (oldContent.includes("progress-bar") || oldContent.includes("footer_menu") || oldContent.includes("breadcrumb"));
+                
+                if (!hasTrashHtml) {
+                  console.log(`   ⏭️ Trang "${activityName}" đã tồn tại và nội dung sạch. Bỏ qua.`);
+                  shouldCrawl = false;
+                } else {
+                  console.log(`   🔄 Phát hiện trang cũ "${activityName}" chứa navbar/footer dư thừa. Tiến hành crawl lại để dọn dẹp...`);
+                }
+              }
+
+              if (!shouldCrawl) {
                 continue;
               }
 
@@ -555,14 +575,24 @@ async function main() {
                 || "";
               const { cleanHtml: cleanPageContent } = await processHtmlImagesAndUpload(pageContent, getCookieHeader);
 
-              await supabaseAdmin.from("crawler_resources").insert({
-                course_id: dbCourse.id,
-                type: "announcement",
-                title: activityName,
-                raw_content: cleanPageContent,
-                week_name: sectionName
-              });
-              console.log(`   ✅ Đã lưu nội dung trang.`);
+              if (existingRecord && existingRecord.type === "announcement") {
+                // Cập nhật lại record cũ
+                await supabaseAdmin
+                  .from("crawler_resources")
+                  .update({ raw_content: cleanPageContent })
+                  .eq("id", existingRecord.id);
+                console.log(`   ✅ Đã cập nhật và dọn dẹp nội dung trang.`);
+              } else {
+                // Lưu record mới
+                await supabaseAdmin.from("crawler_resources").insert({
+                  course_id: dbCourse.id,
+                  type: "announcement",
+                  title: activityName,
+                  raw_content: cleanPageContent,
+                  week_name: sectionName
+                });
+                console.log(`   ✅ Đã lưu nội dung trang mới.`);
+              }
 
               // Lưu thêm các YouTube iframe trong trang nếu có
               const iframes = $page("iframe[src*='youtube.com'], iframe[src*='youtu.be']");
