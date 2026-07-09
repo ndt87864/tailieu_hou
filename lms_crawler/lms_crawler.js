@@ -372,22 +372,56 @@ async function main() {
         console.log(`-------------------------------------------------`);
 
          const activities = $secPage(sec).find("li.activity");
+         const activityQueue = [];
+
          for (let a = 0; a < activities.length; a++) {
            const act = activities[a];
-           const $link = $secPage(act).find("a").first();
-           const href = $link.attr("href");
+           const isLabel = $secPage(act).hasClass("label");
 
-           if (!href) continue;
+           if (isLabel) {
+             // Với nhãn Label, quét tất cả các thẻ A liên kết học liệu Moodle con bên trong
+             $secPage(act).find("a").each((i, el) => {
+               const href = $secPage(el).attr("href");
+               if (href && (href.includes("mod/resource/view.php") || href.includes("mod/url/view.php") || href.includes("mod/quiz/view.php") || href.includes("mod/page/view.php") || href.includes("mod/scorm/view.php"))) {
+                 
+                 // Thử lấy tên hiển thị:
+                 let name = $secPage(el).text().trim();
+                 if (!name) {
+                   const $img = $secPage(el).find("img").first();
+                   name = $img.attr("title") || $img.attr("alt") || "";
+                 }
+                 
+                 // Nếu click bằng icon download chung chung, quét text trong hàng hoặc cột của table đó để làm title
+                 if (!name || name.toLowerCase().includes("icon") || name.toLowerCase() === "") {
+                   const tdText = $secPage(el).closest("td").prev("td").text().trim();
+                   if (tdText) name = tdText;
+                 }
 
+                 activityQueue.push({ href, name, act, originalLink: $secPage(el) });
+               }
+             });
+           } else {
+             const $link = $secPage(act).find("a").first();
+             const href = $link.attr("href");
+             if (href) {
+               activityQueue.push({ href, name: "", act, originalLink: $link });
+             }
+           }
+         }
+
+         for (const { href, name: subName, act, originalLink } of activityQueue) {
            // Tiêu đề của hoạt động
-           let rawName = $secPage(act).find(".instancename").text().trim();
+           let rawName = subName;
+           if (!rawName) {
+             rawName = $secPage(act).find(".instancename").text().trim();
+           }
            if (!rawName) {
              // Fallback 1: lấy trực tiếp text của link
-             rawName = $link.text().trim();
+             rawName = originalLink.text().trim();
            }
            if (!rawName) {
              // Fallback 2: nếu link chỉ chứa hình ảnh, lấy alt hoặc title của ảnh đó
-             const $img = $link.find("img").first();
+             const $img = originalLink.find("img").first();
              rawName = $img.attr("title") || $img.attr("alt") || "";
            }
            if (!rawName) {
