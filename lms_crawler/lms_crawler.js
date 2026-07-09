@@ -214,17 +214,30 @@ async function main() {
     const moodleCourseId = moodleCourseIdMatch ? moodleCourseIdMatch[1] : "";
     console.log(`📚 Đã tìm thấy môn học: "${courseTitle}" (LMS ID: ${moodleCourseId})`);
 
-    const { data: dbCourse, error: courseErr } = await supabaseAdmin.from("crawler_courses").upsert({
-      document_id: selectedDoc.id,
-      moodle_course_id: moodleCourseId,
-      title: courseTitle,
-      url: courseLink
-    }).select().single();
+    let dbCourse = null;
+    const { data: existingCourses, error: findErr } = await supabaseAdmin
+      .from("crawler_courses")
+      .select("*")
+      .eq("moodle_course_id", moodleCourseId)
+      .limit(1);
 
-    if (courseErr || !dbCourse) {
-      throw new Error(`Không lưu được môn học vào DB: ${courseErr ? courseErr.message : ""}`);
+    if (!findErr && existingCourses && existingCourses.length > 0) {
+      dbCourse = existingCourses[0];
+      console.log("💾 Môn học đã tồn tại trong DB, sử dụng thông tin môn học hiện có.");
+    } else {
+      const { data, error: courseErr } = await supabaseAdmin.from("crawler_courses").insert({
+        document_id: selectedDoc.id,
+        moodle_course_id: moodleCourseId,
+        title: courseTitle,
+        url: courseLink
+      }).select().single();
+
+      if (courseErr || !data) {
+        throw new Error(`Không lưu được môn học vào DB: ${courseErr ? courseErr.message : ""}`);
+      }
+      dbCourse = data;
+      console.log("💾 Đã lưu thông tin môn học mới vào DB.");
     }
-    console.log("💾 Đã lưu thông tin môn học vào DB.");
 
     const isResourceExists = async (title, type, weekName) => {
       const { data } = await supabaseAdmin
