@@ -220,35 +220,36 @@ export const deleteDocument = async (id: string): Promise<boolean> => {
 };
 
 export const getCrawlerDataForDoc = async (documentId: string) => {
-  const { data: course, error: courseError } = await supabaseAdmin
+  const { data: courses, error: courseError } = await supabaseAdmin
     .from("crawler_courses")
     .select("*")
-    .eq("document_id", documentId)
-    .maybeSingle();
+    .eq("document_id", documentId);
 
   if (courseError) {
-    console.error("Error fetching crawler course:", courseError.message);
-    return { course: null, resources: [], questions: [] };
+    console.error("Error fetching crawler courses:", courseError.message);
+    return { courses: [], resources: [], questions: [] };
   }
 
-  if (!course) {
-    return { course: null, resources: [], questions: [] };
+  if (!courses || courses.length === 0) {
+    return { courses: [], resources: [], questions: [] };
   }
+
+  const courseIds = courses.map(c => c.id);
 
   const { data: resources, error: resError } = await supabaseAdmin
     .from("crawler_resources")
     .select("*")
-    .eq("course_id", course.id)
+    .in("course_id", courseIds)
     .order("created_at", { ascending: true });
 
   const { data: questions, error: qError } = await supabaseAdmin
     .from("crawler_questions")
     .select("*")
-    .eq("course_id", course.id)
+    .in("course_id", courseIds)
     .order("created_at", { ascending: true });
 
   return {
-    course,
+    courses: courses || [],
     resources: resources || [],
     questions: questions || [],
   };

@@ -12,6 +12,15 @@ import {
   CheckCircle2, Crown, Youtube, Search, X
 } from "lucide-react";
 
+interface CrawlerCourse {
+  id: string;
+  document_id: string;
+  moodle_course_id: string | null;
+  title: string;
+  url: string | null;
+  created_at: string;
+}
+
 interface CrawlerResource {
   id: string;
   course_id: string;
@@ -60,6 +69,8 @@ const LessonDocumentPage: React.FC = () => {
   const canDownloadExcel = isExcelEnabled && excelPercentage > 0;
 
   const [doc, setDoc] = useState<Document | null>(null);
+  const [courses, setCourses] = useState<CrawlerCourse[]>([]);
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [resources, setResources] = useState<CrawlerResource[]>([]);
   const [questions, setQuestions] = useState<CrawlerQuestion[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -78,6 +89,8 @@ const LessonDocumentPage: React.FC = () => {
     
     // Reset states when changing document/subject
     setSelectedWeek(null);
+    setCourses([]);
+    setSelectedCourseId(null);
     setResources([]);
     setQuestions([]);
     setActiveTab("materials");
@@ -86,6 +99,11 @@ const LessonDocumentPage: React.FC = () => {
     apiClient.get(`/api/v1/documents/${id}/lessons`)
       .then((res) => {
         setDoc(res.data.document);
+        const fetchedCourses = res.data.courses || [];
+        setCourses(fetchedCourses);
+        if (fetchedCourses.length > 0) {
+          setSelectedCourseId(fetchedCourses[0].id);
+        }
         setResources(res.data.resources || []);
         setQuestions(res.data.questions || []);
         setLoading(false);
@@ -101,16 +119,27 @@ const LessonDocumentPage: React.FC = () => {
       });
   }, [id, authLoading]);
 
+  // Lọc tài nguyên và câu hỏi theo lớp học được chọn
+  const activeResources = useMemo(() => {
+    if (!selectedCourseId) return [];
+    return resources.filter(r => r.course_id === selectedCourseId);
+  }, [resources, selectedCourseId]);
+
+  const activeQuestions = useMemo(() => {
+    if (!selectedCourseId) return [];
+    return questions.filter(q => q.course_id === selectedCourseId);
+  }, [questions, selectedCourseId]);
+
   // Trích xuất danh sách các tuần học duy nhất
   const weeks = useMemo(() => {
     const wSet = new Set<string>();
-    resources.forEach(r => { if (r.week_name) wSet.add(r.week_name); });
-    questions.forEach(q => { if (q.week_name) wSet.add(q.week_name); });
+    activeResources.forEach(r => { if (r.week_name) wSet.add(r.week_name); });
+    activeQuestions.forEach(q => { if (q.week_name) wSet.add(q.week_name); });
     
     return Array.from(wSet).sort((a, b) => 
       a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
     );
-  }, [resources, questions]);
+  }, [activeResources, activeQuestions]);
 
   // Tự động chọn tuần đầu tiên khi chuyển môn học hoặc khi tuần hiện tại không hợp lệ
   useEffect(() => {
@@ -126,13 +155,13 @@ const LessonDocumentPage: React.FC = () => {
   // Lọc tài nguyên & câu hỏi của tuần hiện tại
   const currentResources = useMemo(() => {
     if (!selectedWeek) return [];
-    return resources.filter(r => r.week_name === selectedWeek);
-  }, [resources, selectedWeek]);
+    return activeResources.filter(r => r.week_name === selectedWeek);
+  }, [activeResources, selectedWeek]);
 
   const currentQuestions = useMemo(() => {
     if (!selectedWeek) return [];
-    return questions.filter(q => q.week_name === selectedWeek);
-  }, [questions, selectedWeek]);
+    return activeQuestions.filter(q => q.week_name === selectedWeek);
+  }, [activeQuestions, selectedWeek]);
 
   // Bộ lọc câu hỏi theo thanh tìm kiếm
   const filteredQuestions = useMemo(() => {
@@ -190,16 +219,16 @@ const LessonDocumentPage: React.FC = () => {
         return;
       }
 
-      if (questions.length === 0) {
+      if (activeQuestions.length === 0) {
         toast.info("Không có câu hỏi nào để xuất.");
         return;
       }
 
-      let dataToExport = questions;
+      let dataToExport = activeQuestions;
       if (excelPercentage < 100) {
-        const limitedCount = Math.floor(questions.length * (excelPercentage / 100));
-        dataToExport = questions.slice(0, limitedCount);
-        toast.info(`Tài khoản được tải ${excelPercentage}% câu hỏi (${limitedCount}/${questions.length} câu).`);
+        const limitedCount = Math.floor(activeQuestions.length * (excelPercentage / 100));
+        dataToExport = activeQuestions.slice(0, limitedCount);
+        toast.info(`Tài khoản được tải ${excelPercentage}% câu hỏi (${limitedCount}/${activeQuestions.length} câu).`);
       }
 
       const excelData = dataToExport.map((q, idx) => ({
@@ -362,6 +391,33 @@ const LessonDocumentPage: React.FC = () => {
           </div>
         ) : (
           <div className="lesson-layout-wrapper max-w-5xl w-full mx-auto">
+            {/* Danh sách lớp học (nếu có nhiều hơn 1 lớp) */}
+            {courses.length > 1 && (
+              <div className="w-full mb-6">
+                <div className="flex flex-col items-center gap-2">
+                  <span className="text-xs font-semibold text-[var(--muted)] uppercase tracking-wider">Chọn lớp học LMS</span>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    {courses.map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => {
+                          setSelectedCourseId(c.id);
+                          setSelectedWeek(null); // Reset tuần khi đổi lớp để tự chọn tuần đầu lớp mới
+                        }}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 border ${
+                          selectedCourseId === c.id
+                            ? "bg-[var(--brand-600)] text-white border-[var(--brand-600)] shadow-md"
+                            : "bg-[var(--bg-2)] text-[var(--fg-2)] border-[var(--border)] hover:bg-[var(--bg-3)]"
+                        }`}
+                      >
+                        {c.title}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Thanh trên cùng: Chips + Nút tải Excel */}
             <div className="flex flex-col items-center gap-4 w-full">
               {/* Chips điều hướng tuần — cuộn ngang */}

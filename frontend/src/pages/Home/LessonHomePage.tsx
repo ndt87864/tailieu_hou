@@ -36,7 +36,7 @@ const LessonHomePage: React.FC = () => {
 
   useEffect(() => {
     if (authLoading) return;
-    cachedGet<{ categories: GroupedCategory[] }>("/api/v1/documents/grouped")
+    cachedGet<{ categories: GroupedCategory[] }>("/api/v1/documents/grouped?full=true")
       .then((res) => {
         setGroupedCategories(res.data.categories || []);
         setLoading(false);

@@ -132,22 +132,147 @@ async function main() {
 
     console.log("✅ Đăng nhập LMS thành công!");
 
+    const isTestDocument = process.env.LMS_TEST_DOCUMENT === "true";
+    const maxCoursesEnv = parseInt(process.env.LMS_MAX_COURSES, 10);
+    const maxCourses = !isNaN(maxCoursesEnv) && maxCoursesEnv > 0 ? maxCoursesEnv : 10;
+
+    const matchedCourses = [];
+    const rejectedCourses = [];
+    
+    let page = 0;
+    let hasMorePages = true;
+    const maxSearchPages = 10; // Giới hạn quét tối đa 10 trang tìm kiếm
+
     console.log(`\n🔍 Đang tìm môn học trên LMS khớp với từ khóa: "${searchKeyword}"...`);
-    const searchUrl = `https://learning.ehou.edu.vn/course/search.php?search=${encodeURIComponent(searchKeyword)}`;
-    const searchRes = await getHtmlWithSso(searchUrl);
-    const $search = cheerio.load(searchRes.data);
 
-    const courseLinkEl = $search(".coursebox .coursename a").first();
-    const courseLink = courseLinkEl.attr("href");
-    const courseTitle = courseLinkEl.text().trim();
+    while (hasMorePages && page < maxSearchPages) {
+      const searchUrl = `https://learning.ehou.edu.vn/course/search.php?search=${encodeURIComponent(searchKeyword)}&page=${page}`;
+      console.log(`   🔎 Đang quét trang kết quả tìm kiếm [${page + 1}]...`);
+      
+      const searchRes = await getHtmlWithSso(searchUrl);
+      const $search = cheerio.load(searchRes.data);
 
-    if (!courseLink) {
+      const foundInPage = [];
+      $search(".coursebox .coursename a").each((i, el) => {
+        const href = $search(el).attr("href");
+        const title = $search(el).text().trim();
+        if (href && title) {
+          if (!foundInPage.some(c => c.href === href)) {
+            foundInPage.push({ href, title });
+          }
+        }
+      });
+
+      if (foundInPage.length === 0) {
+        hasMorePages = false;
+        break;
+      }
+
+      let newCoursesCount = 0;
+      for (let i = 0; i < foundInPage.length; i++) {
+        const c = foundInPage[i];
+        const similarity = getCourseSimilarity(searchKeyword, c.title);
+        const isMatched = similarity >= 0.75;
+        c.similarity = similarity;
+        
+        if (isMatched) {
+          const alreadyListed = matchedCourses.some(x => x.href === c.href);
+          if (!alreadyListed) {
+            newCoursesCount++;
+            matchedCourses.push(c);
+          }
+        } else {
+          const alreadyListed = rejectedCourses.some(x => x.href === c.href);
+          if (!alreadyListed) {
+            newCoursesCount++;
+            rejectedCourses.push(c);
+          }
+        }
+      }
+
+      if (newCoursesCount === 0) {
+        hasMorePages = false;
+        break;
+      }
+
+      // Kiểm tra sự tồn tại của phân trang tiếp theo trên LMS EHOU
+      const nextBtn = $search("ul.pagination a.next, .coursemos-paging a.next, nav.pagination a[aria-label='Next'], nav.pagination a[aria-label='Tiếp theo'], .paging a.next");
+      const hasPagination = $search("ul.pagination, .coursemos-paging, nav.pagination, .paging").length > 0;
+      
+      if (nextBtn.length === 0 && hasPagination) {
+        hasMorePages = false;
+        break;
+      }
+
+      page++;
+    }
+
+    if (matchedCourses.length === 0 && rejectedCourses.length === 0) {
       throw new Error(`Không tìm thấy môn học nào trên LMS khớp với từ khóa: "${searchKeyword}"`);
     }
 
-    const moodleCourseIdMatch = courseLink.match(/id=(\d+)/);
-    const moodleCourseId = moodleCourseIdMatch ? moodleCourseIdMatch[1] : "";
-    console.log(`📚 Đã tìm thấy môn học trên LMS: "${courseTitle}" (LMS ID: ${moodleCourseId})`);
+    // Sắp xếp các môn học theo độ tương đồng giảm dần
+    matchedCourses.sort((a, b) => b.similarity - a.similarity);
+    rejectedCourses.sort((a, b) => b.similarity - a.similarity);
+
+    // Cắt lấy tối đa số môn học yêu cầu có độ tương đồng cao nhất
+    const finalMatchedCourses = matchedCourses.slice(0, maxCourses);
+
+    console.log(`\n=================================================`);
+    console.log(`📊 KẾT QUẢ PHÂN TÍCH MÔN HỌC (Từ khóa: "${searchKeyword}")`);
+    console.log(`=================================================`);
+    
+    console.log(`\n🎯 CÁC MÔN SẼ LẤY DATA (Chấp nhận - Tương đồng >= 75%):`);
+    if (finalMatchedCourses.length > 0) {
+      finalMatchedCourses.forEach((c, idx) => {
+        console.log(`   [${idx + 1}] ${c.title} (Độ tương đồng: ${Math.round(c.similarity * 100)}%)`);
+      });
+    } else {
+      console.log(`   (Không có môn học nào thỏa mãn)`);
+    }
+
+    console.log(`\n⏭️ CÁC MÔN SẼ BỎ QUA (Bị loại - Tương đồng < 75%):`);
+    if (rejectedCourses.length > 0) {
+      rejectedCourses.forEach((c, idx) => {
+        console.log(`   [${idx + 1}] ${c.title} (Độ tương đồng: ${Math.round(c.similarity * 100)}%)`);
+      });
+    } else {
+      console.log(`   (Không có môn học nào bị loại)`);
+    }
+    console.log(`=================================================\n`);
+
+    if (isTestDocument) {
+      console.log(`ℹ️ Chế độ TEST_DOCUMENT đang BẬT. Chương trình dừng lại tại đây theo yêu cầu.`);
+      rl.close();
+      return;
+    }
+
+    if (finalMatchedCourses.length === 0) {
+      console.log(`⚠️ Không có môn học nào đủ độ tương đồng với từ khóa "${searchKeyword}".`);
+      rl.close();
+      return;
+    }
+
+    let coursesToCrawl = [];
+    if (isTestMode) {
+      console.log(`🧪 Đang chạy chế độ TEST: chỉ crawl môn học khớp nhất đầu tiên.`);
+      coursesToCrawl = [finalMatchedCourses[0]];
+    } else {
+      coursesToCrawl = finalMatchedCourses;
+      console.log(`🚀 Chế độ FULL: Sẽ tiến hành crawl tuần tự tối đa ${coursesToCrawl.length} môn học khớp nhất.`);
+    }
+
+    for (let cIdx = 0; cIdx < coursesToCrawl.length; cIdx++) {
+      const currentCourse = coursesToCrawl[cIdx];
+      const courseLink = currentCourse.href;
+      const courseTitle = currentCourse.title;
+
+      const moodleCourseIdMatch = courseLink.match(/id=(\d+)/);
+      const moodleCourseId = moodleCourseIdMatch ? moodleCourseIdMatch[1] : "";
+      
+      console.log(`\n======================================================================`);
+      console.log(`🔄 [${cIdx + 1}/${coursesToCrawl.length}] BẮT ĐẦU CRAWL MÔN HỌC: "${courseTitle}" (LMS ID: ${moodleCourseId})`);
+      console.log(`======================================================================`);
 
     // Tìm hoặc tạo document trong DB bằng cách so khớp tương tự auto-select-doc
     let selectedDoc = null;
@@ -941,6 +1066,8 @@ async function main() {
         sectionCrawledCount++;
       }
     }
+  }
+
 
     console.log("\n=================================================");
     console.log("🎉 HOÀN THÀNH QUÁ TRÌNH CRAWL HỌC LIỆU LMS EHOU!");
@@ -1039,4 +1166,47 @@ function isCourseTitleMatch(webTitle, docTitle) {
   }
 
   return cleanD.includes(cleanW) || cleanW.includes(cleanD);
+}
+
+function getCourseSimilarity(searchKeyword, courseTitle) {
+  if (!searchKeyword || !courseTitle) return 0;
+
+  const cleanTitle = (title) => {
+    if (!title) return "";
+    if (title.includes("-") || title.includes("–") || title.includes("—")) {
+      return title.split(/[-–—]/)[0].trim();
+    }
+    return title.trim();
+  };
+
+  const cleanSearch = stripVietnameseDiacritics(searchKeyword).toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+  const cleanCourse = stripVietnameseDiacritics(cleanTitle(courseTitle)).toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+
+  if (cleanCourse === cleanSearch) {
+    return 1.0;
+  }
+
+  const searchWords = cleanSearch.split(/\s+/).filter(Boolean);
+  const courseWords = cleanCourse.split(/\s+/).filter(Boolean);
+
+  if (searchWords.length === 0) return 0;
+
+  // Kiểm tra nếu chứa trực tiếp
+  if (cleanCourse.includes(cleanSearch) || cleanSearch.includes(cleanCourse)) {
+    const ratio = Math.min(searchWords.length, courseWords.length) / Math.max(searchWords.length, courseWords.length);
+    return 0.8 + ratio * 0.19; // Trả về điểm từ 0.8 đến 0.99
+  }
+
+  let matchCount = 0;
+  for (const word of searchWords) {
+    if (courseWords.includes(word)) {
+      matchCount++;
+    }
+  }
+
+  return matchCount / searchWords.length;
+}
+
+function isCourseMatched(searchKeyword, courseTitle) {
+  return getCourseSimilarity(searchKeyword, courseTitle) >= 0.75;
 }
