@@ -5,6 +5,16 @@ import { getCrawlerDataForDoc } from "../services/documentService.js";
 
 const crawlerAdminRouter = new Hono();
 
+// Helper: chia nhỏ bulk delete thành batch để tránh giới hạn URL length của PostgREST
+const CHUNK_SIZE = 100;
+async function chunkDelete(table: string, ids: string[]): Promise<void> {
+  for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+    const chunk = ids.slice(i, i + CHUNK_SIZE);
+    const { error } = await supabaseAdmin.from(table).delete().in("id", chunk);
+    if (error) throw error;
+  }
+}
+
 // Tất cả các route này yêu cầu quyền admin (hoặc management tuỳ ý)
 crawlerAdminRouter.use("*", requireRole("admin"));
 
@@ -111,13 +121,12 @@ crawlerAdminRouter.delete("/courses/:id", async (c) => {
   }
 });
 
-// Bulk delete
+// Bulk delete (chunked để tránh giới hạn URL length của PostgREST khi có nhiều IDs)
 crawlerAdminRouter.post("/courses/bulk-delete", async (c) => {
   try {
     const { ids } = await c.req.json();
     if (!ids || !Array.isArray(ids)) return c.json({ error: "Invalid ids" }, 400);
-    const { error } = await supabaseAdmin.from("crawler_courses").delete().in("id", ids);
-    if (error) throw error;
+    await chunkDelete("crawler_courses", ids);
     return c.json({ success: true });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
@@ -128,8 +137,7 @@ crawlerAdminRouter.post("/resources/bulk-delete", async (c) => {
   try {
     const { ids } = await c.req.json();
     if (!ids || !Array.isArray(ids)) return c.json({ error: "Invalid ids" }, 400);
-    const { error } = await supabaseAdmin.from("crawler_resources").delete().in("id", ids);
-    if (error) throw error;
+    await chunkDelete("crawler_resources", ids);
     return c.json({ success: true });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
@@ -140,8 +148,7 @@ crawlerAdminRouter.post("/questions/bulk-delete", async (c) => {
   try {
     const { ids } = await c.req.json();
     if (!ids || !Array.isArray(ids)) return c.json({ error: "Invalid ids" }, 400);
-    const { error } = await supabaseAdmin.from("crawler_questions").delete().in("id", ids);
-    if (error) throw error;
+    await chunkDelete("crawler_questions", ids);
     return c.json({ success: true });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
@@ -179,6 +186,77 @@ crawlerAdminRouter.put("/questions/:id", async (c) => {
     const body = await c.req.json();
     const { error } = await supabaseAdmin.from("crawler_questions").update(body).eq("id", id);
     if (error) throw error;
+    return c.json({ success: true });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+crawlerAdminRouter.post("/upload", async (c) => {
+  try {
+    const body = await c.req.parseBody();
+    const file = body["file"];
+    const folder = body["folder"] || "images";
+    
+    if (!file || !(file instanceof File)) {
+      return c.json({ error: "No file uploaded or invalid file type" }, 400);
+    }
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const mimeType = file.type;
+    const originalName = file.name;
+    
+    let ext = "png";
+    const extMatch = originalName.match(/\.([a-zA-Z0-9]+)$/);
+    if (extMatch) ext = extMatch[1];
+    
+    const randomId = Math.random().toString(36).substring(2, 10);
+    const finalFileName = `upload_${Date.now()}_${randomId}.${ext}`;
+    const filePath = `${folder}/${finalFileName}`;
+
+    const { error } = await supabaseAdmin.storage
+      .from("lms-crawler-assets")
+      .upload(filePath, buffer, {
+        contentType: mimeType,
+        upsert: true,
+      });
+
+    if (error) throw error;
+
+    const { data: publicUrlData } = supabaseAdmin.storage
+      .from("lms-crawler-assets")
+      .getPublicUrl(filePath);
+
+    return c.json({ success: true, url: publicUrlData.publicUrl });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+crawlerAdminRouter.post("/delete-files", async (c) => {
+  try {
+    const { urls } = await c.req.json();
+    if (!Array.isArray(urls) || urls.length === 0) {
+      return c.json({ success: true, message: "No URLs to delete" });
+    }
+
+    for (const url of urls) {
+      const match = url.match(/\/storage\/v1\/object\/public\/([^\/]+)\/(.+)$/);
+      if (match) {
+        const bucketName = match[1];
+        const filePath = match[2];
+        
+        const { error } = await supabaseAdmin.storage
+          .from(bucketName)
+          .remove([filePath]);
+        if (error) {
+          console.warn(`⚠️ Lỗi xóa file ${url} từ bucket:`, error.message);
+        } else {
+          console.log(`🗑️ Đã xóa file thành công khỏi bucket ${bucketName}: ${filePath}`);
+        }
+      }
+    }
+
     return c.json({ success: true });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);

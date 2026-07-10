@@ -32,6 +32,8 @@ const CrawlerQuestionCard: React.FC<CrawlerQuestionCardProps> = ({
   handleEditClick,
   handleDelete,
 }) => {
+  const allUrls = [q.url_question, q.url_choices, q.url_answer].filter(Boolean).join(",");
+
   return (
     <div className={`relative group flex items-start gap-3 rounded-xl border transition-all duration-200 p-4
       ${selectedQuestionIds.includes(q.id)
@@ -51,16 +53,29 @@ const CrawlerQuestionCard: React.FC<CrawlerQuestionCardProps> = ({
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="q-label">Câu hỏi #{displayIndex}</span>
-              {q.course?.title && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium">
-                  {q.course.title} {q.week_name ? `- ${q.week_name}` : ""}
-                </span>
-              )}
+              <div className="flex flex-wrap items-center gap-1.5">
+                {q.course?.title && (
+                  <span 
+                    className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium max-w-[200px] truncate" 
+                    title={q.course.title}
+                  >
+                    {q.course.title}
+                  </span>
+                )}
+                {q.week_name && (
+                  <span 
+                    className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium max-w-[250px] truncate" 
+                    title={q.week_name}
+                  >
+                    {q.week_name}
+                  </span>
+                )}
+              </div>
             </div>
             <h4 className="q-title font-semibold text-sm">
-              {renderTextWithImages(q.question, q.url_question)}
+              {renderTextWithImages(q.question, allUrls)}
             </h4>
-            {q.url_question && !q.question.includes("pluginfile.php") && (
+            {q.url_question && !(/\.(?:png|jpe?g|gif|svg|webp|bmp)"?/i.test(q.question || "") || q.question.includes("pluginfile.php") || q.question.includes("@@PLUGINFILE@@")) && (
               <div className="mt-2 flex flex-wrap gap-2">
                 {q.url_question.split(",").map((url) => url.trim()).filter(Boolean).map((url, idx) => (
                   <div key={idx} className="border rounded-lg p-1 max-w-sm inline-block bg-[var(--bg-2)] border-[var(--border-soft)]">
@@ -104,7 +119,7 @@ const CrawlerQuestionCard: React.FC<CrawlerQuestionCardProps> = ({
                   {String.fromCharCode(65 + i)}
                 </span>
                 <span className={isAnswerMatching(choice, q.answer) ? "choice-text-correct" : "choice-text-neutral"}>
-                  {renderTextWithImages(choice, q.url_choices)}
+                  {renderTextWithImages(choice, allUrls)}
                 </span>
               </div>
             ))}
@@ -115,9 +130,9 @@ const CrawlerQuestionCard: React.FC<CrawlerQuestionCardProps> = ({
         {(!Array.isArray(q.choices) || q.choices.length === 0) && q.answer && (
           <div className="text-xs p-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 text-emerald-600 space-y-2">
             <div>
-              <strong>Đáp án:</strong> {renderTextWithImages(q.answer, q.url_answer)}
+              <strong>Đáp án:</strong> {renderTextWithImages(q.answer, allUrls)}
             </div>
-            {q.url_answer && (
+            {q.url_answer && !(/\.(?:png|jpe?g|gif|svg|webp|bmp)"?/i.test(q.answer || "") || q.answer.includes("pluginfile.php") || q.answer.includes("@@PLUGINFILE@@")) && (
               <div className="mt-2 flex flex-wrap gap-2">
                 {q.url_answer.split(",").map((url) => url.trim()).filter(Boolean).map((url, idx) => (
                   <div key={idx} className="border rounded-lg p-1 max-w-sm inline-block bg-[var(--bg-2)] border-[var(--border-soft)]">

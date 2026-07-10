@@ -41,96 +41,28 @@ async function main() {
       return;
     }
 
-    console.log("\n📡 Đang tải danh sách tài liệu từ Database...");
-    const { data: docs, error: docErr } = await supabaseAdmin
-      .from("documents")
-      .select("id, title")
-      .order("created_at", { ascending: false })
-      .limit(30);
+    let searchKeyword = (process.env.LMS_DOCUMENT_TITLE || "").trim();
+    if (!searchKeyword) {
+      searchKeyword = (await askQuestion("👉 Nhập từ khóa để tìm kiếm môn học trên LMS (ví dụ: Triết học): ")).trim();
+    } else {
+      console.log(`ℹ️ Sử dụng từ khóa tìm kiếm môn học từ env: "${searchKeyword}"`);
+    }
 
-    if (docErr || !docs || docs.length === 0) {
-      console.log("❌ Không tải được danh sách tài liệu hoặc DB trống!");
+    if (!searchKeyword) {
+      console.log("❌ Từ khóa tìm kiếm không được để trống!");
       rl.close();
       return;
-    }
-
-    let selectedDoc = null;
-    const envDocTitle = (process.env.LMS_DOCUMENT_TITLE || "").trim();
-    if (envDocTitle) {
-      const { data: foundDocs } = await supabaseAdmin
-        .from("documents")
-        .select("id, title")
-        .ilike("title", `%${envDocTitle}%`);
-
-      if (foundDocs && foundDocs.length > 0) {
-        selectedDoc = foundDocs[0];
-        console.log(`\n✅ Tự động chọn tài liệu đối chiếu từ env: "${selectedDoc.title}"`);
-      } else {
-        console.log(`\n🆕 Không tìm thấy tài liệu "${envDocTitle}" trong database. Tiến hành tạo mới...`);
-        const { data: newDoc, error: insErr } = await supabaseAdmin
-          .from("documents")
-          .insert({ title: envDocTitle })
-          .select()
-          .single();
-        if (insErr) {
-          throw new Error(`Không thể tạo tài liệu mới: ${insErr.message}`);
-        }
-        selectedDoc = newDoc;
-        console.log(`✅ Đã tạo mới tài liệu đối chiếu: "${selectedDoc.title}"`);
-      }
-    }
-
-    if (!selectedDoc) {
-      console.log("\nDanh sách tài liệu đối chiếu gần đây:");
-      docs.forEach((doc, idx) => {
-        console.log(`[${idx + 1}] ${doc.title}`);
-      });
-
-      const userInput = await askQuestion(`\n👉 Nhập tên tài liệu đối chiếu (hoặc chọn số thứ tự 1-${docs.length}): `);
-      const trimmedInput = userInput.trim();
-      const numIdx = parseInt(trimmedInput, 10) - 1;
-
-      if (!isNaN(numIdx) && numIdx >= 0 && numIdx < docs.length) {
-        selectedDoc = docs[numIdx];
-        console.log(`\n✅ Bạn đã chọn tài liệu đối chiếu: "${selectedDoc.title}"`);
-      } else if (trimmedInput.length > 0) {
-        const { data: foundDocs } = await supabaseAdmin
-          .from("documents")
-          .select("id, title")
-          .ilike("title", `%${trimmedInput}%`);
-
-        if (foundDocs && foundDocs.length > 0) {
-          selectedDoc = foundDocs[0];
-          console.log(`\n✅ Chọn tài liệu đối chiếu khớp tìm kiếm: "${selectedDoc.title}"`);
-        } else {
-          console.log(`\n🆕 Không tìm thấy tài liệu "${trimmedInput}" trong database. Tiến hành tạo mới...`);
-          const { data: newDoc, error: insErr } = await supabaseAdmin
-            .from("documents")
-            .insert({ title: trimmedInput })
-            .select()
-            .single();
-          if (insErr) {
-            throw new Error(`Không thể tạo tài liệu mới: ${insErr.message}`);
-          }
-          selectedDoc = newDoc;
-          console.log(`✅ Đã tạo mới tài liệu đối chiếu: "${selectedDoc.title}"`);
-        }
-      } else {
-        console.log("❌ Lựa chọn không hợp lệ!");
-        rl.close();
-        return;
-      }
     }
 
     let isTestMode = true;
     const envTestMode = process.env.LMS_TEST_MODE;
     if (envTestMode !== undefined && envTestMode !== "") {
       isTestMode = envTestMode.trim().toLowerCase() === "true";
-      console.log(`ℹ️ Tự động nhận diện chế độ chạy từ env: ${isTestMode ? "TEST (Giới hạn 1 mẫu)" : "FULL"}`);
+      console.log(`ℹ️ Tự động nhận diện chế độ chạy từ env: ${isTestMode ? "TEST (Giới hạn 2 tuần)" : "FULL"}`);
     } else {
-      const testModeStr = await askQuestion("🧪 Bạn có muốn chạy ở chế độ TEST (chỉ crawl thử nghiệm 1 file, 1 youtube, 1 thông báo và 1 câu hỏi đầu tiên)? (Y/n): ");
+      const testModeStr = await askQuestion("🧪 Bạn có muốn chạy ở chế độ TEST (chỉ crawl 2 tuần đầu tiên)? (Y/n): ");
       isTestMode = testModeStr.toLowerCase() !== "n";
-      console.log(`ℹ️ Đang chạy ở chế độ: ${isTestMode ? "TEST (Giới hạn 1 mẫu)" : "FULL"}`);
+      console.log(`ℹ️ Đang chạy ở chế độ: ${isTestMode ? "TEST (Giới hạn 2 tuần)" : "FULL"}`);
     }
 
     console.log("\n🔑 Đang kết nối tới Moodle LMS learning.ehou.edu.vn...");
@@ -198,8 +130,8 @@ async function main() {
 
     console.log("✅ Đăng nhập LMS thành công!");
 
-    console.log(`🔍 Đang tìm môn học khớp với tài liệu: "${selectedDoc.title}"...`);
-    const searchUrl = `https://learning.ehou.edu.vn/course/search.php?search=${encodeURIComponent(selectedDoc.title)}`;
+    console.log(`\n🔍 Đang tìm môn học trên LMS khớp với từ khóa: "${searchKeyword}"...`);
+    const searchUrl = `https://learning.ehou.edu.vn/course/search.php?search=${encodeURIComponent(searchKeyword)}`;
     const searchRes = await getHtmlWithSso(searchUrl);
     const $search = cheerio.load(searchRes.data);
 
@@ -208,12 +140,37 @@ async function main() {
     const courseTitle = courseLinkEl.text().trim();
 
     if (!courseLink) {
-      throw new Error(`Không tìm thấy môn học nào khớp với tài liệu đối chiếu: "${selectedDoc.title}"`);
+      throw new Error(`Không tìm thấy môn học nào trên LMS khớp với từ khóa: "${searchKeyword}"`);
     }
 
     const moodleCourseIdMatch = courseLink.match(/id=(\d+)/);
     const moodleCourseId = moodleCourseIdMatch ? moodleCourseIdMatch[1] : "";
-    console.log(`📚 Đã tìm thấy môn học: "${courseTitle}" (LMS ID: ${moodleCourseId})`);
+    console.log(`📚 Đã tìm thấy môn học trên LMS: "${courseTitle}" (LMS ID: ${moodleCourseId})`);
+
+    // Tìm hoặc tạo document trong DB theo courseTitle chính xác từ LMS
+    let selectedDoc = null;
+    const { data: foundDocs } = await supabaseAdmin
+      .from("documents")
+      .select("id, title")
+      .eq("title", courseTitle)
+      .limit(1);
+
+    if (foundDocs && foundDocs.length > 0) {
+      selectedDoc = foundDocs[0];
+      console.log(`💾 Sử dụng tài liệu đối chiếu hiện có trong DB: "${selectedDoc.title}"`);
+    } else {
+      console.log(`🆕 Không tìm thấy tài liệu "${courseTitle}" trong DB. Tiến hành tạo mới...`);
+      const { data: newDoc, error: insErr } = await supabaseAdmin
+        .from("documents")
+        .insert({ title: courseTitle })
+        .select()
+        .single();
+      if (insErr) {
+        throw new Error(`Không thể tạo tài liệu mới: ${insErr.message}`);
+      }
+      selectedDoc = newDoc;
+      console.log(`✅ Đã tạo mới tài liệu đối chiếu: "${selectedDoc.title}"`);
+    }
 
     let dbCourse = null;
     const { data: existingCourses, error: findErr } = await supabaseAdmin
@@ -355,6 +312,7 @@ async function main() {
     let fileCount = 0;
     let youtubeCount = 0;
     let quizCount = 0;
+    let sectionCrawledCount = 0;
 
     for (let idx = 0; idx < sectionsToCrawl.length; idx++) {
       const sectionNum = sectionsToCrawl[idx];
@@ -367,6 +325,12 @@ async function main() {
       for (let s = 0; s < sections.length; s++) {
         const sec = sections[s];
         const sectionName = $secPage(sec).find(".sectionname, .section-title, h3").first().text().trim() || `Phần ${sectionNum}`;
+
+        // Test mode: chỉ crawl 2 tuần đầu tiên có nội dung
+        if (isTestMode && sectionCrawledCount >= 2) {
+          continue;
+        }
+
         console.log(`\n-------------------------------------------------`);
         console.log(`📖 Đang crawl tuần/phần: "${sectionName}"`);
         console.log(`-------------------------------------------------`);
@@ -436,9 +400,6 @@ async function main() {
            let activityName = rawName;
 
           if (href.includes("mod/resource/view.php")) {
-             if (isTestMode && fileCount >= 1) {
-               continue;
-             }
              try {
                // 1. Bắt buộc lấy tên file thực tế từ header Content-Disposition của Moodle
                let resolvedName = "";
@@ -576,40 +537,36 @@ async function main() {
                 }
               } else {
                 if (isYoutube) {
-                  if (!isTestMode || youtubeCount < 1) {
+                  await supabaseAdmin.from("crawler_resources").insert({
+                    course_id: dbCourse.id,
+                    type: "youtube",
+                    title: activityName,
+                    content_url: finalUrl,
+                    week_name: sectionName
+                  });
+                  youtubeCount++;
+                  console.log(`   ✅ Đã lưu link video: ${finalUrl}`);
+                } else if (isFile) {
+                  try {
+                    const filePublicUrl = await uploadFileToStorage(finalUrl, "files", getCookieHeader);
                     await supabaseAdmin.from("crawler_resources").insert({
                       course_id: dbCourse.id,
-                      type: "youtube",
+                      type: "file",
+                      title: activityName,
+                      content_url: filePublicUrl,
+                      week_name: sectionName
+                    });
+                    fileCount++;
+                    console.log(`   ✅ Đã tải & lưu file từ URL: ${finalUrl}`);
+                  } catch (dlErr) {
+                    await supabaseAdmin.from("crawler_resources").insert({
+                      course_id: dbCourse.id,
+                      type: "link",
                       title: activityName,
                       content_url: finalUrl,
                       week_name: sectionName
                     });
-                    youtubeCount++;
-                    console.log(`   ✅ Đã lưu link video: ${finalUrl}`);
-                  }
-                } else if (isFile) {
-                  if (!isTestMode || fileCount < 1) {
-                    try {
-                      const filePublicUrl = await uploadFileToStorage(finalUrl, "files", getCookieHeader);
-                      await supabaseAdmin.from("crawler_resources").insert({
-                        course_id: dbCourse.id,
-                        type: "file",
-                        title: activityName,
-                        content_url: filePublicUrl,
-                        week_name: sectionName
-                      });
-                      fileCount++;
-                      console.log(`   ✅ Đã tải & lưu file từ URL: ${finalUrl}`);
-                    } catch (dlErr) {
-                      await supabaseAdmin.from("crawler_resources").insert({
-                        course_id: dbCourse.id,
-                        type: "link",
-                        title: activityName,
-                        content_url: finalUrl,
-                        week_name: sectionName
-                      });
-                      console.log(`   ✅ Lưu link URL (không tải được file): ${finalUrl}`);
-                    }
+                    console.log(`   ✅ Lưu link URL (không tải được file): ${finalUrl}`);
                   }
                 } else {
                   await supabaseAdmin.from("crawler_resources").insert({
@@ -675,32 +632,61 @@ async function main() {
 
               const { cleanHtml: cleanPageContent } = await processHtmlImagesAndUpload(pageContent, getCookieHeader);
 
+              // Phân tích xem trang có chứa video YouTube nhúng hay không
+              const $cleanPage = cheerio.load(cleanPageContent || "", null, false);
+              const pageIframes = $cleanPage("iframe[src*='youtube.com'], iframe[src*='youtu.be']");
+              
+              let finalType = "announcement";
+              let finalContentUrl = null;
+              let finalRawContent = cleanPageContent;
+
+              if (pageIframes.length > 0) {
+                const firstIframeSrc = pageIframes.first().attr("src");
+                if (firstIframeSrc) {
+                  finalType = "youtube";
+                  finalContentUrl = firstIframeSrc;
+                  
+                  // Loại bỏ iframe YouTube đầu tiên khỏi raw_content
+                  pageIframes.first().remove();
+                  
+                  // Kiểm tra xem HTML còn lại có văn bản gì không, nếu trống thì để raw_content = null
+                  const remainingText = $cleanPage.text().trim();
+                  if (remainingText.length === 0) {
+                    finalRawContent = null;
+                  } else {
+                    finalRawContent = $cleanPage.html();
+                  }
+                }
+              }
+
               if (existingRecord) {
-                // Cập nhật lại record cũ: đổi type thành announcement và lưu content sạch
+                // Cập nhật lại record cũ: đổi type thành finalType và lưu nội dung sạch
                 await supabaseAdmin
                   .from("crawler_resources")
                   .update({ 
-                    raw_content: cleanPageContent,
-                    type: "announcement" 
+                    raw_content: finalRawContent,
+                    content_url: finalContentUrl,
+                    type: finalType 
                   })
                   .eq("id", existingRecord.id);
-                console.log(`   ✅ Đã cập nhật, dọn dẹp và chuyển đổi type thành announcement cho trang cũ.`);
+                console.log(`   ✅ Đã cập nhật, dọn dẹp và chuyển đổi type thành ${finalType} cho trang cũ.`);
               } else {
                 // Lưu record mới nếu thực sự chưa có
                 await supabaseAdmin.from("crawler_resources").insert({
                   course_id: dbCourse.id,
-                  type: "announcement",
+                  type: finalType,
                   title: activityName,
-                  raw_content: cleanPageContent,
+                  content_url: finalContentUrl,
+                  raw_content: finalRawContent,
                   week_name: sectionName
                 });
-                console.log(`   ✅ Đã lưu nội dung trang mới.`);
+                console.log(`   ✅ Đã lưu nội dung trang mới dưới dạng ${finalType}.`);
               }
 
-              // Lưu thêm các YouTube iframe trong trang nếu có
+              // Lưu thêm các YouTube iframe phụ trong trang nếu có (từ video thứ 2 trở đi nếu video đầu đã làm tài nguyên chính)
               const iframes = $page("iframe[src*='youtube.com'], iframe[src*='youtu.be']");
-              for (let fi = 0; fi < iframes.length; fi++) {
-                if (isTestMode && youtubeCount >= 1) break;
+              const startIframeIdx = (finalType === "youtube") ? 1 : 0;
+              for (let fi = startIframeIdx; fi < iframes.length; fi++) {
                 const iframeSrc = $page(iframes[fi]).attr("src");
                 if (!iframeSrc) continue;
                 const ytTitle = `${activityName} (video ${fi + 1})`;
@@ -713,13 +699,12 @@ async function main() {
                   week_name: sectionName
                 });
                 youtubeCount++;
-                console.log(`   ✅ Đã lưu video từ Page: ${iframeSrc}`);
+                console.log(`   ✅ Đã lưu video phụ từ Page: ${iframeSrc}`);
               }
 
               // Trích xuất và thử tải các file đính kèm trong nội dung trang
               const fileLinks = $page("a[href*='pluginfile.php'], a[href$='.pdf'], a[href$='.doc'], a[href$='.docx']");
               for (let fl = 0; fl < fileLinks.length; fl++) {
-                if (isTestMode && fileCount >= 1) break;
                 const fileHref = $page(fileLinks[fl]).attr("href");
                 const fileLinkTitle = $page(fileLinks[fl]).text().trim() || `Tệp ${fl + 1}`;
                 if (!fileHref) continue;
@@ -751,9 +736,6 @@ async function main() {
           }
 
           else if (href.includes("mod/quiz/view.php")) {
-            if (isTestMode && quizCount >= 1) {
-              continue;
-            }
             try {
               console.log(`   📝 Phát hiện bài trắc nghiệm: "${activityName}"...`);
               const quizRes = await getHtmlWithSso(href);
@@ -770,28 +752,37 @@ async function main() {
                   const reportRes = await getHtmlWithSso(reportUrl);
                   const $reportPage = cheerio.load(reportRes.data);
 
-                  // Nếu trang chỉ hiển thị biểu đồ phân phối điểm (không có bảng bài làm cá nhân)
-                  // thì bỏ qua, không thể lấy câu hỏi
-                  const hasGradeChartOnly = $reportPage("h3").filter((i, el) =>
-                    $reportPage(el).text().includes("Overall number of students achieving grade ranges")
-                  ).length > 0;
+                   const hasTable = $reportPage("table.generaltable, table#attempts").length > 0;
 
-                  if (hasGradeChartOnly) {
-                    console.log(`   ℹ️ Trang báo cáo chỉ hiển thị biểu đồ điểm, không có bài làm cá nhân. Bỏ qua.`);
-                  } else {
-                    // Điểm nằm trong thẻ <a> bên trong <td class="cell ... bold">
-                    // ví dụ: <td class="cell c7 bold"><a href="...review.php?attempt=...">90,00</a></td>
-                    $reportPage("td.bold a[href*='review.php?attempt=']").each((i, el) => {
-                      const attemptHref = $reportPage(el).attr("href");
-                      // Điểm hiển thị dạng "90,00" (locale tiếng Việt dùng dấu phẩy)
-                      const gradeText = $reportPage(el).text().trim().replace(",", ".");
-                      const grade = parseFloat(gradeText);
-                      if (!isNaN(grade) && grade > 80) {
-                        attemptLinks.push(attemptHref);
-                      }
-                    });
-                    console.log(`   📊 Tìm thấy ${attemptLinks.length} lượt bài làm đạt >80 điểm.`);
-                  }
+                   if (!hasTable) {
+                     console.log(`   ℹ️ Trang báo cáo không có bảng điểm bài làm cá nhân. Bỏ qua.`);
+                   } else {
+                     $reportPage("table.generaltable tbody tr, table#attempts tbody tr").each((i, tr) => {
+                       const attemptLinkEl = $reportPage(tr).find("a[href*='review.php?attempt=']");
+                       if (attemptLinkEl.length === 0) return;
+                       const attemptHref = attemptLinkEl.attr("href");
+
+                       let grade = null;
+                       $reportPage(tr).find("td").each((j, td) => {
+                         const text = $reportPage(td).text().trim().replace(",", ".");
+                         const val = parseFloat(text);
+                         if (!isNaN(val) && val >= 0 && val <= 100) {
+                           // Ưu tiên cột điểm tổng (thường có class bold, c7, hoặc là cột điểm đầu tiên)
+                           if (grade === null || $reportPage(td).hasClass("bold") || $reportPage(td).attr("class")?.includes("c7")) {
+                             grade = val;
+                           }
+                         }
+                       });
+
+                       if (grade !== null) {
+                         const normalizedGrade = grade <= 10 ? grade * 10 : grade;
+                         if (normalizedGrade >= 80) {
+                           attemptLinks.push(attemptHref);
+                         }
+                       }
+                     });
+                     console.log(`   📊 Tìm thấy ${attemptLinks.length} lượt bài làm đạt >80 điểm.`);
+                   }
                 } catch (reportErr) {
                   console.log(`   ℹ️ Không truy cập được báo cáo bài làm (Có thể tài khoản là sinh viên thường).`);
                 }
@@ -805,10 +796,7 @@ async function main() {
                 }
               }
 
-              let uniqueAttempts = [...new Set(attemptLinks)];
-              if (isTestMode && uniqueAttempts.length > 0) {
-                uniqueAttempts = [uniqueAttempts[0]];
-              }
+              const uniqueAttempts = [...new Set(attemptLinks)];
               if (uniqueAttempts.length === 0) {
                 console.log(`   ℹ️ Không có lượt bài làm nào đạt >80 điểm. Bỏ qua bài trắc nghiệm này.`);
                 quizCount++;
@@ -837,8 +825,18 @@ async function main() {
                     const $tempQ = cheerio.load(qTextCleanHtml);
                     const qTextClean = cleanQuestionText($tempQ, $tempQ("body"));
 
-                    if (await isQuestionExists(qTextClean)) {
-                      console.log(`      ⏭️ Câu hỏi [${q + 1}] đã tồn tại trong DB. Bỏ qua.`);
+                    // Lấy câu hỏi hiện có từ DB
+                    const { data: existingQs } = await supabaseAdmin
+                      .from("crawler_questions")
+                      .select("id, answer")
+                      .eq("course_id", dbCourse.id)
+                      .eq("question", qTextClean)
+                      .limit(1);
+
+                    const existingQ = existingQs && existingQs.length > 0 ? existingQs[0] : null;
+
+                    if (existingQ && existingQ.answer && existingQ.answer.trim() !== "") {
+                      console.log(`      ⏭️ Câu hỏi [${q + 1}] đã tồn tại trong DB và đã có đáp án. Bỏ qua.`);
                       continue;
                     }
 
@@ -849,7 +847,7 @@ async function main() {
                       const imgTags = $review(choiceBlocks[c]).find("img");
                       for (let i = 0; i < imgTags.length; i++) {
                         const src = $review(imgTags[i]).attr("src");
-                        if (src && !src.includes("grade_")) {
+                        if (src && !src.includes("grade_") && !src.includes("/theme/image.php") && !src.includes("coursemos/core")) {
                           try {
                             const publicUrl = await uploadFileToStorage(src, "images", getCookieHeader);
                             choiceImgsList.push(publicUrl);
@@ -861,7 +859,18 @@ async function main() {
                       const { cleanHtml: choiceClean } = await processHtmlImagesAndUpload(choiceHtml, getCookieHeader);
                       const $temp = cheerio.load(choiceClean);
                       $temp("input, span.control").remove();
-                      choices.push($temp.text().trim());
+                      $temp("img").each((i, img) => {
+                        const originalSrc = $temp(img).attr("data-original-src") || $temp(img).attr("src");
+                        if (originalSrc) {
+                          // Lựa chọn: bọc URL ehou bằng \" để phân loại
+                          const isEhouUrl = /https?:\/\/learning\.ehou\.edu\.vn\/pluginfile\.php/i.test(originalSrc);
+                          const replacement = isEhouUrl ? ` \"${originalSrc}\" ` : ` ${originalSrc} `;
+                          $temp(img).replaceWith(replacement);
+                        } else {
+                          $temp(img).remove();
+                        }
+                      });
+                      choices.push($temp.text().replace(/\s+/g, " ").trim());
                     }
 
                     let rightAnswerText = "";
@@ -874,7 +883,7 @@ async function main() {
                       const imgTags = rightAnswerBlock.find("img");
                       for (let i = 0; i < imgTags.length; i++) {
                         const src = $review(imgTags[i]).attr("src");
-                        if (src && !src.includes("grade_")) {
+                        if (src && !src.includes("grade_") && !src.includes("/theme/image.php") && !src.includes("coursemos/core")) {
                           try {
                             const publicUrl = await uploadFileToStorage(src, "images", getCookieHeader);
                             ansImgsList.push(publicUrl);
@@ -884,13 +893,62 @@ async function main() {
 
                       const clonedBlock = rightAnswerBlock.clone();
                       clonedBlock.find(".feedback, .generalfeedback, .accesshide").remove();
-                      const rawAns = clonedBlock.text().trim();
+                      clonedBlock.find("img").each((i, img) => {
+                        const src = $review(img).attr("src");
+                        if (src) {
+                          $review(img).replaceWith(` ${src} `);
+                        } else {
+                          $review(img).remove();
+                        }
+                      });
+                      const rawAns = clonedBlock.text().replace(/\s+/g, " ").trim();
                       const match = rawAns.match(/(?:Đáp án đúng là:|The correct answer is:|Câu trả lời đúng là:|The correct answers are:|Các đáp án đúng là:)\s*(.*)/i);
                       rightAnswerText = match ? match[1].trim() : rawAns;
                       rightAnswerText = rightAnswerText.replace(/[\u2713\u2714\u2611\u2705]/g, "").trim();
                     }
 
                     if (!rightAnswerText) {
+                      // Cách 1: Tìm trực tiếp qua thẻ img báo đáp án đúng (grade_correct) trong toàn bộ khối câu hỏi
+                      const correctImg = $review(qBlock).find("img[src*='grade_correct'], img.questioncorrectnessicon, img[alt*='correct']");
+                      for (let imgIdx = 0; imgIdx < correctImg.length; imgIdx++) {
+                        const imgEl = correctImg[imgIdx];
+                        const alt = ($review(imgEl).attr("alt") || "").toLowerCase();
+                        const title = ($review(imgEl).attr("title") || "").toLowerCase();
+                        const src = ($review(imgEl).attr("src") || "").toLowerCase();
+                        
+                        const isIncorrect = alt.includes("không") || alt.includes("incorrect") || 
+                                            title.includes("không") || title.includes("incorrect") || 
+                                            src.includes("incorrect") || src.includes("grade_incorrect");
+                        
+                        if (!isIncorrect && (alt.includes("đúng") || alt.includes("correct") || src.includes("grade_correct"))) {
+                          const matchedChoiceEl = $review(imgEl).closest(".r0, .r1, label, div");
+                          if (matchedChoiceEl.length > 0) {
+                            const temp = matchedChoiceEl.clone();
+                            temp.find("input, span.control, .questioncorrectnessicon").remove();
+                            // Thay thế các ảnh công thức bằng URL tương ứng, chỉ xóa ảnh đánh dấu kết quả đúng/sai
+                            temp.find("img").each((i, img) => {
+                              const imgUrl = $review(img).attr("src") || "";
+                              if (imgUrl.includes("grade_correct") || imgUrl.includes("grade_incorrect") || imgUrl.includes("questioncorrectnessicon")) {
+                                $review(img).remove();
+                              } else {
+                                const originalSrc = $review(img).attr("data-original-src") || imgUrl;
+                                if (originalSrc) {
+                                  $review(img).replaceWith(` ${originalSrc} `);
+                                } else {
+                                  $review(img).remove();
+                                }
+                              }
+                            });
+                            rightAnswerText = temp.text().trim();
+                            rightAnswerText = rightAnswerText.replace(/^[a-zA-Z]\s*[\.\)\-:\/]\s*/u, "").trim();
+                            if (rightAnswerText) break;
+                          }
+                        }
+                      }
+                    }
+
+                    if (!rightAnswerText) {
+                      // Cách 2: Duyệt qua từng lựa chọn (fallback cũ)
                       const choiceBlocks2 = $review(qBlock).find(".answer div[class*='r0'], .answer div[class*='r1']");
                       for (let c = 0; c < choiceBlocks2.length; c++) {
                         const choiceEl = choiceBlocks2[c];
@@ -914,6 +972,19 @@ async function main() {
                         if (hasCorrectClass || hasCorrectIcon || hasTickChar) {
                           const temp = $review(choiceEl).clone();
                           temp.find("input, span.control, .questioncorrectnessicon").remove();
+                          temp.find("img").each((i, img) => {
+                            const imgUrl = $review(img).attr("src") || "";
+                            if (imgUrl.includes("grade_correct") || imgUrl.includes("grade_incorrect") || imgUrl.includes("questioncorrectnessicon")) {
+                              $review(img).remove();
+                            } else {
+                              const originalSrc = $review(img).attr("data-original-src") || imgUrl;
+                              if (originalSrc) {
+                                $review(img).replaceWith(` ${originalSrc} `);
+                              } else {
+                                $review(img).remove();
+                              }
+                            }
+                          });
                           rightAnswerText = temp.text().trim();
                           rightAnswerText = rightAnswerText.replace(/^[a-zA-Z]\s*[\.\)\-:\/]\s*/u, "").trim();
                           break;
@@ -925,17 +996,34 @@ async function main() {
                     const url_answer = ansImgsList.length > 0 ? ansImgsList.join(",") : null;
                     const url_choices = choiceImgsList.length > 0 ? choiceImgsList.join(",") : null;
 
-                    await supabaseAdmin.from("crawler_questions").insert({
-                      course_id: dbCourse.id,
-                      week_name: sectionName,
-                      question: qTextClean,
-                      choices,
-                      answer: rightAnswerText,
-                      url_question,
-                      url_answer,
-                      url_choices,
-                      order_index: q + 1
-                    });
+                    if (!rightAnswerText || rightAnswerText.trim() === "") {
+                      console.log(`      ⚠️ Cảnh báo: Không lấy được đáp án đúng cho câu hỏi [${q + 1}] tại: ${reviewUrl}`);
+                      console.log(`         Nội dung câu hỏi: "${qTextClean.substring(0, 100)}..."`);
+                    } else {
+                      if (existingQ) {
+                        await supabaseAdmin
+                          .from("crawler_questions")
+                          .update({
+                            answer: rightAnswerText,
+                            url_answer: url_answer
+                          })
+                          .eq("id", existingQ.id);
+                        console.log(`      ✨ Đã cập nhật đáp án cho câu hỏi [${q + 1}] bị trống trước đó.`);
+                      } else {
+                        await supabaseAdmin.from("crawler_questions").insert({
+                          course_id: dbCourse.id,
+                          week_name: sectionName,
+                          question: qTextClean,
+                          choices,
+                          answer: rightAnswerText,
+                          url_question,
+                          url_answer,
+                          url_choices,
+                          order_index: q + 1
+                        });
+                        console.log(`      ✅ Đã lưu câu hỏi mới [${q + 1}] (Đáp án: ${rightAnswerText}).`);
+                      }
+                    }
                   }
                 } catch (revErr) {
                   console.log(`      ⚠️ Lỗi đọc lượt làm bài: ${revErr.message}`);
@@ -948,6 +1036,7 @@ async function main() {
             }
           }
         }
+        sectionCrawledCount++;
       }
     }
 

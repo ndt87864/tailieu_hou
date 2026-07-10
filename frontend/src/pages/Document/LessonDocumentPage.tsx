@@ -6,12 +6,11 @@ import { useAuth } from "../../context/AuthContext.js";
 import { Header } from "../../components/layout/Layout.js";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
-import { cleanForExport } from "../../utils/questionHelper.js";
+import { cleanForExport, renderTextWithImages, isAnswerMatching } from "../../utils/questionHelper.js";
 import { 
   BookOpen, FileText, Play, Download, HelpCircle,
   CheckCircle2, Crown, Youtube, Search, X
 } from "lucide-react";
-import { renderTextWithImages } from "../../utils/questionHelper.js";
 
 interface CrawlerResource {
   id: string;
@@ -176,19 +175,7 @@ const LessonDocumentPage: React.FC = () => {
 
   // So sánh câu trả lời của người dùng với đáp án đúng
   const checkAnswer = (q: CrawlerQuestion, choice: string) => {
-    const cleanChoice = choice.trim().toLowerCase();
-    const cleanAnswer = q.answer.trim().toLowerCase();
-    
-    // Khớp tuyệt đối hoặc chứa đáp án
-    if (cleanChoice === cleanAnswer) return true;
-    if (cleanAnswer.startsWith(cleanChoice)) return true;
-    if (cleanChoice.startsWith(cleanAnswer)) return true;
-
-    // Trường hợp đáp án lưu dạng "Đáp án đúng là: [Nội dung]"
-    const cleanAnswerWithoutPrefix = cleanAnswer.replace(/^(đáp án đúng là:|the correct answer is:)\s*/i, "").trim();
-    if (cleanChoice === cleanAnswerWithoutPrefix) return true;
-
-    return false;
+    return isAnswerMatching(choice, q.answer);
   };
 
   // Export excel TOÀN BỘ câu hỏi LMS
@@ -541,36 +528,39 @@ const LessonDocumentPage: React.FC = () => {
 
                     {filteredQuestions.length > 0 ? (
                       <div className="lesson-quiz-scroll">
-                        {filteredQuestions.map((q, qIndex) => (
-                          <div key={q.id} className="lesson-quiz-question-box">
-                            <div className="lesson-quiz-q-number">Câu {qIndex + 1}</div>
-                            <h5 className="lesson-quiz-question-title">
-                              {renderTextWithImages(q.question, q.url_question)}
-                            </h5>
+                        {filteredQuestions.map((q, qIndex) => {
+                          const allUrls = [q.url_question, q.url_choices, q.url_answer].filter(Boolean).join(",");
+                          return (
+                            <div key={q.id} className="lesson-quiz-question-box">
+                              <div className="lesson-quiz-q-number">Câu {qIndex + 1}</div>
+                              <h5 className="lesson-quiz-question-title">
+                                {renderTextWithImages(q.question, allUrls)}
+                              </h5>
 
-                            <div className="lesson-quiz-choices">
-                              {q.choices?.map((choice, cIndex) => {
-                                const isCorrect = checkAnswer(q, choice);
-                                return (
-                                  <div
-                                    key={cIndex}
-                                    className={`lesson-quiz-choice-item${isCorrect ? " lesson-quiz-choice-correct" : ""}`}
-                                  >
-                                    <span className="font-bold shrink-0 w-5 text-[var(--muted)]">
-                                      {String.fromCharCode(65 + cIndex)}.
-                                    </span>
-                                    <span>{renderTextWithImages(choice, q.url_choices)}</span>
-                                  </div>
-                                );
-                              })}
-                            </div>
+                              <div className="lesson-quiz-choices">
+                                {q.choices?.map((choice, cIndex) => {
+                                  const isCorrect = checkAnswer(q, choice);
+                                  return (
+                                    <div
+                                      key={cIndex}
+                                      className={`lesson-quiz-choice-item${isCorrect ? " lesson-quiz-choice-correct" : ""}`}
+                                    >
+                                      <span className="font-bold shrink-0 w-5 text-[var(--muted)]">
+                                        {String.fromCharCode(65 + cIndex)}.
+                                      </span>
+                                      <span>{renderTextWithImages(choice, allUrls)}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
 
-                            <div className="lesson-quiz-answer-badge">
-                              <CheckCircle2 className="w-3 h-3 shrink-0" />
-                              <span>Đáp án: {renderTextWithImages(q.answer, q.url_answer)}</span>
+                              <div className="lesson-quiz-answer-badge">
+                                <CheckCircle2 className="w-3 h-3 shrink-0" />
+                                <span>Đáp án: {renderTextWithImages(q.answer, allUrls)}</span>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     ) : (
                       <p className="text-xs text-[var(--muted)] py-6 text-center">

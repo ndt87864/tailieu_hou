@@ -15,7 +15,7 @@ async function uploadFileToStorage(url, prefix, getCookieHeader) {
   const downloadRes = await axios.get(url, {
     headers,
     responseType: "arraybuffer",
-    timeout: 15000
+    timeout: 60000
   });
 
   let filename = `file_${Date.now()}`;
@@ -23,7 +23,11 @@ async function uploadFileToStorage(url, prefix, getCookieHeader) {
   if (disposition && disposition.includes("filename=")) {
     const match = disposition.match(/filename="?([^";]+)"?/);
     if (match) {
-      filename = decodeURIComponent(match[1]).replace(/[/\\?%*:|"<>\s]/g, "_");
+      try {
+        filename = decodeURIComponent(match[1]);
+      } catch (e) {
+        filename = match[1];
+      }
     }
   } else {
     const contentType = downloadRes.headers["content-type"] || "";
@@ -34,6 +38,13 @@ async function uploadFileToStorage(url, prefix, getCookieHeader) {
       filename += `.${ext}`;
     }
   }
+
+  // Chuẩn hóa tên file an toàn cho Supabase Storage: loại bỏ dấu tiếng Việt và thay các ký tự lạ bằng '_'
+  filename = filename
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]/g, "_")
+    .replace(/_+/g, "_");
 
   const storagePath = `${prefix}/${Date.now()}_${filename}`;
   const { error } = await supabaseAdmin.storage
@@ -60,13 +71,20 @@ async function processHtmlImagesAndUpload(html, getCookieHeader) {
   for (let i = 0; i < imgs.length; i++) {
     const img = imgs[i];
     const src = $(img).attr("src");
-    if (src && src.startsWith("http")) {
-      try {
-        const publicUrl = await uploadFileToStorage(src, "images", getCookieHeader);
-        $(img).attr("src", publicUrl);
-        uploadedUrls.push(publicUrl);
-      } catch (err) {
-        console.log(`   ⚠️ Không tải được ảnh: ${src}. Lỗi: ${err.message}`);
+    if (src) {
+      if (src.includes("grade_") || src.includes("/theme/image.php") || src.includes("coursemos/core")) {
+        $(img).remove();
+        continue;
+      }
+      if (src.startsWith("http")) {
+        try {
+          const publicUrl = await uploadFileToStorage(src, "images", getCookieHeader);
+          $(img).attr("data-original-src", src);
+          $(img).attr("src", publicUrl);
+          uploadedUrls.push(publicUrl);
+        } catch (err) {
+          console.log(`   ⚠️ Không tải được ảnh: ${src}. Lỗi: ${err.message}`);
+        }
       }
     }
   }
@@ -79,7 +97,24 @@ async function processHtmlImagesAndUpload(html, getCookieHeader) {
 function cleanQuestionText($, qtextEl) {
   const cloned = $(qtextEl).clone();
   cloned.find("script, style, .answer, label, .prompt, .accesshide, .feedback, .generalfeedback").remove();
-  cloned.find("img").remove();
+  
+  cloned.find("img").each((i, img) => {
+    const originalSrc = $(img).attr("data-original-src") || $(img).attr("src");
+    if (originalSrc) {
+      // Với URL ảnh ehou: chỉ hiển thị "tên-file.png" thay vì cả URL dài
+      const isEhouUrl = /https?:\/\/learning\.ehou\.edu\.vn\/pluginfile\.php/i.test(originalSrc);
+      let replacement;
+      if (isEhouUrl) {
+        const fileName = originalSrc.split("/").pop() || originalSrc;
+        replacement = ` "${fileName}" `;
+      } else {
+        replacement = ` ${originalSrc} `;
+      }
+      $(img).replaceWith(replacement);
+    } else {
+      $(img).remove();
+    }
+  });
   
   let questionText = cloned.text().replace(/\s+/g, " ").trim();
   

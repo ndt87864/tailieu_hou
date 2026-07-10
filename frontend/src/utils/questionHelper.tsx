@@ -9,7 +9,7 @@ export const cleanQuestionText = (text: string, _hasUrl?: boolean): string => {
   
   let cleaned = text;
 
-  // 1. Loại bỏ full URLs của pluginfile (ví dụ: https://learning.ehou.edu.vn/pluginfile.php/1537536/question/questiontext/1852077/1/3277330/cau1.png)
+  // 1. Loại bỏ full URLs của pluginfile
   cleaned = cleaned.replace(/https?:\/\/[^\s"']+\/pluginfile\.php\/[^\s"']+\.(?:png|jpe?g|gif|svg|webp|bmp)(?:\?[^\s"']*)?/gi, "");
 
   // 2. Loại bỏ đường dẫn @@PLUGINFILE@@ tương đối
@@ -18,7 +18,10 @@ export const cleanQuestionText = (text: string, _hasUrl?: boolean): string => {
   // 3. Loại bỏ các đường dẫn rút gọn dạng .../image.png hoặc ../image.png
   cleaned = cleaned.replace(/(?:\.){2,}\/[A-Za-z0-9_\-]+\.(?:png|jpe?g|gif|svg|webp|bmp)/gi, "");
 
-  // 4. Dọn dẹp dấu ngoặc trống, dấu gạch nối dư thừa khi xóa URL
+  // 4. Loại bỏ các tên file ảnh được bọc trong dấu nháy kép hoặc dấu nháy escaped
+  cleaned = cleaned.replace(/\\?"?[A-Za-z0-9_\-]+\.(?:png|jpe?g|gif|svg|webp|bmp)\\?"?/gi, "");
+
+  // 5. Dọn dẹp dấu ngoặc trống, dấu gạch nối dư thừa khi xóa URL
   cleaned = cleaned.replace(/\(\s*\)/g, "").replace(/\[\s*\]/g, "");
   cleaned = cleaned.replace(/-\s*$/, "").replace(/:\s*$/, "");
 
@@ -57,7 +60,12 @@ export const renderTextWithImages = (text: string, storageUrlsString?: string | 
     ? storageUrlsString.split(",").map(url => url.trim()).filter(Boolean)
     : [];
   
-  const urlRegex = /(https?:\/\/[^\s"']+\/pluginfile\.php\/[^\s"']+\.(?:png|jpe?g|gif|svg|webp|bmp)(?:\?[^\s"']*)?|@@PLUGINFILE@@\/[^\s"']+\.(?:png|jpe?g|gif|svg|webp|bmp)|(?:\.){2,}\/[A-Za-z0-9_\-]+\.(?:png|jpe?g|gif|svg|webp|bmp)|[A-Za-z0-9_\-]+\.(?:png|jpe?g|gif|svg|webp|bmp))/gi;
+  // Regex hỗ trợ:
+  // - \"https://.../pluginfile.php...\" (escaped quotes)
+  // - "filename.png" (quoted filename)
+  // - pluginfile.php URL thông thường
+  // - @@PLUGINFILE@@ và relative paths
+  const urlRegex = /(\\?"https?:\/\/[^\s"\\]+\/pluginfile\.php\/[^\s"\\]+\.(?:png|jpe?g|gif|svg|webp|bmp)(?:\?[^\s"\\]*)?\\?"|"[A-Za-z0-9_\-]+\.(?:png|jpe?g|gif|svg|webp|bmp)"|https?:\/\/[^\s"']+\/pluginfile\.php\/[^\s"']+\.(?:png|jpe?g|gif|svg|webp|bmp)(?:\?[^\s"']*)?|@@PLUGINFILE@@\/[^\s"']+\.(?:png|jpe?g|gif|svg|webp|bmp)|(?:\.){2,}\/[A-Za-z0-9_\-]+\.(?:png|jpe?g|gif|svg|webp|bmp)|[A-Za-z0-9_\-]+\.(?:png|jpe?g|gif|svg|webp|bmp))/gi;
   
   const parts = text.split(urlRegex);
   if (parts.length === 1) {
@@ -68,18 +76,18 @@ export const renderTextWithImages = (text: string, storageUrlsString?: string | 
   const cleanPartText = (txt: string) => {
     let clean = txt;
     clean = clean.replace(/\(\s*\)/g, "").replace(/\[\s*\]/g, "");
-    // Dọn dẹp dấu ngoặc hoặc nháy kép thừa xung quanh URL
-    clean = clean.replace(/^["']|["']$/g, "").trim();
+    // Dọn dẹp các ký tự dấu nháy trôi nổi nếu regex split để lại
+    clean = clean.replace(/^(\\?"|['"])+|(\\?"|['"])+$/g, "").trim();
     return clean;
   };
 
-  const imageUrlPattern = /https?:\/\/[^\s"']+\/pluginfile\.php\/[^\s"']+\.(?:png|jpe?g|gif|svg|webp|bmp)(?:\?[^\s"']*)?|@@PLUGINFILE@@\/[^\s"']+\.(?:png|jpe?g|gif|svg|webp|bmp)|(?:\.){2,}\/[A-Za-z0-9_\-]+\.(?:png|jpe?g|gif|svg|webp|bmp)|[A-Za-z0-9_\-]+\.(?:png|jpe?g|gif|svg|webp|bmp)/i;
+  const imageUrlPattern = /(\\?"https?:\/\/[^\s"\\]+\/pluginfile\.php\/[^\s"\\]+\.(?:png|jpe?g|gif|svg|webp|bmp)|"[A-Za-z0-9_\-]+\.(?:png|jpe?g|gif|svg|webp|bmp)"|https?:\/\/[^\s"']+\/pluginfile\.php\/[^\s"']+\.(?:png|jpe?g|gif|svg|webp|bmp)|@@PLUGINFILE@@\/[^\s"']+\.(?:png|jpe?g|gif|svg|webp|bmp)|(?:\.){2,}\/[A-Za-z0-9_\-]+\.(?:png|jpe?g|gif|svg|webp|bmp)|[A-Za-z0-9_\-]+\.(?:png|jpe?g|gif|svg|webp|bmp))/i;
 
   return parts.map((part, index) => {
-    if (imageUrlPattern.test(part)) {
+    if (part && imageUrlPattern.test(part)) {
       let src = part;
-      if (src.startsWith('"') || src.startsWith("'")) src = src.slice(1);
-      if (src.endsWith('"') || src.endsWith("'")) src = src.slice(0, -1);
+      // Dọn sạch dấu nháy kép/nháy escaped
+      src = src.replace(/^(\\?"|['"])+|(\\?"|['"])+$/g, "");
 
       // Trích xuất tên file từ URL LMS hoặc tên file trực tiếp
       let filename = "";
@@ -138,6 +146,8 @@ export const isAnswerMatching = (choice: string, answer: string): boolean => {
     str = str.replace(/<[^>]*>/g, "");
     // Bỏ các tiền tố đánh dấu như a., B), c -, 4:
     str = str.replace(/^[a-e1-5][\.\)\-\:]\s*/i, "");
+    // Bỏ tất cả dấu nháy đơn, nháy kép, và nháy escaped
+    str = str.replace(/\\?['"]/g, "");
     // Bỏ tất cả khoảng trắng
     return str.replace(/\s+/g, "");
   };
@@ -146,6 +156,13 @@ export const isAnswerMatching = (choice: string, answer: string): boolean => {
   const nAnswer = normalize(answer);
   
   if (nChoice === nAnswer) return true;
+  
+  // Kiểm tra xem các chữ số có khớp hoàn toàn không để tránh khớp nhầm các giá trị số (như 1,2 và 1,24)
+  const numsChoice = nChoice.match(/\d+/g) || [];
+  const numsAnswer = nAnswer.match(/\d+/g) || [];
+  if (numsChoice.join(",") !== numsAnswer.join(",")) {
+    return false;
+  }
   
   // Nếu 1 chuỗi chứa chuỗi kia và đủ dài để tránh bắt nhầm
   if (nChoice.length > 3 && nAnswer.length > 3) {

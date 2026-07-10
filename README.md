@@ -116,7 +116,7 @@ npm run dev
 ### Cách 3: Chạy bằng Docker Compose (Local Dev)
 Nếu máy bạn có sẵn Docker và muốn chạy nhanh Backend cùng Redis cache:
 ```bash
-docker-compose up --build
+docker compose up -d --build backend
 ```
 *Lưu ý: Đảm bảo đã khai báo đầy đủ thông tin Supabase ở file `.env` ngoài root.*
 

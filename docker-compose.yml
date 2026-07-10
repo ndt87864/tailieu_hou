@@ -17,9 +17,21 @@ services:
     depends_on:
       - redis
     restart: always
+    networks:
+      - app_network
+      - supabase_network
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
     restart: always
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge
+  supabase_network:
+    external: true
+    name: supabase_default

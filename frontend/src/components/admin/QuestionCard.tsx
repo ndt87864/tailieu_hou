@@ -43,6 +43,8 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
 }) => {
   const doc = documents.find((d) => d.id === q.document_id);
 
+  const allUrls = [q.url_question, q.url_choices, q.url_answer].filter(Boolean).join(",");
+
   return (
     <div className="card p-5 relative group flex items-start gap-3">
       <input
@@ -64,9 +66,9 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
               )}
             </div>
             <h4 className="q-title font-semibold text-sm">
-              {renderTextWithImages(q.question, q.url_question)}
+              {renderTextWithImages(q.question, allUrls)}
             </h4>
-            {q.url_question && !q.question.includes("pluginfile.php") && (
+            {q.url_question && !(/\.(?:png|jpe?g|gif|svg|webp|bmp)"?/i.test(q.question || "") || q.question.includes("pluginfile.php") || q.question.includes("@@PLUGINFILE@@")) && (
               <div className="mt-2 border rounded-lg p-1 max-w-sm inline-block bg-[var(--bg-2)] border-[var(--border-soft)]">
                 <img src={q.url_question} alt="Ảnh câu hỏi" className="max-h-32 object-contain" />
               </div>
@@ -100,13 +102,13 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
               >
                 <span
                   className={`choice-badge font-bold flex items-center justify-center w-5 h-5 rounded-full ${
-                    choice === q.answer ? "choice-badge-correct" : "choice-badge-neutral"
+                    isAnswerMatching(choice, q.answer) ? "choice-badge-correct" : "choice-badge-neutral"
                   }`}
                 >
                   {String.fromCharCode(65 + i)}
                 </span>
-                <span className={choice === q.answer ? "choice-text-correct" : "choice-text-neutral"}>
-                  {renderTextWithImages(choice, q.url_choices)}
+                <span className={isAnswerMatching(choice, q.answer) ? "choice-text-correct" : "choice-text-neutral"}>
+                  {renderTextWithImages(choice, allUrls)}
                 </span>
               </div>
             ))}
@@ -117,9 +119,9 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
         {(!Array.isArray(q.choices) || q.choices.length === 0) && q.answer && (
           <div className="text-xs p-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 text-emerald-600 space-y-2">
             <div>
-              <strong>Đáp án:</strong> {renderTextWithImages(q.answer, q.url_answer)}
+              <strong>Đáp án:</strong> {renderTextWithImages(q.answer, allUrls)}
             </div>
-            {q.url_answer && (
+            {q.url_answer && !(/\.(?:png|jpe?g|gif|svg|webp|bmp)"?/i.test(q.answer || "") || q.answer.includes("pluginfile.php") || q.answer.includes("@@PLUGINFILE@@")) && (
               <div className="mt-2 border rounded-lg p-1 max-w-sm inline-block bg-[var(--bg-2)] border-[var(--border-soft)]">
                 <img src={q.url_answer} alt="Ảnh đáp án" className="max-h-32 object-contain" />
               </div>

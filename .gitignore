@@ -22,3 +22,4 @@ lms_crawler/node_modules
 frontend/.env
 backend/.env
 lms_crawler/cookies.txt
+README.md
