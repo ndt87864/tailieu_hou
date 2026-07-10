@@ -294,7 +294,7 @@ export const getCrawlerDataMetadata = async (documentId: string) => {
     async () => {
       const { data: courses, error: courseError } = await supabaseAdmin
         .from("crawler_courses")
-        .select("*")
+        .select("*, crawler_resources(week_name)")
         .eq("document_id", documentId);
 
       if (courseError) {
@@ -306,19 +306,16 @@ export const getCrawlerDataMetadata = async (documentId: string) => {
         return { courses: [], weeks: [] };
       }
 
-      const courseIds = courses.map(c => c.id);
-
-      const { data: resWeeks, error: resWeeksError } = await supabaseAdmin
-        .from("crawler_resources")
-        .select("week_name")
-        .in("course_id", courseIds);
-
-      if (resWeeksError) {
-        console.error("Error fetching resources weeks metadata:", resWeeksError.message);
-      }
-
       const weekSet = new Set<string>();
-      resWeeks?.forEach(r => { if (r.week_name) weekSet.add(r.week_name); });
+      courses.forEach((c: any) => {
+        if (Array.isArray(c.crawler_resources)) {
+          c.crawler_resources.forEach((r: any) => {
+            if (r.week_name) weekSet.add(r.week_name);
+          });
+        }
+        // Xóa thuộc tính crawler_resources lồng để trả về object sạch
+        delete c.crawler_resources;
+      });
 
       const weeks = Array.from(weekSet).sort((a, b) =>
         a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
@@ -360,75 +357,91 @@ export const getCrawlerDataFiltered = async (courseIds: string[], weeks: string[
 };
 
 export const getCrawlerResourcesFiltered = async (documentId: string, courseIds: string[], weeks: string[]) => {
-  let targetCourseIds = courseIds;
-  if (targetCourseIds.length === 0) {
-    const { data: courses } = await supabaseAdmin
-      .from("crawler_courses")
-      .select("id")
-      .eq("document_id", documentId);
-    targetCourseIds = courses?.map(c => c.id) || [];
-  }
+  const cacheKey = `${CACHE_PREFIX}:resources_filtered:${documentId}:${courseIds.join("-")}:${weeks.join("-")}`;
 
-  if (targetCourseIds.length === 0) return { resources: [], questionCount: 0 };
+  return cacheGetOrSet(
+    cacheKey,
+    async () => {
+      let targetCourseIds = courseIds;
+      if (targetCourseIds.length === 0) {
+        const { data: courses } = await supabaseAdmin
+          .from("crawler_courses")
+          .select("id")
+          .eq("document_id", documentId);
+        targetCourseIds = courses?.map(c => c.id) || [];
+      }
 
-  let query = supabaseAdmin
-    .from("crawler_resources")
-    .select("*")
-    .in("course_id", targetCourseIds);
+      if (targetCourseIds.length === 0) return { resources: [], questionCount: 0 };
 
-  let qQuery = supabaseAdmin
-    .from("crawler_questions")
-    .select("*", { count: "exact", head: true })
-    .in("course_id", targetCourseIds);
+      let query = supabaseAdmin
+        .from("crawler_resources")
+        .select("*")
+        .in("course_id", targetCourseIds);
 
-  if (weeks.length > 0) {
-    query = query.in("week_name", weeks);
-    qQuery = qQuery.in("week_name", weeks);
-  }
+      let qQuery = supabaseAdmin
+        .from("crawler_questions")
+        .select("*", { count: "exact", head: true })
+        .in("course_id", targetCourseIds);
 
-  const [resResult, qCountResult] = await Promise.all([
-    query.order("created_at", { ascending: true }),
-    qQuery
-  ]);
+      if (weeks.length > 0) {
+        query = query.in("week_name", weeks);
+        qQuery = qQuery.in("week_name", weeks);
+      }
 
-  if (resResult.error) {
-    console.error("Error fetching filtered resources:", resResult.error.message);
-    return { resources: [], questionCount: 0 };
-  }
-  return {
-    resources: resResult.data || [],
-    questionCount: qCountResult.count || 0
-  };
+      const [resResult, qCountResult] = await Promise.all([
+        query.order("created_at", { ascending: true }),
+        qQuery
+      ]);
+
+      if (resResult.error) {
+        console.error("Error fetching filtered resources:", resResult.error.message);
+        return { resources: [], questionCount: 0 };
+      }
+      return {
+        resources: resResult.data || [],
+        questionCount: qCountResult.count || 0
+      };
+    },
+    300_000 // Cache 5 phút
+  );
 };
 
 export const getCrawlerQuestionsFiltered = async (documentId: string, courseIds: string[], weeks: string[]) => {
-  let targetCourseIds = courseIds;
-  if (targetCourseIds.length === 0) {
-    const { data: courses } = await supabaseAdmin
-      .from("crawler_courses")
-      .select("id")
-      .eq("document_id", documentId);
-    targetCourseIds = courses?.map(c => c.id) || [];
-  }
+  const cacheKey = `${CACHE_PREFIX}:questions_filtered:${documentId}:${courseIds.join("-")}:${weeks.join("-")}`;
 
-  if (targetCourseIds.length === 0) return [];
+  return cacheGetOrSet(
+    cacheKey,
+    async () => {
+      let targetCourseIds = courseIds;
+      if (targetCourseIds.length === 0) {
+        const { data: courses } = await supabaseAdmin
+          .from("crawler_courses")
+          .select("id")
+          .eq("document_id", documentId);
+        targetCourseIds = courses?.map(c => c.id) || [];
+      }
 
-  let query = supabaseAdmin
-    .from("crawler_questions")
-    .select("*")
-    .in("course_id", targetCourseIds);
+      if (targetCourseIds.length === 0) return [];
 
-  if (weeks.length > 0) {
-    query = query.in("week_name", weeks);
-  }
+      let query = supabaseAdmin
+        .from("crawler_questions")
+        .select("*")
+        .in("course_id", targetCourseIds);
 
-  const { data, error } = await query.order("created_at", { ascending: true });
+      if (weeks.length > 0) {
+        query = query.in("week_name", weeks);
+      }
 
-  if (error) {
-    console.error("Error fetching filtered questions:", error.message);
-    return [];
-  }
-  return data || [];
+      const { data, error } = await query.order("created_at", { ascending: true });
+
+      if (error) {
+        console.error("Error fetching filtered questions:", error.message);
+        return [];
+      }
+      return data || [];
+    },
+    300_000 // Cache 5 phút
+  );
 };
 
 
