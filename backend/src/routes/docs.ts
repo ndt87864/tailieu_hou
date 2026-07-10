@@ -41,6 +41,16 @@ docsRouter.get("/grouped", async (c) => {
   }
 });
 
+docsRouter.get("/grouped/lms", async (c) => {
+  try {
+    const userRole = (c.get("role") as UserRole | undefined);
+    const categories = await docService.getGroupedDocumentsLMS(isPremium(userRole));
+    return c.json({ categories });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 docsRouter.get("/:id", async (c) => {
   const id = c.req.param("id");
   const document = await docService.getDocumentById(id);

@@ -71,6 +71,15 @@ export const getGroupedDocumentsFull = async (
   return cacheGetOrSet(cacheKey, () => _fetchGroupedDocuments(isPremiumUser, false), TTL_GROUPED);
 };
 
+export const getGroupedDocumentsLMS = async (
+  isPremiumUser = false
+): Promise<any[]> => {
+  const cacheKey = isPremiumUser
+    ? `${CACHE_PREFIX}:grouped:lms:premium`
+    : `${CACHE_PREFIX}:grouped:lms`;
+  return cacheGetOrSet(cacheKey, () => _fetchGroupedDocumentsLMS(isPremiumUser), TTL_GROUPED);
+};
+
 
 async function _fetchGroupedDocuments(isPremiumUser = false, preview = true): Promise<any[]> {
   // 1. Lấy thông tin categories (chỉ lấy category active)
@@ -265,22 +274,23 @@ export const getCrawlerDataForDoc = async (documentId: string) => {
 
       const courseIds = courses.map(c => c.id);
 
-      const { data: resources, error: resError } = await supabaseAdmin
-        .from("crawler_resources")
-        .select("*")
-        .in("course_id", courseIds)
-        .order("created_at", { ascending: true });
-
-      const { data: questions, error: qError } = await supabaseAdmin
-        .from("crawler_questions")
-        .select("*")
-        .in("course_id", courseIds)
-        .order("created_at", { ascending: true });
+      const [resResult, qResult] = await Promise.all([
+        supabaseAdmin
+          .from("crawler_resources")
+          .select("*")
+          .in("course_id", courseIds)
+          .order("created_at", { ascending: true }),
+        supabaseAdmin
+          .from("crawler_questions")
+          .select("*")
+          .in("course_id", courseIds)
+          .order("created_at", { ascending: true })
+      ]);
 
       return {
         courses: courses || [],
-        resources: resources || [],
-        questions: questions || [],
+        resources: resResult.data || [],
+        questions: qResult.data || [],
       };
     },
     300_000 // Cache trong 5 phút
@@ -452,6 +462,77 @@ export const getCrawlerQuestionsFiltered = async (documentId: string, courseIds:
     300_000 // Cache 5 phút
   );
 };
+
+/** Hàm fetch danh sách các tài liệu đã có dữ liệu LMS crawler (lọc ngay tại DB) */
+async function _fetchGroupedDocumentsLMS(isPremiumUser = false): Promise<any[]> {
+  // Query 1: Lấy tất cả active categories và các active documents lồng bên trong (chỉ giữ documents có crawler_courses qua !inner join)
+  let catQuery = supabaseAdmin
+    .from("categories")
+    .select(`
+      id, title, logo, stt, premium,
+      documents:documents(
+        id, title, description, category_id, slug, created_at, updated_at, active, premium,
+        crawler_courses:crawler_courses!inner(id)
+      )
+    `)
+    .eq("active", true)
+    .eq("documents.active", true)
+    .order("stt", { ascending: true });
+
+  if (!isPremiumUser) {
+    catQuery = catQuery.eq("premium", false).eq("documents.premium", false);
+  }
+
+  // Query 2: Lấy các active documents không thuộc category nào và có crawler_courses
+  let noCatQuery = supabaseAdmin
+    .from("documents")
+    .select("*, crawler_courses:crawler_courses!inner(id)")
+    .is("category_id", null)
+    .eq("active", true)
+    .order("created_at", { ascending: true });
+
+  if (!isPremiumUser) {
+    noCatQuery = noCatQuery.eq("premium", false);
+  }
+
+  // Chạy song song cả 2 truy vấn để giảm tối đa độ trễ mạng xuống còn 1 roundtrip
+  const [catResult, noCatResult] = await Promise.all([catQuery, noCatQuery]);
+
+  if (catResult.error) {
+    console.warn("Could not fetch LMS grouped categories from database:", catResult.error.message);
+    return [];
+  }
+
+  const categories = catResult.data || [];
+  const result: any[] = [];
+
+  // 1. Xử lý các categories và documents tương ứng
+  categories.forEach((cat: any) => {
+    const catDocs = cat.documents || [];
+    if (catDocs.length === 0) return; // Chỉ lấy các nhóm có tài liệu hoạt động
+
+    result.push({
+      id: cat.id,
+      title: cat.title,
+      logo: cat.logo,
+      documents: catDocs,
+      total_count: catDocs.length,
+    });
+  });
+
+  // 2. Xử lý nhóm "Khác" (no category) nếu có
+  const noCatDocs = noCatResult.data || [];
+  if (noCatDocs.length > 0) {
+    result.push({
+      id: "other",
+      title: "Khác",
+      documents: noCatDocs,
+      total_count: noCatDocs.length,
+    });
+  }
+
+  return result;
+}
 
 
 

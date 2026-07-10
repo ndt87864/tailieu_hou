@@ -36,7 +36,7 @@ const LessonHomePage: React.FC = () => {
 
   useEffect(() => {
     if (authLoading) return;
-    cachedGet<{ categories: GroupedCategory[] }>("/api/v1/documents/grouped?full=true")
+    cachedGet<{ categories: GroupedCategory[] }>("/api/v1/documents/grouped/lms")
       .then((res) => {
         setGroupedCategories(res.data.categories || []);
         setLoading(false);
@@ -48,21 +48,9 @@ const LessonHomePage: React.FC = () => {
       });
   }, [authLoading]);
 
-  // Kiểm tra tài liệu đã được crawl chưa
-  const hasCrawlerData = (doc: Document) => {
-    if (!doc.crawler_courses) return false;
-    if (Array.isArray(doc.crawler_courses)) return doc.crawler_courses.length > 0;
-    return true;
-  };
-
-  // Lọc các chuyên mục chỉ giữ lại các tài liệu đã được crawl
+  // Lọc các chuyên mục từ dữ liệu đã lọc sẵn ở server
   const filteredCategories = useMemo(() => {
-    return groupedCategories
-      .map(cat => ({
-        ...cat,
-        documents: cat.documents.filter(hasCrawlerData)
-      }))
-      .filter(cat => cat.documents.length > 0);
+    return groupedCategories;
   }, [groupedCategories]);
 
   // Lọc và phẳng danh sách tài liệu để tìm kiếm dễ dàng

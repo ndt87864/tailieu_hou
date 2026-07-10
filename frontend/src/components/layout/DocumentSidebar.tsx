@@ -40,24 +40,10 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
   const { lessonMode } = useUI();
   const [sidebarCategories, setSidebarCategories] = useState<SidebarCategory[]>([]);
 
-  const hasCrawlerData = (doc: Document) => {
-    if (!doc.crawler_courses) return false;
-    if (Array.isArray(doc.crawler_courses)) return doc.crawler_courses.length > 0;
-    return true;
-  };
-
   const [searchQuery, setSearchQuery] = useState("");
   const displayedCategories = useMemo(() => {
     let cats = sidebarCategories;
     
-    // Lọc theo mode
-    if (lessonMode) {
-      cats = cats.map((cat) => ({
-        ...cat,
-        documents: cat.documents.filter(hasCrawlerData),
-      }));
-    }
-
     // Lọc theo tìm kiếm
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -68,7 +54,7 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
     }
 
     return cats.filter((cat) => cat.documents.length > 0);
-  }, [sidebarCategories, lessonMode, searchQuery]);
+  }, [sidebarCategories, searchQuery]);
 
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   
@@ -100,7 +86,11 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
   };
 
   useEffect(() => {
-    apiClient.get<{ categories: SidebarCategory[] }>("/api/v1/documents/grouped?full=true")
+    const apiPath = lessonMode 
+      ? "/api/v1/documents/grouped/lms" 
+      : "/api/v1/documents/grouped?full=true";
+
+    apiClient.get<{ categories: SidebarCategory[] }>(apiPath)
       .then((res) => {
         const cats: SidebarCategory[] = res.data.categories || [];
         setSidebarCategories(cats);
@@ -108,7 +98,7 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
       .catch((err) => {
         console.error("Lỗi khi tải danh mục sidebar:", err);
       });
-  }, []);
+  }, [lessonMode]);
 
   useEffect(() => {
     if (currentDocId && displayedCategories.length > 0) {
