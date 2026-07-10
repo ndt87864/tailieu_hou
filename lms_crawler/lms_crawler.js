@@ -1,8 +1,10 @@
 const readline = require("readline");
 const cheerio = require("cheerio");
 const axios = require("axios");
-const { supabaseAdmin, processHtmlImagesAndUpload, cleanQuestionText, uploadFileToStorage } = require("./utils/db");
+const { supabaseAdmin, processHtmlImagesAndUpload, cleanQuestionText } = require("./utils/db");
 const { getHtmlWithSso, postHtmlWithSso, getCookieHeader } = require("./utils/sso");
+const { processQuizReview } = require("./utils/quiz-processor");
+const { extractMultipleChoice } = require("./utils/quiz-extractor");
 require("dotenv").config();
 
 const rl = readline.createInterface({
@@ -147,19 +149,35 @@ async function main() {
     const moodleCourseId = moodleCourseIdMatch ? moodleCourseIdMatch[1] : "";
     console.log(`📚 Đã tìm thấy môn học trên LMS: "${courseTitle}" (LMS ID: ${moodleCourseId})`);
 
-    // Tìm hoặc tạo document trong DB theo courseTitle chính xác từ LMS
+    // Tìm hoặc tạo document trong DB bằng cách so khớp tương tự auto-select-doc
     let selectedDoc = null;
-    const { data: foundDocs } = await supabaseAdmin
+    const { data: dbDocs, error: docFetchErr } = await supabaseAdmin
       .from("documents")
-      .select("id, title")
-      .eq("title", courseTitle)
-      .limit(1);
+      .select("id, title");
 
-    if (foundDocs && foundDocs.length > 0) {
-      selectedDoc = foundDocs[0];
-      console.log(`💾 Sử dụng tài liệu đối chiếu hiện có trong DB: "${selectedDoc.title}"`);
+    if (docFetchErr) {
+      throw new Error(`Không thể lấy danh sách tài liệu từ DB: ${docFetchErr.message}`);
+    }
+
+    const normLmsTitle = normalizeDetectedCourseTitle(courseTitle);
+    const titleParts = normLmsTitle.split("/").map(t => t.trim()).filter(Boolean);
+    const cleanWebTitles = titleParts.map(part => normalizeTextForMatching(part));
+
+    if (dbDocs && dbDocs.length > 0) {
+      for (const doc of dbDocs) {
+        const cleanDocTitle = normalizeTextForMatching(doc.title);
+        const isMatched = cleanWebTitles.some(cleanWebTitle => isCourseTitleMatch(cleanWebTitle, cleanDocTitle));
+        if (isMatched) {
+          selectedDoc = doc;
+          break;
+        }
+      }
+    }
+
+    if (selectedDoc) {
+      console.log(`💾 Sử dụng tài liệu đối chiếu hiện có trong DB: "${selectedDoc.title}" (Khớp với môn học trên LMS: "${courseTitle}")`);
     } else {
-      console.log(`🆕 Không tìm thấy tài liệu "${courseTitle}" trong DB. Tiến hành tạo mới...`);
+      console.log(`🆕 Không tìm thấy tài liệu nào khớp với "${courseTitle}" trong DB. Tiến hành tạo mới...`);
       const { data: newDoc, error: insErr } = await supabaseAdmin
         .from("documents")
         .insert({ title: courseTitle })
@@ -410,10 +428,26 @@ async function main() {
                    timeout: 10000
                  });
                  const disposition = headRes.headers["content-disposition"] || "";
-                 if (disposition.includes("filename=")) {
-                   const match = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';\r\n]+)/i);
-                   if (match) resolvedName = decodeURIComponent(match[1].trim());
-                 }
+                   if (disposition) {
+                    const utf8Match = disposition.match(/filename\*=\s*UTF-8''([^";\n]+)/i);
+                    if (utf8Match) {
+                      try {
+                        resolvedName = decodeURIComponent(utf8Match[1].trim());
+                      } catch (e) {
+                        // ignore
+                      }
+                    } else {
+                      const match = disposition.match(/filename="?([^";\n]+)"?/i);
+                      if (match) {
+                        try {
+                          const rawName = match[1].trim();
+                          resolvedName = Buffer.from(rawName, 'binary').toString('utf8');
+                        } catch (e) {
+                          resolvedName = match[1].trim();
+                        }
+                      }
+                    }
+                  }
                  if (!resolvedName) {
                    const finalHref = (headRes.request && headRes.request.res ? headRes.request.res.responseUrl : null) || headRes.url || href;
                    resolvedName = decodeURIComponent(finalHref.split("/").pop().split("?")[0]);
@@ -816,213 +850,81 @@ async function main() {
 
                   console.log(`      Found ${questionBlocks.length} questions.`);
 
-                  for (let q = 0; q < questionBlocks.length; q++) {
-                    const qBlock = questionBlocks[q];
-                    const qtextEl = $review(qBlock).find(".qtext");
-                    const qTextHtml = qtextEl.html() || "";
+                  // Process all questions using quiz-processor
+                  const questionsToSave = await processQuizReview($review, questionBlocks, getCookieHeader);
+                  
+                  // Update multiple choice questions with quiz-extractor
+                  for (let i = 0; i < questionsToSave.length; i++) {
+                    const qData = questionsToSave[i];
+                    if (qData.type === "multiple_choice" && !qData.answer) {
+                      const qBlock = questionBlocks[i];
+                      const { choices, choiceImgsList, rightAnswerText, ansImgsList } = await extractMultipleChoice($review, qBlock, getCookieHeader);
+                      qData.choices = choices;
+                      qData.answer = rightAnswerText;
+                      qData.url_answer = ansImgsList.length > 0 ? ansImgsList.join(",") : null;
+                      qData.url_choices = choiceImgsList.length > 0 ? choiceImgsList.join(",") : null;
+                    }
+                  }
 
-                    const { cleanHtml: qTextCleanHtml, uploadedUrls: qImgs } = await processHtmlImagesAndUpload(qTextHtml, getCookieHeader);
-                    const $tempQ = cheerio.load(qTextCleanHtml);
-                    const qTextClean = cleanQuestionText($tempQ, $tempQ("body"));
+                  // Save all extracted questions
+                  for (let i = 0; i < questionsToSave.length; i++) {
+                    const qData = questionsToSave[i];
+                    
+                    if (!qData.answer || qData.answer.trim() === "") {
+                      console.log(`      ⚠️ Cảnh báo: Không lấy được đáp án đúng cho câu hỏi [${i + 1}] tại: ${reviewUrl}`);
+                      console.log(`         Nội dung câu hỏi: "${qData.question.substring(0, 100)}..."`);
+                      continue;
+                    }
 
-                    // Lấy câu hỏi hiện có từ DB
+                    // Check if question already exists
                     const { data: existingQs } = await supabaseAdmin
                       .from("crawler_questions")
                       .select("id, answer")
                       .eq("course_id", dbCourse.id)
-                      .eq("question", qTextClean)
+                      .eq("question", qData.question)
                       .limit(1);
-
                     const existingQ = existingQs && existingQs.length > 0 ? existingQs[0] : null;
 
                     if (existingQ && existingQ.answer && existingQ.answer.trim() !== "") {
-                      console.log(`      ⏭️ Câu hỏi [${q + 1}] đã tồn tại trong DB và đã có đáp án. Bỏ qua.`);
+                      console.log(`      ⏭️ Câu hỏi [${i + 1}] đã tồn tại trong DB và đã có đáp án. Bỏ qua.`);
                       continue;
                     }
 
-                    const choices = [];
-                    const choiceImgsList = [];
-                    const choiceBlocks = $review(qBlock).find(".answer div[class*='r0'], .answer div[class*='r1']");
-                    for (let c = 0; c < choiceBlocks.length; c++) {
-                      const imgTags = $review(choiceBlocks[c]).find("img");
-                      for (let i = 0; i < imgTags.length; i++) {
-                        const src = $review(imgTags[i]).attr("src");
-                        if (src && !src.includes("grade_") && !src.includes("/theme/image.php") && !src.includes("coursemos/core")) {
-                          try {
-                            const publicUrl = await uploadFileToStorage(src, "images", getCookieHeader);
-                            choiceImgsList.push(publicUrl);
-                          } catch (e) {}
-                        }
-                      }
-
-                      const choiceHtml = $review(choiceBlocks[c]).html() || "";
-                      const { cleanHtml: choiceClean } = await processHtmlImagesAndUpload(choiceHtml, getCookieHeader);
-                      const $temp = cheerio.load(choiceClean);
-                      $temp("input, span.control").remove();
-                      $temp("img").each((i, img) => {
-                        const originalSrc = $temp(img).attr("data-original-src") || $temp(img).attr("src");
-                        if (originalSrc) {
-                          // Lựa chọn: bọc URL ehou bằng \" để phân loại
-                          const isEhouUrl = /https?:\/\/learning\.ehou\.edu\.vn\/pluginfile\.php/i.test(originalSrc);
-                          const replacement = isEhouUrl ? ` \"${originalSrc}\" ` : ` ${originalSrc} `;
-                          $temp(img).replaceWith(replacement);
-                        } else {
-                          $temp(img).remove();
-                        }
-                      });
-                      choices.push($temp.text().replace(/\s+/g, " ").trim());
-                    }
-
-                    let rightAnswerText = "";
-                    const ansImgsList = [];
-                    let rightAnswerBlock = $review(qBlock).find(".rightanswer");
-                    if (rightAnswerBlock.length === 0) {
-                      rightAnswerBlock = $review(qBlock).find(".outcome");
-                    }
-                    if (rightAnswerBlock.length > 0) {
-                      const imgTags = rightAnswerBlock.find("img");
-                      for (let i = 0; i < imgTags.length; i++) {
-                        const src = $review(imgTags[i]).attr("src");
-                        if (src && !src.includes("grade_") && !src.includes("/theme/image.php") && !src.includes("coursemos/core")) {
-                          try {
-                            const publicUrl = await uploadFileToStorage(src, "images", getCookieHeader);
-                            ansImgsList.push(publicUrl);
-                          } catch (e) {}
-                        }
-                      }
-
-                      const clonedBlock = rightAnswerBlock.clone();
-                      clonedBlock.find(".feedback, .generalfeedback, .accesshide").remove();
-                      clonedBlock.find("img").each((i, img) => {
-                        const src = $review(img).attr("src");
-                        if (src) {
-                          $review(img).replaceWith(` ${src} `);
-                        } else {
-                          $review(img).remove();
-                        }
-                      });
-                      const rawAns = clonedBlock.text().replace(/\s+/g, " ").trim();
-                      const match = rawAns.match(/(?:Đáp án đúng là:|The correct answer is:|Câu trả lời đúng là:|The correct answers are:|Các đáp án đúng là:)\s*(.*)/i);
-                      rightAnswerText = match ? match[1].trim() : rawAns;
-                      rightAnswerText = rightAnswerText.replace(/[\u2713\u2714\u2611\u2705]/g, "").trim();
-                    }
-
-                    if (!rightAnswerText) {
-                      // Cách 1: Tìm trực tiếp qua thẻ img báo đáp án đúng (grade_correct) trong toàn bộ khối câu hỏi
-                      const correctImg = $review(qBlock).find("img[src*='grade_correct'], img.questioncorrectnessicon, img[alt*='correct']");
-                      for (let imgIdx = 0; imgIdx < correctImg.length; imgIdx++) {
-                        const imgEl = correctImg[imgIdx];
-                        const alt = ($review(imgEl).attr("alt") || "").toLowerCase();
-                        const title = ($review(imgEl).attr("title") || "").toLowerCase();
-                        const src = ($review(imgEl).attr("src") || "").toLowerCase();
-                        
-                        const isIncorrect = alt.includes("không") || alt.includes("incorrect") || 
-                                            title.includes("không") || title.includes("incorrect") || 
-                                            src.includes("incorrect") || src.includes("grade_incorrect");
-                        
-                        if (!isIncorrect && (alt.includes("đúng") || alt.includes("correct") || src.includes("grade_correct"))) {
-                          const matchedChoiceEl = $review(imgEl).closest(".r0, .r1, label, div");
-                          if (matchedChoiceEl.length > 0) {
-                            const temp = matchedChoiceEl.clone();
-                            temp.find("input, span.control, .questioncorrectnessicon").remove();
-                            // Thay thế các ảnh công thức bằng URL tương ứng, chỉ xóa ảnh đánh dấu kết quả đúng/sai
-                            temp.find("img").each((i, img) => {
-                              const imgUrl = $review(img).attr("src") || "";
-                              if (imgUrl.includes("grade_correct") || imgUrl.includes("grade_incorrect") || imgUrl.includes("questioncorrectnessicon")) {
-                                $review(img).remove();
-                              } else {
-                                const originalSrc = $review(img).attr("data-original-src") || imgUrl;
-                                if (originalSrc) {
-                                  $review(img).replaceWith(` ${originalSrc} `);
-                                } else {
-                                  $review(img).remove();
-                                }
-                              }
-                            });
-                            rightAnswerText = temp.text().trim();
-                            rightAnswerText = rightAnswerText.replace(/^[a-zA-Z]\s*[\.\)\-:\/]\s*/u, "").trim();
-                            if (rightAnswerText) break;
-                          }
-                        }
-                      }
-                    }
-
-                    if (!rightAnswerText) {
-                      // Cách 2: Duyệt qua từng lựa chọn (fallback cũ)
-                      const choiceBlocks2 = $review(qBlock).find(".answer div[class*='r0'], .answer div[class*='r1']");
-                      for (let c = 0; c < choiceBlocks2.length; c++) {
-                        const choiceEl = choiceBlocks2[c];
-                        const hasCorrectClass = $review(choiceEl).hasClass("correct") || $review(choiceEl).find(".correct").length > 0;
-                        const correctnessIcon = $review(choiceEl).find(".questioncorrectnessicon, img[src*='grade_correct'], img[src*='grade_']");
-                        let hasCorrectIcon = false;
-                        if (correctnessIcon.length > 0) {
-                          const alt = (correctnessIcon.attr("alt") || "").toLowerCase();
-                          const title = (correctnessIcon.attr("title") || "").toLowerCase();
-                          const src = (correctnessIcon.attr("src") || "").toLowerCase();
-                          const isCorrectText = (text) => {
-                            if (!text) return false;
-                            if (text.includes("không") || text.includes("incorrect")) return false;
-                            return text.includes("đúng") || text.includes("correct");
-                          };
-                          hasCorrectIcon = isCorrectText(alt) || isCorrectText(title) || src.includes("grade_correct");
-                        }
-                        const text = $review(choiceEl).text() || "";
-                        const hasTickChar = /[✓✔✅]/.test(text);
-
-                        if (hasCorrectClass || hasCorrectIcon || hasTickChar) {
-                          const temp = $review(choiceEl).clone();
-                          temp.find("input, span.control, .questioncorrectnessicon").remove();
-                          temp.find("img").each((i, img) => {
-                            const imgUrl = $review(img).attr("src") || "";
-                            if (imgUrl.includes("grade_correct") || imgUrl.includes("grade_incorrect") || imgUrl.includes("questioncorrectnessicon")) {
-                              $review(img).remove();
-                            } else {
-                              const originalSrc = $review(img).attr("data-original-src") || imgUrl;
-                              if (originalSrc) {
-                                $review(img).replaceWith(` ${originalSrc} `);
-                              } else {
-                                $review(img).remove();
-                              }
-                            }
-                          });
-                          rightAnswerText = temp.text().trim();
-                          rightAnswerText = rightAnswerText.replace(/^[a-zA-Z]\s*[\.\)\-:\/]\s*/u, "").trim();
-                          break;
-                        }
-                      }
-                    }
-
-                    const url_question = qImgs.length > 0 ? qImgs.join(",") : null;
-                    const url_answer = ansImgsList.length > 0 ? ansImgsList.join(",") : null;
-                    const url_choices = choiceImgsList.length > 0 ? choiceImgsList.join(",") : null;
-
-                    if (!rightAnswerText || rightAnswerText.trim() === "") {
-                      console.log(`      ⚠️ Cảnh báo: Không lấy được đáp án đúng cho câu hỏi [${q + 1}] tại: ${reviewUrl}`);
-                      console.log(`         Nội dung câu hỏi: "${qTextClean.substring(0, 100)}..."`);
-                    } else {
-                      if (existingQ) {
+                    if (existingQ) {
+                      // For fill_blank questions, also update the question text with full context
+                      if (qData.type === 'fill_blank') {
                         await supabaseAdmin
                           .from("crawler_questions")
                           .update({
-                            answer: rightAnswerText,
-                            url_answer: url_answer
+                            question: qData.question,
+                            answer: qData.answer,
+                            url_answer: qData.url_answer
                           })
                           .eq("id", existingQ.id);
-                        console.log(`      ✨ Đã cập nhật đáp án cho câu hỏi [${q + 1}] bị trống trước đó.`);
+                        console.log(`      ✨ Đã cập nhật câu hỏi điền từ [${i + 1}] với context đầy đủ.`);
                       } else {
-                        await supabaseAdmin.from("crawler_questions").insert({
-                          course_id: dbCourse.id,
-                          week_name: sectionName,
-                          question: qTextClean,
-                          choices,
-                          answer: rightAnswerText,
-                          url_question,
-                          url_answer,
-                          url_choices,
-                          order_index: q + 1
-                        });
-                        console.log(`      ✅ Đã lưu câu hỏi mới [${q + 1}] (Đáp án: ${rightAnswerText}).`);
+                        await supabaseAdmin
+                          .from("crawler_questions")
+                          .update({
+                            answer: qData.answer,
+                            url_answer: qData.url_answer
+                          })
+                          .eq("id", existingQ.id);
+                        console.log(`      ✨ Đã cập nhật đáp án cho câu hỏi [${i + 1}] bị trống trước đó.`);
                       }
+                    } else {
+                      await supabaseAdmin.from("crawler_questions").insert({
+                        course_id: dbCourse.id,
+                        week_name: sectionName,
+                        question: qData.question,
+                        choices: qData.choices,
+                        answer: qData.answer,
+                        url_question: qData.url_question,
+                        url_answer: qData.url_answer,
+                        url_choices: qData.url_choices,
+                        order_index: i + 1
+                      });
+                      console.log(`      ✅ Đã lưu câu hỏi mới [${i + 1}] (${qData.type}) (Đáp án: ${qData.answer}).`);
                     }
                   }
                 } catch (revErr) {
@@ -1052,3 +954,89 @@ async function main() {
 }
 
 main();
+
+function stripVietnameseDiacritics(str) {
+  if (!str) return "";
+  let s = String(str);
+  try {
+    if (s.normalize) s = s.normalize('NFD').replace(/\p{M}/gu, '');
+  } catch (e) {
+    s = s.replace(/[\u0300-\u036f]/g, '');
+  }
+  return s;
+}
+
+function normalizeTextForMatching(text) {
+  if (!text) return '';
+  try {
+    let s = text.toString();
+    s = s.replace(/[\u00A0\u2000-\u200B\uFEFF\u202F\xa0]/g, ' ');
+    s = s.replace(/^[a-zA-Z]\s*[\.\)\-:\/]\s*|^[0-9]{1,2}\s*[\.\)\-:\/]\s+/u, '');
+    s = s.replace(/^[A-Za-z][\.\)](\S)/u, '$1');
+    s = s.replace(/\n/g, ' ').replace(/[\s\t]+/g, ' ').replace(/[\s\xa0]{2,}/g, ' ').trim();
+    s = s.replace(/^[\s\u2022•|]+|[\s\u2022•|]+$/g, '').trim();
+    if (!/[._\u2026]{2,}\s*$/.test(s)) {
+      s = s.replace(/[\u002e\u2026\-\–\—\s,;!\?\u2713\u2714]+$/g, '').trim();
+    }
+    return s;
+  } catch (e) {
+    let s = ('' + text).replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+    s = s.replace(/^[a-zA-Z]\s*[\.\)\-:\/]\s*|^[0-9]{1,2}\s*[\.\)\-:\/]\s+/u, '');
+    return s.replace(/[\.\u2026\-–—\s]+$/g, '').trim();
+  }
+}
+
+function normalizeDetectedCourseTitle(raw) {
+  let title = String(raw || "").trim();
+  if (!title) return "";
+
+  // Mẫu NEU: "Mon hoc_08032026"
+  if (title.includes("_")) {
+    const parts = title.split("_");
+    if (parts.length > 1) {
+      const lastPart = parts[parts.length - 1].trim();
+      if (/^\d+$/.test(lastPart)) {
+        title = parts.slice(0, -1).join("_").trim();
+      }
+    }
+  }
+
+  // Chỉ lấy phần trước dấu "-" (ví dụ: "Lịch sử nhà nước và pháp luật - SL10.031" -> "Lịch sử nhà nước và pháp luật")
+  if (title.includes("-") || title.includes("–") || title.includes("—")) {
+    title = title.split(/[-–—]/)[0].trim();
+  }
+
+  return title.trim();
+}
+
+function isCourseTitleMatch(webTitle, docTitle) {
+  const w = String(webTitle || "").toLowerCase().trim();
+  const d = String(docTitle || "").toLowerCase().trim();
+  if (w === d) return true;
+
+  const cleanW = stripVietnameseDiacritics(w).replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+  const cleanD = stripVietnameseDiacritics(d).replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+  if (cleanW === cleanD) return true;
+
+  const getBaseAndNumbers = (str) => {
+    const match = str.match(/^(.*?)\s*(\b\d+(?:[\s+,&/\\]+\d+)*\b)\s*$/);
+    if (match) {
+      const base = match[1].trim();
+      const nums = match[2].match(/\d+/g) || [];
+      return { base, nums };
+    }
+    return { base: str, nums: [] };
+  };
+
+  const parsedW = getBaseAndNumbers(cleanW);
+  const parsedD = getBaseAndNumbers(cleanD);
+
+  if (parsedW.base && parsedD.base && parsedW.base === parsedD.base) {
+    if (parsedW.nums.length > 0 && parsedD.nums.length > 0) {
+      const allNumsMatched = parsedW.nums.every(num => parsedD.nums.includes(num));
+      if (allNumsMatched) return true;
+    }
+  }
+
+  return cleanD.includes(cleanW) || cleanW.includes(cleanD);
+}
