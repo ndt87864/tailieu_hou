@@ -308,14 +308,17 @@ export const getCrawlerDataMetadata = async (documentId: string) => {
 
       const courseIds = courses.map(c => c.id);
 
-      const [resWeeks, qWeeks] = await Promise.all([
-        supabaseAdmin.from("crawler_resources").select("week_name").in("course_id", courseIds),
-        supabaseAdmin.from("crawler_questions").select("week_name").in("course_id", courseIds)
-      ]);
+      const { data: resWeeks, error: resWeeksError } = await supabaseAdmin
+        .from("crawler_resources")
+        .select("week_name")
+        .in("course_id", courseIds);
+
+      if (resWeeksError) {
+        console.error("Error fetching resources weeks metadata:", resWeeksError.message);
+      }
 
       const weekSet = new Set<string>();
-      resWeeks.data?.forEach(r => { if (r.week_name) weekSet.add(r.week_name); });
-      qWeeks.data?.forEach(q => { if (q.week_name) weekSet.add(q.week_name); });
+      resWeeks?.forEach(r => { if (r.week_name) weekSet.add(r.week_name); });
 
       const weeks = Array.from(weekSet).sort((a, b) =>
         a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
