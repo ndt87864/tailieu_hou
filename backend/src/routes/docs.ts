@@ -75,6 +75,87 @@ docsRouter.get("/:id/lessons", async (c) => {
   }
 });
 
+docsRouter.get("/:id/lessons/metadata", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const userRole = (c.get("role") as UserRole | undefined);
+    
+    const document = await docService.getDocumentById(id);
+    if (!document) {
+      return c.json({ error: "Document not found" }, 404);
+    }
+
+    const isPremiumUser = ["plus", "pro", "ultra", "management", "admin"].includes(userRole ?? "");
+    if (document.premium && !isPremiumUser) {
+      return c.json({ error: "Tài liệu này chỉ dành cho tài khoản Premium", isPremiumLocked: true }, 403);
+    }
+
+    const metadata = await docService.getCrawlerDataMetadata(id);
+    return c.json({
+      document,
+      ...metadata
+    });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+docsRouter.get("/:id/lessons/resources", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const userRole = (c.get("role") as UserRole | undefined);
+    
+    const document = await docService.getDocumentById(id);
+    if (!document) {
+      return c.json({ error: "Document not found" }, 404);
+    }
+
+    const isPremiumUser = ["plus", "pro", "ultra", "management", "admin"].includes(userRole ?? "");
+    if (document.premium && !isPremiumUser) {
+      return c.json({ error: "Tài liệu này chỉ dành cho tài khoản Premium", isPremiumLocked: true }, 403);
+    }
+
+    const courseIdsParam = c.req.query("course_ids") || "";
+    const weeksParam = c.req.query("weeks") || "";
+
+    const courseIds = courseIdsParam ? courseIdsParam.split(",") : [];
+    const weeks = weeksParam ? weeksParam.split(",") : [];
+
+    const result = await docService.getCrawlerResourcesFiltered(id, courseIds, weeks);
+    return c.json(result);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+docsRouter.get("/:id/lessons/questions", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const userRole = (c.get("role") as UserRole | undefined);
+    
+    const document = await docService.getDocumentById(id);
+    if (!document) {
+      return c.json({ error: "Document not found" }, 404);
+    }
+
+    const isPremiumUser = ["plus", "pro", "ultra", "management", "admin"].includes(userRole ?? "");
+    if (document.premium && !isPremiumUser) {
+      return c.json({ error: "Tài liệu này chỉ dành cho tài khoản Premium", isPremiumLocked: true }, 403);
+    }
+
+    const courseIdsParam = c.req.query("course_ids") || "";
+    const weeksParam = c.req.query("weeks") || "";
+
+    const courseIds = courseIdsParam ? courseIdsParam.split(",") : [];
+    const weeks = weeksParam ? weeksParam.split(",") : [];
+
+    const questions = await docService.getCrawlerQuestionsFiltered(id, courseIds, weeks);
+    return c.json({ questions });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 docsRouter.post("/", requireRole("management"), async (c) => {
   try {
     const body = await c.req.json();

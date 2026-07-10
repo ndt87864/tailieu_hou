@@ -6,12 +6,14 @@ import { useAuth } from "../../context/AuthContext.js";
 import { Header } from "../../components/layout/Layout.js";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
-import { cleanForExport, renderTextWithImages, isAnswerMatching, findBestAnswerIndex } from "../../utils/questionHelper.js";
+import { cleanForExport, renderTextWithImages } from "../../utils/questionHelper.js";
 import { 
-  BookOpen, FileText, Play, Download, HelpCircle,
-  CheckCircle2, Crown, Youtube, Search, X, Filter, Calendar
+  BookOpen, FileText, Download, HelpCircle,
+  Crown, Filter, Calendar
 } from "lucide-react";
 import { LessonFilterModal } from "../../components/document/LessonFilterModal.jsx";
+import { LessonMaterials } from "../../components/document/LessonMaterials.js";
+import { LessonQuizTab } from "../../components/document/LessonQuizTab.js";
 
 interface CrawlerCourse {
   id: string;
@@ -79,37 +81,50 @@ const LessonDocumentPage: React.FC = () => {
   
   // Trạng thái điều hướng tuần
   const [selectedWeeks, setSelectedWeeks] = useState<string[]>([]);
+  const [allWeeks, setAllWeeks] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<"materials" | "quiz">("materials");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [isFilterOpen, setIsFilterOpen] = useState<boolean>(false);
   
   // Trạng thái làm bài trắc nghiệm LMS trực tuyến - đã chuyển sang chế độ hiển thị đáp án trực tiếp
 
+  const [questionCount, setQuestionCount] = useState<number>(0);
+
   useEffect(() => {
     if (!id || authLoading) return;
     setLoading(true);
+    setError(null);
     
     // Reset states when changing document/subject
     setSelectedWeeks([]);
+    setAllWeeks([]);
     setCourses([]);
     setSelectedCourseIds([]);
     setResources([]);
     setQuestions([]);
+    setQuestionCount(0);
     setActiveTab("materials");
     setSearchQuery("");
     setIsFilterOpen(false);
 
-    apiClient.get(`/api/v1/documents/${id}/lessons`)
+    apiClient.get(`/api/v1/documents/${id}/lessons/metadata`)
       .then((res) => {
         setDoc(res.data.document);
         const fetchedCourses = res.data.courses || [];
+        const fetchedWeeks = res.data.weeks || [];
         setCourses(fetchedCourses);
+        setAllWeeks(fetchedWeeks);
+        
         if (fetchedCourses.length > 0) {
           setSelectedCourseIds([fetchedCourses[0].id]);
         }
-        setResources(res.data.resources || []);
-        setQuestions(res.data.questions || []);
-        setLoading(false);
+        if (fetchedWeeks.length > 0) {
+          setSelectedWeeks([fetchedWeeks[0]]);
+        }
+
+        if (fetchedCourses.length === 0 || fetchedWeeks.length === 0) {
+          setLoading(false);
+        }
       })
       .catch((err) => {
         console.error(err);
@@ -122,6 +137,88 @@ const LessonDocumentPage: React.FC = () => {
       });
   }, [id, authLoading]);
 
+  const [questionsLoading, setQuestionsLoading] = useState<boolean>(false);
+
+  // Tải resources theo filter (lớp học và tuần)
+  useEffect(() => {
+    if (!id || authLoading || courses.length === 0 || allWeeks.length === 0) return;
+    if (selectedCourseIds.length === 0 || selectedWeeks.length === 0) {
+      setResources([]);
+      return;
+    }
+
+    // Chỉ khi chọn tất cả môn (courses) và tất cả tuần (allWeeks) thì không cần truyền filter params
+    const isAllCoursesSelected = selectedCourseIds.length === courses.length;
+    const isAllWeeksSelected = selectedWeeks.length === allWeeks.length;
+
+    setLoading(true);
+    
+    let promiseResources;
+
+    if (isAllCoursesSelected && isAllWeeksSelected) {
+      promiseResources = apiClient.get(`/api/v1/documents/${id}/lessons/resources`)
+        .then(res => res.data || { resources: [], questionCount: 0 });
+    } else {
+      const courseParams = selectedCourseIds.join(",");
+      const weekParams = selectedWeeks.join(",");
+      
+      promiseResources = apiClient.get(`/api/v1/documents/${id}/lessons/resources?course_ids=${courseParams}&weeks=${encodeURIComponent(weekParams)}`)
+        .then(res => res.data || { resources: [], questionCount: 0 });
+    }
+
+    promiseResources
+      .then((data) => {
+        setResources(data.resources || []);
+        setQuestionCount(data.questionCount || 0);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error(err);
+        toast.error("Lỗi tải tài liệu học tập.");
+        setLoading(false);
+      });
+  }, [id, authLoading, selectedCourseIds, selectedWeeks, courses.length, allWeeks.length]);
+
+  // Tải questions theo filter (lớp học và tuần) chỉ khi chuyển sang tab quiz
+  useEffect(() => {
+    if (!id || authLoading || courses.length === 0 || allWeeks.length === 0) return;
+    if (activeTab !== "quiz") return;
+    if (selectedCourseIds.length === 0 || selectedWeeks.length === 0) {
+      setQuestions([]);
+      return;
+    }
+
+    const isAllCoursesSelected = selectedCourseIds.length === courses.length;
+    const isAllWeeksSelected = selectedWeeks.length === allWeeks.length;
+
+    setQuestionsLoading(true);
+    
+    let promiseQuestions;
+
+    if (isAllCoursesSelected && isAllWeeksSelected) {
+      promiseQuestions = apiClient.get(`/api/v1/documents/${id}/lessons/questions`)
+        .then(res => res.data.questions || []);
+    } else {
+      const courseParams = selectedCourseIds.join(",");
+      const weekParams = selectedWeeks.join(",");
+      
+      promiseQuestions = apiClient.get(`/api/v1/documents/${id}/lessons/questions?course_ids=${courseParams}&weeks=${encodeURIComponent(weekParams)}`)
+        .then(res => res.data.questions || []);
+    }
+
+    promiseQuestions
+      .then((fetchedQuestions) => {
+        setQuestions(fetchedQuestions);
+        setQuestionCount(fetchedQuestions.length);
+        setQuestionsLoading(false);
+      })
+      .catch((err) => {
+        console.error(err);
+        toast.error("Lỗi tải câu hỏi học tập.");
+        setQuestionsLoading(false);
+      });
+  }, [id, authLoading, selectedCourseIds, selectedWeeks, courses.length, allWeeks.length, activeTab]);
+
   // Lọc tài nguyên và câu hỏi theo danh sách lớp học được chọn
   const activeResources = useMemo(() => {
     if (selectedCourseIds.length === 0) return [];
@@ -133,16 +230,8 @@ const LessonDocumentPage: React.FC = () => {
     return questions.filter(q => selectedCourseIds.includes(q.course_id));
   }, [questions, selectedCourseIds]);
 
-  // Trích xuất danh sách các tuần học duy nhất
-  const weeks = useMemo(() => {
-    const wSet = new Set<string>();
-    activeResources.forEach(r => { if (r.week_name) wSet.add(r.week_name); });
-    activeQuestions.forEach(q => { if (q.week_name) wSet.add(q.week_name); });
-    
-    return Array.from(wSet).sort((a, b) => 
-      a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
-    );
-  }, [activeResources, activeQuestions]);
+  // Danh sách các tuần học duy nhất
+  const weeks = allWeeks;
 
   // Tự động chọn tuần đầu tiên khi chuyển môn học hoặc khi tuần hiện tại không hợp lệ
   useEffect(() => {
@@ -262,11 +351,6 @@ const LessonDocumentPage: React.FC = () => {
     }
   };
 
-  // So sánh câu trả lời của người dùng với đáp án đúng
-  const checkAnswer = (q: CrawlerQuestion, choice: string) => {
-    return isAnswerMatching(choice, q.answer);
-  };
-
   // Export excel TOÀN BỘ câu hỏi LMS
   const exportAllToExcel = () => {
     try {
@@ -329,70 +413,6 @@ const LessonDocumentPage: React.FC = () => {
       toast.success(`Xuất file Excel câu hỏi LMS thành công!`);
     } catch (err) {
       console.error("Lỗi xuất excel (Bộ lọc):", err);
-      toast.error("Có lỗi xảy ra khi xuất file Excel.");
-    }
-  };
-
-  // Export excel bộ câu hỏi LMS của tuần đó
-  const exportWeekToExcel = () => {
-    try {
-      if (!user) {
-        toast.error("Vui lòng đăng nhập để thực hiện tải xuống.");
-        return;
-      }
-      if (!canDownloadExcel) {
-        toast.error(profile?.is_excel_enabled === false ? "Quyền tải Excel của bạn đã bị tắt." : "Tài khoản của bạn không có quyền tải bộ câu hỏi này.");
-        return;
-      }
-
-      if (currentQuestions.length === 0) {
-        toast.info("Không có câu hỏi nào để xuất.");
-        return;
-      }
-
-      let dataToExport = currentQuestions;
-      if (excelPercentage < 100) {
-        const limitedCount = Math.floor(currentQuestions.length * (excelPercentage / 100));
-        dataToExport = currentQuestions.slice(0, limitedCount);
-        toast.info(`Tài khoản được tải ${excelPercentage}% câu hỏi (${limitedCount}/${currentQuestions.length} câu).`);
-      }
-
-      const excelData = dataToExport.map((q, idx) => ({
-        "STT": idx + 1,
-        "Câu hỏi": cleanForExport(q.question), // Strip HTML
-        "Lựa chọn A": cleanForExport(q.choices?.[0] || ""),
-        "Lựa chọn B": cleanForExport(q.choices?.[1] || ""),
-        "Lựa chọn C": cleanForExport(q.choices?.[2] || ""),
-        "Lựa chọn D": cleanForExport(q.choices?.[3] || ""),
-        "Đáp án": cleanForExport(q.answer),
-      }));
-
-      const workbook = XLSX.utils.book_new();
-      const worksheet = XLSX.utils.json_to_sheet(excelData);
-      
-      const maxLenQuestion = Math.max(...excelData.map(d => d["Câu hỏi"].length), 10);
-      worksheet["!cols"] = [
-        { wch: 6 },
-        { wch: Math.min(maxLenQuestion, 50) },
-        { wch: 25 },
-        { wch: 25 },
-        { wch: 25 },
-        { wch: 25 },
-        { wch: 20 },
-      ];
-
-      let safeSheetName = (selectedWeek || "Quiz").replace(/[\\\/\?\*\[\]:]/g, "_").substring(0, 30);
-      XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName);
-      
-      let safeTitle = (doc?.title || "Mon_hoc").replace(/[\\\/\?\*\[\]:<>|"]/g, "_");
-      const percentageSuffix = excelPercentage < 100 ? `_${excelPercentage}percent` : "";
-      let fileName = `${safeTitle} - ${safeSheetName}${percentageSuffix}.xlsx`;
-      fileName = fileName.replace(/[<>:"/\\|?*\x00-\x1F]/g, "_");
-
-      XLSX.writeFile(workbook, fileName);
-      toast.success(`Xuất file Excel câu hỏi ${selectedWeek} thành công!`);
-    } catch (err) {
-      console.error("Lỗi xuất excel (Tuần này):", err);
       toast.error("Có lỗi xảy ra khi xuất file Excel.");
     }
   };
@@ -465,7 +485,7 @@ const LessonDocumentPage: React.FC = () => {
                   onClick={() => setActiveTab("quiz")}
                   className={`lesson-tab-btn ${activeTab === "quiz" ? "lesson-tab-btn-active" : ""}`}
                 >
-                  <HelpCircle className="w-3.5 h-3.5 shrink-0" /> Trắc nghiệm ({currentQuestions.length})
+                  <HelpCircle className="w-3.5 h-3.5 shrink-0" /> Câu hỏi {questionsLoading ? "..." : `(${questionCount})`}
                 </button>
               </div>
 
@@ -489,183 +509,30 @@ const LessonDocumentPage: React.FC = () => {
 
             {/* Tab 1: Bài học & Tài liệu */}
             {activeTab === "materials" && (
-                  <div className="lesson-tab-content">
-                    {groupedResources.length > 0 ? (
-                      <div className="space-y-8">
-                        {groupedResources.map((group) => (
-                          <div key={group.weekName} className="lesson-week-group">
-                            <h4 className="lesson-week-group-title">
-                              <Calendar className="w-4 h-4 text-[var(--brand-600)]" />
-                              {group.weekName}
-                            </h4>
-                            
-                            {/* Slide & Tài liệu */}
-                            <div className="space-y-2">
-                              <h5 className="text-xs font-semibold text-[var(--fg-2)] flex items-center gap-1.5">
-                                <FileText className="w-3.5 h-3.5 text-[var(--brand-600)]" /> Slide & Tài liệu bài giảng
-                              </h5>
-                              {group.files.length > 0 ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pl-4">
-                                  {group.files.map((res) => (
-                                    <div key={res.id} className="lesson-material-item">
-                                      <div className="lesson-material-left">
-                                        <BookOpen className="w-4 h-4 lesson-material-icon" />
-                                        <span className="lesson-material-name" title={res.title}>{res.title}</span>
-                                      </div>
-                                      {res.content_url && (
-                                        <a
-                                          href={res.content_url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="lesson-material-link"
-                                        >
-                                          <Download className="w-3.5 h-3.5" /> Xem/Tải
-                                        </a>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className="text-xs text-[var(--muted)] pl-4 italic">Không có slide bài giảng cho tuần này.</p>
-                              )}
-                            </div>
+              <div className="lesson-tab-content">
+                <LessonMaterials
+                  groupedResources={groupedResources}
+                  getEmbedUrl={getEmbedUrl}
+                />
+              </div>
+            )}
 
-                            {/* Video bài học */}
-                            <div className="space-y-2 pt-2">
-                              <h5 className="text-xs font-semibold text-[var(--fg-2)] flex items-center gap-1.5">
-                                <Youtube className="w-3.5 h-3.5 text-red-500" /> Video bài học
-                              </h5>
-                              {group.videos.length > 0 ? (
-                                <div className="lesson-video-grid pl-4">
-                                  {group.videos.map((res) => {
-                                    const embedUrl = res.content_url ? getEmbedUrl(res.content_url) : null;
-                                    return (
-                                      <div key={res.id} className="lesson-video-card">
-                                        {embedUrl ? (
-                                          <div className="lesson-video-iframe-wrapper">
-                                            <iframe
-                                              src={embedUrl}
-                                              title={res.title}
-                                              frameBorder="0"
-                                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                              allowFullScreen
-                                            ></iframe>
-                                          </div>
-                                        ) : (
-                                          <div className="h-28 bg-[var(--bg-3)] flex items-center justify-center">
-                                            <Play className="w-8 h-8 text-[var(--muted)]" />
-                                          </div>
-                                        )}
-                                        <a 
-                                          href={res.content_url || "#"} 
-                                          target="_blank" 
-                                          rel="noopener noreferrer"
-                                          className="lesson-video-title"
-                                        >
-                                          {res.title}
-                                        </a>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              ) : (
-                                <p className="text-xs text-[var(--muted)] pl-4 italic">Không có video bài giảng cho tuần này.</p>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-[var(--muted)] py-6 text-center">Không có tài nguyên bài học nào cho các tuần đã chọn.</p>
-                    )}
-                  </div>
+            {/* Tab 2: Câu hỏi LMS */}
+            {activeTab === "quiz" && (
+              <div className="lesson-tab-content">
+                {questionsLoading ? (
+                  <LoadingSpinner />
+                ) : (
+                  <LessonQuizTab
+                    currentQuestions={currentQuestions}
+                    filteredQuestions={filteredQuestions}
+                    searchQuery={searchQuery}
+                    setSearchQuery={setSearchQuery}
+                    exportAllToExcel={exportAllToExcel}
+                  />
                 )}
-
-                {/* Tab 2: Trắc nghiệm LMS */}
-                {activeTab === "quiz" && (
-                  <div className="lesson-tab-content">
-                    {/* Toolbar: search + export */}
-                    <div className="lesson-quiz-toolbar">
-                      <div className="lesson-quiz-search-wrap">
-                        <Search className="lesson-quiz-search-icon w-3.5 h-3.5" />
-                        <input
-                          type="text"
-                          placeholder="Tìm kiếm câu hỏi, lựa chọn, đáp án..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className="lesson-quiz-search"
-                        />
-                        {searchQuery && (
-                          <button onClick={() => setSearchQuery("")} className="lesson-quiz-clear-btn">
-                            <X className="w-3 h-3" />
-                          </button>
-                        )}
-                      </div>
-                      {currentQuestions.length > 0 && (
-                        <div className="flex items-center justify-center md:justify-end gap-2 mt-4 md:mt-0 shrink-0">
-                          <button
-                            onClick={exportAllToExcel}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 transition-all cursor-pointer"
-                            title="Tải Excel toàn bộ câu hỏi của môn học"
-                          >
-                            <Download className="w-3.5 h-3.5" /> Tải Excel
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    {searchQuery && (
-                      <p className="text-xs text-[var(--muted)] mb-2">
-                        Tìm thấy <strong className="text-[var(--fg)]">{filteredQuestions.length}</strong> câu khớp với "{searchQuery}"
-                      </p>
-                    )}
-
-                    {filteredQuestions.length > 0 ? (
-                      <div className="lesson-quiz-scroll">
-                        {filteredQuestions.map((q, qIndex) => {
-                          const allUrls = [q.url_question, q.url_choices, q.url_answer].filter(Boolean).join(",");
-                          return (
-                            <div key={q.id} className="lesson-quiz-question-box">
-                              <div className="lesson-quiz-q-number">Câu {qIndex + 1}</div>
-                              <h5 className="lesson-quiz-question-title">
-                                {renderTextWithImages(q.question, allUrls)}
-                              </h5>
-
-                              <div className="lesson-quiz-choices">
-                                {(() => {
-                                  const bestIdx = findBestAnswerIndex(q.choices ?? [], q.answer);
-                                  return q.choices?.map((choice, cIndex) => {
-                                    const isCorrect = cIndex === bestIdx;
-                                    return (
-                                      <div
-                                        key={cIndex}
-                                        className={`lesson-quiz-choice-item${isCorrect ? " lesson-quiz-choice-correct" : ""}`}
-                                      >
-                                        <span className="font-bold shrink-0 w-5 text-[var(--muted)]">
-                                          {String.fromCharCode(65 + cIndex)}.
-                                        </span>
-                                        <span>{renderTextWithImages(choice, allUrls)}</span>
-                                      </div>
-                                    );
-                                  });
-                                })()}
-                              </div>
-
-                              <div className="lesson-quiz-answer-badge">
-                                <CheckCircle2 className="w-3 h-3 shrink-0" />
-                                <span>Đáp án: {renderTextWithImages(q.answer, allUrls)}</span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-[var(--muted)] py-6 text-center">
-                        {searchQuery ? "Không tìm thấy câu hỏi nào phù hợp." : "Không có câu hỏi LMS nào cho tuần này."}
-                      </p>
-                    )}
-                  </div>
-                )}
+              </div>
+            )}
 
           </div>
         )}
@@ -676,10 +543,12 @@ const LessonDocumentPage: React.FC = () => {
         onClose={() => setIsFilterOpen(false)}
         courses={courses}
         selectedCourseIds={selectedCourseIds}
-        onSelectCourseIds={setSelectedCourseIds}
         weeks={weeks}
         selectedWeeks={selectedWeeks}
-        onSelectWeeks={setSelectedWeeks}
+        onApply={(courseIds, weeks) => {
+          setSelectedCourseIds(courseIds);
+          setSelectedWeeks(weeks);
+        }}
       />
     </div>
   );

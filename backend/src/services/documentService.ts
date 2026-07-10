@@ -16,7 +16,7 @@ export const listDocuments = async (
   const fetcher = async () => {
     let query = supabaseAdmin
       .from("documents")
-      .select("*, category:categories(title, logo, stt), crawler_courses(id)")
+      .select("*, category:categories(title, logo, stt)")
       .eq("active", true)
       .order("created_at", { ascending: true });
 
@@ -33,12 +33,24 @@ export const listDocuments = async (
       }
     }
 
-    const { data, error } = await query;
-    if (error) {
-      console.warn("Could not fetch documents from database:", error.message);
+    const [docResult, coursesResult] = await Promise.all([
+      query,
+      supabaseAdmin.from("crawler_courses").select("document_id")
+    ]);
+
+    if (docResult.error) {
+      console.warn("Could not fetch documents from database:", docResult.error.message);
       return [];
     }
-    return (data as any) ?? [];
+
+    const documents = docResult.data ?? [];
+    const courseDocIds = new Set(coursesResult.data?.map(c => c.document_id).filter(Boolean));
+
+    documents.forEach((doc: any) => {
+      doc.crawler_courses = courseDocIds.has(doc.id) ? [{ id: doc.id }] : [];
+    });
+
+    return documents;
   };
 
   // Chỉ cache khi không có filter và không phải premium (để tránh leak data)
@@ -97,7 +109,7 @@ async function _fetchGroupedDocuments(isPremiumUser = false, preview = true): Pr
   // 2. Lấy tất cả active documents
   let docQuery = supabaseAdmin
     .from("documents")
-    .select("*, category:categories(title, logo), crawler_courses(id)")
+    .select("*, category:categories(title, logo)")
     .eq("active", true)
     .order("created_at", { ascending: true });
 
@@ -105,11 +117,22 @@ async function _fetchGroupedDocuments(isPremiumUser = false, preview = true): Pr
     docQuery = docQuery.eq("premium", false);
   }
 
-  const { data: allDocs, error: docError } = await docQuery;
-  if (docError || !allDocs) {
-    console.warn("Could not fetch documents from database:", docError?.message);
+  const [docResult, coursesResult] = await Promise.all([
+    docQuery,
+    supabaseAdmin.from("crawler_courses").select("document_id")
+  ]);
+
+  if (docResult.error || !docResult.data) {
+    console.warn("Could not fetch documents from database:", docResult.error?.message);
     return [];
   }
+
+  const allDocs = docResult.data;
+  const courseDocIds = new Set(coursesResult.data?.map(c => c.document_id).filter(Boolean));
+
+  allDocs.forEach((doc: any) => {
+    doc.crawler_courses = courseDocIds.has(doc.id) ? [{ id: doc.id }] : [];
+  });
 
   // 3. Phân nhóm trong bộ nhớ (In-memory grouping & counting)
   const docsByCat = new Map<string | null, any[]>();
@@ -262,4 +285,148 @@ export const getCrawlerDataForDoc = async (documentId: string) => {
     300_000 // Cache trong 5 phút
   );
 };
+
+export const getCrawlerDataMetadata = async (documentId: string) => {
+  const cacheKey = `${CACHE_PREFIX}:crawler_metadata:${documentId}`;
+
+  return cacheGetOrSet(
+    cacheKey,
+    async () => {
+      const { data: courses, error: courseError } = await supabaseAdmin
+        .from("crawler_courses")
+        .select("*")
+        .eq("document_id", documentId);
+
+      if (courseError) {
+        console.error("Error fetching crawler courses metadata:", courseError.message);
+        return { courses: [], weeks: [] };
+      }
+
+      if (!courses || courses.length === 0) {
+        return { courses: [], weeks: [] };
+      }
+
+      const courseIds = courses.map(c => c.id);
+
+      const [resWeeks, qWeeks] = await Promise.all([
+        supabaseAdmin.from("crawler_resources").select("week_name").in("course_id", courseIds),
+        supabaseAdmin.from("crawler_questions").select("week_name").in("course_id", courseIds)
+      ]);
+
+      const weekSet = new Set<string>();
+      resWeeks.data?.forEach(r => { if (r.week_name) weekSet.add(r.week_name); });
+      qWeeks.data?.forEach(q => { if (q.week_name) weekSet.add(q.week_name); });
+
+      const weeks = Array.from(weekSet).sort((a, b) =>
+        a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+      );
+
+      return {
+        courses: courses || [],
+        weeks
+      };
+    },
+    300_000 // Cache 5 phút
+  );
+};
+
+export const getCrawlerDataFiltered = async (courseIds: string[], weeks: string[]) => {
+  if (courseIds.length === 0 || weeks.length === 0) {
+    return { resources: [], questions: [] };
+  }
+
+  const [resResult, qResult] = await Promise.all([
+    supabaseAdmin
+      .from("crawler_resources")
+      .select("*")
+      .in("course_id", courseIds)
+      .in("week_name", weeks)
+      .order("created_at", { ascending: true }),
+    supabaseAdmin
+      .from("crawler_questions")
+      .select("*")
+      .in("course_id", courseIds)
+      .in("week_name", weeks)
+      .order("created_at", { ascending: true })
+  ]);
+
+  return {
+    resources: resResult.data || [],
+    questions: qResult.data || []
+  };
+};
+
+export const getCrawlerResourcesFiltered = async (documentId: string, courseIds: string[], weeks: string[]) => {
+  let targetCourseIds = courseIds;
+  if (targetCourseIds.length === 0) {
+    const { data: courses } = await supabaseAdmin
+      .from("crawler_courses")
+      .select("id")
+      .eq("document_id", documentId);
+    targetCourseIds = courses?.map(c => c.id) || [];
+  }
+
+  if (targetCourseIds.length === 0) return { resources: [], questionCount: 0 };
+
+  let query = supabaseAdmin
+    .from("crawler_resources")
+    .select("*")
+    .in("course_id", targetCourseIds);
+
+  let qQuery = supabaseAdmin
+    .from("crawler_questions")
+    .select("*", { count: "exact", head: true })
+    .in("course_id", targetCourseIds);
+
+  if (weeks.length > 0) {
+    query = query.in("week_name", weeks);
+    qQuery = qQuery.in("week_name", weeks);
+  }
+
+  const [resResult, qCountResult] = await Promise.all([
+    query.order("created_at", { ascending: true }),
+    qQuery
+  ]);
+
+  if (resResult.error) {
+    console.error("Error fetching filtered resources:", resResult.error.message);
+    return { resources: [], questionCount: 0 };
+  }
+  return {
+    resources: resResult.data || [],
+    questionCount: qCountResult.count || 0
+  };
+};
+
+export const getCrawlerQuestionsFiltered = async (documentId: string, courseIds: string[], weeks: string[]) => {
+  let targetCourseIds = courseIds;
+  if (targetCourseIds.length === 0) {
+    const { data: courses } = await supabaseAdmin
+      .from("crawler_courses")
+      .select("id")
+      .eq("document_id", documentId);
+    targetCourseIds = courses?.map(c => c.id) || [];
+  }
+
+  if (targetCourseIds.length === 0) return [];
+
+  let query = supabaseAdmin
+    .from("crawler_questions")
+    .select("*")
+    .in("course_id", targetCourseIds);
+
+  if (weeks.length > 0) {
+    query = query.in("week_name", weeks);
+  }
+
+  const { data, error } = await query.order("created_at", { ascending: true });
+
+  if (error) {
+    console.error("Error fetching filtered questions:", error.message);
+    return [];
+  }
+  return data || [];
+};
+
+
 

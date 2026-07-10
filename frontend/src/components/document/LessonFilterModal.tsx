@@ -15,10 +15,9 @@ interface LessonFilterModalProps {
   onClose: () => void;
   courses: CrawlerCourse[];
   selectedCourseIds: string[];
-  onSelectCourseIds: (ids: string[]) => void;
   weeks: string[];
   selectedWeeks: string[];
-  onSelectWeeks: (weeks: string[]) => void;
+  onApply: (courseIds: string[], weeks: string[]) => void;
 }
 
 export const LessonFilterModal: React.FC<LessonFilterModalProps> = ({
@@ -26,54 +25,66 @@ export const LessonFilterModal: React.FC<LessonFilterModalProps> = ({
   onClose,
   courses,
   selectedCourseIds,
-  onSelectCourseIds,
   weeks,
   selectedWeeks,
-  onSelectWeeks,
+  onApply,
 }) => {
   if (!isOpen) return null;
 
+  const [localCourseIds, setLocalCourseIds] = React.useState<string[]>(selectedCourseIds);
+  const [localWeeks, setLocalWeeks] = React.useState<string[]>(selectedWeeks);
+
+  React.useEffect(() => {
+    setLocalCourseIds(selectedCourseIds);
+    setLocalWeeks(selectedWeeks);
+  }, [isOpen, selectedCourseIds, selectedWeeks]);
+
   const handleToggleCourse = (id: string) => {
-    if (selectedCourseIds.includes(id)) {
-      if (selectedCourseIds.length > 1) {
-        onSelectCourseIds(selectedCourseIds.filter((x) => x !== id));
+    if (localCourseIds.includes(id)) {
+      if (localCourseIds.length > 1) {
+        setLocalCourseIds(localCourseIds.filter((x) => x !== id));
       }
     } else {
-      onSelectCourseIds([...selectedCourseIds, id]);
+      setLocalCourseIds([...localCourseIds, id]);
     }
   };
 
   const handleToggleWeek = (week: string) => {
-    if (selectedWeeks.includes(week)) {
-      if (selectedWeeks.length > 1) {
-        onSelectWeeks(selectedWeeks.filter((x) => x !== week));
+    if (localWeeks.includes(week)) {
+      if (localWeeks.length > 1) {
+        setLocalWeeks(localWeeks.filter((x) => x !== week));
       }
     } else {
-      onSelectWeeks([...selectedWeeks, week]);
+      setLocalWeeks([...localWeeks, week]);
     }
   };
 
   const handleSelectAllCourses = () => {
     const allIds = courses.map((c) => c.id);
-    if (selectedCourseIds.length === courses.length) {
+    if (localCourseIds.length === courses.length) {
       // Nếu đã chọn tất cả, đưa về chỉ chọn lớp đầu tiên để tránh rỗng
       if (courses.length > 0) {
-        onSelectCourseIds([courses[0].id]);
+        setLocalCourseIds([courses[0].id]);
       }
     } else {
-      onSelectCourseIds(allIds);
+      setLocalCourseIds(allIds);
     }
   };
 
   const handleSelectAllWeeks = () => {
-    if (selectedWeeks.length === weeks.length) {
+    if (localWeeks.length === weeks.length) {
       // Nếu đã chọn tất cả, đưa về chỉ chọn tuần đầu tiên
       if (weeks.length > 0) {
-        onSelectWeeks([weeks[0]]);
+        setLocalWeeks([weeks[0]]);
       }
     } else {
-      onSelectWeeks([...weeks]);
+      setLocalWeeks([...weeks]);
     }
+  };
+
+  const handleSubmit = () => {
+    onApply(localCourseIds, localWeeks);
+    onClose();
   };
 
   return (
@@ -112,12 +123,12 @@ export const LessonFilterModal: React.FC<LessonFilterModalProps> = ({
                   onClick={handleSelectAllCourses}
                   className="text-xs font-bold text-[var(--brand-600)] hover:underline cursor-pointer bg-transparent border-none"
                 >
-                  {selectedCourseIds.length === courses.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+                  {localCourseIds.length === courses.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
                 </button>
               </div>
               <div className="lesson-filter-courses-grid">
                 {courses.map((c) => {
-                  const isSelected = selectedCourseIds.includes(c.id);
+                  const isSelected = localCourseIds.includes(c.id);
                   return (
                     <button
                       key={c.id}
@@ -149,12 +160,12 @@ export const LessonFilterModal: React.FC<LessonFilterModalProps> = ({
                   onClick={handleSelectAllWeeks}
                   className="text-xs font-bold text-[var(--brand-600)] hover:underline cursor-pointer bg-transparent border-none"
                 >
-                  {selectedWeeks.length === weeks.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+                  {localWeeks.length === weeks.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
                 </button>
               </div>
               <div className="lesson-filter-weeks-grid">
                 {weeks.map((w) => {
-                  const isSelected = selectedWeeks.includes(w);
+                  const isSelected = localWeeks.includes(w);
                   const weekLabel = w.split(" - ")[0];
                   return (
                     <button
@@ -182,7 +193,7 @@ export const LessonFilterModal: React.FC<LessonFilterModalProps> = ({
         {/* Footer */}
         <div className="lesson-filter-footer">
           <button
-            onClick={onClose}
+            onClick={handleSubmit}
             className="lesson-filter-submit-btn"
           >
             Hoàn tất
