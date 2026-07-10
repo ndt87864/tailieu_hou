@@ -2,9 +2,9 @@ import { supabaseAdmin } from "../config/db.js";
 import type { Document } from "../types/index.js";
 import { cacheGetOrSet, cacheInvalidatePrefix } from "../utils/cache.js";
 
-// TTL cho các loại cache
-const TTL_GROUPED = 60_000;   // 60 giây
-const TTL_ALL_DOCS = 60_000;  // 60 giây
+// TTL cho các loại cache (12 giờ vì đã có cơ chế invalidate cache khi admin thay đổi dữ liệu)
+const TTL_GROUPED = 12 * 60 * 60 * 1000;
+const TTL_ALL_DOCS = 12 * 60 * 60 * 1000;
 
 // Prefix dùng để invalidate hàng loạt
 const CACHE_PREFIX = "docs";
@@ -33,29 +33,17 @@ export const listDocuments = async (
       }
     }
 
-    const [docResult, coursesResult] = await Promise.all([
-      query,
-      supabaseAdmin.from("crawler_courses").select("document_id")
-    ]);
-
-    if (docResult.error) {
-      console.warn("Could not fetch documents from database:", docResult.error.message);
+    const { data, error } = await query;
+    if (error) {
+      console.error("Error listing documents:", error.message);
       return [];
     }
-
-    const documents = docResult.data ?? [];
-    const courseDocIds = new Set(coursesResult.data?.map(c => c.document_id).filter(Boolean));
-
-    documents.forEach((doc: any) => {
-      doc.crawler_courses = courseDocIds.has(doc.id) ? [{ id: doc.id }] : [];
-    });
-
-    return documents;
+    return data || [];
   };
 
   // Chỉ cache khi không có filter và không phải premium (để tránh leak data)
   if (!categoryId && !isPremiumUser) {
-    return cacheGetOrSet<Document[]>(`${CACHE_PREFIX}:all`, fetcher, TTL_ALL_DOCS);
+    return cacheGetOrSet<Document[]>(`${CACHE_PREFIX}:all:free`, fetcher, TTL_ALL_DOCS);
   }
   if (!categoryId && isPremiumUser) {
     return cacheGetOrSet<Document[]>(`${CACHE_PREFIX}:all:premium`, fetcher, TTL_ALL_DOCS);
@@ -85,51 +73,85 @@ export const getGroupedDocumentsFull = async (
 
 
 async function _fetchGroupedDocuments(isPremiumUser = false, preview = true): Promise<any[]> {
-  // Query 1: Lấy tất cả active categories và các active documents lồng bên trong
-  let catQuery = supabaseAdmin
+  // 1. Lấy thông tin categories (chỉ lấy category active)
+  let catOnlyQuery = supabaseAdmin
     .from("categories")
-    .select(`
-      id, title, logo, stt, premium,
-      documents:documents(
-        id, title, description, category_id, slug, created_at, updated_at, active, premium,
-        crawler_courses:crawler_courses(id)
-      )
-    `)
+    .select("id, title, logo, stt, premium")
     .eq("active", true)
-    .eq("documents.active", true)
     .order("stt", { ascending: true });
 
   if (!isPremiumUser) {
-    catQuery = catQuery.eq("premium", false).eq("documents.premium", false);
+    catOnlyQuery = catOnlyQuery.eq("premium", false);
   }
 
-  // Query 2: Lấy các active documents không thuộc category nào (nhóm "Khác")
-  let noCatQuery = supabaseAdmin
+  // 2. Lấy thông tin documents active
+  let docOnlyQuery = supabaseAdmin
     .from("documents")
-    .select("*, crawler_courses:crawler_courses(id)")
-    .is("category_id", null)
+    .select("id, title, description, category_id, slug, created_at, updated_at, active, premium")
     .eq("active", true)
     .order("created_at", { ascending: true });
 
   if (!isPremiumUser) {
-    noCatQuery = noCatQuery.eq("premium", false);
+    docOnlyQuery = docOnlyQuery.eq("premium", false);
   }
 
-  // Chạy song song cả 2 truy vấn để giảm tối đa độ trễ mạng xuống còn 1 roundtrip
-  const [catResult, noCatResult] = await Promise.all([catQuery, noCatQuery]);
+  // 3. Lấy crawler courses mapping
+  const coursesOnlyQuery = supabaseAdmin
+    .from("crawler_courses")
+    .select("id, document_id");
 
-  if (catResult.error) {
-    console.warn("Could not fetch grouped categories from database:", catResult.error.message);
+  // Thực thi song song 3 truy vấn phẳng
+  const [catsResult, docsResult, coursesResult] = await Promise.all([
+    catOnlyQuery,
+    docOnlyQuery,
+    coursesOnlyQuery
+  ]);
+
+  if (catsResult.error) {
+    console.warn("Could not fetch categories from database:", catsResult.error.message);
     return [];
   }
 
-  const categories = catResult.data || [];
+  const catsData = catsResult.data || [];
+  const docsData = docsResult.data || [];
+  const coursesData = coursesResult.data || [];
+
+  // Gom nhóm crawler_courses theo document_id để tránh O(N^2)
+  const coursesByDoc = new Map<string, any[]>();
+  coursesData.forEach((c: any) => {
+    if (c.document_id) {
+      if (!coursesByDoc.has(c.document_id)) {
+        coursesByDoc.set(c.document_id, []);
+      }
+      coursesByDoc.get(c.document_id)!.push({ id: c.id });
+    }
+  });
+
+  // Gom nhóm documents theo category_id
+  const docsByCat = new Map<string, any[]>();
+  const noCatDocs: any[] = [];
+
+  docsData.forEach((d: any) => {
+    const docWithCourses = {
+      ...d,
+      crawler_courses: coursesByDoc.get(d.id) || []
+    };
+    if (d.category_id) {
+      if (!docsByCat.has(d.category_id)) {
+        docsByCat.set(d.category_id, []);
+      }
+      docsByCat.get(d.category_id)!.push(docWithCourses);
+    } else {
+      noCatDocs.push(docWithCourses);
+    }
+  });
+
   const result: any[] = [];
 
-  // 1. Xử lý các categories và documents tương ứng
-  categories.forEach((cat: any) => {
-    const catDocs = cat.documents || [];
-    if (catDocs.length === 0) return; // Chỉ lấy các nhóm có tài liệu hoạt động
+  // Xây dựng cấu trúc cây phân cấp
+  catsData.forEach((cat: any) => {
+    const catDocs = docsByCat.get(cat.id) || [];
+    if (catDocs.length === 0) return; // Chỉ hiển thị các nhóm có tài liệu hoạt động
 
     // Giới hạn 10 docs nếu ở chế độ preview
     const documentsToShow = preview ? catDocs.slice(0, 10) : catDocs;
@@ -143,8 +165,7 @@ async function _fetchGroupedDocuments(isPremiumUser = false, preview = true): Pr
     });
   });
 
-  // 2. Xử lý nhóm "Khác" (no category) nếu có
-  const noCatDocs = noCatResult.data || [];
+  // Nhóm các tài liệu không có danh mục ("Khác")
   if (noCatDocs.length > 0) {
     const documentsToShow = preview ? noCatDocs.slice(0, 10) : noCatDocs;
     result.push({
@@ -272,9 +293,10 @@ export const getCrawlerDataMetadata = async (documentId: string) => {
   return cacheGetOrSet(
     cacheKey,
     async () => {
+      // 1. Lấy thông tin crawler_courses trước
       const { data: courses, error: courseError } = await supabaseAdmin
         .from("crawler_courses")
-        .select("*, crawler_resources(week_name)")
+        .select("*")
         .eq("document_id", documentId);
 
       if (courseError) {
@@ -286,16 +308,23 @@ export const getCrawlerDataMetadata = async (documentId: string) => {
         return { courses: [], weeks: [] };
       }
 
+      // 2. Lấy danh sách week_name từ crawler_resources của các courses đó bằng truy vấn riêng biệt, siêu nhanh
+      const courseIds = courses.map((c: any) => c.id);
+      const { data: resources, error: resourceError } = await supabaseAdmin
+        .from("crawler_resources")
+        .select("week_name")
+        .in("course_id", courseIds);
+
+      if (resourceError) {
+        console.error("Error fetching crawler resources week_names:", resourceError.message);
+      }
+
       const weekSet = new Set<string>();
-      courses.forEach((c: any) => {
-        if (Array.isArray(c.crawler_resources)) {
-          c.crawler_resources.forEach((r: any) => {
-            if (r.week_name) weekSet.add(r.week_name);
-          });
-        }
-        // Xóa thuộc tính crawler_resources lồng để trả về object sạch
-        delete c.crawler_resources;
-      });
+      if (resources && Array.isArray(resources)) {
+        resources.forEach((r: any) => {
+          if (r.week_name) weekSet.add(r.week_name);
+        });
+      }
 
       const weeks = Array.from(weekSet).sort((a, b) =>
         a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })

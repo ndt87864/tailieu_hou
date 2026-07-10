@@ -6,10 +6,10 @@ import { useAuth } from "../../context/AuthContext.js";
 import { Header } from "../../components/layout/Layout.js";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
-import { cleanForExport, renderTextWithImages } from "../../utils/questionHelper.js";
+import { cleanForExport } from "../../utils/questionHelper.js";
 import { 
-  BookOpen, FileText, Download, HelpCircle,
-  Crown, Filter, Calendar
+  BookOpen, FileText, HelpCircle,
+  Crown, Filter
 } from "lucide-react";
 import { LessonFilterModal } from "../../components/document/LessonFilterModal.jsx";
 import { LessonMaterials } from "../../components/document/LessonMaterials.js";
