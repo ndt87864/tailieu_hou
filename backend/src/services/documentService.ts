@@ -84,71 +84,51 @@ export const getGroupedDocumentsFull = async (
 };
 
 
-/** Hàm thực thi fetch (tách ra để dùng trong cacheGetOrSet) */
 async function _fetchGroupedDocuments(isPremiumUser = false, preview = true): Promise<any[]> {
-  // 1. Lấy tất cả categories đang active
+  // Query 1: Lấy tất cả active categories và các active documents lồng bên trong
   let catQuery = supabaseAdmin
     .from("categories")
-    .select("id, title, logo, stt, premium")
+    .select(`
+      id, title, logo, stt, premium,
+      documents:documents(
+        id, title, description, category_id, slug, created_at, updated_at, active, premium,
+        crawler_courses:crawler_courses(id)
+      )
+    `)
     .eq("active", true)
+    .eq("documents.active", true)
     .order("stt", { ascending: true });
 
-  // Nếu không phải premium, ẩn category premium
   if (!isPremiumUser) {
-    catQuery = catQuery.eq("premium", false);
+    catQuery = catQuery.eq("premium", false).eq("documents.premium", false);
   }
 
-  const { data: categories, error: catError } = await catQuery;
-
-  if (catError) {
-    console.warn("Could not fetch categories from database:", catError.message);
-    return [];
-  }
-  if (!categories) return [];
-
-  // 2. Lấy tất cả active documents
-  let docQuery = supabaseAdmin
+  // Query 2: Lấy các active documents không thuộc category nào (nhóm "Khác")
+  let noCatQuery = supabaseAdmin
     .from("documents")
-    .select("*, category:categories(title, logo)")
+    .select("*, crawler_courses:crawler_courses(id)")
+    .is("category_id", null)
     .eq("active", true)
     .order("created_at", { ascending: true });
 
   if (!isPremiumUser) {
-    docQuery = docQuery.eq("premium", false);
+    noCatQuery = noCatQuery.eq("premium", false);
   }
 
-  const [docResult, coursesResult] = await Promise.all([
-    docQuery,
-    supabaseAdmin.from("crawler_courses").select("document_id")
-  ]);
+  // Chạy song song cả 2 truy vấn để giảm tối đa độ trễ mạng xuống còn 1 roundtrip
+  const [catResult, noCatResult] = await Promise.all([catQuery, noCatQuery]);
 
-  if (docResult.error || !docResult.data) {
-    console.warn("Could not fetch documents from database:", docResult.error?.message);
+  if (catResult.error) {
+    console.warn("Could not fetch grouped categories from database:", catResult.error.message);
     return [];
   }
 
-  const allDocs = docResult.data;
-  const courseDocIds = new Set(coursesResult.data?.map(c => c.document_id).filter(Boolean));
-
-  allDocs.forEach((doc: any) => {
-    doc.crawler_courses = courseDocIds.has(doc.id) ? [{ id: doc.id }] : [];
-  });
-
-  // 3. Phân nhóm trong bộ nhớ (In-memory grouping & counting)
-  const docsByCat = new Map<string | null, any[]>();
-  allDocs.forEach((doc) => {
-    const catId = doc.category_id;
-    if (!docsByCat.has(catId)) {
-      docsByCat.set(catId, []);
-    }
-    docsByCat.get(catId)!.push(doc);
-  });
-
+  const categories = catResult.data || [];
   const result: any[] = [];
 
-  // 4. Map từng category với documents tương ứng
-  categories.forEach((cat) => {
-    const catDocs = docsByCat.get(cat.id) ?? [];
+  // 1. Xử lý các categories và documents tương ứng
+  categories.forEach((cat: any) => {
+    const catDocs = cat.documents || [];
     if (catDocs.length === 0) return; // Chỉ lấy các nhóm có tài liệu hoạt động
 
     // Giới hạn 10 docs nếu ở chế độ preview
@@ -163,8 +143,8 @@ async function _fetchGroupedDocuments(isPremiumUser = false, preview = true): Pr
     });
   });
 
-  // 5. Thêm nhóm "Khác" (no category) nếu có
-  const noCatDocs = docsByCat.get(null) ?? [];
+  // 2. Xử lý nhóm "Khác" (no category) nếu có
+  const noCatDocs = noCatResult.data || [];
   if (noCatDocs.length > 0) {
     const documentsToShow = preview ? noCatDocs.slice(0, 10) : noCatDocs;
     result.push({
