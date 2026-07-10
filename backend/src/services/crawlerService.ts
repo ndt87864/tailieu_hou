@@ -45,7 +45,8 @@ async function uploadFileToStorage(url: string, prefix: string): Promise<string>
   });
 
   let filename = `file_${Date.now()}`;
-  const disposition = downloadRes.headers["content-disposition"];
+
+  const disposition = downloadRes.headers["content-disposition"] as string | undefined;
   if (disposition && disposition.includes("filename=")) {
     const match = disposition.match(/filename="?([^";]+)"?/);
     if (match) {
@@ -53,7 +54,7 @@ async function uploadFileToStorage(url: string, prefix: string): Promise<string>
     }
   } else {
     // Thử đoán đuôi file từ content-type
-    const contentType = downloadRes.headers["content-type"] || "";
+    const contentType = (downloadRes.headers["content-type"] as string) || "";
     if (contentType.includes("pdf")) filename += ".pdf";
     else if (contentType.includes("word") || contentType.includes("officedocument")) filename += ".docx";
   }
@@ -62,7 +63,7 @@ async function uploadFileToStorage(url: string, prefix: string): Promise<string>
   const { error } = await supabaseAdmin.storage
     .from("lms-crawler-assets")
     .upload(storagePath, downloadRes.data, {
-      contentType: downloadRes.headers["content-type"] || "application/octet-stream"
+      contentType: (downloadRes.headers["content-type"] as string) || "application/octet-stream"
     });
 
   if (error) throw error;
@@ -142,7 +143,7 @@ export const startCrawlerBackground = async (username: string, password: string,
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
         },
         maxRedirects: 0,
-        validateStatus: (status) => status >= 200 && status < 400
+        validateStatus: (status: number) => status >= 200 && status < 400
       });
       updateCookies(res2.headers["set-cookie"]);
 

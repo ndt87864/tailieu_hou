@@ -53,21 +53,6 @@ export const CrawlDataTab: React.FC<CrawlDataTabProps> = ({ view }) => {
   const [editData, setEditData] = useState<any | null>(null);
   const [allCourses, setAllCourses] = useState<{id: string, title: string}[]>([]);
 
-  useEffect(() => {
-    // Fetch all courses for the filter dropdown
-    apiClient.get(`/api/v1/admin/crawler/courses`)
-      .then(res => {
-        const cList = res.data.courses || [];
-        const mapped = cList.map((c: any) => ({ id: c.id, title: c.title }));
-        setAllCourses(mapped);
-        // Mặc định chọn môn đầu tiên nếu đang ở tab questions và chưa chọn gì
-        if (mapped.length > 0) {
-          setSelectedCourseIds(prev => prev.length === 0 ? [mapped[0].id] : prev);
-        }
-      })
-      .catch(console.error);
-  }, []);
-
   const fetchData = (courseIds?: string[]) => {
     setLoading(true);
     setSelectedIds([]);
@@ -94,23 +79,38 @@ export const CrawlDataTab: React.FC<CrawlDataTabProps> = ({ view }) => {
     }
   };
 
-  // Khi chuyển tab: reset filter và mặc định chọn môn đầu tiên cho questions
+  // Tải danh sách khóa học lần đầu khi component mount
+  useEffect(() => {
+    apiClient.get(`/api/v1/admin/crawler/courses`)
+      .then(res => {
+        const cList = res.data.courses || [];
+        const mapped = cList.map((c: any) => ({ id: c.id, title: c.title }));
+        setAllCourses(mapped);
+      })
+      .catch(console.error);
+  }, []);
+
+  // Đồng bộ selectedCourseIds khi chuyển tab hoặc khi danh sách khóa học tải xong
   useEffect(() => {
     setSelectedIds([]);
-    if (view === "questions") {
-      const defaultIds = allCourses.length > 0 ? [allCourses[0].id] : [];
-      setSelectedCourseIds(defaultIds);
-      // fetchData sẽ được gọi bởi useEffect dưới
-    } else {
+    if (view === "questions" || view === "resources") {
+      // Chỉ đặt filter mặc định nếu selectedCourseIds hiện đang trống
+      if (selectedCourseIds.length === 0 && allCourses.length > 0) {
+        setSelectedCourseIds([allCourses[0].id]);
+      }
+    } else if (view === "courses") {
       setSelectedCourseIds([]);
-      fetchData(); // courses không cần filter
+      fetchData(); // courses không có filter nên gọi trực tiếp
     }
-  }, [view]);
+  }, [view, allCourses]);
 
-  // Re-fetch khi filter thay đổi (chỉ với questions/resources)
+  // Gọi API lấy dữ liệu dựa trên tab hiện tại và selectedCourseIds
   useEffect(() => {
     if (view === "questions" || view === "resources") {
-      fetchData(selectedCourseIds);
+      // Chỉ fetch khi selectedCourseIds thực sự có giá trị lọc (để tránh gọi API lấy toàn bộ câu hỏi/tài nguyên)
+      if (selectedCourseIds.length > 0) {
+        fetchData(selectedCourseIds);
+      }
     }
   }, [selectedCourseIds, view]);
 
