@@ -1,6 +1,6 @@
 import React from "react";
 import { Edit2, Trash2 } from "lucide-react";
-import { renderTextWithImages, isAnswerMatching } from "../../utils/questionHelper.js";
+import { renderTextWithImages, isAnswerMatching, findBestAnswerIndex } from "../../utils/questionHelper.js";
 
 export interface CrawlerQuestion {
   id: string;
@@ -102,29 +102,35 @@ const CrawlerQuestionCard: React.FC<CrawlerQuestionCardProps> = ({
         </div>
 
         {/* Choices list */}
-        {Array.isArray(q.choices) && q.choices.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs py-1">
-            {q.choices.map((choice, i) => (
-              <div
-                key={i}
-                className={`px-3 py-2 rounded-lg border flex items-center gap-2 choice-item ${
-                  isAnswerMatching(choice, q.answer) ? "choice-correct" : "choice-neutral"
-                }`}
-              >
-                <span
-                  className={`choice-badge font-bold flex items-center justify-center w-5 h-5 rounded-full ${
-                    isAnswerMatching(choice, q.answer) ? "choice-badge-correct" : "choice-badge-neutral"
-                  }`}
-                >
-                  {String.fromCharCode(65 + i)}
-                </span>
-                <span className={isAnswerMatching(choice, q.answer) ? "choice-text-correct" : "choice-text-neutral"}>
-                  {renderTextWithImages(choice, allUrls)}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
+        {Array.isArray(q.choices) && q.choices.length > 0 && (() => {
+          const bestIdx = findBestAnswerIndex(q.choices, q.answer);
+          return (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs py-1">
+              {q.choices.map((choice, i) => {
+                const isCorrect = i === bestIdx;
+                return (
+                  <div
+                    key={i}
+                    className={`px-3 py-2 rounded-lg border flex items-center gap-2 choice-item ${
+                      isCorrect ? "choice-correct" : "choice-neutral"
+                    }`}
+                  >
+                    <span
+                      className={`choice-badge font-bold flex items-center justify-center w-5 h-5 rounded-full ${
+                        isCorrect ? "choice-badge-correct" : "choice-badge-neutral"
+                      }`}
+                    >
+                      {String.fromCharCode(65 + i)}
+                    </span>
+                    <span className={isCorrect ? "choice-text-correct" : "choice-text-neutral"}>
+                      {renderTextWithImages(choice, allUrls)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
 
         {/* Answer if not in choices */}
         {(!Array.isArray(q.choices) || q.choices.length === 0) && q.answer && (

@@ -2,8 +2,10 @@ import { Hono } from "hono";
 import { supabaseAdmin } from "../config/db.js";
 import { requireRole } from "../middlewares/role.js";
 import { getCrawlerDataForDoc } from "../services/documentService.js";
+import { cacheGetOrSet, cacheInvalidatePrefix } from "../utils/cache.js";
 
 const crawlerAdminRouter = new Hono();
+const CACHE_PREFIX = "docs:crawler_admin";
 
 // Helper: chia nhỏ bulk delete thành batch để tránh giới hạn URL length của PostgREST
 const CHUNK_SIZE = 100;
@@ -20,12 +22,17 @@ crawlerAdminRouter.use("*", requireRole("admin"));
 
 crawlerAdminRouter.get("/courses", async (c) => {
   try {
-    const { data, error } = await supabaseAdmin
-      .from("crawler_courses")
-      .select("*, document:documents(title)")
-      .order("created_at", { ascending: false });
-    if (error) throw error;
-    return c.json({ courses: data });
+    const cacheKey = `${CACHE_PREFIX}:courses`;
+    const courses = await cacheGetOrSet(cacheKey, async () => {
+      const { data, error } = await supabaseAdmin
+        .from("crawler_courses")
+        .select("*, document:documents(title)")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    }, 120_000); // Cache 2 phút
+
+    return c.json({ courses });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
@@ -33,20 +40,26 @@ crawlerAdminRouter.get("/courses", async (c) => {
 
 crawlerAdminRouter.get("/resources", async (c) => {
   try {
-    const courseIdsParam = c.req.query("course_ids");
-    let query = supabaseAdmin
-      .from("crawler_resources")
-      .select("*, course:crawler_courses(title, document_id)")
-      .order("created_at", { ascending: false });
+    const courseIdsParam = c.req.query("course_ids") || "all";
+    const cacheKey = `${CACHE_PREFIX}:resources:${courseIdsParam}`;
     
-    if (courseIdsParam) {
-      const ids = courseIdsParam.split(",").filter(Boolean);
-      if (ids.length > 0) query = query.in("course_id", ids);
-    }
-    
-    const { data, error } = await query;
-    if (error) throw error;
-    return c.json({ resources: data });
+    const resources = await cacheGetOrSet(cacheKey, async () => {
+      let query = supabaseAdmin
+        .from("crawler_resources")
+        .select("*, course:crawler_courses(title, document_id)")
+        .order("created_at", { ascending: false });
+      
+      if (courseIdsParam !== "all") {
+        const ids = courseIdsParam.split(",").filter(Boolean);
+        if (ids.length > 0) query = query.in("course_id", ids);
+      }
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      return data;
+    }, 120_000); // Cache 2 phút
+
+    return c.json({ resources });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
@@ -54,20 +67,26 @@ crawlerAdminRouter.get("/resources", async (c) => {
 
 crawlerAdminRouter.get("/questions", async (c) => {
   try {
-    const courseIdsParam = c.req.query("course_ids");
-    let query = supabaseAdmin
-      .from("crawler_questions")
-      .select("*, course:crawler_courses(title, document_id)")
-      .order("created_at", { ascending: false });
+    const courseIdsParam = c.req.query("course_ids") || "all";
+    const cacheKey = `${CACHE_PREFIX}:questions:${courseIdsParam}`;
     
-    if (courseIdsParam) {
-      const ids = courseIdsParam.split(",").filter(Boolean);
-      if (ids.length > 0) query = query.in("course_id", ids);
-    }
-    
-    const { data, error } = await query;
-    if (error) throw error;
-    return c.json({ questions: data });
+    const questions = await cacheGetOrSet(cacheKey, async () => {
+      let query = supabaseAdmin
+        .from("crawler_questions")
+        .select("*, course:crawler_courses(title, document_id)")
+        .order("created_at", { ascending: false });
+      
+      if (courseIdsParam !== "all") {
+        const ids = courseIdsParam.split(",").filter(Boolean);
+        if (ids.length > 0) query = query.in("course_id", ids);
+      }
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      return data;
+    }, 120_000); // Cache 2 phút
+
+    return c.json({ questions });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
@@ -91,6 +110,7 @@ crawlerAdminRouter.delete("/resources/:id", async (c) => {
     const id = c.req.param("id");
     const { error } = await supabaseAdmin.from("crawler_resources").delete().eq("id", id);
     if (error) throw error;
+    await cacheInvalidatePrefix("docs");
     return c.json({ success: true, message: "Resource deleted" });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
@@ -103,6 +123,7 @@ crawlerAdminRouter.delete("/questions/:id", async (c) => {
     const id = c.req.param("id");
     const { error } = await supabaseAdmin.from("crawler_questions").delete().eq("id", id);
     if (error) throw error;
+    await cacheInvalidatePrefix("docs");
     return c.json({ success: true, message: "Question deleted" });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
@@ -115,6 +136,7 @@ crawlerAdminRouter.delete("/courses/:id", async (c) => {
     const id = c.req.param("id");
     const { error } = await supabaseAdmin.from("crawler_courses").delete().eq("id", id);
     if (error) throw error;
+    await cacheInvalidatePrefix("docs");
     return c.json({ success: true, message: "Course and related data deleted" });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
@@ -127,6 +149,7 @@ crawlerAdminRouter.post("/courses/bulk-delete", async (c) => {
     const { ids } = await c.req.json();
     if (!ids || !Array.isArray(ids)) return c.json({ error: "Invalid ids" }, 400);
     await chunkDelete("crawler_courses", ids);
+    await cacheInvalidatePrefix("docs");
     return c.json({ success: true });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
@@ -138,6 +161,7 @@ crawlerAdminRouter.post("/resources/bulk-delete", async (c) => {
     const { ids } = await c.req.json();
     if (!ids || !Array.isArray(ids)) return c.json({ error: "Invalid ids" }, 400);
     await chunkDelete("crawler_resources", ids);
+    await cacheInvalidatePrefix("docs");
     return c.json({ success: true });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
@@ -149,6 +173,7 @@ crawlerAdminRouter.post("/questions/bulk-delete", async (c) => {
     const { ids } = await c.req.json();
     if (!ids || !Array.isArray(ids)) return c.json({ error: "Invalid ids" }, 400);
     await chunkDelete("crawler_questions", ids);
+    await cacheInvalidatePrefix("docs");
     return c.json({ success: true });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
@@ -162,6 +187,7 @@ crawlerAdminRouter.put("/courses/:id", async (c) => {
     const body = await c.req.json();
     const { error } = await supabaseAdmin.from("crawler_courses").update(body).eq("id", id);
     if (error) throw error;
+    await cacheInvalidatePrefix("docs");
     return c.json({ success: true });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
@@ -174,6 +200,7 @@ crawlerAdminRouter.put("/resources/:id", async (c) => {
     const body = await c.req.json();
     const { error } = await supabaseAdmin.from("crawler_resources").update(body).eq("id", id);
     if (error) throw error;
+    await cacheInvalidatePrefix("docs");
     return c.json({ success: true });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
@@ -186,6 +213,7 @@ crawlerAdminRouter.put("/questions/:id", async (c) => {
     const body = await c.req.json();
     const { error } = await supabaseAdmin.from("crawler_questions").update(body).eq("id", id);
     if (error) throw error;
+    await cacheInvalidatePrefix("docs");
     return c.json({ success: true });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);

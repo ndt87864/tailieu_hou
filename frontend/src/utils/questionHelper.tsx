@@ -133,38 +133,65 @@ export const renderTextWithImages = (text: string, storageUrlsString?: string | 
   }).filter(Boolean);
 };
 
+/** Chuẩn hóa chuỗi để so sánh: bỏ tiền tố a./b)/..., HTML, ký tự đặc biệt */
+const normalizeForMatch = (s: string): string => {
+  let str = s.toLowerCase().trim();
+  str = str.replace(/<[^>]*>/g, "");
+  str = str.replace(/^[a-e1-5][\.\)\-\:]\s*/i, "");
+  str = str.replace(/\\?['"]/g, "");
+  return str.replace(/\s+/g, " ").trim();
+};
+
+/** Levenshtein distance giữa 2 chuỗi */
+const levenshtein = (a: string, b: string): number => {
+  const m = a.length, n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, (_, i) =>
+    Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
+  );
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+  return dp[m][n];
+};
+
 /**
- * So sánh xem đáp án có khớp (hoặc gần khớp) với một trong các lựa chọn hay không.
- * Bỏ qua các tiền tố như "a.", "b)", "C -", "4:" và khoảng trắng thừa.
+ * Tìm index của lựa chọn khớp nhất với đáp án (tỷ lệ lệch thấp nhất).
+ * Trả về -1 nếu không có đáp án.
+ */
+export const findBestAnswerIndex = (choices: string[], answer: string): number => {
+  if (!answer || !choices.length) return -1;
+  const nAnswer = normalizeForMatch(answer);
+  if (!nAnswer) return -1;
+
+  let bestIdx = -1;
+  let bestScore = Infinity;
+
+  choices.forEach((choice, idx) => {
+    const nChoice = normalizeForMatch(choice);
+    const maxLen = Math.max(nChoice.length, nAnswer.length) || 1;
+    const dist = levenshtein(nChoice, nAnswer);
+    const ratio = dist / maxLen; // 0 = khớp hoàn hảo, 1 = hoàn toàn khác
+    if (ratio < bestScore) {
+      bestScore = ratio;
+      bestIdx = idx;
+    }
+  });
+
+  // Chỉ chấp nhận nếu tỷ lệ lệch < 60%
+  return bestScore < 0.6 ? bestIdx : -1;
+};
+
+/**
+ * @deprecated Dùng findBestAnswerIndex thay thế để tránh highlight nhiều đáp án.
+ * Giữ lại để tương thích với code cũ.
  */
 export const isAnswerMatching = (choice: string, answer: string): boolean => {
   if (!choice || !answer) return false;
-  
-  const normalize = (s: string) => {
-    let str = s.toLowerCase().trim();
-    // Bỏ thẻ HTML nếu có
-    str = str.replace(/<[^>]*>/g, "");
-    // Bỏ các tiền tố đánh dấu như a., B), c -, 4:
-    str = str.replace(/^[a-e1-5][\.\)\-\:]\s*/i, "");
-    // Bỏ tất cả dấu nháy đơn, nháy kép, và nháy escaped
-    str = str.replace(/\\?['"]/g, "");
-    // Bỏ tất cả khoảng trắng
-    return str.replace(/\s+/g, "");
-  };
-
-  const nChoice = normalize(choice);
-  const nAnswer = normalize(answer);
-  
+  const nChoice = normalizeForMatch(choice);
+  const nAnswer = normalizeForMatch(answer);
   if (nChoice === nAnswer) return true;
-  
-  // Kiểm tra xem các chữ số có khớp hoàn toàn không để tránh khớp nhầm các giá trị số (như 1,2 và 1,24)
-  const numsChoice = nChoice.match(/\d+/g) || [];
-  const numsAnswer = nAnswer.match(/\d+/g) || [];
-  if (numsChoice.join(",") !== numsAnswer.join(",")) {
-    return false;
-  }
-  
-  // Nếu 1 chuỗi chứa chuỗi kia và đủ dài để tránh bắt nhầm
   if (nChoice.length > 3 && nAnswer.length > 3) {
     if (nChoice.includes(nAnswer) || nAnswer.includes(nChoice)) return true;
   }

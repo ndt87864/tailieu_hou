@@ -91,7 +91,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Title or Desktop Nav */}
           {title ? (
-            <div className="flex flex-col min-w-0 max-w-[50%] md:max-w-none text-center">
+            <div className="flex flex-col min-w-0 max-w-[50%] md:max-w-none text-left flex-1 ml-4">
               <h1 className="text-xs md:text-sm font-bold text-[var(--fg)] truncate">{title}</h1>
               {subtitle && <p className="text-[9px] md:text-[10px] text-[var(--muted)] truncate">{subtitle}</p>}
             </div>

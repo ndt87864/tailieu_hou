@@ -208,29 +208,107 @@
    ============================================= */
 
 .lesson-week-card {
-  background-color: var(--surface);
+  background-color: var(--bg-2);
   border: 1px solid var(--border);
   border-radius: 0.875rem;
   overflow: hidden;
   box-shadow: var(--shadow-sm);
 }
 
-/* Header tuần: title + tab switcher */
-.lesson-week-header {
-  padding: 0.875rem 1.25rem;
+/* Nhóm nội dung từng tuần bên trong card */
+.lesson-week-group {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  padding: 1.125rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.lesson-week-group-title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--fg);
   border-bottom: 1px solid var(--border);
-  background: var(--bg-2);
+  padding-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* =============================================
+   PAGE HEADER (Tiêu đề + tab + bộ lọc)
+   ============================================= */
+.lesson-page-header {
   display: flex;
   flex-direction: column;
   gap: 0.625rem;
+  width: 100%;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
 }
 
-@media (min-width: 640px) {
-  .lesson-week-header {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-  }
+/* Dòng 2: tabs (trái) + filter (phải) */
+.lesson-page-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* Khi đứng đầu trang (không có tiêu đề tuần phía trên) */
+.lesson-page-header-actions--top {
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Nút trigger bộ lọc */
+.lesson-filter-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.875rem;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--fg-1);
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+  box-shadow: var(--shadow-sm);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.lesson-filter-trigger-btn:hover {
+  background: var(--bg-3);
+  box-shadow: var(--shadow);
+}
+.lesson-filter-trigger-sep {
+  display: inline-block;
+  width: 1px;
+  height: 1rem;
+  background: var(--border);
+  margin: 0 0.125rem;
+}
+.lesson-filter-trigger-val {
+  color: var(--brand-600);
+}
+.lesson-filter-trigger-pipe {
+  color: var(--muted);
+}
+.lesson-filter-trigger-courses {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* Header tuần: giờ chỉ là wrapper content, không có title nữa */
+.lesson-week-header {
+  /* giữ lại để các thẻ con có thể reference, nhưng bỏ padding hậ$ */
 }
 
 .lesson-week-title {
@@ -238,7 +316,7 @@
   font-weight: 700;
   color: var(--fg);
   line-height: 1.5;
-  flex: 1;
+  flex-shrink: 0;
   min-width: 0;
 }
 
@@ -293,7 +371,7 @@
    ============================================= */
 
 .lesson-tab-content {
-  padding: 1.25rem;
+  padding: 0;
 }
 
 .lesson-material-section {
@@ -455,11 +533,11 @@
 
 .lesson-quiz-search {
   width: 100%;
-  height: 1.875rem;
-  padding-left: 2rem;
+  height: 2.125rem;
+  padding-left: 2.25rem;
   padding-right: 2rem;
   border: 1px solid var(--border);
-  border-radius: 0.5rem;
+  border-radius: 0.75rem;
   font-size: 0.8125rem;
   background: var(--bg-2);
   color: var(--fg);
@@ -470,7 +548,7 @@
 .lesson-quiz-search::placeholder { color: var(--muted); }
 
 .lesson-quiz-search-icon {
-  position: absolute; left: 0.5rem; top: 50%;
+  position: absolute; left: 0.75rem; top: 50%;
   transform: translateY(-50%);
   color: var(--muted); pointer-events: none;
 }
@@ -501,9 +579,9 @@
 
 /* Câu hỏi */
 .lesson-quiz-question-box {
-  background-color: var(--bg-2);
-  border-radius: 0.5rem;
-  padding: 0.75rem 0.875rem;
+  background-color: var(--surface);
+  border-radius: 0.75rem;
+  padding: 0.875rem 1rem;
   border: 1px solid var(--border);
 }
 
@@ -591,4 +669,169 @@
 .dark .lesson-quiz-choice-wrong {
   color: #f87171;
   background-color: rgba(239,68,68,0.15);
+}
+
+/* =============================================
+   LESSON FILTER MODAL
+   ============================================= */
+.lesson-filter-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+}
+
+.lesson-filter-container {
+  background-color: var(--surface);
+  width: 100%;
+  max-width: 32rem; /* max-w-lg */
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-2xl, 0 25px 50px -12px rgba(0, 0, 0, 0.25));
+  overflow: hidden;
+}
+
+.lesson-filter-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem;
+  border-bottom: 1px solid var(--border);
+  background-color: var(--surface-2);
+}
+
+.lesson-filter-header-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.lesson-filter-header-icon {
+  padding: 0.5rem;
+  background-color: var(--brand-50);
+  color: var(--brand-600);
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+}
+
+.lesson-filter-header-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--fg);
+}
+
+.lesson-filter-header-subtitle {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.lesson-filter-close-btn {
+  padding: 0.375rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s;
+  color: var(--muted);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.lesson-filter-close-btn:hover {
+  background-color: var(--bg-3);
+  color: var(--fg);
+}
+
+.lesson-filter-body {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.lesson-filter-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.lesson-filter-section-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--fg-2);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: block;
+}
+
+.lesson-filter-courses-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+}
+
+.lesson-filter-weeks-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.lesson-filter-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: left;
+  transition: all 0.2s;
+  background-color: var(--surface-2);
+  color: var(--fg-2);
+  cursor: pointer;
+}
+
+.lesson-filter-btn:hover {
+  background-color: var(--bg-3);
+}
+
+.lesson-filter-btn-selected {
+  background-color: var(--brand-50);
+  border-color: var(--brand-200);
+  color: var(--brand-700);
+  box-shadow: 0 0 0 1px var(--brand-500);
+}
+
+.lesson-filter-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 1.25rem;
+  border-top: 1px solid var(--border);
+  background-color: var(--surface-2);
+}
+
+.lesson-filter-submit-btn {
+  width: 100%;
+  padding: 0.625rem;
+  background-color: var(--brand-600);
+  color: #ffffff;
+  font-weight: 700;
+  border-radius: 0.75rem;
+  font-size: 0.75rem;
+  transition: all 0.2s;
+  border: none;
+  cursor: pointer;
+  text-align: center;
+}
+
+.lesson-filter-submit-btn:hover {
+  background-color: var(--brand-700);
 }

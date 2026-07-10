@@ -220,38 +220,46 @@ export const deleteDocument = async (id: string): Promise<boolean> => {
 };
 
 export const getCrawlerDataForDoc = async (documentId: string) => {
-  const { data: courses, error: courseError } = await supabaseAdmin
-    .from("crawler_courses")
-    .select("*")
-    .eq("document_id", documentId);
+  const cacheKey = `${CACHE_PREFIX}:crawler_data:${documentId}`;
+  
+  return cacheGetOrSet(
+    cacheKey,
+    async () => {
+      const { data: courses, error: courseError } = await supabaseAdmin
+        .from("crawler_courses")
+        .select("*")
+        .eq("document_id", documentId);
 
-  if (courseError) {
-    console.error("Error fetching crawler courses:", courseError.message);
-    return { courses: [], resources: [], questions: [] };
-  }
+      if (courseError) {
+        console.error("Error fetching crawler courses:", courseError.message);
+        return { courses: [], resources: [], questions: [] };
+      }
 
-  if (!courses || courses.length === 0) {
-    return { courses: [], resources: [], questions: [] };
-  }
+      if (!courses || courses.length === 0) {
+        return { courses: [], resources: [], questions: [] };
+      }
 
-  const courseIds = courses.map(c => c.id);
+      const courseIds = courses.map(c => c.id);
 
-  const { data: resources, error: resError } = await supabaseAdmin
-    .from("crawler_resources")
-    .select("*")
-    .in("course_id", courseIds)
-    .order("created_at", { ascending: true });
+      const { data: resources, error: resError } = await supabaseAdmin
+        .from("crawler_resources")
+        .select("*")
+        .in("course_id", courseIds)
+        .order("created_at", { ascending: true });
 
-  const { data: questions, error: qError } = await supabaseAdmin
-    .from("crawler_questions")
-    .select("*")
-    .in("course_id", courseIds)
-    .order("created_at", { ascending: true });
+      const { data: questions, error: qError } = await supabaseAdmin
+        .from("crawler_questions")
+        .select("*")
+        .in("course_id", courseIds)
+        .order("created_at", { ascending: true });
 
-  return {
-    courses: courses || [],
-    resources: resources || [],
-    questions: questions || [],
-  };
+      return {
+        courses: courses || [],
+        resources: resources || [],
+        questions: questions || [],
+      };
+    },
+    300_000 // Cache trong 5 phút
+  );
 };
 
