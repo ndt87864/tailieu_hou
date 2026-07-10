@@ -79,40 +79,40 @@ export const CrawlDataTab: React.FC<CrawlDataTabProps> = ({ view }) => {
     }
   };
 
-  // Tải danh sách khóa học lần đầu khi component mount
+  // 1. Tải danh sách khóa học (allCourses) ban đầu nếu chưa có và đang cần filter ở tab questions/resources
   useEffect(() => {
-    apiClient.get(`/api/v1/admin/crawler/courses`)
-      .then(res => {
-        const cList = res.data.courses || [];
-        const mapped = cList.map((c: any) => ({ id: c.id, title: c.title }));
-        setAllCourses(mapped);
-      })
-      .catch(console.error);
-  }, []);
+    if ((view === "questions" || view === "resources") && allCourses.length === 0) {
+      apiClient.get(`/api/v1/admin/crawler/courses`)
+        .then(res => {
+          const cList = res.data.courses || [];
+          const mapped = cList.map((c: any) => ({ id: c.id, title: c.title }));
+          setAllCourses(mapped);
+          if (mapped.length > 0) {
+            setSelectedCourseIds([mapped[0].id]);
+          }
+        })
+        .catch(console.error);
+    }
+  }, [view]);
 
-  // Đồng bộ selectedCourseIds khi chuyển tab hoặc khi danh sách khóa học tải xong
+  // 2. Lắng nghe thay đổi tab và filter để fetch dữ liệu
   useEffect(() => {
     setSelectedIds([]);
-    if (view === "questions" || view === "resources") {
-      // Chỉ đặt filter mặc định nếu selectedCourseIds hiện đang trống
+    
+    if (view === "courses") {
+      fetchData(); // Chỉ gọi duy nhất 1 lần khi chuyển sang tab courses
+    } else if (view === "questions" || view === "resources") {
+      // Nếu đã có danh sách khóa học nhưng selectedCourseIds chưa được set mặc định
       if (selectedCourseIds.length === 0 && allCourses.length > 0) {
         setSelectedCourseIds([allCourses[0].id]);
+        return; // Đợi selectedCourseIds cập nhật để useEffect này chạy lại và fetch đúng
       }
-    } else if (view === "courses") {
-      setSelectedCourseIds([]);
-      fetchData(); // courses không có filter nên gọi trực tiếp
-    }
-  }, [view, allCourses]);
-
-  // Gọi API lấy dữ liệu dựa trên tab hiện tại và selectedCourseIds
-  useEffect(() => {
-    if (view === "questions" || view === "resources") {
-      // Chỉ fetch khi selectedCourseIds thực sự có giá trị lọc (để tránh gọi API lấy toàn bộ câu hỏi/tài nguyên)
+      
       if (selectedCourseIds.length > 0) {
         fetchData(selectedCourseIds);
       }
     }
-  }, [selectedCourseIds, view]);
+  }, [view, selectedCourseIds]);
 
   const handleDeleteResource = async (id: string) => {
     const ok = await confirm("Bạn có chắc muốn xoá tài nguyên crawl này?");
