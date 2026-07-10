@@ -61,8 +61,12 @@ const CrawlerQuestionCard: React.FC<CrawlerQuestionCardProps> = ({
               {renderTextWithImages(q.question, q.url_question)}
             </h4>
             {q.url_question && !q.question.includes("pluginfile.php") && (
-              <div className="mt-2 border rounded-lg p-1 max-w-sm inline-block bg-[var(--bg-2)] border-[var(--border-soft)]">
-                <img src={q.url_question} alt="Ảnh câu hỏi" className="max-h-32 object-contain" />
+              <div className="mt-2 flex flex-wrap gap-2">
+                {q.url_question.split(",").map((url) => url.trim()).filter(Boolean).map((url, idx) => (
+                  <div key={idx} className="border rounded-lg p-1 max-w-sm inline-block bg-[var(--bg-2)] border-[var(--border-soft)]">
+                    <img src={url} alt={`Ảnh câu hỏi ${idx + 1}`} className="max-h-32 object-contain" />
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -114,8 +118,12 @@ const CrawlerQuestionCard: React.FC<CrawlerQuestionCardProps> = ({
               <strong>Đáp án:</strong> {renderTextWithImages(q.answer, q.url_answer)}
             </div>
             {q.url_answer && (
-              <div className="mt-2 border rounded-lg p-1 max-w-sm inline-block bg-[var(--bg-2)] border-[var(--border-soft)]">
-                <img src={q.url_answer} alt="Ảnh đáp án" className="max-h-32 object-contain" />
+              <div className="mt-2 flex flex-wrap gap-2">
+                {q.url_answer.split(",").map((url) => url.trim()).filter(Boolean).map((url, idx) => (
+                  <div key={idx} className="border rounded-lg p-1 max-w-sm inline-block bg-[var(--bg-2)] border-[var(--border-soft)]">
+                    <img src={url} alt={`Ảnh đáp án ${idx + 1}`} className="max-h-32 object-contain" />
+                  </div>
+                ))}
               </div>
             )}
           </div>
