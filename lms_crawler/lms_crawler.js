@@ -857,7 +857,7 @@ async function main() {
                   for (let i = 0; i < questionsToSave.length; i++) {
                     const qData = questionsToSave[i];
                     if (qData.type === "multiple_choice" && !qData.answer) {
-                      const qBlock = questionBlocks[i];
+                      const qBlock = questionBlocks[qData.sourceQuestionIndex ?? i];
                       const { choices, choiceImgsList, rightAnswerText, ansImgsList } = await extractMultipleChoice($review, qBlock, getCookieHeader);
                       qData.choices = choices;
                       qData.answer = rightAnswerText;

@@ -1,6 +1,6 @@
 const cheerio = require('cheerio');
 const { processHtmlImagesAndUpload, uploadFileToStorage, cleanQuestionText } = require('./db');
-const { parseRightAnswers, extractFillBlankSubQuestions, shouldGroupTable } = require('./quiz-parser');
+const { parseRightAnswers, extractFillBlankSubQuestions, shouldGroupTable, cleanFillBlankQuestionText } = require('./quiz-parser');
 
 /**
  * Process quiz review page and extract questions
@@ -32,7 +32,8 @@ async function processQuizReview($review, questionBlocks, getCookieHeader) {
           type: "fill_blank",
           url_question: qImgs.length > 0 ? qImgs.join(",") : null,
           url_answer: rawAnswerImageUrl,
-          url_choices: null
+          url_choices: null,
+          sourceQuestionIndex: q
         });
       });
     } else {
@@ -44,7 +45,8 @@ async function processQuizReview($review, questionBlocks, getCookieHeader) {
         type: "multiple_choice",
         url_question: qImgs.length > 0 ? qImgs.join(",") : null,
         url_answer: null,
-        url_choices: null
+        url_choices: null,
+        sourceQuestionIndex: q
       });
     }
   }
@@ -84,13 +86,9 @@ async function processFillBlank($review, qBlock, inputElements, getCookieHeader)
   // Fallback if no sub-questions found
   if (subQuestions.length === 0 && parsedRightAnswers.length > 0) {
     const cloned = $review(qBlock).clone();
-    cloned.find('input[type="text"], input:not([type]), textarea, select').each((i, input) => {
-      $review(input).replaceWith(" ... ");
-    });
-    cloned.find(".feedback, .feedbackspan, .accesshide, .questioncorrectnessicon, .aftergapfeedback").remove();
-    let questionText = cloned.text().replace(/\s+/g, " ").trim();
-    questionText = questionText.replace(/\[\s*[^\]]+\s*\]/g, "").trim();
-    questionText = questionText.replace(/^[a-zA-Z]\s*[\.\)\-:\/]\s*|^[0-9]{1,2}\s*[\.\)\-:\/]\s+/u, "").trim();
+    cloned.find('input[type="text"], input:not([type]), textarea, select').replaceWith(" ... ");
+    cloned.find(".outcome, .rightanswer, .feedback, .feedbackspan, .generalfeedback, .specificfeedback, .accesshide, .questioncorrectnessicon, .aftergapfeedback").remove();
+    let questionText = cleanFillBlankQuestionText(cloned.text());
     
     if (parsedRightAnswers.length > 1) {
       const combinedAnswer = parsedRightAnswers.map(a => `${a.index}.${a.answer}`).join(", ");
