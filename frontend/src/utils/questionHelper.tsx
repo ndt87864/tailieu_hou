@@ -26,6 +26,28 @@ export const cleanQuestionText = (text: string, _hasUrl?: boolean): string => {
 };
 
 /**
+ * Làm sạch chuỗi trước khi xuất ra Excel/Word (loại bỏ thẻ HTML và các HTML entities)
+ */
+export const cleanForExport = (text: string): string => {
+  if (!text) return "";
+  let cleaned = cleanQuestionText(text);
+  
+  // Strip HTML tags
+  cleaned = cleaned.replace(/<[^>]+>/g, " ");
+  
+  // Decode some common HTML entities
+  cleaned = cleaned.replace(/&nbsp;/g, " ")
+                   .replace(/&amp;/g, "&")
+                   .replace(/&lt;/g, "<")
+                   .replace(/&gt;/g, ">")
+                   .replace(/&quot;/g, "\"")
+                   .replace(/&#039;/g, "'");
+                   
+  // Replace multiple spaces with a single space
+  return cleaned.replace(/\s+/g, " ").trim();
+};
+
+/**
  * Phân tích và render nội dung văn bản chứa link ảnh thành định dạng React Nodes (chứa text và tag img hiển thị ảnh)
  */
 export const renderTextWithImages = (text: string, storageUrlsString?: string | null, className?: string) => {
@@ -101,4 +123,33 @@ export const renderTextWithImages = (text: string, storageUrlsString?: string | 
     const cleaned = cleanPartText(part);
     return cleaned ? <React.Fragment key={index}>{cleaned}</React.Fragment> : null;
   }).filter(Boolean);
+};
+
+/**
+ * So sánh xem đáp án có khớp (hoặc gần khớp) với một trong các lựa chọn hay không.
+ * Bỏ qua các tiền tố như "a.", "b)", "C -", "4:" và khoảng trắng thừa.
+ */
+export const isAnswerMatching = (choice: string, answer: string): boolean => {
+  if (!choice || !answer) return false;
+  
+  const normalize = (s: string) => {
+    let str = s.toLowerCase().trim();
+    // Bỏ thẻ HTML nếu có
+    str = str.replace(/<[^>]*>/g, "");
+    // Bỏ các tiền tố đánh dấu như a., B), c -, 4:
+    str = str.replace(/^[a-e1-5][\.\)\-\:]\s*/i, "");
+    // Bỏ tất cả khoảng trắng
+    return str.replace(/\s+/g, "");
+  };
+
+  const nChoice = normalize(choice);
+  const nAnswer = normalize(answer);
+  
+  if (nChoice === nAnswer) return true;
+  
+  // Nếu 1 chuỗi chứa chuỗi kia và đủ dài để tránh bắt nhầm
+  if (nChoice.length > 3 && nAnswer.length > 3) {
+    if (nChoice.includes(nAnswer) || nAnswer.includes(nChoice)) return true;
+  }
+  return false;
 };

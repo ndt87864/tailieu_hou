@@ -17,6 +17,7 @@ import { useConfirm } from "../../context/ConfirmContext.js";
 import QuestionCard from "./QuestionCard.js";
 import { useAdminCategories } from "../../hooks/useAdminCategories.js";
 import { exportQuestionsToWord } from "../../utils/wordExport.js";
+import { cleanForExport } from "../../utils/questionHelper.js";
 import * as XLSX from "xlsx";
 
 
@@ -313,12 +314,12 @@ const QuestionsTab: React.FC = () => {
           const choices = q.choices || [];
           return [
             idx + 1,
-            q.question,
-            choices[0] || "",
-            choices[1] || "",
-            choices[2] || "",
-            choices[3] || "",
-            q.answer,
+            cleanForExport(q.question),
+            cleanForExport(choices[0] || ""),
+            cleanForExport(choices[1] || ""),
+            cleanForExport(choices[2] || ""),
+            cleanForExport(choices[3] || ""),
+            cleanForExport(q.answer),
             docTitle
           ];
         });
@@ -340,7 +341,10 @@ const QuestionsTab: React.FC = () => {
         ];
         ws["!cols"] = wscols;
 
-        XLSX.writeFile(wb, `Danh_sach_cau_hoi_${new Date().getTime()}.xlsx`);
+        let fileName = `Danh_sach_cau_hoi_${new Date().getTime()}.xlsx`;
+        fileName = fileName.replace(/[<>:"/\\|?*\x00-\x1F]/g, "_");
+
+        XLSX.writeFile(wb, fileName);
         toast.success("Xuất file Excel thành công!");
       } catch (err) {
         console.error("Export Excel error:", err);

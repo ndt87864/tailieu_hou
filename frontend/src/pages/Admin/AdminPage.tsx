@@ -38,10 +38,10 @@ import {
   FooterTab,
 } from "../../components/admin/MockTabs.js";
 
-// Import component ContactsTab mới
 import { ContactsTab } from "../../components/admin/ContactsTab.js";
 import { QuestionRatioTab } from "../../components/admin/QuestionRatioTab.js";
 import { ProxyTab } from "../../components/admin/ProxyTab.js";
+import { CrawlDataTab } from "../../components/admin/CrawlDataTab.js";
 import { Header, Footer } from "../../components/layout/Layout.js";
 import "../../css/admin.css";
 
@@ -59,7 +59,10 @@ type TabId =
   | "footer"
   | "contacts"
   | "ratio"
-  | "proxy";
+  | "proxy"
+  | "crawler_courses"
+  | "crawler_questions"
+  | "crawler_resources";
 
 interface MenuItem {
   id: TabId;
@@ -109,6 +112,9 @@ const AdminPage: React.FC = () => {
         "contacts",
         "ratio",
         "proxy",
+        "crawler_courses",
+        "crawler_questions",
+        "crawler_resources",
       ];
       if (validTabIds.includes(subpath as TabId)) {
         return subpath as TabId;
@@ -147,6 +153,14 @@ const AdminPage: React.FC = () => {
         { id: "documents",  label: "Tài liệu",  icon: <FileText className="w-4 h-4" /> },
         { id: "questions",  label: "Câu hỏi",   icon: <HelpCircle className="w-4 h-4" /> },
         { id: "ratio",      label: "Tỷ lệ câu hỏi", icon: <PieChart className="w-4 h-4" /> },
+      ],
+    },
+    {
+      label: "Crawl",
+      items: [
+        { id: "crawler_courses", label: "Khoá học", icon: <FolderOpen className="w-4 h-4" /> },
+        { id: "crawler_resources", label: "Tài nguyên", icon: <FileText className="w-4 h-4" /> },
+        { id: "crawler_questions", label: "Câu hỏi", icon: <HelpCircle className="w-4 h-4" /> },
       ],
     },
     {
@@ -207,6 +221,12 @@ const AdminPage: React.FC = () => {
         return <QuestionRatioTab />;
       case "proxy":
         return <ProxyTab />;
+      case "crawler_courses":
+        return <CrawlDataTab view="courses" />;
+      case "crawler_questions":
+        return <CrawlDataTab view="questions" />;
+      case "crawler_resources":
+        return <CrawlDataTab view="resources" />;
       default:
         return <DashboardTab />;
     }

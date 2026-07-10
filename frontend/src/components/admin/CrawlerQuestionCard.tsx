@@ -2,49 +2,43 @@ import React from "react";
 import { Edit2, Trash2 } from "lucide-react";
 import { renderTextWithImages, isAnswerMatching } from "../../utils/questionHelper.js";
 
-interface Question {
+export interface CrawlerQuestion {
   id: string;
-  document_id: string;
+  course_id: string;
+  week_name?: string;
   question: string;
   answer: string;
-  choices: string[];
-  url_question?: string | null;
-  url_answer?: string | null;
-  url_choices?: string | null;
-  order_index: number;
+  choices?: string[];
+  url_question?: string;
+  url_answer?: string;
+  url_choices?: string;
+  course?: { title: string, document_id: string };
 }
 
-interface Document {
-  id: string;
-  title: string;
-  category_id?: string | null;
-}
-
-interface QuestionCardProps {
-  q: Question;
+interface CrawlerQuestionCardProps {
+  q: CrawlerQuestion;
   displayIndex: number;
-  documents: Document[];
-  selectedDocIds: string[];
   selectedQuestionIds: string[];
   toggleSelectQuestion: (id: string) => void;
-  handleEditClick: (q: Question) => void;
+  handleEditClick: (q: CrawlerQuestion) => void;
   handleDelete: (id: string) => void;
 }
 
-const QuestionCard: React.FC<QuestionCardProps> = ({
+const CrawlerQuestionCard: React.FC<CrawlerQuestionCardProps> = ({
   q,
   displayIndex,
-  documents,
-  selectedDocIds,
   selectedQuestionIds,
   toggleSelectQuestion,
   handleEditClick,
   handleDelete,
 }) => {
-  const doc = documents.find((d) => d.id === q.document_id);
-
   return (
-    <div className="card p-5 relative group flex items-start gap-3">
+    <div className={`relative group flex items-start gap-3 rounded-xl border transition-all duration-200 p-4
+      ${selectedQuestionIds.includes(q.id)
+        ? "border-brand-400 bg-brand-50/60 dark:bg-brand-900/10 dark:border-brand-600"
+        : "border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-white/[0.03] hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-sm"
+      }
+    `}>
       <input
         type="checkbox"
         checked={selectedQuestionIds.includes(q.id)}
@@ -57,9 +51,9 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="q-label">Câu hỏi #{displayIndex}</span>
-              {selectedDocIds.length > 1 && (
+              {q.course?.title && (
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium">
-                  {doc?.title || "Chưa phân loại"}
+                  {q.course.title} {q.week_name ? `- ${q.week_name}` : ""}
                 </span>
               )}
             </div>
@@ -100,12 +94,12 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
               >
                 <span
                   className={`choice-badge font-bold flex items-center justify-center w-5 h-5 rounded-full ${
-                    choice === q.answer ? "choice-badge-correct" : "choice-badge-neutral"
+                    isAnswerMatching(choice, q.answer) ? "choice-badge-correct" : "choice-badge-neutral"
                   }`}
                 >
                   {String.fromCharCode(65 + i)}
                 </span>
-                <span className={choice === q.answer ? "choice-text-correct" : "choice-text-neutral"}>
+                <span className={isAnswerMatching(choice, q.answer) ? "choice-text-correct" : "choice-text-neutral"}>
                   {renderTextWithImages(choice, q.url_choices)}
                 </span>
               </div>
@@ -131,4 +125,4 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
   );
 };
 
-export default QuestionCard;
+export default CrawlerQuestionCard;

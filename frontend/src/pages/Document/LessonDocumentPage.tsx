@@ -6,6 +6,7 @@ import { useAuth } from "../../context/AuthContext.js";
 import { Header } from "../../components/layout/Layout.js";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
+import { cleanForExport } from "../../utils/questionHelper.js";
 import { 
   BookOpen, FileText, Play, Download, HelpCircle,
   CheckCircle2, Crown, Youtube, Search, X
@@ -217,12 +218,12 @@ const LessonDocumentPage: React.FC = () => {
       const excelData = dataToExport.map((q, idx) => ({
         "STT": idx + 1,
         "Tuần": q.week_name || "",
-        "Câu hỏi": (q.question || "").replace(/<[^>]*>/g, ""), // Strip HTML
-        "Lựa chọn A": q.choices?.[0] || "",
-        "Lựa chọn B": q.choices?.[1] || "",
-        "Lựa chọn C": q.choices?.[2] || "",
-        "Lựa chọn D": q.choices?.[3] || "",
-        "Đáp án": q.answer || "",
+        "Câu hỏi": cleanForExport(q.question), // Strip HTML
+        "Lựa chọn A": cleanForExport(q.choices?.[0] || ""),
+        "Lựa chọn B": cleanForExport(q.choices?.[1] || ""),
+        "Lựa chọn C": cleanForExport(q.choices?.[2] || ""),
+        "Lựa chọn D": cleanForExport(q.choices?.[3] || ""),
+        "Đáp án": cleanForExport(q.answer),
       }));
 
       const workbook = XLSX.utils.book_new();
@@ -242,9 +243,12 @@ const LessonDocumentPage: React.FC = () => {
 
       XLSX.utils.book_append_sheet(workbook, worksheet, "Tat_ca_cau_hoi");
       
-      const safeTitle = (doc?.title || "Mon_hoc").replace(/[\\\/\?\*\[\]:<>|"]/g, "_");
+      let safeTitle = (doc?.title || "Mon_hoc").replace(/[\\\/\?\*\[\]:<>|"]/g, "_");
       const percentageSuffix = excelPercentage < 100 ? `_${excelPercentage}percent` : "";
-      XLSX.writeFile(workbook, `${safeTitle} - Tat_ca_LMS${percentageSuffix}.xlsx`);
+      let fileName = `${safeTitle} - Tat_ca_LMS${percentageSuffix}.xlsx`;
+      fileName = fileName.replace(/[<>:"/\\|?*\x00-\x1F]/g, "_");
+
+      XLSX.writeFile(workbook, fileName);
       toast.success(`Xuất file Excel toàn bộ câu hỏi LMS thành công!`);
     } catch (err) {
       console.error("Lỗi xuất excel (Toàn bộ):", err);
@@ -278,12 +282,12 @@ const LessonDocumentPage: React.FC = () => {
 
       const excelData = dataToExport.map((q, idx) => ({
         "STT": idx + 1,
-        "Câu hỏi": (q.question || "").replace(/<[^>]*>/g, ""), // Strip HTML
-        "Lựa chọn A": q.choices?.[0] || "",
-        "Lựa chọn B": q.choices?.[1] || "",
-        "Lựa chọn C": q.choices?.[2] || "",
-        "Lựa chọn D": q.choices?.[3] || "",
-        "Đáp án": q.answer || "",
+        "Câu hỏi": cleanForExport(q.question), // Strip HTML
+        "Lựa chọn A": cleanForExport(q.choices?.[0] || ""),
+        "Lựa chọn B": cleanForExport(q.choices?.[1] || ""),
+        "Lựa chọn C": cleanForExport(q.choices?.[2] || ""),
+        "Lựa chọn D": cleanForExport(q.choices?.[3] || ""),
+        "Đáp án": cleanForExport(q.answer),
       }));
 
       const workbook = XLSX.utils.book_new();
@@ -303,9 +307,12 @@ const LessonDocumentPage: React.FC = () => {
       let safeSheetName = (selectedWeek || "Quiz").replace(/[\\\/\?\*\[\]:]/g, "_").substring(0, 30);
       XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName);
       
-      const safeTitle = (doc?.title || "Mon_hoc").replace(/[\\\/\?\*\[\]:<>|"]/g, "_");
+      let safeTitle = (doc?.title || "Mon_hoc").replace(/[\\\/\?\*\[\]:<>|"]/g, "_");
       const percentageSuffix = excelPercentage < 100 ? `_${excelPercentage}percent` : "";
-      XLSX.writeFile(workbook, `${safeTitle} - ${safeSheetName}${percentageSuffix}.xlsx`);
+      let fileName = `${safeTitle} - ${safeSheetName}${percentageSuffix}.xlsx`;
+      fileName = fileName.replace(/[<>:"/\\|?*\x00-\x1F]/g, "_");
+
+      XLSX.writeFile(workbook, fileName);
       toast.success(`Xuất file Excel câu hỏi ${selectedWeek} thành công!`);
     } catch (err) {
       console.error("Lỗi xuất excel (Tuần này):", err);
@@ -356,9 +363,9 @@ const LessonDocumentPage: React.FC = () => {
         onOpenProfile={() => window.dispatchEvent(new Event("open-profile"))}
       />
 
-      <div className="lesson-detail-container">
+      <div className="lesson-detail-container flex justify-center">
         {weeks.length === 0 ? (
-          <div className="lesson-empty-state">
+          <div className="lesson-empty-state max-w-4xl w-full">
             <BookOpen className="lesson-empty-icon" />
             <h3 className="lesson-empty-title">Chưa có bài học LMS</h3>
             <p className="lesson-empty-desc">Hệ thống chưa crawl dữ liệu bài học hoặc bài giảng của môn học này.</p>
@@ -367,11 +374,11 @@ const LessonDocumentPage: React.FC = () => {
             </Link>
           </div>
         ) : (
-          <div className="lesson-layout-wrapper">
+          <div className="lesson-layout-wrapper max-w-5xl w-full mx-auto">
             {/* Thanh trên cùng: Chips + Nút tải Excel */}
-            <div className="flex flex-col md:flex-row md:items-stretch gap-3 w-full">
+            <div className="flex flex-col items-center gap-4 w-full">
               {/* Chips điều hướng tuần — cuộn ngang */}
-              <div className="lesson-week-chips-bar flex-1 min-w-0">
+              <div className="lesson-week-chips-bar w-full flex justify-center flex-wrap">
                 {weeks.map((w) => (
                   <button
                     key={w}
@@ -388,11 +395,11 @@ const LessonDocumentPage: React.FC = () => {
             </div>
 
             {/* Nội dung tuần đang chọn */}
-            <div>
+            <div className="w-full">
               <div className="lesson-week-card">
-                <div className="lesson-week-header">
-                  <h3 className="lesson-week-title">{selectedWeek}</h3>
-                  <div className="lesson-tab-switcher">
+                <div className="lesson-week-header flex flex-col md:flex-row justify-between items-center text-center gap-4">
+                  <h3 className="lesson-week-title text-center md:text-left flex-1">{selectedWeek}</h3>
+                  <div className="lesson-tab-switcher shrink-0">
                     <button
                       onClick={() => setActiveTab("materials")}
                       className={`lesson-tab-btn ${activeTab === "materials" ? "lesson-tab-btn-active" : ""}`}
@@ -507,7 +514,7 @@ const LessonDocumentPage: React.FC = () => {
                         )}
                       </div>
                       {currentQuestions.length > 0 && (
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center justify-center md:justify-end gap-2 mt-4 md:mt-0 shrink-0">
                           <button
                             onClick={exportWeekToExcel}
                             className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-[var(--bg-2)] hover:bg-[var(--bg-3)] border border-[var(--border)] text-[var(--fg)] transition-all"

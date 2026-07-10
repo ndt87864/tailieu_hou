@@ -9,7 +9,7 @@ import * as Icons from "lucide-react";
 import { Header } from "../../components/layout/Layout.js";
 import * as XLSX from "xlsx";
 import { toast } from "react-toastify";
-import { cleanQuestionText, renderTextWithImages } from "../../utils/questionHelper.js";
+import { cleanQuestionText, renderTextWithImages, cleanForExport } from "../../utils/questionHelper.js";
 import "../../css/document.css";
 import "../../css/lesson.css";
 
@@ -134,12 +134,12 @@ const DocumentPage: React.FC = () => {
 
       const excelData = dataToExport.map((q, index) => ({
         "STT": index + 1,
-        "Câu hỏi": q.question,
-        "Lựa chọn A": q.choices?.[0] || "",
-        "Lựa chọn B": q.choices?.[1] || "",
-        "Lựa chọn C": q.choices?.[2] || "",
-        "Lựa chọn D": q.choices?.[3] || "",
-        "Đáp án": q.answer,
+        "Câu hỏi": cleanForExport(q.question),
+        "Lựa chọn A": cleanForExport(q.choices?.[0] || ""),
+        "Lựa chọn B": cleanForExport(q.choices?.[1] || ""),
+        "Lựa chọn C": cleanForExport(q.choices?.[2] || ""),
+        "Lựa chọn D": cleanForExport(q.choices?.[3] || ""),
+        "Đáp án": cleanForExport(q.answer),
       }));
 
       const workbook = XLSX.utils.book_new();
@@ -165,7 +165,10 @@ const DocumentPage: React.FC = () => {
       );
 
       const percentageSuffix = excelPercentage < 100 ? `_${excelPercentage}percent` : "";
-      const fileName = `${doc?.category?.title || "Category"} - ${documentTitle}${percentageSuffix}.xlsx`;
+      let fileName = `${doc?.category?.title || "Category"} - ${documentTitle}${percentageSuffix}.xlsx`;
+      
+      // Sanitize file name to avoid invalid characters
+      fileName = fileName.replace(/[<>:"/\\|?*\x00-\x1F]/g, "_");
 
       XLSX.writeFile(workbook, fileName);
       toast.success("Tải xuống file Excel thành công!");
