@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Outlet } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.js";
-import { BookOpen, User, Shield, LogOut, ChevronDown, Menu, X, Settings, Phone, Wifi, Battery, Signal, Home, Calendar } from "lucide-react";
+import { BookOpen, User, Shield, LogOut, ChevronDown, Menu, X, Settings, Phone, Home, Calendar } from "lucide-react";
 import UISettingsModal from "./UISettingsModal.js";
 import EditProfileModal from "./EditProfileModal.js";
 import { useUI } from "../../context/UIContext.js";
@@ -34,7 +34,6 @@ export const Header: React.FC<HeaderProps> = ({
   hideMobileMenuToggle = false,
 }) => {
   const { user, role, profile, logout } = useAuth();
-  const { pageLoading } = useUI();
   const location = useLocation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);

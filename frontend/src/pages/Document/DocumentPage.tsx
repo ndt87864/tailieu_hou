@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import apiClient from "../../services/client.js";
 import { cachedGet } from "../../utils/apiCache.js";
 import LoadingSpinner from "../../components/common/LoadingSpinner.js";
 import { useAuth } from "../../context/AuthContext.js";
@@ -70,7 +69,7 @@ const DocumentPage: React.FC = () => {
       cachedGet(`/api/v1/documents/${id}`),
       cachedGet(`/api/v1/questions/document/${id}/limited`),
     ])
-      .then(([docRes, questRes]) => {
+      .then(([docRes, questRes]: [any, any]) => {
         setDoc(docRes.data.document);
         setQuestions(questRes.data.questions || []);
         setLimitApplied(!!questRes.data.limitApplied);

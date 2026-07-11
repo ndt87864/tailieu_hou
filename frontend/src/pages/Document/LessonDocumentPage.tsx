@@ -48,6 +48,7 @@ interface CrawlerQuestion {
   url_answer?: string | null;
   url_choices?: string | null;
   image_urls?: string[];
+  isPremiumLocked?: boolean;
 }
 
 interface Document {
@@ -102,7 +103,7 @@ const LessonDocumentPage: React.FC = () => {
     setError(null);
 
     cachedGet(`/api/v1/documents/${id}/lessons/metadata`)
-      .then(async (res) => {
+      .then(async (res: any) => {
         const fetchedDoc = res.data.document;
         const fetchedCourses = res.data.courses || [];
         const fetchedWeeks = res.data.weeks || [];
@@ -120,7 +121,7 @@ const LessonDocumentPage: React.FC = () => {
           try {
             const courseParams = initialCourseIds.join(",");
             const weekParams = initialWeeks.join(",");
-            const resRes = await cachedGet(`/api/v1/documents/${id}/lessons/resources?course_ids=${courseParams}&weeks=${encodeURIComponent(weekParams)}`);
+            const resRes: any = await cachedGet(`/api/v1/documents/${id}/lessons/resources?course_ids=${courseParams}&weeks=${encodeURIComponent(weekParams)}`);
             
             let fetchedQuestions = [];
             let isLimitApplied = false;

@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.js";
 import { useUI } from "../../context/UIContext.js";
 import { cachedGet } from "../../utils/apiCache.js";
