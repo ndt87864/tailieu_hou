@@ -104,7 +104,7 @@ export const PricingPage: React.FC = () => {
     const fetchPackages = async () => {
       try {
         const res = await apiClient.get("/api/v1/pricing-packages");
-        if (res.data.packages && res.data.packages.length > 0) {
+        if (res.data.packages && res.data.packages.length > 1) {
           // Sort by price ascending
           const sorted = [...res.data.packages].sort((a: any, b: any) => {
             const getPriceVal = (p: string) => parseInt(p.replace(/\D/g, "") || "0", 10);

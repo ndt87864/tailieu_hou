@@ -174,8 +174,8 @@ const AdminPage: React.FC = () => {
     {
       label: "Đăng kí môn",
        items: [
-        { id: "proxy",    label: "Đăng ký môn",  icon: <UserCheck className="w-4 h-4" /> },
-        { id: "pricing",  label: "Giá môn học",  icon: <DollarSign className="w-4 h-4" /> },
+        { id: "proxy",    label: "Sinh viên đăng ký môn",  icon: <UserCheck className="w-4 h-4" /> },
+        { id: "pricing",  label: "Gói người dùng",  icon: <DollarSign className="w-4 h-4" /> },
       ],
     },
     {
