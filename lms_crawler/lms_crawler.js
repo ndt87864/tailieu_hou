@@ -1,11 +1,12 @@
 const readline = require("readline");
 const cheerio = require("cheerio");
 const axios = require("axios");
-const { supabaseAdmin, processHtmlImagesAndUpload, cleanQuestionText } = require("./utils/db");
+const { supabaseAdmin, processHtmlImagesAndUpload, cleanQuestionText, uploadFileToStorage } = require("./utils/db");
 const { getHtmlWithSso, postHtmlWithSso, getCookieHeader } = require("./utils/sso");
 const { processQuizReview } = require("./utils/quiz-processor");
 const { extractMultipleChoice } = require("./utils/quiz-extractor");
 require("dotenv").config();
+const { clearCache } = require("./clear_redis_cache");
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -47,8 +48,8 @@ async function main() {
     const envTitle = (process.env.LMS_DOCUMENT_TITLE || "").trim();
 
     if (envTitle && envTitle.toLowerCase() !== "false") {
-      searchKeywords = envTitle.split(",").map(t => t.trim()).filter(Boolean);
-      console.log(`ℹ️ Sử dụng danh sách từ khóa tìm kiếm môn học từ env:`, searchKeywords);
+      searchKeywords = envTitle.split(",").map(t => ({ id: null, title: t.trim() })).filter(x => x.title);
+      console.log(`ℹ️ Sử dụng danh sách từ khóa tìm kiếm môn học từ env:`, searchKeywords.map(x => x.title));
     } else {
       console.log("ℹ️ Đang tự động kết nối và lấy danh sách tài liệu từ database...");
       try {
@@ -63,7 +64,7 @@ async function main() {
 
         let query = supabaseAdmin
           .from("documents")
-          .select("title");
+          .select("id, title");
         if (limit !== null) {
           query = query.limit(limit);
           console.log(`ℹ️ Giới hạn số lượng lấy từ DB: ${limit} môn học.`);
@@ -73,8 +74,8 @@ async function main() {
         if (docFetchErr) {
           console.error(`⚠️ Lỗi lấy danh sách tài liệu từ DB: ${docFetchErr.message}`);
         } else if (dbDocs && dbDocs.length > 0) {
-          searchKeywords = dbDocs.map(d => d.title.trim()).filter(Boolean);
-          console.log(`ℹ️ Lấy thành công từ database:`, searchKeywords);
+          searchKeywords = dbDocs.map(d => ({ id: d.id, title: d.title.trim() })).filter(x => x.title);
+          console.log(`ℹ️ Lấy thành công từ database:`, searchKeywords.map(x => x.title));
         }
       } catch (err) {
         console.error("⚠️ Lỗi truy vấn database:", err.message);
@@ -84,7 +85,7 @@ async function main() {
     if (searchKeywords.length === 0) {
       const singleKeyword = (await askQuestion("👉 Nhập từ khóa để tìm kiếm môn học trên LMS (ví dụ: Triết học): ")).trim();
       if (singleKeyword) {
-        searchKeywords = [singleKeyword];
+        searchKeywords = [{ id: null, title: singleKeyword }];
       }
     }
 
@@ -174,18 +175,28 @@ async function main() {
     const maxCoursesEnv = parseInt(process.env.LMS_MAX_COURSES, 10);
     const maxCourses = !isNaN(maxCoursesEnv) && maxCoursesEnv > 0 ? maxCoursesEnv : 10;
 
-    const matchedCourses = [];
-    const rejectedCourses = [];
+    const coursesToCrawl = [];
     const maxSearchPages = 10; // Giới hạn quét tối đa 10 trang tìm kiếm
 
-    for (const keyword of searchKeywords) {
-      console.log(`\n🔍 Đang tìm môn học trên LMS khớp với từ khóa: "${keyword}"...`);
+    console.log(`\n🔍 Bắt đầu pha tìm kiếm và đối chiếu môn học cho ${searchKeywords.length} tài liệu...`);
+
+    for (let kIdx = 0; kIdx < searchKeywords.length; kIdx++) {
+      const keywordObj = searchKeywords[kIdx];
+      const keyword = keywordObj.title;
+      const docId = keywordObj.id;
+
+      console.log(`\n----------------------------------------------------------------------`);
+      console.log(`🔍 [${kIdx + 1}/${searchKeywords.length}] Tìm kiếm môn học cho tài liệu: "${keyword}"`);
+      console.log(`----------------------------------------------------------------------`);
+
+      const matchedCourses = [];
+      const rejectedCourses = [];
       let page = 0;
       let hasMorePages = true;
 
       while (hasMorePages && page < maxSearchPages) {
         const searchUrl = `https://learning.ehou.edu.vn/course/search.php?search=${encodeURIComponent(keyword)}&page=${page}`;
-        console.log(`   🔎 Đang quét trang kết quả tìm kiếm [${page + 1}] cho từ khóa [${keyword}]...`);
+        console.log(`   🔎 Đang quét trang kết quả tìm kiếm [${page + 1}]...`);
         
         const searchRes = await getHtmlWithSso(searchUrl);
         const $search = cheerio.load(searchRes.data);
@@ -243,7 +254,6 @@ async function main() {
           break;
         }
 
-        // Kiểm tra sự tồn tại của phân trang tiếp theo trên LMS EHOU
         const nextBtn = $search("ul.pagination a.next, .coursemos-paging a.next, nav.pagination a[aria-label='Next'], nav.pagination a[aria-label='Tiếp theo'], .paging a.next");
         const hasPagination = $search("ul.pagination, .coursemos-paging, nav.pagination, .paging").length > 0;
         
@@ -254,115 +264,120 @@ async function main() {
 
         page++;
       }
-    }
 
-    if (matchedCourses.length === 0 && rejectedCourses.length === 0) {
-      throw new Error(`Không tìm thấy môn học nào trên LMS khớp với các từ khóa tìm kiếm.`);
-    }
+      if (matchedCourses.length === 0 && rejectedCourses.length === 0) {
+        console.log(`⚠️ Không tìm thấy môn học nào trên LMS khớp với từ khóa: "${keyword}"`);
+        continue;
+      }
 
-    // Sắp xếp các môn học theo độ tương đồng giảm dần
-    matchedCourses.sort((a, b) => b.similarity - a.similarity);
-    rejectedCourses.sort((a, b) => b.similarity - a.similarity);
+      matchedCourses.sort((a, b) => b.similarity - a.similarity);
+      rejectedCourses.sort((a, b) => b.similarity - a.similarity);
 
-    // Cắt lấy tối đa số môn học yêu cầu có độ tương đồng cao nhất
-    const finalMatchedCourses = matchedCourses.slice(0, maxCourses);
+      const finalMatchedCourses = matchedCourses.slice(0, maxCourses);
 
-    console.log(`\n=================================================`);
-    console.log(`📊 KẾT QUẢ PHÂN TÍCH MÔN HỌC`);
-    console.log(`=================================================`);
-    
-    console.log(`\n🎯 CÁC MÔN SẼ LẤY DATA (Chấp nhận - Tương đồng >= 75%):`);
-    if (finalMatchedCourses.length > 0) {
-      finalMatchedCourses.forEach((c, idx) => {
-        console.log(`   [${idx + 1}] ${c.title} (Độ tương đồng: ${Math.round(c.similarity * 100)}%)`);
-      });
-    } else {
-      console.log(`   (Không có môn học nào thỏa mãn)`);
-    }
+      console.log(`\n   🎯 CÁC MÔN SẼ LẤY DATA (Chấp nhận - Tương đồng > 90% và chứa tên):`);
+      if (finalMatchedCourses.length > 0) {
+        finalMatchedCourses.forEach((c, idx) => {
+          console.log(`      [${idx + 1}] ${c.title} (Độ tương đồng: ${Math.round(c.similarity * 100)}%)`);
+        });
+      } else {
+        console.log(`      (Không có môn học nào thỏa mãn)`);
+      }
 
-    console.log(`\n⏭️ CÁC MÔN SẼ BỎ QUA (Bị loại - Tương đồng < 75%):`);
-    if (rejectedCourses.length > 0) {
-      rejectedCourses.forEach((c, idx) => {
-        console.log(`   [${idx + 1}] ${c.title} (Độ tương đồng: ${Math.round(c.similarity * 100)}%)`);
-      });
-    } else {
-      console.log(`   (Không có môn học nào bị loại)`);
-    }
-    console.log(`=================================================\n`);
+      console.log(`\n   ⏭️ CÁC MÔN SẼ BỎ QUA (Bị loại - Tương đồng <= 90%):`);
+      if (rejectedCourses.length > 0) {
+        rejectedCourses.forEach((c, idx) => {
+          console.log(`      [${idx + 1}] ${c.title} (Độ tương đồng: ${Math.round(c.similarity * 100)}%)`);
+        });
+      } else {
+        console.log(`      (Không có môn học nào bị loại)`);
+      }
 
-    if (isTestDocument) {
-      console.log(`ℹ️ Chế độ TEST_DOCUMENT đang BẬT. Chương trình dừng lại tại đây theo yêu cầu.`);
-      rl.close();
-      return;
-    }
+      if (finalMatchedCourses.length === 0) {
+        console.log(`⚠️ Không có môn học nào đủ độ tương đồng với tài liệu: "${keyword}".`);
+        continue;
+      }
 
-    if (finalMatchedCourses.length === 0) {
-      console.log(`⚠️ Không có môn học nào đủ độ tương đồng với các từ khóa tìm kiếm.`);
-      rl.close();
-      return;
-    }
+      // Xác định document tương ứng cho các môn học khớp
+      let selectedDoc = null;
+      if (docId) {
+        // Lấy thông tin mới nhất từ database
+        const { data: dbDoc } = await supabaseAdmin
+          .from("documents")
+          .select("id, title")
+          .eq("id", docId)
+          .single();
+        selectedDoc = dbDoc || { id: docId, title: keyword };
+      }
 
-    let coursesToCrawl = [];
-    if (isTestMode) {
-      console.log(`🧪 Đang chạy chế độ TEST: chỉ crawl môn học khớp nhất đầu tiên.`);
-      coursesToCrawl = [finalMatchedCourses[0]];
-    } else {
-      coursesToCrawl = finalMatchedCourses;
-      console.log(`🚀 Chế độ FULL: Sẽ tiến hành crawl tuần tự tối đa ${coursesToCrawl.length} môn học khớp nhất.`);
-    }
+      let targetCourses = [];
+      if (isTestMode) {
+        console.log(`🧪 Chế độ TEST: chỉ crawl môn học khớp nhất đầu tiên cho tài liệu này.`);
+        targetCourses = [finalMatchedCourses[0]];
+      } else {
+        targetCourses = finalMatchedCourses;
+      }
 
-    for (let cIdx = 0; cIdx < coursesToCrawl.length; cIdx++) {
-      const currentCourse = coursesToCrawl[cIdx];
-      const courseLink = currentCourse.href;
-      const courseTitle = currentCourse.title;
+      for (let cIdx = 0; cIdx < targetCourses.length; cIdx++) {
+        const currentCourse = targetCourses[cIdx];
+        const courseLink = currentCourse.href;
+        const courseTitle = currentCourse.title;
 
-      const moodleCourseIdMatch = courseLink.match(/id=(\d+)/);
-      const moodleCourseId = moodleCourseIdMatch ? moodleCourseIdMatch[1] : "";
-      
-      console.log(`\n======================================================================`);
-      console.log(`🔄 [${cIdx + 1}/${coursesToCrawl.length}] BẮT ĐẦU CRAWL MÔN HỌC: "${courseTitle}" (LMS ID: ${moodleCourseId})`);
-      console.log(`======================================================================`);
-
-    // Tìm hoặc tạo document trong DB bằng cách so khớp tương tự auto-select-doc
-    let selectedDoc = null;
-    const { data: dbDocs, error: docFetchErr } = await supabaseAdmin
-      .from("documents")
-      .select("id, title");
-
-    if (docFetchErr) {
-      throw new Error(`Không thể lấy danh sách tài liệu từ DB: ${docFetchErr.message}`);
-    }
-
-    const normLmsTitle = normalizeDetectedCourseTitle(courseTitle);
-    const titleParts = normLmsTitle.split("/").map(t => t.trim()).filter(Boolean);
-    const cleanWebTitles = titleParts.map(part => normalizeTextForMatching(part));
-
-    if (dbDocs && dbDocs.length > 0) {
-      for (const doc of dbDocs) {
-        const cleanDocTitle = normalizeTextForMatching(doc.title);
-        const isMatched = cleanWebTitles.some(cleanWebTitle => isCourseTitleMatch(cleanWebTitle, cleanDocTitle));
-        if (isMatched) {
-          selectedDoc = doc;
-          break;
+        // Xác định document tương ứng cho môn học khớp
+        let selectedDoc = null;
+        if (docId) {
+          // Lấy thông tin mới nhất từ database
+          const { data: dbDoc } = await supabaseAdmin
+            .from("documents")
+            .select("id, title")
+            .eq("id", docId)
+            .single();
+          selectedDoc = dbDoc || { id: docId, title: keyword };
         }
-      }
-    }
 
-    if (selectedDoc) {
-      console.log(`💾 Sử dụng tài liệu đối chiếu hiện có trong DB: "${selectedDoc.title}" (Khớp với môn học trên LMS: "${courseTitle}")`);
-    } else {
-      console.log(`🆕 Không tìm thấy tài liệu nào khớp với "${courseTitle}" trong DB. Tiến hành tạo mới...`);
-      const { data: newDoc, error: insErr } = await supabaseAdmin
-        .from("documents")
-        .insert({ title: courseTitle })
-        .select()
-        .single();
-      if (insErr) {
-        throw new Error(`Không thể tạo tài liệu mới: ${insErr.message}`);
-      }
-      selectedDoc = newDoc;
-      console.log(`✅ Đã tạo mới tài liệu đối chiếu: "${selectedDoc.title}"`);
-    }
+        // Fallback so khớp nếu chưa có selectedDoc (ví dụ: lấy từ env)
+        if (!selectedDoc) {
+          const { data: dbDocs } = await supabaseAdmin.from("documents").select("id, title");
+          const normLmsTitle = normalizeDetectedCourseTitle(courseTitle);
+          const titleParts = normLmsTitle.split("/").map(t => t.trim()).filter(Boolean);
+          const cleanWebTitles = titleParts.map(part => normalizeTextForMatching(part));
+
+          if (dbDocs && dbDocs.length > 0) {
+            for (const doc of dbDocs) {
+              const cleanDocTitle = normalizeTextForMatching(doc.title);
+              const isMatched = cleanWebTitles.some(cleanWebTitle => isCourseTitleMatch(cleanWebTitle, cleanDocTitle));
+              if (isMatched) {
+                selectedDoc = doc;
+                break;
+              }
+            }
+          }
+
+          if (selectedDoc) {
+            console.log(`💾 Sử dụng tài liệu đối chiếu hiện có trong DB: "${selectedDoc.title}" (Khớp với môn học trên LMS: "${courseTitle}")`);
+          } else {
+            console.log(`🆕 Không tìm thấy tài liệu nào khớp với "${courseTitle}" trong DB. Tiến hành tạo mới...`);
+            const { data: newDoc, error: insErr } = await supabaseAdmin
+              .from("documents")
+              .insert({ title: courseTitle })
+              .select()
+              .single();
+            if (insErr) {
+              throw new Error(`Không thể tạo tài liệu mới: ${insErr.message}`);
+            }
+            selectedDoc = newDoc;
+            console.log(`✅ Đã tạo mới tài liệu đối chiếu: "${selectedDoc.title}"`);
+          }
+        } else {
+          console.log(`💾 Sử dụng tài liệu đối chiếu từ database: "${selectedDoc.title}"`);
+        }
+
+        const moodleCourseIdMatch = courseLink.match(/id=(\d+)/);
+        const moodleCourseId = moodleCourseIdMatch ? moodleCourseIdMatch[1] : "";
+        
+        console.log(`\n======================================================================`);
+        console.log(`🔄 [Môn ${cIdx + 1}/${targetCourses.length}] BẮT ĐẦU CRAWL MÔN HỌC: "${courseTitle}" (LMS ID: ${moodleCourseId})`);
+        console.log(`======================================================================`);
 
     let dbCourse = null;
     const { data: existingCourses, error: findErr } = await supabaseAdmin
@@ -728,9 +743,13 @@ async function main() {
               }
 
               const isYoutube = /youtube\.com|youtu\.be/i.test(finalUrl);
+              if (isYoutube) {
+                console.log(`   ⏭️ Bỏ qua tài nguyên video YouTube trực tiếp: ${finalUrl}`);
+                continue;
+              }
               const isFile = /\.(pdf|doc|docx|ppt|pptx|xls|xlsx|mp3|mp4|zip|rar)(\?|$)/i.test(finalUrl)
                 || finalUrl.includes("pluginfile.php");
-              const resourceType = isYoutube ? "youtube" : isFile ? "file" : "link";
+              const resourceType = isFile ? "file" : "link";
 
               // Tìm không phân biệt type để bắt cả các record cũ có type sai
               const existingRecord = await findResourceAnyType(activityName, sectionName);
@@ -744,17 +763,7 @@ async function main() {
                   console.log(`   ⏭️ "${activityName}" đã tồn tại và link đúng. Bỏ qua.`);
                 }
               } else {
-                if (isYoutube) {
-                  await supabaseAdmin.from("crawler_resources").insert({
-                    course_id: dbCourse.id,
-                    type: "youtube",
-                    title: activityName,
-                    content_url: finalUrl,
-                    week_name: sectionName
-                  });
-                  youtubeCount++;
-                  console.log(`   ✅ Đã lưu link video: ${finalUrl}`);
-                } else if (isFile) {
+                if (isFile) {
                   try {
                     const filePublicUrl = await uploadFileToStorage(finalUrl, "files", getCookieHeader);
                     await supabaseAdmin.from("crawler_resources").insert({
@@ -840,32 +849,19 @@ async function main() {
 
               const { cleanHtml: cleanPageContent } = await processHtmlImagesAndUpload(pageContent, getCookieHeader);
 
-              // Phân tích xem trang có chứa video YouTube nhúng hay không
               const $cleanPage = cheerio.load(cleanPageContent || "", null, false);
-              const pageIframes = $cleanPage("iframe[src*='youtube.com'], iframe[src*='youtu.be']");
+              const hasYoutube = $cleanPage("iframe[src*='youtube.com'], iframe[src*='youtu.be']").length > 0
+                || /youtube\.com|youtu\.be/i.test(cleanPageContent || "");
               
+              if (hasYoutube) {
+                console.log(`   ⏭️ Bỏ qua trang học liệu "${activityName}" vì chứa video YouTube.`);
+                continue;
+              }
+
+              // Bỏ qua việc lấy video YouTube làm tài nguyên
               let finalType = "announcement";
               let finalContentUrl = null;
               let finalRawContent = cleanPageContent;
-
-              if (pageIframes.length > 0) {
-                const firstIframeSrc = pageIframes.first().attr("src");
-                if (firstIframeSrc) {
-                  finalType = "youtube";
-                  finalContentUrl = firstIframeSrc;
-                  
-                  // Loại bỏ iframe YouTube đầu tiên khỏi raw_content
-                  pageIframes.first().remove();
-                  
-                  // Kiểm tra xem HTML còn lại có văn bản gì không, nếu trống thì để raw_content = null
-                  const remainingText = $cleanPage.text().trim();
-                  if (remainingText.length === 0) {
-                    finalRawContent = null;
-                  } else {
-                    finalRawContent = $cleanPage.html();
-                  }
-                }
-              }
 
               if (existingRecord) {
                 // Cập nhật lại record cũ: đổi type thành finalType và lưu nội dung sạch
@@ -889,25 +885,6 @@ async function main() {
                   week_name: sectionName
                 });
                 console.log(`   ✅ Đã lưu nội dung trang mới dưới dạng ${finalType}.`);
-              }
-
-              // Lưu thêm các YouTube iframe phụ trong trang nếu có (từ video thứ 2 trở đi nếu video đầu đã làm tài nguyên chính)
-              const iframes = $page("iframe[src*='youtube.com'], iframe[src*='youtu.be']");
-              const startIframeIdx = (finalType === "youtube") ? 1 : 0;
-              for (let fi = startIframeIdx; fi < iframes.length; fi++) {
-                const iframeSrc = $page(iframes[fi]).attr("src");
-                if (!iframeSrc) continue;
-                const ytTitle = `${activityName} (video ${fi + 1})`;
-                if (await isResourceExists(ytTitle, "youtube", sectionName)) continue;
-                await supabaseAdmin.from("crawler_resources").insert({
-                  course_id: dbCourse.id,
-                  type: "youtube",
-                  title: ytTitle,
-                  content_url: iframeSrc,
-                  week_name: sectionName
-                });
-                youtubeCount++;
-                console.log(`   ✅ Đã lưu video phụ từ Page: ${iframeSrc}`);
               }
 
               // Trích xuất và thử tải các file đính kèm trong nội dung trang
@@ -1004,12 +981,20 @@ async function main() {
                 }
               }
 
-              const uniqueAttempts = [...new Set(attemptLinks)];
+              let uniqueAttempts = [...new Set(attemptLinks)];
               if (uniqueAttempts.length === 0) {
                 console.log(`   ℹ️ Không có lượt bài làm nào đạt >80 điểm. Bỏ qua bài trắc nghiệm này.`);
                 quizCount++;
                 continue;
               }
+
+              const maxAttemptsEnv = parseInt(process.env.LMS_MAX_ATTEMPTS, 10);
+              const maxAttempts = !isNaN(maxAttemptsEnv) && maxAttemptsEnv > 0 ? maxAttemptsEnv : Infinity;
+              if (uniqueAttempts.length > maxAttempts) {
+                console.log(`   ℹ️ Giới hạn số lượt bài làm được phép tải xuống là ${maxAttempts} (tổng số tìm thấy: ${uniqueAttempts.length}).`);
+                uniqueAttempts = uniqueAttempts.slice(0, maxAttempts);
+              }
+
               console.log(`   🔎 Sẽ crawl ${uniqueAttempts.length} lượt bài làm đạt >80 điểm.`);
 
               for (let attIdx = 0; attIdx < uniqueAttempts.length; attIdx++) {
@@ -1115,8 +1100,13 @@ async function main() {
         sectionCrawledCount++;
       }
     }
-  }
+      }
+    }
 
+
+    // Dọn dẹp Redis cache sau khi hoàn tất crawl
+    console.log("\n🧹 Tiến hành dọn dẹp Redis cache...");
+    await clearCache();
 
     console.log("\n=================================================");
     console.log("🎉 HOÀN THÀNH QUÁ TRÌNH CRAWL HỌC LIỆU LMS EHOU!");

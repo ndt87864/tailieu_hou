@@ -13,7 +13,7 @@ async function processQuizReview($review, questionBlocks, getCookieHeader) {
     const qtextEl = $review(qBlock).find(".qtext");
     const qTextHtml = qtextEl.html() || "";
 
-    const { cleanHtml: qTextCleanHtml, uploadedUrls: qImgs } = await processHtmlImagesAndUpload(qTextHtml, getCookieHeader);
+    const { cleanHtml: qTextCleanHtml, uploadedUrls: qImgs } = await processHtmlImagesAndUpload(qTextHtml, getCookieHeader, "images/question");
     const $tempQ = cheerio.load(qTextCleanHtml);
     const qTextClean = cleanQuestionText($tempQ, $tempQ("body"));
 
@@ -70,7 +70,7 @@ async function processFillBlank($review, qBlock, inputElements, getCookieHeader)
       const src = $review(aimgs[i]).attr("src");
       if (src && !src.includes("grade_") && !src.includes("/theme/image.php") && !src.includes("coursemos/core")) {
         try {
-          const publicUrl = await uploadFileToStorage(src, "images", getCookieHeader);
+          const publicUrl = await uploadFileToStorage(src, "images/answer", getCookieHeader);
           ansImgsList.push(publicUrl);
         } catch (e) {}
       }

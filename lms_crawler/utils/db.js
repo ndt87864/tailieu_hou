@@ -7,7 +7,36 @@ const supabaseUrl = process.env.SUPABASE_URL || "";
 const supabaseServiceRole = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRole);
 
+let isBucketChecked = false;
+
+async function ensureBucketExists() {
+  if (isBucketChecked) return;
+  try {
+    const { data: buckets, error: getError } = await supabaseAdmin.storage.listBuckets();
+    if (getError) {
+      console.warn("⚠️ Không thể kiểm tra danh sách bucket:", getError.message);
+      return;
+    }
+    const exists = buckets.some(b => b.name === "lms-crawler-assets");
+    if (!exists) {
+      console.log("🆕 Bucket 'lms-crawler-assets' không tồn tại. Tiến hành tạo mới...");
+      const { error: createError } = await supabaseAdmin.storage.createBucket("lms-crawler-assets", {
+        public: true
+      });
+      if (createError) {
+        console.error("❌ Tạo bucket 'lms-crawler-assets' thất bại:", createError.message);
+      } else {
+        console.log("✅ Đã tạo thành công bucket 'lms-crawler-assets' (public).");
+      }
+    }
+    isBucketChecked = true;
+  } catch (err) {
+    console.warn("⚠️ Lỗi kiểm tra bucket:", err.message);
+  }
+}
+
 async function uploadFileToStorage(url, prefix, getCookieHeader) {
+  await ensureBucketExists();
   const headers = {};
   if (getCookieHeader) {
     headers["Cookie"] = getCookieHeader();
@@ -73,7 +102,7 @@ async function uploadFileToStorage(url, prefix, getCookieHeader) {
   return publicUrl;
 }
 
-async function processHtmlImagesAndUpload(html, getCookieHeader) {
+async function processHtmlImagesAndUpload(html, getCookieHeader, prefix = "images") {
   if (!html) return { cleanHtml: "", uploadedUrls: [] };
   const $ = cheerio.load(html);
   const uploadedUrls = [];
@@ -89,7 +118,7 @@ async function processHtmlImagesAndUpload(html, getCookieHeader) {
       }
       if (src.startsWith("http")) {
         try {
-          const publicUrl = await uploadFileToStorage(src, "images", getCookieHeader);
+          const publicUrl = await uploadFileToStorage(src, prefix, getCookieHeader);
           $(img).attr("data-original-src", src);
           $(img).attr("src", publicUrl);
           uploadedUrls.push(publicUrl);

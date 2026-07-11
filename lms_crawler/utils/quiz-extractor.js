@@ -15,14 +15,14 @@ async function extractMultipleChoice($review, qBlock, getCookieHeader) {
       const src = $review(imgTags[i]).attr("src");
       if (src && !src.includes("grade_") && !src.includes("/theme/image.php") && !src.includes("coursemos/core")) {
         try {
-          const publicUrl = await uploadFileToStorage(src, "images", getCookieHeader);
+          const publicUrl = await uploadFileToStorage(src, "images/choices", getCookieHeader);
           choiceImgsList.push(publicUrl);
         } catch (e) {}
       }
     }
 
     const choiceHtml = $review(choiceBlocks[c]).html() || "";
-    const { cleanHtml: choiceClean } = await processHtmlImagesAndUpload(choiceHtml, getCookieHeader);
+    const { cleanHtml: choiceClean } = await processHtmlImagesAndUpload(choiceHtml, getCookieHeader, "images/choices");
     const $temp = cheerio.load(choiceClean);
     $temp("input, span.control").remove();
     $temp("img").each((i, img) => {
@@ -50,7 +50,7 @@ async function extractMultipleChoice($review, qBlock, getCookieHeader) {
       const src = $review(imgTags[i]).attr("src");
       if (src && !src.includes("grade_") && !src.includes("/theme/image.php") && !src.includes("coursemos/core")) {
         try {
-          const publicUrl = await uploadFileToStorage(src, "images", getCookieHeader);
+          const publicUrl = await uploadFileToStorage(src, "images/answer", getCookieHeader);
           ansImgsList.push(publicUrl);
         } catch (e) {}
       }
