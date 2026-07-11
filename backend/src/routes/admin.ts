@@ -1058,4 +1058,76 @@ adminRouter.delete("/exam-sessions/:id", async (c) => {
   }
 });
 
+// =============================================================
+// Z2. QUẢN LÝ GIÁ MÔN HỌC (SUBJECT_PRICES CRUD)
+// =============================================================
+
+adminRouter.get("/subject-prices", async (c) => {
+  try {
+    const { data: prices, error } = await supabaseAdmin
+      .from("subject_prices")
+      .select("*")
+      .order("subject", { ascending: true });
+
+    if (error) throw error;
+    return c.json({ prices: prices || [] });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+adminRouter.post("/subject-prices", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { subject, price } = body;
+    if (!subject) {
+      return c.json({ error: "Subject is required" }, 400);
+    }
+    const { data, error } = await supabaseAdmin
+      .from("subject_prices")
+      .insert({ subject, price: price !== undefined ? price : 100000 })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return c.json({ price: data }, 201);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+adminRouter.put("/subject-prices/:id", async (c) => {
+  const id = c.req.param("id");
+  try {
+    const body = await c.req.json();
+    const { subject, price } = body;
+    const updates: any = { updated_at: new Date().toISOString() };
+    if (subject !== undefined) updates.subject = subject;
+    if (price !== undefined) updates.price = price;
+
+    const { data, error } = await supabaseAdmin
+      .from("subject_prices")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return c.json({ price: data });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+adminRouter.delete("/subject-prices/:id", async (c) => {
+  const id = c.req.param("id");
+  try {
+    const { error } = await supabaseAdmin.from("subject_prices").delete().eq("id", id);
+    if (error) throw error;
+    return c.json({ success: true, message: "Subject price deleted" });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
 export default adminRouter;

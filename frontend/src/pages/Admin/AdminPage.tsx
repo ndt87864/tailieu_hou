@@ -41,6 +41,7 @@ import {
 import { ContactsTab } from "../../components/admin/ContactsTab.js";
 import { QuestionRatioTab } from "../../components/admin/QuestionRatioTab.js";
 import { ProxyTab } from "../../components/admin/ProxyTab.js";
+import { SubjectPricesTab } from "../../components/admin/SubjectPricesTab.js";
 import { CrawlDataTab } from "../../components/admin/CrawlDataTab.js";
 import { Header, Footer } from "../../components/layout/Layout.js";
 import "../../css/admin.css";
@@ -60,6 +61,7 @@ type TabId =
   | "contacts"
   | "ratio"
   | "proxy"
+  | "subject_prices"
   | "crawler_courses"
   | "crawler_questions"
   | "crawler_resources";
@@ -112,6 +114,7 @@ const AdminPage: React.FC = () => {
         "contacts",
         "ratio",
         "proxy",
+        "subject_prices",
         "crawler_courses",
         "crawler_questions",
         "crawler_resources",
@@ -173,8 +176,9 @@ const AdminPage: React.FC = () => {
     },
     {
       label: "Đăng kí môn",
-       items: [
+        items: [
         { id: "proxy",    label: "Sinh viên đăng ký môn",  icon: <UserCheck className="w-4 h-4" /> },
+        { id: "subject_prices", label: "Giá môn học", icon: <DollarSign className="w-4 h-4" /> },
         { id: "pricing",  label: "Gói người dùng",  icon: <DollarSign className="w-4 h-4" /> },
       ],
     },
@@ -221,6 +225,8 @@ const AdminPage: React.FC = () => {
         return <QuestionRatioTab />;
       case "proxy":
         return <ProxyTab />;
+      case "subject_prices":
+        return <SubjectPricesTab />;
       case "crawler_courses":
         return <CrawlDataTab view="courses" />;
       case "crawler_questions":
