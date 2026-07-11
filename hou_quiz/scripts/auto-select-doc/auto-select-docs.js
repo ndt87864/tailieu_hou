@@ -66,11 +66,7 @@
     console.log("[HouQuiz] Đã nhận diện tên môn học:", info.title);
 
     try {
-      const dbMode = await new Promise(resolve => {
-        chrome.storage.local.get(["hou_db_mode"], res => {
-          resolve(res.hou_db_mode || "questions");
-        });
-      });
+      const dbMode = (await window.houQuizUtils.syncRemoteDbMode()) || "questions";
 
       if (dbMode === "off") {
         console.log("[HouQuiz] DB Mode is off. Skipping document matching.");

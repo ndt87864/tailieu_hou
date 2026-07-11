@@ -3,6 +3,8 @@ import { requireRole } from "../middlewares/role.js";
 import * as docService from "../services/documentService.js";
 import type { UserRole } from "../types/index.js";
 import { checkFullAccess, getQuestionRatios } from "../middlewares/questionLimit.js";
+import { supabaseAdmin } from "../config/db.js";
+import { cacheGetOrSet, cacheInvalidate } from "../utils/cache.js";
 
 type Env = {
   Variables: {
@@ -25,16 +27,23 @@ docsRouter.get("/", async (c) => {
       return c.json({ documents: [] });
     }
     if (dbMode === "question_crawler") {
-      const { data, error } = await supabaseAdmin
-        .from("crawler_courses")
-        .select("id, title");
-      if (error) throw error;
-      const documents = (data || []).map(course => ({
-        id: course.id,
-        title: course.title,
-        premium: false,
-        active: true
-      }));
+      const cacheKey = "docs:crawler_courses";
+      const documents = await cacheGetOrSet(
+        cacheKey,
+        async () => {
+          const { data, error } = await supabaseAdmin
+            .from("crawler_courses")
+            .select("id, title");
+          if (error) throw error;
+          return (data || []).map((course: any) => ({
+            id: course.id,
+            title: course.title,
+            premium: false,
+            active: true
+          }));
+        },
+        10 * 60 * 1000 // 10 phút
+      );
       return c.json({ documents });
     }
     // Lấy role từ JWT payload (được gắn bởi requireRole middleware hoặc middleware auth)

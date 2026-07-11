@@ -26,17 +26,18 @@
 
   // Load tài liệu theo môn học (tự động hoặc thủ công)
   async function initDocument() {
+    // Lấy db_mode từ server (extension_config), không đọc từ local storage
+    const dbMode = (await window.houQuizUtils.syncRemoteDbMode()) || "questions";
+
     chrome.storage.local.get([
       "hou_auto_select_docs", 
       "hou_show_info_widget", 
       "hou_selected_doc_id", 
       "hou_selected_doc_ids",
-      "hou_selected_doc_titles",
-      "hou_db_mode"
+      "hou_selected_doc_titles"
     ], async (res) => {
       const autoSelectDocsEnabled = res.hou_auto_select_docs !== false;
       const showInfoWidgetEnabled = res.hou_show_info_widget !== false;
-      const dbMode = res.hou_db_mode || "questions";
       
       let docIds = res.hou_selected_doc_ids || [];
       // Tương thích ngược nếu người dùng chỉ có hou_selected_doc_id đơn lẻ

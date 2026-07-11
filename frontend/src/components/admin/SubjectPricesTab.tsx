@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Plus, Trash2, Edit, Loader2, DollarSign, Search } from "lucide-react";
+import { Plus, Trash2, Edit, Loader2, Search } from "lucide-react";
 import { toast } from "react-toastify";
 import apiClient from "../../services/client.js";
 import { useConfirm } from "../../context/ConfirmContext.js";

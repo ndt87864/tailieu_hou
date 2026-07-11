@@ -459,7 +459,8 @@
   const REMOTE_CONFIG_TTL = 30 * 1000; // 30 giây
 
   /**
-   * Fetch db_mode từ server (extension_config table) và ghi đè chrome.storage.local.
+   * Fetch db_mode từ server (extension_config table).
+   * Chỉ đọc, không ghi vào chrome.storage.local.
    * Có TTL 30s để tránh spam request.
    */
   async function syncRemoteDbMode() {
@@ -480,24 +481,17 @@
       if (remoteMode) {
         _remoteConfigCache = json.config;
         _remoteConfigFetchedAt = now;
-        // Ghi đè local storage để các phần khác của extension đọc được
-        chrome.storage.local.set({ hou_db_mode: remoteMode });
         return remoteMode;
       }
     } catch (e) {
-      console.warn("[HouQuiz] Không thể sync remote config:", e);
+      console.warn("[HouQuiz] Không thể lấy remote config:", e);
     }
     return null;
   }
 
   async function fetchAPI(url, options = {}) {
-    // Ưu tiên remote config, fallback về local storage
-    const remoteMode = await syncRemoteDbMode();
-    const dbMode = remoteMode || await new Promise(resolve => {
-      chrome.storage.local.get(["hou_db_mode"], res => {
-        resolve(res.hou_db_mode || "questions");
-      });
-    });
+    // Luôn lấy db_mode từ remote config (extension_config table)
+    const dbMode = (await syncRemoteDbMode()) || "questions";
 
     if (dbMode === "off") {
       throw new Error("Kết nối cơ sở dữ liệu đã bị tắt (off).");
@@ -528,12 +522,7 @@
   }
 
   async function fetchQuestionsForDocuments(docIds) {
-    const remoteMode = await syncRemoteDbMode();
-    const dbMode = remoteMode || await new Promise(resolve => {
-      chrome.storage.local.get(["hou_db_mode"], res => {
-        resolve(res.hou_db_mode || "questions");
-      });
-    });
+    const dbMode = (await syncRemoteDbMode()) || "questions";
 
     if (dbMode === "off") {
       console.log("[HouQuiz] Database mode is off. Skipping questions fetch.");

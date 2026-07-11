@@ -3,7 +3,7 @@ import { useAuth } from "../../context/AuthContext.js";
 import { useUI } from "../../context/UIContext.js";
 import { cachedGet } from "../../utils/apiCache.js";
 import { SkeletonCard } from "../../components/common/LoadingSpinner.js";
-import { Search, GraduationCap, ArrowRight, BookOpenCheck, Crown, Filter, X, FileText, ChevronRight, Book, PenTool, File } from "lucide-react";
+import { Search, GraduationCap, BookOpenCheck, Crown, Filter, X, FileText, ChevronRight, Book, PenTool, File } from "lucide-react";
 import * as Icons from "lucide-react";
 import apiClient from "../../services/client.js";
 
@@ -92,7 +92,7 @@ const LessonHomePage: React.FC = () => {
     }
   };
 
-  const getCategoryInfo = (catId: string, customTitle?: string | null, logoName?: string | null) => {
+  const getCategoryInfo = (_catId: string, customTitle?: string | null, logoName?: string | null) => {
     const title = customTitle || "Chuyên mục";
     let icon = (className: string) => <File className={className} />;
 
