@@ -1,11 +1,10 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useAuth } from "../../context/AuthContext.js";
 import { useUI } from "../../context/UIContext.js";
-import { cachedGet } from "../../utils/apiCache.js";
+import { getGroupedCategories, getAllDocuments, getDocumentsByCategory } from "../../services/mockData.js";
 import { SkeletonCard } from "../../components/common/LoadingSpinner.js";
 import { Search, GraduationCap, BookOpenCheck, Crown, Filter, X, FileText, ChevronRight, Book, PenTool, File } from "lucide-react";
 import * as Icons from "lucide-react";
-import apiClient from "../../services/client.js";
 
 interface Document {
   id: string;
@@ -45,29 +44,30 @@ const LessonHomePage: React.FC = () => {
   const [expandedDocs, setExpandedDocs] = useState<Record<string, Document[]>>({});
   const [loadingCategory, setLoadingCategory] = useState<Record<string, boolean>>({});
 
+  // Load grouped categories with mock data
   useEffect(() => {
     if (authLoading) return;
-    cachedGet<{ categories: GroupedCategory[] }>("/api/v1/documents/grouped/lms")
-      .then((res) => {
-        setGroupedCategories(res.data.categories || []);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error(err);
-        setError("Không thể tải danh sách bài học.");
-        setLoading(false);
-      });
+    try {
+      const mockCats = getGroupedCategories();
+      setGroupedCategories(mockCats);
+      setLoading(false);
+    } catch (err) {
+      console.error(err);
+      setError("Không thể tải danh sách bài học.");
+      setLoading(false);
+    }
   }, [authLoading]);
 
   // Load all lms docs for searching if search is active
   useEffect(() => {
     if (search && !allDocumentsLoaded) {
-      cachedGet<{ documents: Document[] }>("/api/v1/documents/lms")
-        .then(res => {
-          setAllDocuments(res.data.documents || []);
-          setAllDocumentsLoaded(true);
-        })
-        .catch(err => console.error("Failed to load all LMS documents for search:", err));
+      try {
+        const docs = getAllDocuments();
+        setAllDocuments(docs);
+        setAllDocumentsLoaded(true);
+      } catch (err) {
+        console.error("Failed to load all LMS documents for search:", err);
+      }
     }
   }, [search, allDocumentsLoaded]);
 
@@ -82,8 +82,8 @@ const LessonHomePage: React.FC = () => {
     if (!expandedDocs[catId]) {
       setLoadingCategory(prev => ({ ...prev, [catId]: true }));
       try {
-        const res = await apiClient.get(`/api/v1/documents/lms?category_id=${catId}`);
-        setExpandedDocs(prev => ({ ...prev, [catId]: res.data.documents || [] }));
+        const docs = getDocumentsByCategory(catId);
+        setExpandedDocs(prev => ({ ...prev, [catId]: docs }));
       } catch (err) {
         console.error("Failed to load documents for category:", err);
       } finally {

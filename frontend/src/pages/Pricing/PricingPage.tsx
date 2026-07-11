@@ -20,7 +20,7 @@ export const PricingPage: React.FC = () => {
   const { themeMode } = useUI();
   const [content, setContent] = useState<PricingContent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tiers, setTiers] = useState<any[]>([
+  const tiers = [
     {
       name: "Gói Free",
       price: "0đ",
@@ -68,7 +68,7 @@ export const PricingPage: React.FC = () => {
         "Nhận đề thi thử & tài liệu ôn tập độc quyền",
       ],
     },
-  ]);
+  ];
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Compute actual dark mode

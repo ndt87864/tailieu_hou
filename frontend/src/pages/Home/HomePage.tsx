@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
-import apiClient from "../../services/client.js";
-import { cachedGet } from "../../utils/apiCache.js";
+import { getGroupedCategories, getAllDocuments, getDocumentsByCategory } from "../../services/mockData.js";
 import { SkeletonCard } from "../../components/common/LoadingSpinner.js";
 import { useAuth } from "../../context/AuthContext.js";
 import { useUI } from "../../context/UIContext.js";
@@ -53,29 +52,30 @@ const HomePage: React.FC = () => {
   const [expandedDocs, setExpandedDocs] = useState<Record<string, Document[]>>({});
   const [loadingCategory, setLoadingCategory] = useState<Record<string, boolean>>({});
 
+  // Load grouped categories with mock data
   useEffect(() => {
     if (authLoading) return;
-    cachedGet<{ categories: GroupedCategory[] }>("/api/v1/documents/grouped")
-      .then((res) => {
-        setGroupedCategories(res.data.categories || []);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error(err);
-        setError("Không thể tải danh sách tài liệu.");
-        setLoading(false);
-      });
+    try {
+      const mockCats = getGroupedCategories();
+      setGroupedCategories(mockCats);
+      setLoading(false);
+    } catch (err) {
+      console.error(err);
+      setError("Không thể tải danh sách tài liệu.");
+      setLoading(false);
+    }
   }, [authLoading]);
 
-  // Fetch all documents on-demand when user is searching
+  // Load all documents on-demand when user is searching
   useEffect(() => {
     if (search && !allDocumentsLoaded) {
-      cachedGet<{ documents: Document[] }>("/api/v1/documents")
-        .then(res => {
-          setAllDocuments(res.data.documents || []);
-          setAllDocumentsLoaded(true);
-        })
-        .catch(err => console.error("Failed to load all documents for search:", err));
+      try {
+        const docs = getAllDocuments();
+        setAllDocuments(docs);
+        setAllDocumentsLoaded(true);
+      } catch (err) {
+        console.error("Failed to load all documents for search:", err);
+      }
     }
   }, [search, allDocumentsLoaded]);
 
@@ -91,8 +91,8 @@ const HomePage: React.FC = () => {
     if (!expandedDocs[catId]) {
       setLoadingCategory(prev => ({ ...prev, [catId]: true }));
       try {
-        const res = await apiClient.get(`/api/v1/documents?category_id=${catId}`);
-        setExpandedDocs(prev => ({ ...prev, [catId]: res.data.documents || [] }));
+        const docs = getDocumentsByCategory(catId);
+        setExpandedDocs(prev => ({ ...prev, [catId]: docs }));
       } catch (err) {
         console.error("Failed to load documents for category:", err);
       } finally {
