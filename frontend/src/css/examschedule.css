@@ -7,21 +7,14 @@
   min-height: 100vh;
 }
 
-/* Dynamic Animated Background Blobs for Glassmorphism */
+/* Calm paper-like backdrop keeps the schedule focused and readable. */
 .lt-container::before,
 .lt-container::after {
-  content: '';
-  position: fixed;
-  border-radius: 50%;
-  z-index: -1;
-  filter: blur(100px);
-  animation: blobFloat 25s infinite alternate cubic-bezier(0.4, 0, 0.2, 1);
-  opacity: 0.6;
-  pointer-events: none;
+  display: none;
 }
 
 .lt-container.light-mode {
-  background-color: #eef2f6;
+  background-color: var(--bg);
 }
 
 .lt-container.light-mode::before {
@@ -143,12 +136,15 @@
 
 /* Search Button */
 .lt-search-btn {
-  border-radius: 20px;
-  background: linear-gradient(135deg, var(--theme-light) 0%, var(--theme-primary) 100%);
-  color: white;
-  box-shadow: 0 8px 25px -5px rgba(var(--theme-primary-rgb), 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  transition: all 0.3s ease;
+  min-height: 3.25rem;
+  border-radius: var(--radius-md);
+  background: var(--brand-600);
+  color: var(--accent-on);
+  box-shadow: 3px 3px 0 var(--fg);
+  border: 1.5px solid var(--fg);
+  font-size: 1rem;
+  font-weight: 750;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .lt-search-btn:hover {
