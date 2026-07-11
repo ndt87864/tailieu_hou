@@ -133,7 +133,6 @@ const DocumentPage: React.FC = () => {
       if (excelPercentage < 100) {
         const limitedCount = Math.floor(visibleQuestions.length * (excelPercentage / 100));
         dataToExport = visibleQuestions.slice(0, limitedCount);
-        toast.info(`Tài khoản được tải ${excelPercentage}% câu hỏi (${limitedCount}/${visibleQuestions.length} câu).`);
       }
 
       const excelData = dataToExport.map((q, index) => ({
