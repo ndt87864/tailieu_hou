@@ -471,23 +471,42 @@
 
     try {
       const apiUrl = window.houQuizConfig?.API_URL;
-      if (!apiUrl) return null; // config chưa load, bỏ qua
+      if (!apiUrl) return null;
 
-      const res = await fetch(`${apiUrl}/extension-config`, { cache: "no-store" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const configUrl = `${apiUrl}/extension-config`;
 
-      const json = await res.json();
+      const showNetwork = await new Promise(resolve => {
+        chrome.storage.local.get(["hou_show_network_status"], res => {
+          resolve(res.hou_show_network_status === true);
+        });
+      });
+
+      let json;
+      if (showNetwork) {
+        const res = await fetch(configUrl, { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        json = await res.json();
+      } else {
+        const res = await new Promise(resolve => {
+          chrome.runtime.sendMessage({ type: "FETCH_API", url: configUrl, options: {} }, resolve);
+        });
+        if (!res || !res.success) throw new Error(res?.error || "Background fetch failed");
+        json = res.data;
+      }
+
       const remoteMode = json?.config?.db_mode;
       if (remoteMode) {
         _remoteConfigCache = json.config;
         _remoteConfigFetchedAt = now;
+        chrome.storage.local.set({ hou_db_mode: remoteMode });
         return remoteMode;
       }
     } catch (e) {
-      console.warn("[HouQuiz] Không thể lấy remote config:", e);
+      console.warn("[HouQuiz] Khong the lay remote config:", e);
     }
     return null;
   }
+
 
   async function fetchAPI(url, options = {}) {
     // Luôn lấy db_mode từ remote config (extension_config table)

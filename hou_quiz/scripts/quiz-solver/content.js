@@ -97,7 +97,7 @@
           console.log(`[HouQuiz] Loaded ${dbQuestions.length} questions from DB (Manual - ${dbModeText}).`);
           showToast(`Sẵn sàng làm bài! Đã tải ${dbQuestions.length} câu hỏi [${dbModeText}].`);
           if (showInfoWidgetEnabled) {
-            showInfoWidget("Thủ công", summaryTitle, `Sẵn sàng (${dbQuestions.length} câu - ${dbModeText})`);
+            showInfoWidget("Thủ công", summaryTitle, `Sẵn sàng (${dbQuestions.length} câu)`);
           }
         } catch (err) {
           console.error("[HouQuiz] Error loading questions:", err);
@@ -139,7 +139,7 @@
             console.log(`[HouQuiz] Loaded ${dbQuestions.length} questions from DB (Auto - ${dbModeText}).`);
             showToast(`Sẵn sàng làm bài! Đã tải ${dbQuestions.length} câu hỏi [${dbModeText}].`);
             if (showInfoWidgetEnabled) {
-              showInfoWidget(cleanCourseTitle, docTitles, `Sẵn sàng (${dbQuestions.length} câu - ${dbModeText})`);
+              showInfoWidget(cleanCourseTitle, docTitles, `Sẵn sàng (${dbQuestions.length} câu)`);
             }
           } catch (err) {
             console.error("[HouQuiz] Error loading questions:", err);

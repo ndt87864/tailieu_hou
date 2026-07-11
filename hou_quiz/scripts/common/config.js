@@ -1,79 +1,36 @@
 (function () {
   "use strict";
 
-  // Quản lý bật tắt tất cả log của extension
-  window.houLogsEnabled = null; // null: đang đợi load từ storage
-  const logBuffer = [];
+  // Log luon tat o production -- khong doc storage de tranh bi override
+  // De bat log tam thoi khi debug: chay window.houLogsEnabled = true trong console
+  window.houLogsEnabled = false;
 
-  // Sao lưu các hàm console gốc
+  // Sao luu cac ham console goc
   const originalLog = console.log;
   const originalWarn = console.warn;
   const originalError = console.error;
 
-  function applyLogState(enabled) {
-    window.houLogsEnabled = enabled;
-    if (enabled) {
-      // Xả buffer log tạm thời
-      while (logBuffer.length > 0) {
-        const item = logBuffer.shift();
-        if (item.type === "log") originalLog.apply(console, item.args);
-        else if (item.type === "warn") originalWarn.apply(console, item.args);
-        else if (item.type === "error") originalError.apply(console, item.args);
-      }
-    } else {
-      // Tắt log thì xóa sạch buffer
-      logBuffer.length = 0;
-    }
-  }
-
-  // Khởi tạo lấy cấu hình log từ storage
-  if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(["hou_enable_logs"], (res) => {
-      // Mặc định tắt log nếu chưa được cài đặt
-      const enabled = res.hou_enable_logs === true;
-      applyLogState(enabled);
-    });
-
-    // Lắng nghe thay đổi từ popup để cập nhật realtime không cần reload trang
-    chrome.storage.onChanged.addListener((changes, area) => {
-      if (area === "local" && changes.hou_enable_logs) {
-        const enabled = changes.hou_enable_logs.newValue === true;
-        applyLogState(enabled);
-      }
-    });
-  } else {
-    // Dự phòng nếu chạy ngoài Extension context
-    applyLogState(false);
-  }
-
-  // Ghi đè console.log, console.warn, console.error
+  // Ghi de console.log / warn / error
   console.log = function (...args) {
     if (window.houLogsEnabled === true) {
       originalLog.apply(console, args);
-    } else if (window.houLogsEnabled === null) {
-      logBuffer.push({ type: "log", args });
     }
   };
 
   console.warn = function (...args) {
     if (window.houLogsEnabled === true) {
       originalWarn.apply(console, args);
-    } else if (window.houLogsEnabled === null) {
-      logBuffer.push({ type: "warn", args });
     }
   };
 
   console.error = function (...args) {
     if (window.houLogsEnabled === true) {
       originalError.apply(console, args);
-    } else if (window.houLogsEnabled === null) {
-      logBuffer.push({ type: "error", args });
     }
   };
 
-  // Cấu hình môi trường API URL
+  // Cau hinh moi truong API URL
   const CONFIG = {
-    // Backend chính trên VPS (production)
     API_URL: "https://tailieu-hou.duckdns.org/api/v1",
     LOCAL_API_URL: "http://localhost:3001/api/v1",
     VPS_API_URL: "https://tailieu-hou.duckdns.org/api/v1"
