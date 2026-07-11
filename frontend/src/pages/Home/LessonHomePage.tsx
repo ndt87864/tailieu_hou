@@ -73,14 +73,14 @@ const LessonHomePage: React.FC = () => {
         <div className="absolute inset-0 opacity-30 home-hero-mesh" />
         <div className="relative px-6 py-10 sm:px-10 sm:py-14 flex flex-col items-center text-center">
           <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full text-white/80 text-xs font-medium mb-5 home-hero-search-card">
-            <BookOpenCheck className="w-3.5 h-3.5 text-emerald-400" />
+            <BookOpenCheck className="w-3.5 h-3.5" />
             Không gian học tập & bài giảng LMS
           </div>
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight max-w-2xl leading-tight">
-            Bài Học & Tài Liệu LMS
+            Bài Học & Tài Liệu HOU
           </h1>
           <p className="mt-4 text-base sm:text-lg text-white/70 max-w-xl">
-            Học tập theo lộ trình chuẩn. Xem bài giảng slide, video học liệu và ôn tập bộ câu hỏi LMS trích xuất tự động.
+            Học tập theo lộ trình chuẩn. Xem bài giảng, video học liệu và ôn tập bộ câu hỏi eHOU trích xuất tự động.
           </p>
           <div className="mt-8 flex items-center w-full max-w-lg relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
@@ -134,7 +134,7 @@ const LessonHomePage: React.FC = () => {
                 <div className="lesson-card-footer">
                   <span className="lesson-badge lesson-badge-lms">
                     <BookOpenCheck className="w-3.5 h-3.5" />
-                    LMS Active
+                    Hoạt động
                   </span>
                   <a
                     href={`/documents/${doc.id}`}
@@ -161,7 +161,7 @@ const LessonHomePage: React.FC = () => {
           {filteredCategories.map((category) => (
             <div key={category.id} className="space-y-4">
               <div className="flex items-center gap-2 border-b border-dashed border-[var(--border)] pb-2">
-                <div className="w-1.5 h-6 bg-[var(--brand-600)] rounded-full" />
+                <div className="w-1.5 h-6 bg-[var(--accent)] rounded-full" />
                 <h3 className="text-lg font-extrabold text-[var(--fg)]">{category.title}</h3>
                 <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[var(--bg-2)] text-[var(--muted)]">
                   {category.documents.length} môn học
@@ -190,7 +190,7 @@ const LessonHomePage: React.FC = () => {
                     <div className="lesson-card-footer">
                       <span className="lesson-badge lesson-badge-lms">
                         <BookOpenCheck className="w-3.5 h-3.5" />
-                        LMS Active
+                        Hoạt động
                       </span>
                       <a
                         href={`/documents/${doc.id}`}

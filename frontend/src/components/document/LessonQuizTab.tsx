@@ -61,10 +61,10 @@ export const LessonQuizTab: React.FC<LessonQuizTabProps> = ({
           <div className="flex items-center justify-center md:justify-end gap-2 mt-4 md:mt-0 shrink-0">
             <button
               onClick={exportAllToExcel}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 transition-all cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--bg-2)] text-[var(--accent)] hover:bg-[var(--bg-3)] border border-[var(--border)] transition-all cursor-pointer"
               title="Tải Excel toàn bộ câu hỏi của môn học"
             >
-              <Download className="w-3.5 h-3.5" /> Tải Excel
+              <Download className="w-3.5 h-3.5 text-[var(--accent)]" /> Tải Excel
             </button>
           </div>
         )}

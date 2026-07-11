@@ -115,7 +115,7 @@ export const LessonFilterModal: React.FC<LessonFilterModalProps> = ({
             <div className="lesson-filter-section">
               <div className="flex justify-between items-center mb-1">
                 <label className="lesson-filter-section-title">
-                  Chọn lớp học LMS
+                  Chọn lớp HOU
                 </label>
                 <button
                   type="button"

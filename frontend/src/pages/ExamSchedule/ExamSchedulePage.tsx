@@ -314,7 +314,7 @@ const ExamSchedulePage: React.FC = () => {
                       onFocus={() => setIsFocused(true)}
                       onBlur={() => setIsFocused(false)}
                       onChange={(e) => setLocalQuery(e.target.value)}
-                      placeholder="Nhập mã sinh viên hoặc tài khoản học..."
+                      placeholder="Nhập mã sinh viên/tài khoản học"
                       className={`lt-input w-full px-6 py-4 outline-none font-semibold text-base ${
                         isFocused ? "focused" : ""
                       }`}

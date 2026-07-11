@@ -326,15 +326,16 @@ export const PricingPage: React.FC = () => {
                       </ul>
                     </div>
 
-                    <button
-                      onClick={() => {
-                        const el = document.getElementById("instructions");
-                        if (el) el.scrollIntoView({ behavior: "smooth" });
-                      }}
-                      className="card-button"
-                    >
-                      Đăng ký ngay
-                    </button>
+                    {tier.price !== "0đ" && tier.price !== "0" && (
+                      <a
+                        href="https://zalo.me/0971485601"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="card-button block text-center"
+                      >
+                        Đăng ký ngay
+                      </a>
+                    )}
                   </div>
                 ))}
               </div>

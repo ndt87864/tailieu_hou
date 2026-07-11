@@ -80,6 +80,7 @@
     scroll-behavior: smooth;
     scrollbar-width: none; /* Firefox */
     -ms-overflow-style: none; /* IE/Edge */
+    justify-content: center;
 }
 
 .pricing-scroll-area::-webkit-scrollbar {
