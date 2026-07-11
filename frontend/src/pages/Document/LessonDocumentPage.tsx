@@ -543,7 +543,6 @@ const LessonDocumentPage: React.FC = () => {
                 className="lesson-filter-trigger-btn"
               >
                 <Filter className="w-4 h-4 text-[var(--brand-600)]" />
-                <span>Bộ lọc học tập</span>
                 <span className="lesson-filter-trigger-sep" />
                 <span className="lesson-filter-trigger-val">{filterLabelWeeks}</span>
                 {courses.length > 1 && (

@@ -1,6 +1,6 @@
 import React from "react";
-import { X, Sun, Moon, Laptop, Check, Monitor, Tablet, Smartphone, Maximize, FileText, BookOpen } from "lucide-react";
-import { useUI, type ThemeMode, type PrimaryColor, type ViewMode } from "../../context/UIContext.js";
+import { X, Sun, Moon, Laptop, Check, FileText, BookOpen } from "lucide-react";
+import { useUI, type ThemeMode, type PrimaryColor } from "../../context/UIContext.js";
 import "../../css/modal.css";
 
 
@@ -10,7 +10,7 @@ interface UISettingsModalProps {
 }
 
 const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) => {
-  const { themeMode, primaryColor, viewMode, lessonMode, setThemeMode, setPrimaryColor, setViewMode, setLessonMode } = useUI();
+  const { themeMode, primaryColor, lessonMode, setThemeMode, setPrimaryColor, setLessonMode } = useUI();
 
   if (!isOpen) return null;
 
@@ -18,13 +18,6 @@ const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) =>
     { value: "light",  label: "Sáng",     icon: <Sun    className="w-4 h-4" /> },
     { value: "dark",   label: "Tối",      icon: <Moon   className="w-4 h-4" /> },
     { value: "system", label: "Hệ thống", icon: <Laptop className="w-4 h-4" /> },
-  ];
-
-  const viewModes: { value: ViewMode; label: string; icon: React.ReactNode }[] = [
-    { value: "responsive", label: "Tự động", icon: <Maximize className="w-4 h-4" /> },
-    { value: "desktop",    label: "Máy tính", icon: <Monitor className="w-4 h-4" /> },
-    { value: "tablet",     label: "M.tính bảng", icon: <Tablet className="w-4 h-4" /> },
-    { value: "mobile",     label: "Điện thoại", icon: <Smartphone className="w-4 h-4" /> },
   ];
 
   // Bảng màu giống hệt tailieu-ehou
@@ -86,30 +79,6 @@ const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) =>
                 >
                   {t.icon}
                   <span>{t.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Chế độ hiển thị (Thiết bị) */}
-        <div className="mb-5">
-          <label className="ui-settings-modal-label">
-            Mô phỏng thiết bị
-          </label>
-          <div className="grid grid-cols-4 gap-2">
-            {viewModes.map((v) => {
-              const active = viewMode === v.value;
-              return (
-                <button
-                  key={v.value}
-                  onClick={() => setViewMode(v.value)}
-                  className={`flex flex-col items-center gap-1.5 p-2 rounded-xl text-[10px] font-medium transition-all duration-200 ${
-                    active ? "ui-settings-btn-option-active" : "ui-settings-btn-option"
-                  }`}
-                >
-                  {v.icon}
-                  <span className="truncate w-full text-center">{v.label}</span>
                 </button>
               );
             })}

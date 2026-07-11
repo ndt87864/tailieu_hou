@@ -98,7 +98,6 @@ export const LessonFilterModal: React.FC<LessonFilterModalProps> = ({
             </span>
             <div>
               <h3 className="lesson-filter-header-title">Bộ lọc học tập</h3>
-              <p className="lesson-filter-header-subtitle">Chọn lớp học & tuần học LMS</p>
             </div>
           </div>
           <button 
