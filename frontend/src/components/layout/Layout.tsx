@@ -296,7 +296,7 @@ export const Header: React.FC<HeaderProps> = ({
             )}
 
             {/* Mobile toggle */}
-            {!hideMobileMenuToggle && (
+            {!hideMobileMenuToggle && (!user || !!onMobileMenuClick) && (
               <button
                 onClick={onMobileMenuClick || (() => setMobileOpen((p) => !p))}
                 className="md:hidden p-2 rounded-lg hover:bg-[var(--bg-2)] transition-colors layout-icon-muted"
