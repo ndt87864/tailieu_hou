@@ -54,7 +54,7 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   });
 
   const [primaryColor, setPrimaryColorState] = useState<PrimaryColor>(() => {
-    return (localStorage.getItem("ui-primary-color") as PrimaryColor) || "green";
+    return (localStorage.getItem("ui-primary-color") as PrimaryColor) || "blue";
   });
 
   const [viewMode, setViewModeState] = useState<ViewMode>(() => {
@@ -126,7 +126,7 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const res = await apiClient.get("/api/v1/auth/ui-settings");
           if (!cancelled && res.data) {
             const serverTheme = (res.data.theme_mode as ThemeMode) || "system";
-            const serverColor = (res.data.primary_color as PrimaryColor) || "green";
+            const serverColor = (res.data.primary_color as PrimaryColor) || "blue";
             setThemeModeState(serverTheme);
             setPrimaryColorState(serverColor);
             localStorage.setItem("ui-theme-mode", serverTheme);
