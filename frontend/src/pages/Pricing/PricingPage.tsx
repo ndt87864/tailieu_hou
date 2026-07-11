@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useRef } from "react";
-import apiClient from "../../services/client.js";
 import { useUI } from "../../context/UIContext.js";
 import { Check, Link2, Leaf, Zap, Crown, Gem, Sparkles, FileText, Files, GraduationCap, FileSignature, BarChart3, Briefcase, Star, Heart, Gift, Award, Shield, Flame, Rocket } from "lucide-react";
 import { Header } from "../../components/layout/Layout.js";
@@ -91,39 +90,31 @@ export const PricingPage: React.FC = () => {
     }
   }, [themeMode]);
 
+  // Use mock content data directly - no API calls
+  const mockContentData: PricingContent[] = [
+    {
+      id: "1",
+      number: 1,
+      text: "Liên hệ Admin trực tiếp qua Zalo để được tư vấn và hỗ trợ học tập từ HOU. Học mọi lúc, mọi nơi.",
+      links: [{ linkText: "Zalo 0876236682", linkUrl: "https://zalo.me/0876236682" }],
+    },
+    {
+      id: "2",
+      number: 2,
+      text: "Lập tài khoản người dùng để trải nghiệm đầy đủ tính năng của hệ thống.",
+      links: [{ linkText: "Đăng ký tài khoản", linkUrl: "/login" }],
+    },
+    {
+      id: "3",
+      number: 3,
+      text: "Ứng hộ tôi với lý do yêu thích hệ thống học tập và tranh thủ cơ hội nâng cấp tài khoản.",
+      links: [],
+    },
+  ];
+
   useEffect(() => {
-    const fetchContent = async () => {
-      try {
-        const res = await apiClient.get("/api/v1/pricing-content");
-        setContent(res.data.content || []);
-      } catch (err) {
-        console.error("Lỗi khi tải thông tin liên hệ:", err);
-      }
-    };
-
-    const fetchPackages = async () => {
-      try {
-        const res = await apiClient.get("/api/v1/pricing-packages");
-        if (res.data.packages && res.data.packages.length > 1) {
-          // Sort by price ascending
-          const sorted = [...res.data.packages].sort((a: any, b: any) => {
-            const getPriceVal = (p: string) => parseInt(p.replace(/\D/g, "") || "0", 10);
-            return getPriceVal(a.price) - getPriceVal(b.price);
-          });
-          setTiers(sorted);
-        }
-      } catch (err) {
-        console.error("Lỗi khi tải danh sách gói từ db (sử dụng mặc định):", err);
-      }
-    };
-
-    const loadAll = async () => {
-      setLoading(true);
-      await Promise.all([fetchContent(), fetchPackages()]);
-      setLoading(false);
-    };
-
-    loadAll();
+    setLoading(false);
+    setContent(mockContentData);
   }, []);
 
   const scrollPremiumTiers = (direction: "left" | "right") => {
