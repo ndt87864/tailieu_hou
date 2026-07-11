@@ -9,7 +9,8 @@
     ENABLE_LOGS: "hou_enable_logs",
     SHOW_NETWORK_STATUS: "hou_show_network_status",
     THEME_MODE: "hou_ui_theme_mode",
-    PRIMARY_COLOR: "hou_ui_primary_color"
+    PRIMARY_COLOR: "hou_ui_primary_color",
+    DB_MODE: "hou_db_mode"
   };
 
   const autoSelectDocs = document.getElementById("auto-select-docs");
@@ -19,6 +20,7 @@
   const enableLogs = document.getElementById("enable-logs");
   const showNetworkStatus = document.getElementById("show-network-status");
   const connectionStatus = document.querySelector(".connection-status");
+  const dbModeSelect = document.getElementById("db-mode-select");
 
   const themeBtns = document.querySelectorAll(".theme-btn");
   const colorDots = document.querySelectorAll(".color-dot");
@@ -56,6 +58,23 @@
     });
   }
 
+  function updateConnectionStatusText(dbMode) {
+    if (!connectionStatus) return;
+    const dot = connectionStatus.querySelector(".status-dot");
+    const textSpan = connectionStatus.querySelector("span:not(.status-dot)");
+    
+    if (dbMode === "off") {
+      if (dot) dot.style.backgroundColor = "var(--danger)";
+      if (textSpan) textSpan.textContent = "Trạng thái: Đã ngắt kết nối (off)";
+    } else if (dbMode === "question_crawler") {
+      if (dot) dot.style.backgroundColor = "var(--warn)";
+      if (textSpan) textSpan.textContent = "Kết nối: LMS Crawler (crawler_questions/courses)";
+    } else {
+      if (dot) dot.style.backgroundColor = "var(--success)";
+      if (textSpan) textSpan.textContent = "Kết nối: Ngân hàng chính (questions/documents)";
+    }
+  }
+
   // Load cài đặt từ storage
   chrome.storage.local.get([
     KEYS.AUTO_SELECT_DOCS,
@@ -65,7 +84,8 @@
     KEYS.ENABLE_LOGS,
     KEYS.SHOW_NETWORK_STATUS,
     KEYS.THEME_MODE,
-    KEYS.PRIMARY_COLOR
+    KEYS.PRIMARY_COLOR,
+    KEYS.DB_MODE
   ], (res) => {
     autoSelectDocs.checked = res[KEYS.AUTO_SELECT_DOCS] !== false;
     showInfoWidget.checked = res[KEYS.SHOW_INFO_WIDGET] !== false;
@@ -73,6 +93,12 @@
     autoSelectAnswers.checked = res[KEYS.AUTO_SELECT_ANSWERS] !== false;
     enableLogs.checked = res[KEYS.ENABLE_LOGS] === true;
     showNetworkStatus.checked = res[KEYS.SHOW_NETWORK_STATUS] === true;
+    
+    const dbMode = res[KEYS.DB_MODE] || "questions";
+    if (dbModeSelect) {
+      dbModeSelect.value = dbMode;
+    }
+    updateConnectionStatusText(dbMode);
     
     if (connectionStatus) {
       if (showNetworkStatus.checked) {
@@ -92,6 +118,14 @@
   });
 
   // Sự kiện lưu cài đặt
+  if (dbModeSelect) {
+    dbModeSelect.addEventListener("change", () => {
+      const mode = dbModeSelect.value;
+      chrome.storage.local.set({ [KEYS.DB_MODE]: mode });
+      updateConnectionStatusText(mode);
+    });
+  }
+
   autoSelectDocs.addEventListener("change", () => {
     chrome.storage.local.set({ [KEYS.AUTO_SELECT_DOCS]: autoSelectDocs.checked });
     if (window.houQuizDocFilter) {

@@ -87,9 +87,37 @@ questionsRouter.get("/document/:documentId/limited", async (c) => {
   }
 });
 
-questionsRouter.get("/document/:documentId", questionLimitMiddleware, async (c) => {
+questionsRouter.get("/document/:documentId", async (c) => {
   const documentId = c.req.param("documentId");
+  const dbMode = c.req.query("db_mode") || "questions";
   try {
+    if (dbMode === "off") {
+      return c.json({ questions: [] });
+    }
+    if (dbMode === "question_crawler") {
+      // Lấy từ crawler_questions
+      const { data, error } = await supabaseAdmin
+        .from("crawler_questions")
+        .select("*")
+        .eq("course_id", documentId)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      // Chuẩn hóa trường crawler_questions cho khớp với câu hỏi trắc nghiệm thông thường nếu cần
+      const questions = (data || []).map(q => ({
+        id: q.id,
+        document_id: q.course_id,
+        question: q.question,
+        answer: q.answer,
+        choices: q.choices || [],
+        url_question: q.url_question || null,
+        url_answer: q.url_answer || null,
+        url_choices: q.url_choices || null,
+        order_index: q.order_index
+      }));
+      return c.json({ questions });
+    }
+
+    // Mặc định (questions) - gọi Middleware limit thủ công hoặc gọi trực tiếp vì đã bỏ qua middleware của Hono (để tránh xử lý limit khi db_mode = question_crawler)
     const questions = await questionService.getQuestionsByDocument(documentId);
     return c.json({ questions });
   } catch (error: any) {

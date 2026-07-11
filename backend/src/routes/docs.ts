@@ -20,6 +20,23 @@ const isPremium = (role?: string): boolean =>
 docsRouter.get("/", async (c) => {
   try {
     const categoryId = c.req.query("category_id");
+    const dbMode = c.req.query("db_mode") || "questions";
+    if (dbMode === "off") {
+      return c.json({ documents: [] });
+    }
+    if (dbMode === "question_crawler") {
+      const { data, error } = await supabaseAdmin
+        .from("crawler_courses")
+        .select("id, title");
+      if (error) throw error;
+      const documents = (data || []).map(course => ({
+        id: course.id,
+        title: course.title,
+        premium: false,
+        active: true
+      }));
+      return c.json({ documents });
+    }
     // Lấy role từ JWT payload (được gắn bởi requireRole middleware hoặc middleware auth)
     const userRole = (c.get("role") as UserRole | undefined);
     const documents = await docService.listDocuments(categoryId, isPremium(userRole));

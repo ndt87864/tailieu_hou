@@ -118,7 +118,19 @@
                 <span class="option-desc">Khi bật, extension sẽ tự động click chọn đáp án đúng sau khi tìm thấy.</span>
             </div>
         </label>
- 
+
+        <div class="option-card flex-column">
+            <div class="option-info full-width">
+                <span class="option-title">Nguồn Cơ sở dữ liệu (DB Mode)</span>
+                <span class="option-desc">Chọn nguồn cơ sở dữ liệu để tìm kiếm và khớp câu hỏi.</span>
+            </div>
+            <select id="db-mode-select" class="popup-search-input popup-select-group-margin">
+                <option value="off">Tắt kết nối (off)</option>
+                <option value="questions" selected>Ngân hàng câu hỏi (questions)</option>
+                <option value="question_crawler">LMS Crawler (question_crawler)</option>
+            </select>
+        </div>
+
         <label class="option-card" style="display: none;">
             <input type="checkbox" id="enable-logs">
             <span class="custom-checkbox"></span>
@@ -127,7 +139,7 @@
                 <span class="option-desc">Hiển thị log chi tiết của extension trong console phục vụ kiểm tra lỗi.</span>
             </div>
         </label>
- 
+
         <label class="option-card" style="display: none;">
             <input type="checkbox" id="show-network-status">
             <span class="custom-checkbox"></span>

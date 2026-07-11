@@ -152,6 +152,16 @@
     margin: 0;
 }
 
+.option-card.flex-column {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.full-width {
+    width: 100%;
+}
+
 
 body {
     width: 340px;

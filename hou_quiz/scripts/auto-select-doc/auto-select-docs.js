@@ -66,6 +66,21 @@
     console.log("[HouQuiz] Đã nhận diện tên môn học:", info.title);
 
     try {
+      const dbMode = await new Promise(resolve => {
+        chrome.storage.local.get(["hou_db_mode"], res => {
+          resolve(res.hou_db_mode || "questions");
+        });
+      });
+
+      if (dbMode === "off") {
+        console.log("[HouQuiz] DB Mode is off. Skipping document matching.");
+        chrome.storage.local.set({ 
+          hou_current_course: info.title,
+          hou_current_doc: "Database đã bị tắt (off)"
+        });
+        return null;
+      }
+
       const payload = await window.houQuizUtils.fetchAPI(`${window.houQuizConfig.API_URL}/documents`);
       const docList = Array.isArray(payload) ? payload : (payload && Array.isArray(payload.documents) ? payload.documents : []);
       

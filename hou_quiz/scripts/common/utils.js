@@ -453,7 +453,61 @@
     return processedText;
   }
 
+  // Biến cache trong session để không gọi server mỗi request
+  let _remoteConfigCache = null;
+  let _remoteConfigFetchedAt = 0;
+  const REMOTE_CONFIG_TTL = 30 * 1000; // 30 giây
+
+  /**
+   * Fetch db_mode từ server (extension_config table) và ghi đè chrome.storage.local.
+   * Có TTL 30s để tránh spam request.
+   */
+  async function syncRemoteDbMode() {
+    const now = Date.now();
+    if (_remoteConfigCache && now - _remoteConfigFetchedAt < REMOTE_CONFIG_TTL) {
+      return _remoteConfigCache.db_mode || "questions";
+    }
+
+    try {
+      const apiUrl = window.houQuizConfig?.API_URL;
+      if (!apiUrl) return null; // config chưa load, bỏ qua
+
+      const res = await fetch(`${apiUrl}/extension-config`, { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const json = await res.json();
+      const remoteMode = json?.config?.db_mode;
+      if (remoteMode) {
+        _remoteConfigCache = json.config;
+        _remoteConfigFetchedAt = now;
+        // Ghi đè local storage để các phần khác của extension đọc được
+        chrome.storage.local.set({ hou_db_mode: remoteMode });
+        return remoteMode;
+      }
+    } catch (e) {
+      console.warn("[HouQuiz] Không thể sync remote config:", e);
+    }
+    return null;
+  }
+
   async function fetchAPI(url, options = {}) {
+    // Ưu tiên remote config, fallback về local storage
+    const remoteMode = await syncRemoteDbMode();
+    const dbMode = remoteMode || await new Promise(resolve => {
+      chrome.storage.local.get(["hou_db_mode"], res => {
+        resolve(res.hou_db_mode || "questions");
+      });
+    });
+
+    if (dbMode === "off") {
+      throw new Error("Kết nối cơ sở dữ liệu đã bị tắt (off).");
+    }
+
+    // Append db_mode to URL
+    const urlObj = new URL(url);
+    urlObj.searchParams.set("db_mode", dbMode);
+    const finalUrl = urlObj.toString();
+
     const showNetwork = await new Promise(resolve => {
       chrome.storage.local.get(["hou_show_network_status"], res => {
         resolve(res.hou_show_network_status === true);
@@ -461,12 +515,12 @@
     });
 
     if (showNetwork) {
-      const response = await fetch(url, options);
+      const response = await fetch(finalUrl, options);
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       return await response.json();
     } else {
       const res = await new Promise((resolve) => {
-        chrome.runtime.sendMessage({ type: "FETCH_API", url, options }, resolve);
+        chrome.runtime.sendMessage({ type: "FETCH_API", url: finalUrl, options }, resolve);
       });
       if (!res || !res.success) throw new Error(res ? res.error : "Không thể kết nối mạng");
       return res.data;
@@ -474,6 +528,18 @@
   }
 
   async function fetchQuestionsForDocuments(docIds) {
+    const remoteMode = await syncRemoteDbMode();
+    const dbMode = remoteMode || await new Promise(resolve => {
+      chrome.storage.local.get(["hou_db_mode"], res => {
+        resolve(res.hou_db_mode || "questions");
+      });
+    });
+
+    if (dbMode === "off") {
+      console.log("[HouQuiz] Database mode is off. Skipping questions fetch.");
+      return [];
+    }
+
     const promises = docIds.map(id => 
       fetchAPI(`${window.houQuizConfig.API_URL}/questions/document/${id}`)
         .then(res => res && res.questions ? res.questions : [])
@@ -494,6 +560,7 @@
     fetchAPI,
     extractPostAudioQuestionText,
     cleanQuestionContent,
-    fetchQuestionsForDocuments
+    fetchQuestionsForDocuments,
+    syncRemoteDbMode
   };
 })();
