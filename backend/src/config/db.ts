@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
+import http from "http";
+import https from "https";
 
 dotenv.config();
 
@@ -11,14 +13,35 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.warn("WARN: Supabase credentials missing from Env!");
 }
 
+// Tạo keepAlive Agent để tái sử dụng kết nối HTTP tới Kong Gateway (tránh bắt tay TCP lại từ đầu)
+const keepAliveAgentOpts = {
+  keepAlive: true,
+  keepAliveMsecs: 10000,
+  maxSockets: 100,
+  maxFreeSockets: 10,
+  timeout: 60000,
+};
+
+const httpAgent = new http.Agent(keepAliveAgentOpts);
+const httpsAgent = new https.Agent(keepAliveAgentOpts);
+
+const customFetch = (url: RequestInfo | URL, options?: any) => {
+  const agent = url.toString().startsWith("https") ? httpsAgent : httpAgent;
+  return fetch(url, {
+    ...options,
+    agent,
+  });
+};
+
 // Client dùng service role để lấy dữ liệu bỏ qua RLS
-// BẬT keepalive để tái dùng TCP connection — tránh tạo connection mới mỗi query
 export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRole || supabaseAnonKey, {
   auth: {
     persistSession: false,
     autoRefreshToken: false,
   },
-  // Không override global fetch → dùng Node.js built-in với keep-alive mặc định
+  global: {
+    fetch: customFetch,
+  },
 });
 
 export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
@@ -26,5 +49,7 @@ export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: false,
     autoRefreshToken: false,
   },
-  // Không override global fetch → dùng Node.js built-in với keep-alive mặc định
+  global: {
+    fetch: customFetch,
+  },
 });

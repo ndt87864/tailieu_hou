@@ -91,6 +91,15 @@ const server = serve(
     console.log(`🚀 Backend Hono running at http://localhost:${PORT}`);
     startRegistrationQueueWorker();
     preWarmConnectionAndCache();
+
+    // Heartbeat ping định kỳ 2 phút một lần để giữ ấm kết nối và chống bị swap container xuống Disk
+    setInterval(async () => {
+      try {
+        await supabaseAdmin.from("categories").select("id").limit(1);
+      } catch (error: any) {
+        console.warn("⚠️ Heartbeat ping failed:", error?.message || error);
+      }
+    }, 120000);
   }
 );
 
