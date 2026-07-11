@@ -1,24 +1,29 @@
 /* ── Home Page Styles ── */
 
 .home-hero-container {
-  background: var(--brand-900);
-  border: 2px solid var(--fg);
-  box-shadow: 8px 8px 0 var(--warn);
+  background: var(--gradient-hero);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 20px 60px rgba(var(--brand-rgb), 0.35);
 }
 
 .home-hero-mesh {
-  background-image: none;
+  background-image: radial-gradient(ellipse 60% 50% at 80% 10%, rgba(255, 255, 255, 0.12) 0%, transparent 55%),
+                    radial-gradient(ellipse 50% 40% at 10% 90%, rgba(255, 122, 61, 0.18) 0%, transparent 50%);
 }
 
 .home-hero-search-card {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
 }
 
 .home-hero-stat-card {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .home-error-container {
