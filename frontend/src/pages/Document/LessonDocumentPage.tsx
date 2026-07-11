@@ -419,21 +419,31 @@ const LessonDocumentPage: React.FC = () => {
 
       let dataToExport = currentQuestions;
       if (excelPercentage < 100) {
-        const limitedCount = Math.floor(currentQuestions.length * (excelPercentage / 100));
+        const limitedCount = Math.max(1, Math.round(currentQuestions.length * (excelPercentage / 100)));
         dataToExport = currentQuestions.slice(0, limitedCount);
         toast.info(`Tài khoản được tải ${excelPercentage}% câu hỏi (${limitedCount}/${currentQuestions.length} câu).`);
       }
 
-      const excelData = dataToExport.map((q, idx) => ({
-        "STT": idx + 1,
-        "Tuần": q.week_name || "",
-        "Câu hỏi": q.isPremiumLocked ? "Nội dung câu hỏi này đã bị khóa. Vui lòng nâng cấp tài khoản để xem tiếp." : cleanForExport(q.question), // Strip HTML
-        "Lựa chọn A": q.isPremiumLocked ? "Khóa" : cleanForExport(q.choices?.[0] || ""),
-        "Lựa chọn B": q.isPremiumLocked ? "Khóa" : cleanForExport(q.choices?.[1] || ""),
-        "Lựa chọn C": q.isPremiumLocked ? "Khóa" : cleanForExport(q.choices?.[2] || ""),
-        "Lựa chọn D": q.isPremiumLocked ? "Khóa" : cleanForExport(q.choices?.[3] || ""),
-        "Đáp án": q.isPremiumLocked ? "" : cleanForExport(q.answer),
-      }));
+      // Check if all exported questions are fill-in-the-blank (no choices)
+      const isFillInBlankOnly = dataToExport.every(q => !q.choices || q.choices.length === 0);
+
+      const excelData = dataToExport.map((q, idx) => {
+        const row: any = {
+          "STT": idx + 1,
+          "Tuần": q.week_name || "",
+          "Câu hỏi": q.isPremiumLocked ? "Nội dung câu hỏi này đã bị khóa. Vui lòng nâng cấp tài khoản để xem tiếp." : cleanForExport(q.question), // Strip HTML
+        };
+
+        if (!isFillInBlankOnly) {
+          row["Lựa chọn A"] = q.isPremiumLocked ? "Khóa" : cleanForExport(q.choices?.[0] || "");
+          row["Lựa chọn B"] = q.isPremiumLocked ? "Khóa" : cleanForExport(q.choices?.[1] || "");
+          row["Lựa chọn C"] = q.isPremiumLocked ? "Khóa" : cleanForExport(q.choices?.[2] || "");
+          row["Lựa chọn D"] = q.isPremiumLocked ? "Khóa" : cleanForExport(q.choices?.[3] || "");
+        }
+
+        row["Đáp án"] = q.isPremiumLocked ? "" : cleanForExport(q.answer);
+        return row;
+      });
 
       const workbook = XLSX.utils.book_new();
       const worksheet = XLSX.utils.json_to_sheet(excelData);
@@ -443,10 +453,12 @@ const LessonDocumentPage: React.FC = () => {
         { wch: 6 },
         { wch: 15 },
         { wch: Math.min(maxLenQuestion, 50) },
-        { wch: 25 },
-        { wch: 25 },
-        { wch: 25 },
-        { wch: 25 },
+        ...(isFillInBlankOnly ? [] : [
+          { wch: 25 },
+          { wch: 25 },
+          { wch: 25 },
+          { wch: 25 }
+        ]),
         { wch: 20 },
       ];
 
@@ -454,8 +466,7 @@ const LessonDocumentPage: React.FC = () => {
       XLSX.utils.book_append_sheet(workbook, worksheet, weekLabel.substring(0, 30));
       
       let safeTitle = (doc?.title || "Mon_hoc").replace(/[\\\/\?\*\[\]:<>|"]/g, "_");
-      const percentageSuffix = excelPercentage < 100 ? `_${excelPercentage}percent` : "";
-      let fileName = `${safeTitle} - ${weekLabel}${percentageSuffix}.xlsx`;
+      let fileName = `${safeTitle} - ${weekLabel}.xlsx`;
       fileName = fileName.replace(/[<>:"/\\|?*\x00-\x1F]/g, "_");
 
       XLSX.writeFile(workbook, fileName);
@@ -482,7 +493,7 @@ const LessonDocumentPage: React.FC = () => {
             <Crown className="w-12 h-12 mx-auto text-amber-500" />
             <h3 className="text-lg font-bold text-[var(--fg)]">{error || "Không có dữ liệu bài học."}</h3>
             <p className="text-sm text-[var(--muted)]">
-              Môn học này có thể là tài liệu Premium hoặc dữ liệu LMS chưa được crawl về hệ thống.
+              Môn học này có thể là tài liệu Premium hoặc dữ liệu LMS chưa được cập nhật hệ thống.
             </p>
             <div className="flex items-center justify-center gap-3">
               <Link to="/" className="text-xs text-[var(--brand-600)] hover:underline">← Về trang chủ</Link>
@@ -502,7 +513,7 @@ const LessonDocumentPage: React.FC = () => {
     <div className="flex-1 min-w-0 w-full flex flex-col doc-main-bg">
       <Header 
         title={doc.title}
-        subtitle={weekTitle || doc.category?.title || "Bài học LMS"}
+        subtitle={weekTitle || doc.category?.title || "Bài học"}
         hideLogo={true}
         onMobileMenuClick={() => window.dispatchEvent(new Event("open-doc-sidebar"))}
         onOpenSettings={() => window.dispatchEvent(new Event("open-settings"))}

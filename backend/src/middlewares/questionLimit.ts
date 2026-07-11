@@ -39,48 +39,51 @@ export async function checkFullAccess(role: string, user: any, docId: string | u
 
   // Pro / plus: kiểm tra quyền premium
   if ((role === "pro" || role === "plus") && docId && user) {
-    if (role === "plus") {
-      // Plus: kiểm tra theo document_id trực tiếp
-      const { data: premiumAccess } = await supabaseAdmin
-        .from("premium_user")
-        .select("id")
-        .eq("profile_id", user.id)
-        .eq("document_id", docId)
-        .limit(1)
-        .maybeSingle();
+    const cacheKey = `access:${user.id}:${docId}:${role}`;
+    return cacheGetOrSet(
+      cacheKey,
+      async () => {
+        if (role === "plus") {
+          // Plus: kiểm tra theo document_id trực tiếp
+          const { data: premiumAccess } = await supabaseAdmin
+            .from("premium_user")
+            .select("id")
+            .eq("profile_id", user.id)
+            .eq("document_id", docId)
+            .limit(1)
+            .maybeSingle();
 
-      if (premiumAccess) {
-        return true;
-      }
-    } else {
-      // Pro: kiểm tra theo category_id hoặc document_id
-      // 1. Lấy category_id của document
-      const { data: docData } = await supabaseAdmin
-        .from("documents")
-        .select("category_id")
-        .eq("id", docId)
-        .limit(1)
-        .maybeSingle();
+          return !!premiumAccess;
+        } else {
+          // Pro: kiểm tra theo category_id hoặc document_id
+          // 1. Lấy category_id của document
+          const { data: docData } = await supabaseAdmin
+            .from("documents")
+            .select("category_id")
+            .eq("id", docId)
+            .limit(1)
+            .maybeSingle();
 
-      const categoryId = docData?.category_id;
+          const categoryId = docData?.category_id;
 
-      // 2. Kiểm tra xem user có quyền premium cho document này hoặc category này không
-      const filterOr = categoryId 
-        ? `document_id.eq.${docId},category_id.eq.${categoryId}`
-        : `document_id.eq.${docId}`;
+          // 2. Kiểm tra xem user có quyền premium cho document này hoặc category này không
+          const filterOr = categoryId 
+            ? `document_id.eq.${docId},category_id.eq.${categoryId}`
+            : `document_id.eq.${docId}`;
 
-      const { data: premiumAccess } = await supabaseAdmin
-        .from("premium_user")
-        .select("id")
-        .eq("profile_id", user.id)
-        .or(filterOr)
-        .limit(1)
-        .maybeSingle();
+          const { data: premiumAccess } = await supabaseAdmin
+            .from("premium_user")
+            .select("id")
+            .eq("profile_id", user.id)
+            .or(filterOr)
+            .limit(1)
+            .maybeSingle();
 
-      if (premiumAccess) {
-        return true;
-      }
-    }
+          return !!premiumAccess;
+        }
+      },
+      60_000 // Cache quyền truy cập trong 1 phút
+    );
   }
   return false;
 }
