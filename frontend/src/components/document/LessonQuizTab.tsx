@@ -1,5 +1,6 @@
 import React from "react";
-import { Search, X, Download, CheckCircle2 } from "lucide-react";
+import { Search, X, Download, CheckCircle2, Lock, Sparkles } from "lucide-react";
+import { Link } from "react-router-dom";
 import { findBestAnswerIndex, renderTextWithImages } from "../../utils/questionHelper.js";
 
 export interface CrawlerQuestion {
@@ -13,6 +14,7 @@ export interface CrawlerQuestion {
   url_answer?: string | null;
   url_choices?: string | null;
   image_urls?: string[];
+  isPremiumLocked?: boolean;
 }
 
 interface LessonQuizTabProps {
@@ -21,6 +23,8 @@ interface LessonQuizTabProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   exportAllToExcel: () => void;
+  limitApplied?: boolean;
+  totalCountBeforeLimit?: number;
 }
 
 export const LessonQuizTab: React.FC<LessonQuizTabProps> = ({
@@ -29,7 +33,11 @@ export const LessonQuizTab: React.FC<LessonQuizTabProps> = ({
   searchQuery,
   setSearchQuery,
   exportAllToExcel,
+  limitApplied = false,
+  totalCountBeforeLimit = 0,
 }) => {
+  const isActuallyLimited = limitApplied && filteredQuestions.length < totalCountBeforeLimit;
+
   return (
     <div>
       {/* Toolbar: search + export */}
@@ -65,6 +73,12 @@ export const LessonQuizTab: React.FC<LessonQuizTabProps> = ({
       {searchQuery && (
         <p className="text-xs text-[var(--muted)] mb-2">
           Tìm thấy <strong className="text-[var(--fg)]">{filteredQuestions.length}</strong> câu khớp với "{searchQuery}"
+        </p>
+      )}
+
+      {filteredQuestions.length > 0 && (
+        <p className="text-xs text-[var(--muted)] mb-3">
+          Hiển thị từ 1 đến <strong className="text-[var(--fg)]">{filteredQuestions.length}</strong> trong tổng số <strong className="text-[var(--fg)]">{totalCountBeforeLimit || filteredQuestions.length}</strong> câu hỏi.
         </p>
       )}
 
@@ -106,6 +120,22 @@ export const LessonQuizTab: React.FC<LessonQuizTabProps> = ({
               </div>
             );
           })}
+
+          {isActuallyLimited && (
+            <div className="flex flex-col items-center justify-center gap-2 border border-dashed rounded-xl p-6 mt-4 bg-amber-500/5 border-amber-500/20 text-center">
+              <Lock className="w-5 h-5 text-amber-500" />
+              <h6 className="font-bold text-sm text-[var(--fg)]">Các câu hỏi còn lại đã bị khóa</h6>
+              <p className="text-xs text-[var(--muted)] max-w-sm">
+                Tài khoản của bạn bị giới hạn xem câu hỏi của môn học này. Hãy nâng cấp gói Premium để mở khóa không giới hạn.
+              </p>
+              <Link
+                to="/pricing"
+                className="inline-flex items-center gap-1.5 text-xs bg-amber-500 hover:bg-amber-600 text-white font-bold px-4 py-2 rounded-lg transition mt-2"
+              >
+                <span>Nâng cấp Premium</span> <Sparkles className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          )}
         </div>
       ) : (
         <p className="text-xs text-[var(--muted)] py-6 text-center">

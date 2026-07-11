@@ -34,7 +34,7 @@ interface GroupedCategory {
 }
 
 const HomePage: React.FC = () => {
-  const { lessonMode } = useUI();
+  const { lessonMode, navigateWithPrefetch } = useUI();
   const { loading: authLoading } = useAuth();
 
   if (lessonMode) {
@@ -342,9 +342,13 @@ const HomePage: React.FC = () => {
                   {/* Category Body (Documents) */}
                   <div className="flex-1 flex flex-col gap-1.5 mb-4">
                     {docs.map((doc) => (
-                      <Link
+                      <a
                         key={doc.id}
-                        to={`/documents/${doc.id}`}
+                        href={`/documents/${doc.id}`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          navigateWithPrefetch(doc.id);
+                        }}
                         className="group/item flex items-center justify-between p-2.5 rounded-xl hover:bg-[var(--bg-2)] transition-colors duration-200 home-border-transparent"
                       >
                         <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -357,7 +361,7 @@ const HomePage: React.FC = () => {
                           )}
                         </div>
                         <ChevronRight className="w-4 h-4 text-[var(--meta)] opacity-0 group-hover/item:opacity-100 group-hover/item:translate-x-0.5 transition-all shrink-0 duration-200" />
-                      </Link>
+                      </a>
                     ))}
                     {isCatLoading && (
                       <div className="text-center py-2 text-xs text-[var(--meta)]">Đang tải tài liệu...</div>

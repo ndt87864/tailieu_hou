@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.js";
+import { useUI } from "../../context/UIContext.js";
 import { cachedGet } from "../../utils/apiCache.js";
 import { SkeletonCard } from "../../components/common/LoadingSpinner.js";
 import { Search, GraduationCap, ArrowRight, BookOpenCheck, Crown } from "lucide-react";
@@ -29,6 +30,7 @@ interface GroupedCategory {
 
 const LessonHomePage: React.FC = () => {
   const { loading: authLoading } = useAuth();
+  const { navigateWithPrefetch } = useUI();
   const [groupedCategories, setGroupedCategories] = useState<GroupedCategory[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -135,9 +137,16 @@ const LessonHomePage: React.FC = () => {
                     <BookOpenCheck className="w-3.5 h-3.5" />
                     LMS Active
                   </span>
-                  <Link to={`/documents/${doc.id}`} className="lesson-card-link">
+                  <a
+                    href={`/documents/${doc.id}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigateWithPrefetch(doc.id);
+                    }}
+                    className="lesson-card-link"
+                  >
                     Vào học <ArrowRight className="w-4 h-4" />
-                  </Link>
+                  </a>
                 </div>
               </div>
             ))}
@@ -184,9 +193,16 @@ const LessonHomePage: React.FC = () => {
                         <BookOpenCheck className="w-3.5 h-3.5" />
                         LMS Active
                       </span>
-                      <Link to={`/documents/${doc.id}`} className="lesson-card-link">
+                      <a
+                        href={`/documents/${doc.id}`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          navigateWithPrefetch(doc.id);
+                        }}
+                        className="lesson-card-link"
+                      >
                         Vào học <ArrowRight className="w-4 h-4" />
-                      </Link>
+                      </a>
                     </div>
                   </div>
                 ))}

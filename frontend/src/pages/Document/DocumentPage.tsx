@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import apiClient from "../../services/client.js";
+import { cachedGet } from "../../utils/apiCache.js";
 import LoadingSpinner from "../../components/common/LoadingSpinner.js";
 import { useAuth } from "../../context/AuthContext.js";
 import { useUI } from "../../context/UIContext.js";
@@ -42,7 +43,7 @@ interface Document {
 }
 
 const DocumentPage: React.FC = () => {
-  const { lessonMode } = useUI();
+  const { lessonMode, setPageLoading } = useUI();
   const { id } = useParams<{ id: string }>();
   const { role, profile, user, loading: authLoading } = useAuth();
 
@@ -64,9 +65,10 @@ const DocumentPage: React.FC = () => {
   useEffect(() => {
     if (!id || authLoading) return;
     setLoading(true);
+    setPageLoading(true);
     Promise.all([
-      apiClient.get(`/api/v1/documents/${id}`),
-      apiClient.get(`/api/v1/questions/document/${id}/limited`),
+      cachedGet(`/api/v1/documents/${id}`),
+      cachedGet(`/api/v1/questions/document/${id}/limited`),
     ])
       .then(([docRes, questRes]) => {
         setDoc(docRes.data.document);
@@ -76,13 +78,15 @@ const DocumentPage: React.FC = () => {
         setLockedCount(questRes.data.lockedCount || 0);
         setRatioPercent(questRes.data.ratioPercent || 100);
         setLoading(false);
+        setPageLoading(false);
       })
       .catch((err) => {
         console.error(err);
         setError("Lỗi tải thông tin tài liệu. Vui lòng thử lại.");
         setLoading(false);
+        setPageLoading(false);
       });
-  }, [id, authLoading]);
+  }, [id, authLoading, setPageLoading]);
 
   // Filter questions based on search query
   const filteredQuestions = questions.filter(
@@ -178,7 +182,7 @@ const DocumentPage: React.FC = () => {
     }
   };
 
-  if (loading) return <LoadingSpinner />;
+  if (loading && !doc) return <LoadingSpinner />;
   if (error || !doc)
     return (
       <div className="doc-error-message">

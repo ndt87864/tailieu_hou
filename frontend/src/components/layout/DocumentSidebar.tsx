@@ -37,7 +37,7 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
   currentDocId,
   isContactPage: _isContactPage = false,
 }) => {
-  const { lessonMode } = useUI();
+  const { lessonMode, navigateWithPrefetch } = useUI();
   const [sidebarCategories, setSidebarCategories] = useState<SidebarCategory[]>([]);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -209,10 +209,14 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
                         {cat.documents.map((d) => {
                           const isActive = d.id === currentDocId;
                           return (
-                            <Link
+                            <a
                               key={d.id}
-                              to={`/documents/${d.id}`}
-                              onClick={() => setMobileOpen(false)}
+                              href={`/documents/${d.id}`}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setMobileOpen(false);
+                                navigateWithPrefetch(d.id);
+                              }}
                               className={`block p-2 rounded-md text-xs transition-all ${
                                 isActive ? "text-white font-bold doc-sidebar-item-active" : "text-white/70 hover:text-white hover:bg-[rgba(255,255,255,0.08)]"
                               }`}
@@ -221,7 +225,7 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
                                 {d.title}
                                 {d.premium && <Crown className="w-2.5 h-2.5 text-amber-400 shrink-0" />}
                               </span>
-                            </Link>
+                            </a>
                           );
                         })}
                       </div>
@@ -293,10 +297,14 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
                       {cat.documents.map((d) => {
                         const isActive = d.id === currentDocId;
                         return (
-                          <Link
+                          <a
                             key={d.id}
-                            to={`/documents/${d.id}`}
-                            onClick={() => setActiveTabletPopover(null)}
+                            href={`/documents/${d.id}`}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setActiveTabletPopover(null);
+                              navigateWithPrefetch(d.id);
+                            }}
                             className={`block p-2 rounded-md text-xs transition-all ${
                               isActive ? "text-white font-bold doc-popover-item-active" : "text-white/70 hover:text-white hover:bg-[rgba(255,255,255,0.08)]"
                             }`}
@@ -305,7 +313,7 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
                               {d.title}
                               {d.premium && <Crown className="w-2.5 h-2.5 text-amber-400 shrink-0" />}
                             </span>
-                          </Link>
+                          </a>
                         );
                       })}
                     </div>
@@ -388,9 +396,13 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
                       {cat.documents.map((d) => {
                         const isActive = d.id === currentDocId;
                         return (
-                          <Link
+                          <a
                             key={d.id}
-                            to={`/documents/${d.id}`}
+                            href={`/documents/${d.id}`}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              navigateWithPrefetch(d.id);
+                            }}
                             className={`block p-2 rounded-md text-xs transition-all ${
                               isActive ? "text-white font-bold border-l-2 doc-sidebar-item-active" : "text-white/70 hover:text-white hover:bg-[rgba(255,255,255,0.08)]"
                             }`}
@@ -399,7 +411,7 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
                               {d.title}
                               {d.premium && <Crown className="w-2.5 h-2.5 text-amber-400 shrink-0" />}
                             </span>
-                          </Link>
+                          </a>
                         );
                       })}
                     </div>

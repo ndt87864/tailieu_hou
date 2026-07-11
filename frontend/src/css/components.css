@@ -1100,6 +1100,56 @@
   transform: scale(1.1) rotate(6deg);
 }
 
+/* Progress bar for route loading indicator */
+.loading-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: transparent;
+  overflow: hidden;
+  z-index: 100;
+}
+
+.loading-progress-bar-global {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: transparent;
+  overflow: hidden;
+  z-index: 9999;
+}
+
+.loading-progress-bar-indicator {
+  width: 100%;
+  height: 100%;
+  background: var(--brand-600);
+  transform-origin: 0% 50%;
+  animation: loading-bar-animation 1.5s infinite linear;
+}
+
+@keyframes loading-bar-animation {
+  0% {
+    transform: scaleX(0);
+  }
+  5% {
+    transform: scaleX(0.25); /* Grows to 25% width almost instantly (in 75ms) */
+  }
+  15% {
+    transform: scaleX(0.5);  /* Grows to 50% width by 225ms */
+  }
+  50% {
+    transform: scaleX(0.75); /* Reaches 75% by 750ms */
+  }
+  100% {
+    transform: scaleX(0.95); /* Slowly crawls to 95% at 1.5s */
+  }
+}
+
+
 
 
 

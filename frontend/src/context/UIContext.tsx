@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext.js";
 import apiClient from "../services/client.js";
+import { cachedGet } from "../utils/apiCache.js";
 
 export type ThemeMode = "light" | "dark" | "system";
 export type PrimaryColor = "green" | "blue" | "red" | "purple" | "yellow" | "brown" | "black";
@@ -36,6 +38,9 @@ interface UIContextType {
   setViewMode: (mode: ViewMode) => void;
   setLessonMode: (mode: boolean) => void;
   loadingSettings: boolean;
+  pageLoading: boolean;
+  setPageLoading: (loading: boolean) => void;
+  navigateWithPrefetch: (docId: string, customLessonMode?: boolean) => Promise<void>;
 }
 
 const UIContext = createContext<UIContextType | undefined>(undefined);
@@ -64,6 +69,7 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   });
 
   const [loadingSettings, setLoadingSettings] = useState<boolean>(true);
+  const [pageLoading, setPageLoading] = useState<boolean>(false);
 
   // Sync settings when receiving messages from iframe
   useEffect(() => {
@@ -202,8 +208,59 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     localStorage.setItem("ui-lesson-mode", String(mode));
   }, []);
 
+  const navigate = useNavigate();
+
+  const navigateWithPrefetch = useCallback(async (docId: string, customLessonMode?: boolean) => {
+    const isLms = customLessonMode !== undefined ? customLessonMode : lessonMode;
+    setPageLoading(true);
+    // Yield the thread to let React render and browser paint the progress bar immediately
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    try {
+      if (isLms) {
+        // Prefetch metadata
+        const metaRes = await cachedGet<{ document: any; courses: any[]; weeks: any[] }>(`/api/v1/documents/${docId}/lessons/metadata`);
+        const courses = metaRes.data.courses || [];
+        const weeks = metaRes.data.weeks || [];
+        if (courses.length > 0 && weeks.length > 0) {
+          const courseParams = [courses[0].id].join(",");
+          const weekParams = [weeks[0]].join(",");
+          // Prefetch resources
+          await cachedGet(`/api/v1/documents/${docId}/lessons/resources?course_ids=${courseParams}&weeks=${encodeURIComponent(weekParams)}`);
+        }
+      } else {
+        // Prefetch document and questions
+        await Promise.all([
+          cachedGet(`/api/v1/documents/${docId}`),
+          cachedGet(`/api/v1/questions/document/${docId}/limited`),
+        ]);
+      }
+      navigate(`/documents/${docId}`);
+    } catch (err) {
+      console.error("Prefetch error:", err);
+      // Fallback navigation
+      navigate(`/documents/${docId}`);
+    } finally {
+      setPageLoading(false);
+    }
+  }, [navigate, lessonMode]);
+
   return (
-    <UIContext.Provider value={{ themeMode, primaryColor, viewMode, lessonMode, setThemeMode, setPrimaryColor, setViewMode, setLessonMode, loadingSettings }}>
+    <UIContext.Provider
+      value={{
+        themeMode,
+        primaryColor,
+        viewMode,
+        lessonMode,
+        setThemeMode,
+        setPrimaryColor,
+        setViewMode,
+        setLessonMode,
+        loadingSettings,
+        pageLoading,
+        setPageLoading,
+        navigateWithPrefetch,
+      }}
+    >
       {children}
     </UIContext.Provider>
   );

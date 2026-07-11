@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { requireRole } from "../middlewares/role.js";
 import * as docService from "../services/documentService.js";
 import type { UserRole } from "../types/index.js";
+import { checkFullAccess, getQuestionRatios } from "../middlewares/questionLimit.js";
 
 type Env = {
   Variables: {
@@ -141,14 +142,15 @@ docsRouter.get("/:id/lessons/resources", async (c) => {
 docsRouter.get("/:id/lessons/questions", async (c) => {
   try {
     const id = c.req.param("id");
-    const userRole = (c.get("role") as UserRole | undefined);
+    const role = (c.get("role") as UserRole | undefined) || "guest";
+    const user = c.get("user");
     
     const document = await docService.getDocumentById(id);
     if (!document) {
       return c.json({ error: "Document not found" }, 404);
     }
 
-    const isPremiumUser = ["plus", "pro", "ultra", "management", "admin"].includes(userRole ?? "");
+    const isPremiumUser = ["plus", "pro", "ultra", "management", "admin"].includes(role);
     if (document.premium && !isPremiumUser) {
       return c.json({ error: "Tài liệu này chỉ dành cho tài khoản Premium", isPremiumLocked: true }, 403);
     }
@@ -159,8 +161,58 @@ docsRouter.get("/:id/lessons/questions", async (c) => {
     const courseIds = courseIdsParam ? courseIdsParam.split(",") : [];
     const weeks = weeksParam ? weeksParam.split(",") : [];
 
-    const questions = await docService.getCrawlerQuestionsFiltered(id, courseIds, weeks);
-    return c.json({ questions });
+    // Helper to extract week number from string (e.g. "Tuần 2 - ..." -> 2)
+    const getWeekNumber = (weekName: string): number => {
+      if (!weekName) return 999;
+      const match = weekName.match(/Tuần\s+(\d+)/i);
+      return match ? parseInt(match[1], 10) : 999;
+    };
+
+    const isBypass = process.env.BYPASS_QUESTION_LIMIT === "true";
+
+    // Run all database calls in parallel to achieve sub-second latency
+    const [allQuestions, hasFullAccess, ratios, questions] = await Promise.all([
+      docService.getCrawlerQuestionsFiltered(id, [], []),
+      isBypass ? true : checkFullAccess(role, user, id),
+      getQuestionRatios(),
+      docService.getCrawlerQuestionsFiltered(id, courseIds, weeks)
+    ]);
+
+    // Sort allQuestions so that smaller weeks come first (getting unlocked first)
+    // and larger/later weeks get pushed to the end (getting locked first)
+    allQuestions.sort((a, b) => {
+      const wa = getWeekNumber(a.week_name);
+      const wb = getWeekNumber(b.week_name);
+      return wa - wb;
+    });
+
+    let allowedIds = new Set<string>();
+    let limitApplied = false;
+    let limitCount = allQuestions.length;
+
+    if (!hasFullAccess) {
+      const targetRole = role === "guest" ? "free" : role;
+      const limitRatio = ratios[targetRole] !== undefined ? ratios[targetRole] : 20;
+
+      limitCount = Math.max(1, Math.round(allQuestions.length * (limitRatio / 100)));
+      limitApplied = true;
+
+      const allowedQuestions = allQuestions.slice(0, limitCount);
+      allowedIds = new Set(allowedQuestions.map(q => q.id));
+    }
+
+    // Apply the limit by filtering only allowed questions
+    const processedQuestions = questions.filter((q: any) => {
+      return hasFullAccess || allowedIds.has(q.id);
+    });
+
+    return c.json({
+      questions: processedQuestions,
+      limitApplied,
+      limitCount,
+      totalCount: allQuestions.length,
+      totalFilteredCount: questions.length
+    });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Outlet } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.js";
 import { BookOpen, User, Shield, LogOut, ChevronDown, Menu, X, Settings, Phone, Wifi, Battery, Signal, Home, Calendar } from "lucide-react";
@@ -34,6 +34,7 @@ export const Header: React.FC<HeaderProps> = ({
   hideMobileMenuToggle = false,
 }) => {
   const { user, role, profile, logout } = useAuth();
+  const { pageLoading } = useUI();
   const location = useLocation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -367,7 +368,7 @@ export const Footer: React.FC = () => (
         </div>
         <div className="flex items-center gap-6 text-xs layout-footer-links">
           <a href="#" className="hover:text-[var(--fg)] transition-colors layout-footer-link">Điều khoản</a>
-          <a href="#" className="hover:text-[var(--fg)] transition-colors layout-footer-link">Hỗ trợ</a>
+                      <a href="#" className="hover:text-[var(--fg)] transition-colors layout-footer-link">Hỗ trợ</a>
           <Link to="/pricing" className="hover:text-[var(--fg)] transition-colors layout-footer-link">Liên hệ</Link>
         </div>
       </div>
@@ -379,7 +380,7 @@ export const Footer: React.FC = () => (
 );
 
 const Layout: React.FC = () => {
-  const { viewMode } = useUI();
+  const { pageLoading } = useUI();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const location = useLocation();
@@ -388,20 +389,6 @@ const Layout: React.FC = () => {
   const isAdminPage = location.pathname.startsWith("/admin");
   const isPricingPage = location.pathname === "/pricing";
   const isFullWidthPage = isDocPage || isAdminPage || isPricingPage;
-
-  // Only simulate if viewMode is not responsive and this is the top window context
-  const isSimulated = viewMode !== "responsive" && window.self === window.top;
-
-  // Sync child URL changes back to parent address bar
-  useEffect(() => {
-    if (window.self !== window.top) {
-      const currentUrl = location.pathname + location.search + location.hash;
-      const parentUrl = window.parent.location.pathname + window.parent.location.search + window.parent.location.hash;
-      if (parentUrl !== currentUrl) {
-        window.parent.history.replaceState(null, "", currentUrl);
-      }
-    }
-  }, [location]);
 
   useEffect(() => {
     const handleOpenSettings = () => setSettingsOpen(true);
@@ -419,14 +406,10 @@ const Layout: React.FC = () => {
   const hasDocumentSidebar = isDocPage || isPricingPage;
 
   const content = hasDocumentSidebar ? (
-    <div className={`layout-content-wrapper view-mode-${viewMode} flex flex-row min-h-screen w-full`}>
+    <div className="layout-content-wrapper flex flex-row min-h-screen w-full">
       <DocumentSidebar currentDocId={isDocPage ? location.pathname.split("/")[2] : undefined} isContactPage={isPricingPage} />
       <div className="flex-1 flex flex-col min-w-0 min-h-screen bg-[var(--bg)]">
-        <main
-          className={`flex-1 flex flex-col ${
-            isSimulated && viewMode !== "desktop" ? "layout-main-static-scrollable" : ""
-          }`}
-        >
+        <main className="flex-1 flex flex-col">
           <Outlet />
         </main>
         <Footer />
@@ -435,7 +418,7 @@ const Layout: React.FC = () => {
       <EditProfileModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} />
     </div>
   ) : (
-    <div className={`layout-content-wrapper view-mode-${viewMode}`}>
+    <div className="layout-content-wrapper">
       {!isDocPage && !isAdminPage && !isPricingPage && (
         <Header 
           onOpenSettings={() => setSettingsOpen(true)} 
@@ -443,11 +426,7 @@ const Layout: React.FC = () => {
           hideMobileMenuToggle={false} 
         />
       )}
-      <main
-        className={`layout-main-static ${
-          isSimulated && viewMode !== "desktop" ? "layout-main-static-scrollable" : ""
-        }`}
-      >
+      <main className="layout-main-static">
         {isFullWidthPage ? (
           <Outlet />
         ) : (
@@ -462,32 +441,16 @@ const Layout: React.FC = () => {
     </div>
   );
 
-  if (isSimulated) {
-    return (
-      <div className={`layout-simulated-container view-mode-${viewMode}`}>
-        <div className={`layout-simulated-device view-mode-${viewMode}`}>
-          {viewMode !== "desktop" && (
-            <div className="layout-simulated-device-header">
-              <span className="layout-simulated-device-status-time">09:41</span>
-              <div className="layout-simulated-device-notch" />
-              <div className="layout-simulated-device-icons">
-                <Wifi className="w-3.5 h-3.5" />
-                <Signal className="w-3.5 h-3.5" />
-                <Battery className="w-3.5 h-3.5" />
-              </div>
-            </div>
-          )}
-          <iframe
-            src={location.pathname + location.search + location.hash}
-            className="layout-simulated-iframe"
-            title="Device Simulation"
-          />
+  return (
+    <>
+      {pageLoading && (
+        <div className="loading-progress-bar-global">
+          <div className="loading-progress-bar-indicator" />
         </div>
-      </div>
-    );
-  }
-
-  return content;
+      )}
+      {content}
+    </>
+  );
 };
 
 export default Layout;
