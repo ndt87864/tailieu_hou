@@ -85,11 +85,9 @@
 }
 
 .lt-container.light-mode .lt-glass-panel {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.2) 100%);
+  background: rgba(255, 255, 255, 0.45);
   border: 1px solid rgba(255, 255, 255, 0.5);
-  border-top: 1px solid rgba(255, 255, 255, 0.8);
-  border-left: 1px solid rgba(255, 255, 255, 0.8);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 10px 40px rgba(var(--theme-primary-rgb), 0.04);
 }
 
 .lt-container.dark-mode .lt-glass-panel {
@@ -171,9 +169,9 @@
 }
 
 .lt-container.light-mode .lt-info-card {
-  background: rgba(255, 255, 255, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+  background: rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 8px 32px rgba(var(--theme-primary-rgb), 0.03);
 }
 
 .lt-container.dark-mode .lt-info-card {
@@ -194,8 +192,9 @@
 }
 
 .lt-container.light-mode .lt-info-profile-pane {
-  background: rgba(255, 255, 255, 0.42);
-  border: 1px solid rgba(255, 255, 255, 0.8);
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
 }
 
 .lt-container.dark-mode .lt-info-profile-pane {
@@ -232,8 +231,8 @@
 }
 
 .lt-container.light-mode .lt-info-meta-item {
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.95);
+  background: #f1f5f9;
+  border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .lt-container.dark-mode .lt-info-meta-item {

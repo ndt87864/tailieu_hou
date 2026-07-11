@@ -108,13 +108,17 @@
 
 /* Category Filter Buttons */
 .home-filter-btn-active {
-  background: var(--brand-600);
-  color: #fff;
+  background: var(--brand-50);
+  color: var(--brand-700);
+  border-color: var(--brand-400) !important;
+  border-radius: 9999px;
+  box-shadow: 0 1px 2px rgba(var(--brand-rgb), 0.08);
 }
 
 .home-filter-btn-inactive {
   background: var(--surface);
   border: 1px solid var(--border);
-  color: var(--muted);
+  border-radius: 9999px;
+  color: var(--fg-2);
 }
 

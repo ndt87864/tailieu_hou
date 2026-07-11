@@ -228,7 +228,7 @@ const HomePage: React.FC = () => {
         <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-1 scrollbar-none">
           <button
             onClick={() => setSelectedCategory(null)}
-            className={`shrink-0 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-250 ${
+            className={`shrink-0 px-4 py-2 rounded-full text-xs font-semibold transition-all duration-250 ${
               !selectedCategory ? "home-filter-btn-active" : "home-filter-btn-inactive"
             }`}
           >
@@ -243,11 +243,11 @@ const HomePage: React.FC = () => {
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(active ? null : cat)}
-                className={`shrink-0 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-250 inline-flex items-center gap-1.5 ${
+                className={`shrink-0 px-4 py-2 rounded-full text-xs font-semibold transition-all duration-250 inline-flex items-center gap-1.5 ${
                   active ? "home-filter-btn-active" : "home-filter-btn-inactive"
                 }`}
               >
-                {info.icon(`w-3.5 h-3.5 ${active ? 'text-white' : 'text-[var(--brand-600)]'}`)}
+                {info.icon(`w-3.5 h-3.5 ${active ? 'text-[var(--brand-700)]' : 'text-[var(--brand-600)]'}`)}
                 {info.label}
               </button>
             );
@@ -319,7 +319,7 @@ const HomePage: React.FC = () => {
               return (
                 <div
                   key={cat.id}
-                  className="card flex flex-col animate-fade-up p-6 home-category-card"
+                  className="lesson-card animate-fade-up home-category-card"
                 >
                   {/* Category Header */}
                   <div className="flex items-center gap-3 mb-4 pb-3 home-card-header">

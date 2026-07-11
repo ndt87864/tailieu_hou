@@ -387,7 +387,7 @@ const Layout: React.FC = () => {
   const isDocPage = location.pathname.startsWith("/documents/");
   const isAdminPage = location.pathname.startsWith("/admin");
   const isPricingPage = location.pathname === "/pricing";
-  const isFullWidthPage = isDocPage || isAdminPage || isPricingPage;
+  const isFullWidthPage = isDocPage || isAdminPage || isPricingPage || location.pathname === "/lich-thi";
 
   useEffect(() => {
     const handleOpenSettings = () => setSettingsOpen(true);

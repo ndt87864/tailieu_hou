@@ -197,3 +197,9 @@ export const isAnswerMatching = (choice: string, answer: string): boolean => {
   }
   return false;
 };
+
+/** Loại bỏ các tiền tố lựa chọn dạng a., b., A., c) khỏi text hiển thị */
+export const stripOptionPrefix = (text: string): string => {
+  if (!text) return "";
+  return text.replace(/^[a-eA-E1-5][\.\)\-\:\s]\s*/, "").trim();
+};
