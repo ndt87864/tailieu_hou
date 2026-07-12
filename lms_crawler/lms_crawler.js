@@ -1050,12 +1050,19 @@ async function main() {
                           .from("crawler_questions")
                           .select("id, answer")
                           .eq("course_id", dbCourse.id)
-                          .eq("question", qData.question)
-                          .limit(1);
-                        const existingQ = existingQs && existingQs.length > 0 ? existingQs[0] : null;
+                          .eq("question", qData.question);
+                        
+                        // Chuẩn hóa đáp án đang chuẩn bị chèn
+                        const cleanNewAnswer = qData.answer ? qData.answer.replace(/^[a-eA-E][\.\)\-\:]\s*/i, "").trim().toLowerCase() : "";
+
+                        // Tìm câu trùng có cùng câu hỏi và có cùng nội dung đáp án (sau khi chuẩn hóa nhãn A., B., C., D.)
+                        const existingQ = existingQs && existingQs.length > 0 ? existingQs.find(eq => {
+                          const cleanExistAnswer = eq.answer ? eq.answer.replace(/^[a-eA-E][\.\)\-\:]\s*/i, "").trim().toLowerCase() : "";
+                          return cleanExistAnswer === cleanNewAnswer;
+                        }) : null;
 
                         if (existingQ && existingQ.answer && existingQ.answer.trim() !== "") {
-                          //console.log(`      ⏭️ Câu hỏi [${i + 1}] đã tồn tại trong DB và đã có đáp án. Bỏ qua.`);
+                          //console.log(`      ⏭️ Câu hỏi [${i + 1}] đã tồn tại trong DB và đã có đáp án tương đồng. Bỏ qua.`);
                           continue;
                         }
 
