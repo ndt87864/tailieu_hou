@@ -211,7 +211,7 @@ export const SessionsTab: React.FC = () => {
                         <td className="text-right space-x-2">
                           <button
                             onClick={() => openEditModal(s)}
-                            className="btn-action hover:text-blue-500 inline-flex items-center p-1 rounded hover:bg-blue-500/10"
+                            className="btn-action hover:text-[var(--brand-600)] inline-flex items-center p-1 rounded hover:bg-[var(--brand-600)]/10"
                             title="Sửa"
                           >
                             <Edit2 className="w-4 h-4" />

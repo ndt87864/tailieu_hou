@@ -131,7 +131,7 @@ const RoomTable: React.FC<RoomTableProps> = ({
                             )}
                           </td>
                           <td className="text-right space-x-2">
-                            <button onClick={() => openEdit(r)} className="btn-action hover:text-blue-500 inline-flex items-center p-1 rounded hover:bg-blue-500/10">Sửa</button>
+                            <button onClick={() => openEdit(r)} className="btn-action hover:text-[var(--brand-600)] inline-flex items-center p-1 rounded hover:bg-[var(--brand-600)]/10">Sửa</button>
                             <button onClick={() => handleDeleteRoom(r)} disabled={isSaving} className="btn-action hover:text-red-500 inline-flex items-center p-1 rounded hover:bg-red-500/10">Xóa</button>
                           </td>
                         </tr>
@@ -166,7 +166,7 @@ const RoomTable: React.FC<RoomTableProps> = ({
                       )}
                     </td>
                     <td className="text-right space-x-2">
-                      <button onClick={() => openEdit(r)} className="btn-action hover:text-blue-500 inline-flex items-center p-1 rounded hover:bg-blue-500/10">Sửa</button>
+                      <button onClick={() => openEdit(r)} className="btn-action hover:text-[var(--brand-600)] inline-flex items-center p-1 rounded hover:bg-[var(--brand-600)]/10">Sửa</button>
                       <button onClick={() => handleDeleteRoom(r)} disabled={isSaving} className="btn-action hover:text-red-500 inline-flex items-center p-1 rounded hover:bg-red-500/10">Xóa</button>
                     </td>
                   </tr>

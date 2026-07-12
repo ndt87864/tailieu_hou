@@ -29,6 +29,7 @@ interface Question {
   choices: string[];
   url_question?: string | null;
   url_answer?: string | null;
+  url_choices?: string | null; // Bổ sung trường url_choices
   order_index: number;
 }
 
@@ -65,6 +66,7 @@ const QuestionsTab: React.FC = () => {
     order_index: 1,
     url_question: "",
     url_answer: "",
+    url_choices: "", // Thêm trường url_choices vào formData
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -144,6 +146,17 @@ const QuestionsTab: React.FC = () => {
       .filter((line) => line !== "");
 
     const targetDocId = formData.document_id || selectedDocId;
+    // Gom các URL của từng lựa chọn (mỗi dòng là một lựa chọn chứa nhiều link cách nhau bởi dấu phẩy) thành một chuỗi duy nhất ngăn cách bằng dấu phẩy
+    const formattedUrlChoices = formData.url_choices
+      ? formData.url_choices
+          .split("\n")
+          .map(line => line.trim())
+          .filter(Boolean)
+          .map(line => line.split(",").map(url => url.trim()).filter(Boolean).join(","))
+          .filter(Boolean)
+          .join(",")
+      : null;
+
     const payload = {
       document_id: targetDocId,
       question: formData.question,
@@ -152,6 +165,7 @@ const QuestionsTab: React.FC = () => {
       order_index: formData.order_index,
       url_question: formData.url_question || null,
       url_answer: formData.url_answer || null,
+      url_choices: formattedUrlChoices,
     };
 
     try {
@@ -181,20 +195,85 @@ const QuestionsTab: React.FC = () => {
       order_index: questions.length + 1,
       url_question: "",
       url_answer: "",
+      url_choices: "",
     });
     setShowModal(true);
   };
 
   const handleEditClick = (q: Question) => {
     setEditingQuestion(q);
+    
+    // Tự động phân chia danh sách url_choices (cách nhau bởi dấu phẩy) vào 4 lựa chọn A, B, C, D bằng cách khớp tên file ảnh
+    const choices = Array.isArray(q.choices) ? q.choices : [];
+    const allUrls = q.url_choices
+      ? q.url_choices.split(",").map(u => u.trim()).filter(Boolean)
+      : [];
+      
+    // Khởi tạo mảng chứa danh sách URL cho từng lựa chọn (A, B, C, D)
+    const groupedUrls: string[][] = [[], [], [], []];
+    
+    choices.forEach((choiceText, idx) => {
+      if (idx >= 4) return;
+      // Tìm các link ảnh LMS trong lựa chọn này
+      const urlRegex = /(?:https?:\/\/[^\s"']+\/pluginfile\.php\/[^\s"']+\.(?:png|jpe?g|gif|svg|webp|bmp)|@@PLUGINFILE@@\/[^\s"']+\.(?:png|jpe?g|gif|svg|webp|bmp)|[A-Za-z0-9_\-]+\.(?:png|jpe?g|gif|svg|webp|bmp))/gi;
+      const matches = choiceText.match(urlRegex) || [];
+      
+      matches.forEach(match => {
+        // Trích xuất tên file
+        let filename = "";
+        const parts = match.split(/[/\\]/);
+        filename = parts[parts.length - 1].split("?")[0].toLowerCase();
+        
+        if (filename) {
+          // Tìm link tương ứng trong allUrls chứa filename này
+          allUrls.forEach(url => {
+            try {
+              const decoded = decodeURIComponent(url).toLowerCase();
+              if (decoded.includes(filename) || decoded.endsWith(filename)) {
+                if (!groupedUrls[idx].includes(url)) {
+                  groupedUrls[idx].push(url);
+                }
+              }
+            } catch (e) {
+              if (url.toLowerCase().includes(filename)) {
+                if (!groupedUrls[idx].includes(url)) {
+                  groupedUrls[idx].push(url);
+                }
+              }
+            }
+          });
+        }
+      });
+    });
+
+    // Nếu không khớp được ảnh nào hoặc còn sót, phân bổ đều theo thứ tự của các lựa chọn có link ảnh
+    const matchedCount = groupedUrls.flat().length;
+    if (matchedCount === 0 && allUrls.length > 0) {
+      // Phân chia thô theo thứ tự: chia đều số link cho các lựa chọn có xuất hiện ảnh
+      let currentUrlIdx = 0;
+      choices.forEach((choiceText, idx) => {
+        if (idx >= 4) return;
+        const hasLmsImage = /pluginfile\.php|@@PLUGINFILE@@|\.(png|jpg|jpeg|gif)/gi.test(choiceText);
+        if (hasLmsImage && currentUrlIdx < allUrls.length) {
+          // Giả định mỗi lựa chọn lấy số lượng link tương ứng
+          groupedUrls[idx].push(allUrls[currentUrlIdx]);
+          currentUrlIdx++;
+        }
+      });
+    }
+
+    // Biến đổi thành chuỗi phân tách bằng dấu xuống dòng \n (mỗi dòng đại diện cho một lựa chọn, các URL con cách nhau bằng dấu phẩy)
+    const formattedUrlChoices = groupedUrls.map(urls => urls.join(",")).join("\n");
+
     setFormData({
       document_id: q.document_id,
       question: q.question,
       answer: q.answer || "",
-      choicesText: Array.isArray(q.choices) ? q.choices.join("\n") : "",
+      choicesText: choices.join("\n"),
       order_index: q.order_index,
       url_question: q.url_question || "",
       url_answer: q.url_answer || "",
+      url_choices: formattedUrlChoices,
     });
     setShowModal(true);
   };
@@ -246,6 +325,7 @@ const QuestionsTab: React.FC = () => {
       order_index: 1,
       url_question: "",
       url_answer: "",
+      url_choices: "",
     });
     setShowModal(false);
   };

@@ -5,8 +5,31 @@
 
 /* ── Admin Sidebar (AdminPage.tsx) ── */
 .admin-sidebar-bg {
-  background: var(--brand-600);
-  color: #fff;
+  background: var(--grad-hero);
+  color: var(--accent-on, #ffffff);
+}
+
+.admin-sidebar {
+  background: var(--grad-hero);
+  color: var(--accent-on, #ffffff);
+}
+
+.admin-sidebar-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.admin-nav-btn {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.admin-nav-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--accent-on, #ffffff);
+}
+
+.admin-nav-btn.active {
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--accent-on, #ffffff);
 }
 
 .admin-menu-btn-mobile {
@@ -55,7 +78,7 @@
 /* ── Common Buttons ── */
 .btn-primary {
   background: var(--brand-600);
-  color: #fff;
+  color: var(--accent-on, #ffffff);
 }
 
 .btn-cancel {
