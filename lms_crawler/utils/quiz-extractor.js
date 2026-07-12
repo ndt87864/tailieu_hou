@@ -8,21 +8,21 @@ async function extractMultipleChoice($review, qBlock, getCookieHeader) {
   const choices = [];
   const choiceImgsList = [];
   const choiceBlocks = $review(qBlock).find(".answer div[class*='r0'], .answer div[class*='r1']");
-  
+
   for (let c = 0; c < choiceBlocks.length; c++) {
     const imgTags = $review(choiceBlocks[c]).find("img");
     for (let i = 0; i < imgTags.length; i++) {
       const src = $review(imgTags[i]).attr("src");
       if (src && !src.includes("grade_") && !src.includes("/theme/image.php") && !src.includes("coursemos/core")) {
         try {
-          const publicUrl = await uploadFileToStorage(src, "images/choices", getCookieHeader);
+          const publicUrl = await uploadFileToStorage(src, "images/choice_url", getCookieHeader);
           choiceImgsList.push(publicUrl);
-        } catch (e) {}
+        } catch (e) { }
       }
     }
 
     const choiceHtml = $review(choiceBlocks[c]).html() || "";
-    const { cleanHtml: choiceClean } = await processHtmlImagesAndUpload(choiceHtml, getCookieHeader, "images/choices");
+    const { cleanHtml: choiceClean } = await processHtmlImagesAndUpload(choiceHtml, getCookieHeader, "images/choice_url");
     const $temp = cheerio.load(choiceClean);
     $temp("input, span.control").remove();
     $temp("img").each((i, img) => {
@@ -50,9 +50,9 @@ async function extractMultipleChoice($review, qBlock, getCookieHeader) {
       const src = $review(imgTags[i]).attr("src");
       if (src && !src.includes("grade_") && !src.includes("/theme/image.php") && !src.includes("coursemos/core")) {
         try {
-          const publicUrl = await uploadFileToStorage(src, "images/answer", getCookieHeader);
+          const publicUrl = await uploadFileToStorage(src, "images/answer_url", getCookieHeader);
           ansImgsList.push(publicUrl);
-        } catch (e) {}
+        } catch (e) { }
       }
     }
 
@@ -79,11 +79,11 @@ async function extractMultipleChoice($review, qBlock, getCookieHeader) {
       const alt = ($review(imgEl).attr("alt") || "").toLowerCase();
       const title = ($review(imgEl).attr("title") || "").toLowerCase();
       const src = ($review(imgEl).attr("src") || "").toLowerCase();
-      
-      const isIncorrect = alt.includes("không") || alt.includes("incorrect") || 
-                          title.includes("không") || title.includes("incorrect") || 
-                          src.includes("incorrect") || src.includes("grade_incorrect");
-      
+
+      const isIncorrect = alt.includes("không") || alt.includes("incorrect") ||
+        title.includes("không") || title.includes("incorrect") ||
+        src.includes("incorrect") || src.includes("grade_incorrect");
+
       if (!isIncorrect && (alt.includes("đúng") || alt.includes("correct") || src.includes("grade_correct"))) {
         const matchedChoiceEl = $review(imgEl).closest(".r0, .r1, label, div");
         if (matchedChoiceEl.length > 0) {
@@ -126,7 +126,7 @@ async function extractQuestionText($review, qBlock, getCookieHeader) {
   if (qtextEl.length === 0) return { questionText: "", qImgs: [] };
 
   const qtextHtml = qtextEl.html() || "";
-  const { cleanHtml, uploadedImages: qImgs } = await processHtmlImagesAndUpload(qtextHtml, getCookieHeader);
+  const { cleanHtml, uploadedImages: qImgs } = await processHtmlImagesAndUpload(qtextHtml, getCookieHeader, "images/question_url");
   const $temp = cheerio.load(cleanHtml);
   $temp("script, style, .answer, label, .prompt, .accesshide").remove();
   $temp("img").each((i, img) => {
@@ -140,7 +140,7 @@ async function extractQuestionText($review, qBlock, getCookieHeader) {
     }
   });
   const questionText = cleanQuestionText($temp, $temp.root());
-  
+
   return { questionText, qImgs };
 }
 
