@@ -354,7 +354,7 @@
   padding: 0.875rem;
   font-weight: 600;
   font-size: 0.95rem;
-  color: #ffffff;
+  color: var(--accent-on, #ffffff);
   box-shadow: 0 4px 15px -3px color-mix(in srgb, var(--brand-600) 30%, transparent);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;

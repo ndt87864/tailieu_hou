@@ -64,7 +64,8 @@
   border: 1px solid var(--border);
 }
 
-/* UI Settings Modal Specific Styles */
+/* ── UI Settings Modal ── */
+
 .ui-settings-modal-label {
   color: var(--fg-2);
   font-size: 0.8rem;
@@ -78,6 +79,11 @@
   background: var(--surface-2);
   color: var(--muted);
 }
+.ui-settings-btn-option:hover {
+  border-color: var(--brand-400);
+  color: var(--fg);
+  background: var(--surface);
+}
 
 .ui-settings-btn-option-active {
   border: 2px solid var(--brand-600);
@@ -87,86 +93,138 @@
 
 .ui-settings-color-active {
   color: var(--fg);
-  background: rgba(var(--brand-rgb, 17, 141, 5), 0.06);
+  background: rgba(var(--brand-rgb), 0.07);
+  border-width: 2px !important;
 }
 
-/* HOU Green Preset */
-.ui-settings-color-circle-green {
-  background: #118d05;
+/* ── Color Circles Base ── */
+.ui-settings-color-circle {
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
-.ui-settings-color-btn-green.active {
-  border: 2px solid #118d05 !important;
+.ui-settings-color-circle.active {
+  transform: scale(1.12);
 }
-.ui-settings-color-circle-green.active {
-  box-shadow: 0 0 0 2px rgba(17, 141, 5, 0.2);
+.ui-settings-color-btn {
+  transition: all 0.2s ease;
+}
+.ui-settings-color-btn:hover .ui-settings-color-circle {
+  transform: scale(1.08);
 }
 
-/* Ocean Blue Preset */
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Xanh dương — Cobalt → Electric Blue #2563eb
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 .ui-settings-color-circle-blue {
-  background: #2563eb;
+  background: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%);
 }
 .ui-settings-color-btn-blue.active {
   border: 2px solid #2563eb !important;
+  background: rgba(37, 99, 235, 0.07) !important;
 }
 .ui-settings-color-circle-blue.active {
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25), 0 2px 8px rgba(37, 99, 235, 0.35);
 }
 
-/* Royal Purple Preset */
-.ui-settings-color-circle-purple {
-  background: #7c3aed;
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Neon Green — Forest → Electric #15803d → #39ff14
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.ui-settings-color-circle-lime {
+  background: linear-gradient(135deg, #15803d 0%, #39ff14 100%);
 }
-.ui-settings-color-btn-purple.active {
-  border: 2px solid #7c3aed !important;
+.ui-settings-color-btn-lime.active {
+  border: 2px solid #16a34a !important;
+  background: rgba(22, 163, 74, 0.07) !important;
 }
-.ui-settings-color-circle-purple.active {
-  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.2);
-}
-
-/* Red/Rose Preset */
-.ui-settings-color-circle-red, .ui-settings-color-circle-rose {
-  background: #cc0000;
-}
-.ui-settings-color-btn-red.active, .ui-settings-color-btn-rose.active {
-  border: 2px solid #cc0000 !important;
-}
-.ui-settings-color-circle-red.active, .ui-settings-color-circle-rose.active {
-  box-shadow: 0 0 0 2px rgba(204, 0, 0, 0.2);
+.ui-settings-color-circle-lime.active {
+  box-shadow: 0 0 0 3px rgba(57, 255, 20, 0.22), 0 2px 8px rgba(22, 163, 74, 0.35);
 }
 
-/* Yellow Preset */
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Đỏ tươi — Crimson #be123c → Rose #fb7185
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.ui-settings-color-circle-red {
+  background: linear-gradient(135deg, #be123c 0%, #f43f5e 100%);
+}
+.ui-settings-color-btn-red.active {
+  border: 2px solid #e11d48 !important;
+  background: rgba(225, 29, 72, 0.07) !important;
+}
+.ui-settings-color-circle-red.active {
+  box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.25), 0 2px 8px rgba(225, 29, 72, 0.35);
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Cam tươi — Thuần cam #c2410c → Bright #f97316 → Peach
+   Không đỏ, không vàng — thuần cam trái cây
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.ui-settings-color-circle-orange {
+  background: linear-gradient(135deg, #c2410c 0%, #f97316 60%, #fdba74 100%);
+}
+.ui-settings-color-btn-orange.active {
+  border: 2px solid #f97316 !important;
+  background: rgba(249, 115, 22, 0.07) !important;
+}
+.ui-settings-color-circle-orange.active {
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.25), 0 2px 8px rgba(234, 88, 12, 0.35);
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Vàng thuần — Gold #a16207 → Canary #facc15 → F2CB05
+   Thuần vàng sáng như nắng, không pha cam
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 .ui-settings-color-circle-yellow {
-  background: #ccbb00;
+  background: linear-gradient(135deg, #a16207 0%, #eab308 50%, #F2CB05 100%);
 }
 .ui-settings-color-btn-yellow.active {
-  border: 2px solid #ccbb00 !important;
+  border: 2px solid #ca8a04 !important;
+  background: rgba(202, 138, 4, 0.07) !important;
 }
 .ui-settings-color-circle-yellow.active {
-  box-shadow: 0 0 0 2px rgba(204, 187, 0, 0.2);
+  box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.28), 0 2px 8px rgba(202, 138, 4, 0.4);
 }
 
-/* Brown Preset */
-.ui-settings-color-circle-brown {
-  background: #996633;
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Bạc hà — Deep Emerald #047857 → Mint #34d399
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.ui-settings-color-circle-mint {
+  background: linear-gradient(135deg, #047857 0%, #10b981 60%, #34d399 100%);
 }
-.ui-settings-color-btn-brown.active {
-  border: 2px solid #996633 !important;
+.ui-settings-color-btn-mint.active {
+  border: 2px solid #059669 !important;
+  background: rgba(5, 150, 105, 0.07) !important;
 }
-.ui-settings-color-circle-brown.active {
-  box-shadow: 0 0 0 2px rgba(153, 102, 51, 0.2);
-}
-
-/* Black Preset */
-.ui-settings-color-circle-black {
-  background: #333333;
-}
-.ui-settings-color-btn-black.active {
-  border: 2px solid #333333 !important;
-}
-.ui-settings-color-circle-black.active {
-  box-shadow: 0 0 0 2px rgba(51, 51, 51, 0.2);
+.ui-settings-color-circle-mint.active {
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25), 0 2px 8px rgba(5, 150, 105, 0.35);
 }
 
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Đen xám — Night #0f172a → Steel #64748b
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.ui-settings-color-circle-charcoal {
+  background: linear-gradient(135deg, #0f172a 0%, #334155 55%, #64748b 100%);
+}
+.ui-settings-color-btn-charcoal.active {
+  border: 2px solid #475569 !important;
+  background: rgba(71, 85, 105, 0.07) !important;
+}
+.ui-settings-color-circle-charcoal.active {
+  box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.25), 0 2px 8px rgba(71, 85, 105, 0.35);
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Tím — Amethyst #7e22ce → Violet #a855f7 → Lavender
+   Sang trọng, editorial — không AI neon
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.ui-settings-color-circle-purple {
+  background: linear-gradient(135deg, #7e22ce 0%, #a855f7 60%, #d8b4fe 100%);
+}
+.ui-settings-color-btn-purple.active {
+  border: 2px solid #9333ea !important;
+  background: rgba(147, 51, 234, 0.07) !important;
+}
+.ui-settings-color-circle-purple.active {
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.25), 0 2px 8px rgba(147, 51, 234, 0.35);
+}
 
 .ui-settings-note {
   color: var(--meta);
@@ -176,4 +234,3 @@
   padding: 0.5rem 0.75rem;
   border-radius: 0.5rem;
 }
-

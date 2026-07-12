@@ -22,15 +22,16 @@ const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) =>
     { value: "system", label: "Hệ thống", icon: <Laptop className="w-4 h-4" /> },
   ];
 
-  // Bảng màu giống hệt tailieu-ehou
+  // Bảng màu tùy chỉnh giao diện mới
   const colors: { value: PrimaryColor; label: string; hex: string }[] = [
-    { value: "green",  label: "Xanh lá",    hex: "#118d05" },
-    { value: "blue",   label: "Xanh dương", hex: "#0066cc" },
-    { value: "red",    label: "Đỏ",         hex: "#cc0000" },
-    { value: "purple", label: "Tím",        hex: "#6600cc" },
-    { value: "yellow", label: "Vàng",       hex: "#ccbb00" },
-    { value: "brown",  label: "Nâu",        hex: "#996633" },
-    { value: "black",  label: "Đen",        hex: "#333333" },
+    { value: "blue",     label: "Xanh dương",  hex: "#2563eb" },
+    { value: "lime",     label: "Neon green",  hex: "#39ff14" },
+    { value: "red",      label: "Đỏ tươi",     hex: "#e11d48" },
+    { value: "orange",   label: "Cam tươi",    hex: "#f97316" },
+    { value: "yellow",   label: "Vàng",        hex: "#eab308" },
+    { value: "mint",     label: "Bạc hà",      hex: "#10b981" },
+    { value: "charcoal", label: "Đen xám",     hex: "#475569" },
+    { value: "purple",   label: "Tím",         hex: "#9333ea" },
   ];
 
   return (

@@ -5,12 +5,12 @@ import apiClient from "../services/client.js";
 import { cachedGet } from "../utils/apiCache.js";
 
 export type ThemeMode = "light" | "dark" | "system";
-export type PrimaryColor = "green" | "blue" | "red" | "purple" | "yellow" | "brown" | "black";
+export type PrimaryColor = "blue" | "lime" | "red" | "orange" | "yellow" | "mint" | "charcoal" | "purple";
 export type ViewMode = "responsive" | "desktop" | "tablet" | "mobile";
 
 const COLOR_CLASSES = [
-  "theme-green", "theme-blue", "theme-red",
-  "theme-purple", "theme-yellow", "theme-brown", "theme-black",
+  "theme-blue", "theme-lime", "theme-red",
+  "theme-orange", "theme-yellow", "theme-mint", "theme-charcoal", "theme-purple",
 ] as const;
 
 /** Áp dụng ngay vào DOM — không phụ thuộc vào React re-render */
@@ -54,7 +54,7 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   });
 
   const [primaryColor, setPrimaryColorState] = useState<PrimaryColor>(() => {
-    return (localStorage.getItem("ui-primary-color") as PrimaryColor) || "green";
+    return (localStorage.getItem("ui-primary-color") as PrimaryColor) || "blue";
   });
 
   const [viewMode, setViewModeState] = useState<ViewMode>(() => {
@@ -126,7 +126,10 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const res = await apiClient.get("/api/v1/auth/ui-settings");
           if (!cancelled && res.data) {
             const serverTheme = (res.data.theme_mode as ThemeMode) || "system";
-            const serverColor = (res.data.primary_color as PrimaryColor) || "green";
+            let serverColor = res.data.primary_color as PrimaryColor;
+            if (!serverColor || !["blue", "lime", "red", "orange", "yellow", "mint", "charcoal", "purple"].includes(serverColor)) {
+              serverColor = "blue";
+            }
             setThemeModeState(serverTheme);
             setPrimaryColorState(serverColor);
             localStorage.setItem("ui-theme-mode", serverTheme);

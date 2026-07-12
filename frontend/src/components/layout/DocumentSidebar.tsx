@@ -4,7 +4,7 @@ import apiClient from "../../services/client.js";
 import * as Icons from "lucide-react";
 import { useUI } from "../../context/UIContext.js";
 
-const { BookOpen, ChevronDown, ChevronRight, ChevronLeft, X, Crown, Search } = Icons;
+const { BookOpen,GraduationCap, ChevronDown, ChevronRight, ChevronLeft, X, Crown, Search } = Icons;
 
 interface Document {
   id: string;
@@ -161,7 +161,7 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
           >
             <div className="p-4 flex items-center justify-between border-b doc-border-brand shrink-0">
               <Link to="/" className="font-bold flex items-center gap-2 text-white hover:opacity-80 transition-opacity">
-                <BookOpen className="w-5 h-5 text-white" /> Tài liệu HOU
+                <GraduationCap className="w-5 h-5 text-white" /> Tài liệu HOU
               </Link>
               <button onClick={() => setMobileOpen(false)} className="p-1 rounded text-white/80 hover:text-white">
                 <X className="w-6 h-6" />
@@ -255,7 +255,7 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
         className={`${isCollapsed ? "hidden md:flex" : "hidden"} w-20 shrink-0 flex-col items-center py-6 border-r md:sticky md:top-0 md:h-[calc(100vh/0.9)] z-20 doc-brand-header`}
       >
         <Link to="/" className="mb-4 text-white hover:opacity-80 transition-opacity" title="Về trang chủ">
-          <BookOpen className="w-6 h-6" />
+          <GraduationCap className="w-6 h-6" />
         </Link>
         <button
           onClick={toggleCollapse}
@@ -343,7 +343,7 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
               to="/"
               className="flex items-center gap-2.5 font-bold text-lg text-white hover:opacity-80 transition-opacity"
             >
-              <BookOpen className="w-5 h-5 text-white" />
+              <GraduationCap className="w-5 h-5 text-white" />
               <span>Tài liệu HOU</span>
             </Link>
             <button

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { supabase } from "../../context/AuthContext.js";
 import { toast } from "react-toastify";
-import { BookOpen, Mail, Lock, Eye, EyeOff, ArrowRight, LogIn, UserPlus, KeyRound, CheckCircle, User, Phone, GraduationCap, Compass, BookOpenCheck } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowRight, LogIn, UserPlus, CheckCircle, User, Phone, GraduationCap, Compass, BookOpenCheck } from "lucide-react";
 import "../../css/login.css";
 
 const LoginPage: React.FC = () => {
@@ -92,7 +92,7 @@ const LoginPage: React.FC = () => {
       <div className="login-hero-content">
         <div className="login-hero-badge">
           <GraduationCap className="w-4 h-4 text-emerald-300" />
-          Học viện Tri thức HOU
+          Tài liệu HOU
         </div>
         <h2 className="login-hero-title">
           Chìa khóa chinh phục mọi kỳ thi

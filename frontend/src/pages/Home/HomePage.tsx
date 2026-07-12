@@ -188,8 +188,8 @@ const HomePage: React.FC = () => {
         <div className="absolute inset-0 opacity-20 home-hero-mesh" />
         <div className="relative px-6 py-12 sm:px-12 sm:py-16 flex flex-col items-center text-center">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-white/90 text-xs font-semibold mb-6 home-hero-search-card">
-            <BookOpen className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-            Học viện Tri thức & Ôn thi HOU
+            <GraduationCap className="w-4 h-4 text-white" />
+            Tài liệu ôn thi HOU
           </div>
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight text-balance max-w-3xl leading-tight">
             Kho Tài Liệu Học Tập Chuẩn Hóa
@@ -220,7 +220,7 @@ const HomePage: React.FC = () => {
           {/* Stats Bar */}
           <div className="mt-10 flex flex-wrap justify-center items-center gap-4 sm:gap-8">
             <div className="flex items-center gap-2 px-4 py-2 rounded-xl home-hero-stat-card">
-              <GraduationCap className="w-5 h-5 text-teal-300" />
+              <BookOpen className="w-5 h-5 text-white" />
               <span className="text-white text-xs sm:text-sm font-semibold">{groupedCategories.length} Chuyên mục</span>
             </div>
             <div className="flex items-center gap-2 px-4 py-2 rounded-xl home-hero-stat-card">
@@ -228,7 +228,7 @@ const HomePage: React.FC = () => {
               <span className="text-white text-xs sm:text-sm font-semibold">{totalDocsCount} Tài liệu hữu ích</span>
             </div>
             <div className="flex items-center gap-2 px-4 py-2 rounded-xl home-hero-stat-card">
-              <Compass className="w-5 h-5 text-purple-300" />
+              <Compass className="w-5 h-5 text-purple-400" />
               <span className="text-white text-xs sm:text-sm font-semibold">Tự học hiệu quả</span>
             </div>
           </div>
