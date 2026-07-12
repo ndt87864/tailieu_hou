@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { X, Plus, FileSpreadsheet, Clock, ArrowRight } from "lucide-react";
 import { SpreadsheetGrid } from "./SpreadsheetGrid.js";
-import { getCellRange, parseCellAddress, colLetterToNumber, numberToColLetter } from "../../utils/formulaEvaluator.js";
+import { getCellRange, parseCellAddress, colLetterToNumber, numberToColLetter, serializeCellsToHtml, parseHtmlToCells } from "../../utils/formulaEvaluator.js";
 import { toast } from "react-toastify";
 import { SpreadsheetHeader } from "./SpreadsheetHeader.js";
 import { SpreadsheetToolbar } from "./SpreadsheetToolbar.js";
@@ -27,6 +27,8 @@ interface Sheet {
   cells: Record<string, CellData>;
   rowCount?: number;
   colCount?: number;
+  rowHeights?: Record<number, number>;
+  colWidths?: Record<string, number>;
 }
 
 interface SpreadsheetEditorProps {
@@ -54,10 +56,12 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
         name: s.name || "Sheet1",
         cells: s.cells || {},
         rowCount: s.rowCount || 500,
-        colCount: s.colCount || 26
+        colCount: s.colCount || 26,
+        rowHeights: s.rowHeights || {},
+        colWidths: s.colWidths || {}
       }));
     }
-    return [{ name: "Sheet1", cells: initialContent?.cells || {}, rowCount: 500, colCount: 26 }];
+    return [{ name: "Sheet1", cells: initialContent?.cells || {}, rowCount: 500, colCount: 26, rowHeights: {}, colWidths: {} }];
   });
 
   // Stack lịch sử lưu các trạng thái trước đó để phục vụ hoàn tác (Undo) và Nhật ký phiên bản
@@ -433,6 +437,127 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
     toast.success(`Đã chèn cột mới!`);
   };
 
+  const deleteRow = (atRow: number) => {
+    updateSheetsAndSaveHistory((prev) => {
+      const newSheets = [...prev];
+      const targetSheet = { ...newSheets[activeSheetIdx] };
+      const currentCells = targetSheet.cells;
+      const newCells: Record<string, CellData> = {};
+
+      Object.keys(currentCells).forEach((addr) => {
+        const parsed = parseCellAddress(addr);
+        if (parsed) {
+          if (parsed.row > atRow) {
+            const nextAddr = `${parsed.col}${parsed.row - 1}`;
+            newCells[nextAddr] = currentCells[addr];
+          } else if (parsed.row < atRow) {
+            newCells[addr] = currentCells[addr];
+          }
+        }
+      });
+      targetSheet.cells = newCells;
+      targetSheet.rowCount = Math.max(1, (targetSheet.rowCount || 500) - 1);
+      newSheets[activeSheetIdx] = targetSheet;
+      return newSheets;
+    });
+    toast.success(`Đã xóa hàng ${atRow}!`);
+  };
+
+  const clearRow = (atRow: number) => {
+    updateSheetsAndSaveHistory((prev) => {
+      const newSheets = [...prev];
+      const targetSheet = { ...newSheets[activeSheetIdx] };
+      const updatedCells = { ...targetSheet.cells };
+      
+      Object.keys(updatedCells).forEach((addr) => {
+        const parsed = parseCellAddress(addr);
+        if (parsed && parsed.row === atRow) {
+          delete updatedCells[addr];
+        }
+      });
+      
+      targetSheet.cells = updatedCells;
+      newSheets[activeSheetIdx] = targetSheet;
+      return newSheets;
+    });
+    toast.success(`Đã xóa nội dung hàng ${atRow}!`);
+  };
+
+  const deleteColumn = (atColLetter: string) => {
+    const atColIdx = colLetterToNumber(atColLetter);
+    updateSheetsAndSaveHistory((prev) => {
+      const newSheets = [...prev];
+      const targetSheet = { ...newSheets[activeSheetIdx] };
+      const currentCells = targetSheet.cells;
+      const newCells: Record<string, CellData> = {};
+
+      Object.keys(currentCells).forEach((addr) => {
+        const parsed = parseCellAddress(addr);
+        if (parsed) {
+          const colIdx = colLetterToNumber(parsed.col);
+          if (colIdx > atColIdx) {
+            const nextColLetter = numberToColLetter(colIdx - 1);
+            const nextAddr = `${nextColLetter}${parsed.row}`;
+            newCells[nextAddr] = currentCells[addr];
+          } else if (colIdx < atColIdx) {
+            newCells[addr] = currentCells[addr];
+          }
+        }
+      });
+      targetSheet.cells = newCells;
+      targetSheet.colCount = Math.max(1, (targetSheet.colCount || 26) - 1);
+      newSheets[activeSheetIdx] = targetSheet;
+      return newSheets;
+    });
+    toast.success(`Đã xóa cột ${atColLetter}!`);
+  };
+
+  const clearColumn = (atColLetter: string) => {
+    updateSheetsAndSaveHistory((prev) => {
+      const newSheets = [...prev];
+      const targetSheet = { ...newSheets[activeSheetIdx] };
+      const updatedCells = { ...targetSheet.cells };
+      
+      Object.keys(updatedCells).forEach((addr) => {
+        const parsed = parseCellAddress(addr);
+        if (parsed && parsed.col === atColLetter) {
+          delete updatedCells[addr];
+        }
+      });
+      
+      targetSheet.cells = updatedCells;
+      newSheets[activeSheetIdx] = targetSheet;
+      return newSheets;
+    });
+    toast.success(`Đã xóa nội dung cột ${atColLetter}!`);
+  };
+
+  const handleUpdateRowHeight = (rowNum: number, height: number) => {
+    updateSheetsAndSaveHistory((prev) => {
+      const newSheets = [...prev];
+      const targetSheet = { ...newSheets[activeSheetIdx] };
+      targetSheet.rowHeights = {
+        ...(targetSheet.rowHeights || {}),
+        [rowNum]: height,
+      };
+      newSheets[activeSheetIdx] = targetSheet;
+      return newSheets;
+    });
+  };
+
+  const handleUpdateColWidth = (colLetter: string, width: number) => {
+    updateSheetsAndSaveHistory((prev) => {
+      const newSheets = [...prev];
+      const targetSheet = { ...newSheets[activeSheetIdx] };
+      targetSheet.colWidths = {
+        ...(targetSheet.colWidths || {}),
+        [colLetter]: width,
+      };
+      newSheets[activeSheetIdx] = targetSheet;
+      return newSheets;
+    });
+  };
+
   const formatSelection = (type: "currency" | "percent" | "decimal-inc" | "decimal-dec") => {
     const addresses = getSelectedAddresses();
     if (addresses.length === 0) return;
@@ -516,25 +641,81 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
     }
 
     const tabSeparatedText = textDataRows.map(row => row.join("\t")).join("\n");
-    navigator.clipboard.writeText(tabSeparatedText)
-      .then(() => toast.success("Đã sao chép nội dung ô tính!"))
-      .catch(() => {});
+    let htmlText = "";
+    if (start && end) {
+      const startColIdx = colLetterToNumber(start.col);
+      const endColIdx = colLetterToNumber(end.col);
+      const minCol = Math.min(startColIdx, endColIdx);
+      const maxCol = Math.max(startColIdx, endColIdx);
+      const minRow = Math.min(start.row, end.row);
+      const maxRow = Math.max(start.row, end.row);
+      htmlText = serializeCellsToHtml(cells, minRow, maxRow, minCol, maxCol);
+    }
+
+    if (htmlText) {
+      const htmlBlob = new Blob([htmlText], { type: "text/html" });
+      const textBlob = new Blob([tabSeparatedText], { type: "text/plain" });
+      navigator.clipboard.write([
+        new ClipboardItem({
+          "text/html": htmlBlob,
+          "text/plain": textBlob,
+        })
+      ])
+      .then(() => toast.success("Đã sao chép nội dung và định dạng ô tính!"))
+      .catch(() => {
+        navigator.clipboard.writeText(tabSeparatedText)
+          .then(() => toast.success("Đã sao chép nội dung ô tính!"));
+      });
+    } else {
+      navigator.clipboard.writeText(tabSeparatedText)
+        .then(() => toast.success("Đã sao chép nội dung ô tính!"));
+    }
   };
 
   const handlePaste = async () => {
     if (!selectedCell) return;
     try {
-      const text = await navigator.clipboard.readText();
-      if (text) {
-        const targetCellParsed = parseCellAddress(selectedCell);
-        if (!targetCellParsed) return;
+      const clipboardItems = await navigator.clipboard.read();
+      let htmlText = "";
+      let plainText = "";
 
-        const targetColIdx = colLetterToNumber(targetCellParsed.col);
-        const startRow = targetCellParsed.row;
+      for (const item of clipboardItems) {
+        if (item.types.includes("text/html")) {
+          const blob = await item.getType("text/html");
+          htmlText = await blob.text();
+        }
+        if (item.types.includes("text/plain")) {
+          const blob = await item.getType("text/plain");
+          plainText = await blob.text();
+        }
+      }
 
-        const rows = text.split(/\r?\n/);
-        const pasted: Record<string, CellData> = {};
+      const targetCellParsed = parseCellAddress(selectedCell);
+      if (!targetCellParsed) return;
 
+      const targetColIdx = colLetterToNumber(targetCellParsed.col);
+      const startRow = targetCellParsed.row;
+      const pasted: Record<string, CellData> = {};
+
+      if (htmlText) {
+        const parsed = parseHtmlToCells(htmlText);
+        if (parsed && parsed.rows.length > 0) {
+          parsed.rows.forEach((row, rOffset) => {
+            row.forEach((cellData, cOffset) => {
+              const colIdx = targetColIdx + cOffset;
+              const rowNum = startRow + rOffset;
+
+              if (colIdx >= 0 && colIdx < colCount && rowNum >= 1 && rowNum <= rowCount) {
+                const addr = `${numberToColLetter(colIdx)}${rowNum}`;
+                pasted[addr] = cellData;
+              }
+            });
+          });
+        }
+      }
+
+      if (Object.keys(pasted).length === 0 && plainText) {
+        const rows = plainText.split(/\r?\n/);
         rows.forEach((row, rOffset) => {
           if (rOffset === rows.length - 1 && row.trim() === "") return;
 
@@ -553,11 +734,11 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
             }
           });
         });
+      }
 
-        if (Object.keys(pasted).length > 0) {
-          handlePasteCells(pasted);
-          toast.success("Đã dán nội dung từ bộ nhớ tạm!");
-        }
+      if (Object.keys(pasted).length > 0) {
+        handlePasteCells(pasted);
+        toast.success("Đã dán nội dung và định dạng ô tính!");
       }
     } catch (err) {
       toast.error("Không thể dán dữ liệu!");
@@ -681,7 +862,49 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
     }
   };
 
-  const activeCell = selectedCell ? cells[selectedCell] : null;
+  const getCommonStyleForSelection = (): CellData | null => {
+    const addresses = getSelectedAddresses();
+    if (addresses.length === 0) return null;
+    
+    const firstAddr = addresses[0];
+    const firstCell = cells[firstAddr] || { value: "", formula: "" };
+    
+    const common: CellData = {
+      value: firstCell.value || "",
+      formula: firstCell.formula || "",
+      bold: firstCell.bold,
+      italic: firstCell.italic,
+      underline: firstCell.underline,
+      strikethrough: firstCell.strikethrough,
+      color: firstCell.color,
+      bg: firstCell.bg,
+      align: firstCell.align,
+      fontFamily: firstCell.fontFamily || "Times New Roman",
+      fontSize: firstCell.fontSize || "13px",
+    };
+    
+    for (let i = 1; i < addresses.length; i++) {
+      const cell = cells[addresses[i]] || { value: "", formula: "" };
+      
+      if (cell.bold !== common.bold) delete common.bold;
+      if (cell.italic !== common.italic) delete common.italic;
+      if (cell.underline !== common.underline) delete common.underline;
+      if (cell.strikethrough !== common.strikethrough) delete common.strikethrough;
+      if (cell.color !== common.color) delete common.color;
+      if (cell.bg !== common.bg) delete common.bg;
+      if (cell.align !== common.align) delete common.align;
+      
+      const cellFontFamily = cell.fontFamily || "Times New Roman";
+      if (cellFontFamily !== common.fontFamily) delete common.fontFamily;
+      
+      const cellFontSize = cell.fontSize || "13px";
+      if (cellFontSize !== common.fontSize) delete common.fontSize;
+    }
+    
+    return common;
+  };
+
+  const activeCell = getCommonStyleForSelection();
 
   return (
     <div className="sheet-editor-container">
@@ -813,6 +1036,16 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
           rowCount={rowCount}
           colCount={colCount}
           onUndo={handleUndo}
+          onInsertRow={insertRow}
+          onInsertCol={insertColumn}
+          onDeleteRow={deleteRow}
+          onDeleteCol={deleteColumn}
+          onClearRow={clearRow}
+          onClearCol={clearColumn}
+          rowHeights={sheets[activeSheetIdx]?.rowHeights}
+          colWidths={sheets[activeSheetIdx]?.colWidths}
+          onUpdateRowHeight={handleUpdateRowHeight}
+          onUpdateColWidth={handleUpdateColWidth}
         />
       </div>
 

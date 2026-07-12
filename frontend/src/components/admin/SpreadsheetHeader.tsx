@@ -131,6 +131,15 @@ export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
         </div>
         
         <div className="sheet-google-right-section" ref={userMenuRef}>
+          <button 
+            onClick={onSave} 
+            disabled={isSaving}
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-[#10b981] hover:bg-[#059669] text-white text-xs font-semibold shadow-sm transition-all disabled:opacity-50 mr-2"
+            title="Lưu bảng tính vào cơ sở dữ liệu"
+          >
+            <Save className="w-3.5 h-3.5" />
+            {isSaving ? "Đang lưu..." : "Lưu lại"}
+          </button>
           {user ? (
             <div className="relative">
               <button

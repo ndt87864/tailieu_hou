@@ -3,8 +3,23 @@ import React from "react";
 import { 
   Search, Undo, Redo, Printer, Paintbrush, DollarSign, Percent, 
   Bold, Italic, Underline, Strikethrough, AlignLeft, AlignCenter, 
-  AlignRight, PaintBucket, Link2, BarChart2, Filter, Sigma 
+  AlignRight, PaintBucket, Link2, BarChart2, Filter, Sigma, ChevronDown 
 } from "lucide-react";
+
+const fonts = [
+  "Times New Roman",
+  "Arial",
+  "Calibri",
+  "Tahoma",
+  "Verdana",
+  "Courier New",
+  "Georgia",
+  "Roboto",
+  "Inter",
+  "Montserrat"
+];
+
+const fontSizes = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72];
 
 type CellData = {
   value: string;
@@ -49,6 +64,22 @@ export const SpreadsheetToolbar: React.FC<SpreadsheetToolbarProps> = ({
   onFormatSelection,
   onInsertFormula,
 }) => {
+  const [showFontDropdown, setShowFontDropdown] = React.useState(false);
+  const [showSizeDropdown, setShowSizeDropdown] = React.useState(false);
+
+  React.useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest(".custom-dropdown-container")) {
+        setShowFontDropdown(false);
+        setShowSizeDropdown(false);
+      }
+    };
+    document.addEventListener("click", handleOutsideClick);
+    return () => {
+      document.removeEventListener("click", handleOutsideClick);
+    };
+  }, []);
   return (
     <div className="sheet-google-toolbar">
       <button onClick={() => setShowFindReplace(!showFindReplace)} className={`btn-tool ${showFindReplace ? "active" : ""}`} title="Tìm kiếm (Ctrl+H)">
@@ -100,23 +131,40 @@ export const SpreadsheetToolbar: React.FC<SpreadsheetToolbarProps> = ({
 
       <div className="toolbar-divider"></div>
 
-      {/* Font Family */}
-      <select 
-        className="tool-select"
-        value={activeCell?.fontFamily || "Inter"}
-        onChange={(e) => handleFontChange("fontFamily", e.target.value)}
-        title="Phông chữ"
-      >
-        <option value="Inter">Inter</option>
-        <option value="Montserrat">Montserrat</option>
-        <option value="Arial">Arial</option>
-        <option value="Courier New">Courier New</option>
-        <option value="Georgia">Georgia</option>
-        <option value="Times New Roman">Times New Roman</option>
-      </select>
+      {/* Font Family custom Dropdown */}
+      <div className="relative custom-dropdown-container">
+        <button 
+          onClick={() => {
+            setShowFontDropdown(!showFontDropdown);
+            setShowSizeDropdown(false);
+          }} 
+          className="tool-select-custom"
+          title="Phông chữ"
+        >
+          <span className="truncate max-w-[90px]">{activeCell?.fontFamily || "Times New Roman"}</span>
+          <ChevronDown className="w-3.5 h-3.5 ml-1 text-gray-500" />
+        </button>
+        {showFontDropdown && (
+          <div className="custom-dropdown-list font-dropdown">
+            {fonts.map((f) => (
+              <button 
+                key={f} 
+                className={`custom-dropdown-item ${activeCell?.fontFamily === f ? "active" : ""}`}
+                style={{ fontFamily: f }}
+                onClick={() => {
+                  handleFontChange("fontFamily", f);
+                  setShowFontDropdown(false);
+                }}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
-      {/* Font Size controls */}
-      <div className="toolbar-font-size-control">
+      {/* Font Size controls & custom size dropdown */}
+      <div className="toolbar-font-size-control custom-dropdown-container">
         <button 
           onClick={() => {
             const cur = parseInt(activeCell?.fontSize || "13px", 10);
@@ -127,12 +175,48 @@ export const SpreadsheetToolbar: React.FC<SpreadsheetToolbarProps> = ({
         >
           -
         </button>
-        <input 
-          type="text" 
-          className="input-size-value"
-          value={parseInt(activeCell?.fontSize || "13px", 10)}
-          readOnly
-        />
+        
+        <div className="relative flex items-center">
+          <input 
+            type="number" 
+            className="input-size-value cursor-pointer"
+            style={{ width: "32px", border: "none", background: "transparent", textAlign: "center", fontSize: "12px", outline: "none", color: "var(--fg)" }}
+            value={parseInt(activeCell?.fontSize || "13px", 10)}
+            onChange={(e) => {
+              const val = Math.max(1, Math.min(100, parseInt(e.target.value, 10) || 13));
+              handleFontChange("fontSize", `${val}px`);
+            }}
+            onClick={() => {
+              setShowSizeDropdown(!showSizeDropdown);
+              setShowFontDropdown(false);
+            }}
+            title="Cỡ chữ (Nhập hoặc chọn)"
+          />
+          <ChevronDown 
+            className="w-3 h-3 text-gray-500 cursor-pointer -ml-1 mr-1"
+            onClick={() => {
+              setShowSizeDropdown(!showSizeDropdown);
+              setShowFontDropdown(false);
+            }}
+          />
+          {showSizeDropdown && (
+            <div className="custom-dropdown-list size-dropdown">
+              {fontSizes.map((s) => (
+                <button 
+                  key={s} 
+                  className={`custom-dropdown-item ${(parseInt(activeCell?.fontSize || "13px", 10) === s) ? "active" : ""}`}
+                  onClick={() => {
+                    handleFontChange("fontSize", `${s}px`);
+                    setShowSizeDropdown(false);
+                  }}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         <button 
           onClick={() => {
             const cur = parseInt(activeCell?.fontSize || "13px", 10);
