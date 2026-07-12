@@ -1,5 +1,11 @@
-/* Container & Theme Variables */
 .lt-container {
+  --theme-primary: var(--accent);
+  --theme-primary-rgb: var(--brand-rgb);
+  --theme-light: var(--brand-300);
+  --theme-light-rgb: var(--brand-300);
+  --theme-dark: var(--brand-800);
+  --theme-dark-rgb: var(--brand-800);
+  
   font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif !important;
   position: relative;
   overflow-x: hidden;

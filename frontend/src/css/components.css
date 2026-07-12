@@ -414,7 +414,7 @@
 }
 
 .header-logo-icon {
-  background: linear-gradient(135deg, var(--brand-700), var(--brand-500));
+  background: var(--grad-hero);
 }
 
 .header-user-btn {
@@ -422,7 +422,7 @@
 }
 
 .header-avatar-icon {
-  background: linear-gradient(135deg, var(--brand-700), var(--brand-500));
+  background: var(--grad-hero);
 }
 
 .header-username {
