@@ -14,6 +14,7 @@ import {
 import { EditCrawlDataModal } from "./EditCrawlDataModal.js";
 import FilterCrawlDataModal from "./FilterCrawlDataModal.js";
 import CrawlerQuestionCard, { CrawlerQuestion } from "./CrawlerQuestionCard.js";
+import { useAdminCategories } from "../../hooks/useAdminCategories.js";
 
 interface CrawlerCourse {
   id: string;
@@ -47,13 +48,18 @@ export const CrawlDataTab: React.FC<CrawlDataTabProps> = ({ view }) => {
   const [questions, setQuestions] = useState<CrawlerQuestion[]>([]);
   
   const [search, setSearch] = useState("");
-  const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);
+  const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [editData, setEditData] = useState<any | null>(null);
   const [allCourses, setAllCourses] = useState<{id: string, title: string}[]>([]);
+  const [sortBy, setSortBy] = useState<"default" | "az" | "za" | "oldest" | "newest">("default");
+  const [filterType, setFilterType] = useState<"all" | "has_image" | "no_image" | "multiple_choice" | "fill_blank">("all");
+  
+  const [documents, setDocuments] = useState<{id: string, title: string, category_id?: string | null}[]>([]);
+  const { categories } = useAdminCategories();
 
-  const fetchData = (courseIds?: string[]) => {
+  const fetchData = (docIds?: string[]) => {
     setLoading(true);
     setSelectedIds([]);
     if (view === "courses") {
@@ -65,13 +71,13 @@ export const CrawlDataTab: React.FC<CrawlDataTabProps> = ({ view }) => {
         .catch(() => toast.error("Không thể tải danh sách khóa học"))
         .finally(() => setLoading(false));
     } else if (view === "resources") {
-      const params = courseIds && courseIds.length > 0 ? `?course_ids=${courseIds.join(",")}` : "";
+      const params = docIds && docIds.length > 0 ? `?document_ids=${docIds.join(",")}` : "";
       apiClient.get(`/api/v1/admin/crawler/resources${params}`)
         .then(res => setResources(res.data.resources || []))
         .catch(() => toast.error("Không thể tải danh sách tài nguyên"))
         .finally(() => setLoading(false));
     } else if (view === "questions") {
-      const params = courseIds && courseIds.length > 0 ? `?course_ids=${courseIds.join(",")}` : "";
+      const params = docIds && docIds.length > 0 ? `?document_ids=${docIds.join(",")}` : "";
       apiClient.get(`/api/v1/admin/crawler/questions${params}`)
         .then(res => setQuestions(res.data.questions || []))
         .catch(() => toast.error("Không thể tải danh sách câu hỏi"))
@@ -79,40 +85,42 @@ export const CrawlDataTab: React.FC<CrawlDataTabProps> = ({ view }) => {
     }
   };
 
-  // 1. Tải danh sách khóa học (allCourses) ban đầu nếu chưa có và đang cần filter ở tab questions/resources
+  // 1. Tải danh sách documents ban đầu
   useEffect(() => {
-    if ((view === "questions" || view === "resources") && allCourses.length === 0) {
-      apiClient.get(`/api/v1/admin/crawler/courses`)
-        .then(res => {
-          const cList = res.data.courses || [];
-          const mapped = cList.map((c: any) => ({ id: c.id, title: c.title }));
-          setAllCourses(mapped);
-          if (mapped.length > 0) {
-            setSelectedCourseIds([mapped[0].id]);
+    if (view === "questions" || view === "resources") {
+      apiClient.get("/api/v1/documents")
+        .then((res) => {
+          const docs = res.data.documents || [];
+          setDocuments(docs);
+          if (docs.length > 0) {
+            // Mặc định chọn tài liệu đầu tiên
+            setSelectedDocIds([docs[0].id]);
           }
         })
-        .catch(console.error);
+        .catch((err) => console.error(err));
     }
   }, [view]);
+
+  useEffect(() => {
+    const handleOutsideClick = () => {
+      document.querySelectorAll(".custom-select-options").forEach(el => el.classList.add("hidden"));
+    };
+    window.addEventListener("click", handleOutsideClick);
+    return () => window.removeEventListener("click", handleOutsideClick);
+  }, []);
 
   // 2. Lắng nghe thay đổi tab và filter để fetch dữ liệu
   useEffect(() => {
     setSelectedIds([]);
     
     if (view === "courses") {
-      fetchData(); // Chỉ gọi duy nhất 1 lần khi chuyển sang tab courses
+      fetchData();
     } else if (view === "questions" || view === "resources") {
-      // Nếu đã có danh sách khóa học nhưng selectedCourseIds chưa được set mặc định
-      if (selectedCourseIds.length === 0 && allCourses.length > 0) {
-        setSelectedCourseIds([allCourses[0].id]);
-        return; // Đợi selectedCourseIds cập nhật để useEffect này chạy lại và fetch đúng
-      }
-      
-      if (selectedCourseIds.length > 0) {
-        fetchData(selectedCourseIds);
+      if (selectedDocIds.length > 0) {
+        fetchData(selectedDocIds);
       }
     }
-  }, [view, selectedCourseIds]);
+  }, [view, selectedDocIds]);
 
   const handleDeleteResource = async (id: string) => {
     const ok = await confirm("Bạn có chắc muốn xoá tài nguyên crawl này?");
@@ -217,11 +225,54 @@ export const CrawlDataTab: React.FC<CrawlDataTabProps> = ({ view }) => {
     (r.course?.title || "").toLowerCase().includes(search.toLowerCase())
   );
 
-  const filteredQuestions = questions.filter(q =>
-    q.question.toLowerCase().includes(search.toLowerCase()) ||
-    (q.course?.title || "").toLowerCase().includes(search.toLowerCase()) ||
-    (q.week_name || "").toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredQuestions = questions
+    .filter(q => {
+      // 1. Lọc theo thanh tìm kiếm
+      const matchSearch = (
+        q.question.toLowerCase().includes(search.toLowerCase()) ||
+        (q.course?.title || "").toLowerCase().includes(search.toLowerCase()) ||
+        (q.week_name || "").toLowerCase().includes(search.toLowerCase())
+      );
+
+      if (!matchSearch) return false;
+
+      // 2. Lọc theo filterType (Bộ lọc nội dung)
+      const hasImage = !!(q.url_question || q.url_answer || q.url_choices);
+      const isMultipleChoice = Array.isArray(q.choices) && q.choices.filter(Boolean).length >= 2;
+
+      if (filterType === "has_image") {
+        return hasImage;
+      }
+      if (filterType === "no_image") {
+        return !hasImage;
+      }
+      if (filterType === "multiple_choice") {
+        return isMultipleChoice;
+      }
+      if (filterType === "fill_blank") {
+        return !isMultipleChoice;
+      }
+
+      return true;
+    })
+    .sort((a, b) => {
+      // 3. Sắp xếp theo sortBy
+      if (sortBy === "az") {
+        return a.question.localeCompare(b.question, "vi");
+      }
+      if (sortBy === "za") {
+        return b.question.localeCompare(a.question, "vi");
+      }
+      // Dữ liệu crawl thô thường không có created_at, ta sắp xếp theo ID hoặc giữ nguyên
+      if (sortBy === "oldest") {
+        return a.id.localeCompare(b.id);
+      }
+      if (sortBy === "newest") {
+        return b.id.localeCompare(a.id);
+      }
+      // Mặc định
+      return 0;
+    });
 
   const currentFilteredIds = 
     view === "courses" ? filteredCourses.map(c => c.id) :
@@ -272,7 +323,7 @@ export const CrawlDataTab: React.FC<CrawlDataTabProps> = ({ view }) => {
             </button>
           )}
           <button
-            onClick={() => fetchData(selectedCourseIds)}
+            onClick={() => fetchData(selectedDocIds)}
             title="Tải lại"
             className="btn-secondary p-2.5 rounded-xl hover:bg-[var(--bg-2)] transition-colors shadow-sm"
           >
@@ -281,18 +332,121 @@ export const CrawlDataTab: React.FC<CrawlDataTabProps> = ({ view }) => {
         </div>
       </div>
 
-      {/* Multi-course Selection Status */}
-      {(view === "questions" || view === "resources") && selectedCourseIds.length > 0 && (
+      {/* 2 bộ lọc nâng cao mới cho tab Crawler Questions */}
+      {view === "questions" && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Custom Dropdown Sắp xếp */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-[var(--fg-2)] whitespace-nowrap">Sắp xếp:</span>
+            <div className="relative flex-1">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const target = e.currentTarget.nextElementSibling as HTMLElement;
+                  if (target) {
+                    const isHidden = target.classList.contains("hidden");
+                    document.querySelectorAll(".custom-select-options").forEach(el => el.classList.add("hidden"));
+                    if (isHidden) target.classList.remove("hidden");
+                  }
+                }}
+                className="w-full select-themed px-3 py-2 text-xs rounded-xl outline-none focus:border-brand-500 text-left flex items-center justify-between border border-[var(--border)] bg-[var(--surface)] text-[var(--fg)]"
+              >
+                <span>
+                  {sortBy === "default" && "Thứ tự STT mặc định"}
+                  {sortBy === "az" && "Theo chữ cái (A → Z)"}
+                  {sortBy === "za" && "Theo chữ cái (Z → A)"}
+                  {sortBy === "oldest" && "Thời gian tạo (Cũ → Mới)"}
+                  {sortBy === "newest" && "Thời gian tạo (Mới → Cũ)"}
+                </span>
+              </button>
+              <div className="custom-select-options hidden absolute left-0 right-0 top-full mt-1.5 z-50 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-lg overflow-hidden py-1">
+                {[
+                  { value: "default", label: "Thứ tự STT mặc định" },
+                  { value: "az", label: "Theo chữ cái (A → Z)" },
+                  { value: "za", label: "Theo chữ cái (Z → A)" },
+                  { value: "oldest", label: "Thời gian tạo (Cũ → Mới)" },
+                  { value: "newest", label: "Thời gian tạo (Mới → Cũ)" }
+                ].map((item) => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    onClick={(e) => {
+                      setSortBy(item.value as any);
+                      e.currentTarget.parentElement?.classList.add("hidden");
+                    }}
+                    className={`w-full text-left px-3 py-2 text-xs transition-colors hover:bg-[var(--bg-2)] ${sortBy === item.value ? "bg-brand-50 dark:bg-brand-950/20 text-brand-700 dark:text-brand-400 font-semibold" : "text-[var(--fg)]"}`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Custom Dropdown Loại câu hỏi */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-[var(--fg-2)] whitespace-nowrap">Loại câu hỏi:</span>
+            <div className="relative flex-1">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const target = e.currentTarget.nextElementSibling as HTMLElement;
+                  if (target) {
+                    const isHidden = target.classList.contains("hidden");
+                    document.querySelectorAll(".custom-select-options").forEach(el => el.classList.add("hidden"));
+                    if (isHidden) target.classList.remove("hidden");
+                  }
+                }}
+                className="w-full select-themed px-3 py-2 text-xs rounded-xl outline-none focus:border-brand-500 text-left flex items-center justify-between border border-[var(--border)] bg-[var(--surface)] text-[var(--fg)]"
+              >
+                <span>
+                  {filterType === "all" && "Tất cả câu hỏi"}
+                  {filterType === "has_image" && "Câu hỏi có hình ảnh"}
+                  {filterType === "no_image" && "Câu hỏi không có hình ảnh"}
+                  {filterType === "multiple_choice" && "Câu hỏi trắc nghiệm (A, B, C, D)"}
+                  {filterType === "fill_blank" && "Câu hỏi điền từ / Tự luận"}
+                </span>
+              </button>
+              <div className="custom-select-options hidden absolute left-0 right-0 top-full mt-1.5 z-50 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-lg overflow-hidden py-1">
+                {[
+                  { value: "all", label: "Tất cả câu hỏi" },
+                  { value: "has_image", label: "Câu hỏi có hình ảnh" },
+                  { value: "no_image", label: "Câu hỏi không có hình ảnh" },
+                  { value: "multiple_choice", label: "Câu hỏi trắc nghiệm (A, B, C, D)" },
+                  { value: "fill_blank", label: "Câu hỏi điền từ / Tự luận" }
+                ].map((item) => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    onClick={(e) => {
+                      setFilterType(item.value as any);
+                      e.currentTarget.parentElement?.classList.add("hidden");
+                    }}
+                    className={`w-full text-left px-3 py-2 text-xs transition-colors hover:bg-[var(--bg-2)] ${filterType === item.value ? "bg-brand-50 dark:bg-brand-950/20 text-brand-700 dark:text-brand-400 font-semibold" : "text-[var(--fg)]"}`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Multi-document Selection Status */}
+      {(view === "questions" || view === "resources") && selectedDocIds.length > 0 && (
         <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 text-xs text-emerald-700 dark:text-emerald-300 flex flex-wrap gap-2 items-center">
-          <span className="font-semibold">Đang lọc ({selectedCourseIds.length}) môn học:</span>
-          {selectedCourseIds.map((id) => {
-            const course = allCourses.find((c) => c.id === id);
+          <span className="font-semibold">Đang lọc ({selectedDocIds.length}) tài liệu:</span>
+          {selectedDocIds.map((id) => {
+            const doc = documents.find((d) => d.id === id);
             return (
               <span
                 key={id}
                 className="px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200 font-medium"
               >
-                {course?.title || "Không rõ"}
+                {doc?.title || "Không rõ"}
               </span>
             );
           })}
@@ -303,10 +457,11 @@ export const CrawlDataTab: React.FC<CrawlDataTabProps> = ({ view }) => {
       <FilterCrawlDataModal
         show={showFilterModal}
         onClose={() => setShowFilterModal(false)}
-        courses={allCourses}
-        selectedCourseIds={selectedCourseIds}
+        categories={categories}
+        documents={documents}
+        selectedDocIds={selectedDocIds}
         onApply={(ids) => {
-          setSelectedCourseIds(ids);
+          setSelectedDocIds(ids);
           setShowFilterModal(false);
         }}
       />

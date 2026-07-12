@@ -2,68 +2,159 @@ import React, { useState, useEffect, useRef } from "react";
 import { X, Search } from "lucide-react";
 import "../../css/filter-modal.css";
 
-interface Course {
+interface Category {
   id: string;
   title: string;
+}
+
+interface Document {
+  id: string;
+  title: string;
+  category_id?: string | null;
 }
 
 interface FilterCrawlDataModalProps {
   show: boolean;
   onClose: () => void;
-  courses: Course[];
-  selectedCourseIds: string[];
-  onApply: (selectedCourseIds: string[]) => void;
+  categories: Category[];
+  documents: Document[];
+  selectedDocIds: string[];
+  onApply: (selectedDocIds: string[]) => void;
 }
 
 const FilterCrawlDataModal: React.FC<FilterCrawlDataModalProps> = ({
   show,
   onClose,
-  courses,
-  selectedCourseIds,
+  categories,
+  documents,
+  selectedDocIds,
   onApply,
 }) => {
-  const [courseSearch, setCourseSearch] = useState("");
-  const [tempSelectedCourseIds, setTempSelectedCourseIds] = useState<string[]>([]);
-  const courseInputRef = useRef<HTMLInputElement>(null);
+  const [categorySearch, setCategorySearch] = useState("");
+  const [documentSearch, setDocumentSearch] = useState("");
+  
+  const [tempSelectedCatIds, setTempSelectedCatIds] = useState<string[]>([]);
+  const [tempSelectedDocIds, setTempSelectedDocIds] = useState<string[]>([]);
 
+  const categoryInputRef = useRef<HTMLInputElement>(null);
+  const documentInputRef = useRef<HTMLInputElement>(null);
+
+  // Initialize temporary selections when modal opens
   useEffect(() => {
     if (show) {
-      setTempSelectedCourseIds(selectedCourseIds);
-      setCourseSearch("");
+      setTempSelectedDocIds(selectedDocIds);
+      const catIds = documents
+        .filter((d) => selectedDocIds.includes(d.id))
+        .map((d) => d.category_id)
+        .filter((id): id is string => !!id);
+      setTempSelectedCatIds(Array.from(new Set(catIds)));
+      setCategorySearch("");
+      setDocumentSearch("");
     }
-  }, [show, selectedCourseIds]);
+  }, [show, selectedDocIds, documents]);
 
   if (!show) return null;
 
-  const filteredCourses = courses.filter((c) =>
-    c.title.toLowerCase().includes(courseSearch.toLowerCase())
+  // Filter categories by search query
+  const filteredCategories = categories.filter((cat) =>
+    cat.title.toLowerCase().includes(categorySearch.toLowerCase())
   );
 
-  const handleCourseToggle = (courseId: string, checked: boolean) => {
+  // Get all documents belonging to currently checked categories
+  const categoryDocuments = documents.filter(
+    (doc) => doc.category_id && tempSelectedCatIds.includes(doc.category_id)
+  );
+
+  // Filter those category documents by search query
+  const filteredDocuments = categoryDocuments.filter((doc) =>
+    doc.title.toLowerCase().includes(documentSearch.toLowerCase())
+  );
+
+  // Handle Category Checkbox Toggling
+  const handleCategoryToggle = (categoryId: string, checked: boolean) => {
+    let nextCatIds: string[];
     if (checked) {
-      setTempSelectedCourseIds([...tempSelectedCourseIds, courseId]);
+      nextCatIds = [...tempSelectedCatIds, categoryId];
     } else {
-      setTempSelectedCourseIds(tempSelectedCourseIds.filter((id) => id !== courseId));
+      nextCatIds = tempSelectedCatIds.filter((id) => id !== categoryId);
+    }
+    setTempSelectedCatIds(nextCatIds);
+
+    // Keep documents that belong to the remaining checked categories
+    const remainingDocIds = tempSelectedDocIds.filter((docId) => {
+      const doc = documents.find((d) => d.id === docId);
+      return doc?.category_id && nextCatIds.includes(doc.category_id);
+    });
+    setTempSelectedDocIds(remainingDocIds);
+  };
+
+  // Toggle ALL visible/filtered categories
+  const handleSelectAllCategories = () => {
+    const allFilteredIds = filteredCategories.map((c) => c.id);
+    const allSelected = allFilteredIds.every((id) =>
+      tempSelectedCatIds.includes(id)
+    );
+
+    let nextCatIds: string[];
+    if (allSelected) {
+      // Uncheck all filtered categories
+      nextCatIds = tempSelectedCatIds.filter(
+        (id) => !allFilteredIds.includes(id)
+      );
+    } else {
+      // Check all filtered categories
+      nextCatIds = Array.from(
+        new Set([...tempSelectedCatIds, ...allFilteredIds])
+      );
+    }
+    setTempSelectedCatIds(nextCatIds);
+
+    // Keep documents belonging to the remaining checked categories
+    const remainingDocIds = tempSelectedDocIds.filter((docId) => {
+      const doc = documents.find((d) => d.id === docId);
+      return doc?.category_id && nextCatIds.includes(doc.category_id);
+    });
+    setTempSelectedDocIds(remainingDocIds);
+  };
+
+  // Handle Document Checkbox Toggling
+  const handleDocumentToggle = (docId: string, checked: boolean) => {
+    if (checked) {
+      setTempSelectedDocIds([...tempSelectedDocIds, docId]);
+    } else {
+      setTempSelectedDocIds(tempSelectedDocIds.filter((id) => id !== docId));
     }
   };
 
-  const handleSelectAllCourses = () => {
-    const allFilteredIds = filteredCourses.map((c) => c.id);
-    const allSelected = allFilteredIds.every((id) => tempSelectedCourseIds.includes(id));
+  // Toggle ALL visible/filtered documents
+  const handleSelectAllDocuments = () => {
+    const allFilteredIds = filteredDocuments.map((d) => d.id);
+    const allSelected = allFilteredIds.every((id) =>
+      tempSelectedDocIds.includes(id)
+    );
 
+    let nextDocIds: string[];
     if (allSelected) {
-      setTempSelectedCourseIds(tempSelectedCourseIds.filter((id) => !allFilteredIds.includes(id)));
+      // Uncheck all filtered documents
+      nextDocIds = tempSelectedDocIds.filter(
+        (id) => !allFilteredIds.includes(id)
+      );
     } else {
-      setTempSelectedCourseIds(Array.from(new Set([...tempSelectedCourseIds, ...allFilteredIds])));
+      // Check all filtered documents
+      nextDocIds = Array.from(
+        new Set([...tempSelectedDocIds, ...allFilteredIds])
+      );
     }
+    setTempSelectedDocIds(nextDocIds);
   };
 
   const handleClearAll = () => {
-    setTempSelectedCourseIds([]);
+    setTempSelectedCatIds([]);
+    setTempSelectedDocIds([]);
   };
 
   const handleApply = () => {
-    onApply(tempSelectedCourseIds);
+    onApply(tempSelectedDocIds);
   };
 
   return (
@@ -74,7 +165,7 @@ const FilterCrawlDataModal: React.FC<FilterCrawlDataModalProps> = ({
       >
         {/* Modal Header */}
         <div className="filter-modal-header">
-          <h3 className="filter-modal-title">Lọc theo môn học</h3>
+          <h3 className="filter-modal-title">Lọc tài liệu thu thập nâng cao</h3>
           <button className="filter-modal-close-btn" onClick={onClose}>
             <X className="w-5 h-5" />
           </button>
@@ -86,7 +177,8 @@ const FilterCrawlDataModal: React.FC<FilterCrawlDataModalProps> = ({
           <div className="filter-modal-summary-panel">
             <div className="filter-modal-summary-header">
               <h4 className="filter-modal-summary-title">Đang chọn</h4>
-              {tempSelectedCourseIds.length > 0 && (
+              {(tempSelectedCatIds.length > 0 ||
+                tempSelectedDocIds.length > 0) && (
                 <button
                   type="button"
                   className="filter-modal-clear-all-btn"
@@ -97,23 +189,24 @@ const FilterCrawlDataModal: React.FC<FilterCrawlDataModalProps> = ({
               )}
             </div>
 
-            <div>
+            {/* Selected Categories */}
+            <div className="mb-4">
               <h5 className="filter-modal-summary-section-title">
-                Môn học ({tempSelectedCourseIds.length})
+                Danh mục ({tempSelectedCatIds.length})
               </h5>
-              {tempSelectedCourseIds.length > 0 ? (
+              {tempSelectedCatIds.length > 0 ? (
                 <div className="filter-modal-summary-tags">
-                  {tempSelectedCourseIds.map((courseId) => {
-                    const c = courses.find((x) => x.id === courseId);
+                  {tempSelectedCatIds.map((catId) => {
+                    const cat = categories.find((x) => x.id === catId);
                     return (
-                      <div key={courseId} className="filter-modal-summary-tag">
+                      <div key={catId} className="filter-modal-summary-tag">
                         <span className="filter-modal-summary-tag-text">
-                          {c?.title || "Không rõ"}
+                          {cat?.title || "Không rõ"}
                         </span>
                         <button
                           type="button"
                           className="filter-modal-summary-tag-remove"
-                          onClick={() => handleCourseToggle(courseId, false)}
+                          onClick={() => handleCategoryToggle(catId, false)}
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -122,72 +215,108 @@ const FilterCrawlDataModal: React.FC<FilterCrawlDataModalProps> = ({
                   })}
                 </div>
               ) : (
-                <p className="filter-modal-summary-empty">Chưa chọn môn học</p>
+                <p className="filter-modal-summary-empty">Chưa chọn danh mục</p>
+              )}
+            </div>
+
+            {/* Selected Documents */}
+            <div>
+              <h5 className="filter-modal-summary-section-title">
+                Tài liệu ({tempSelectedDocIds.length})
+              </h5>
+              {tempSelectedDocIds.length > 0 ? (
+                <div className="filter-modal-summary-tags">
+                  {tempSelectedDocIds.map((docId) => {
+                    const doc = documents.find((x) => x.id === docId);
+                    return (
+                      <div key={docId} className="filter-modal-summary-tag">
+                        <span className="filter-modal-summary-tag-text">
+                          {doc?.title || "Không rõ"}
+                        </span>
+                        <button
+                          type="button"
+                          className="filter-modal-summary-tag-remove"
+                          onClick={() => handleDocumentToggle(docId, false)}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="filter-modal-summary-empty">Chưa chọn tài liệu</p>
               )}
             </div>
           </div>
 
-          {/* Right Column: Search and list */}
+          {/* Right Column: Search and lists */}
           <div className="filter-modal-selection-panel">
+            {/* Category Section */}
             <div className="filter-modal-search-group">
-              <label htmlFor="courseSearch" className="filter-modal-search-label">
-                Danh sách Môn học
+              <label
+                htmlFor="catSearch"
+                className="filter-modal-search-label"
+              >
+                Danh mục tài liệu
               </label>
               <div className="filter-modal-search-input-wrapper">
                 <Search className="filter-modal-search-icon w-4 h-4" />
                 <input
-                  ref={courseInputRef}
-                  id="courseSearch"
+                  ref={categoryInputRef}
+                  id="catSearch"
                   type="text"
-                  placeholder="Tìm kiếm môn học..."
+                  placeholder="Tìm kiếm danh mục..."
                   className="filter-modal-search-input"
-                  value={courseSearch}
-                  onChange={(e) => setCourseSearch(e.target.value)}
+                  value={categorySearch}
+                  onChange={(e) => setCategorySearch(e.target.value)}
                 />
               </div>
 
-              <div className="filter-modal-list-container">
-                {filteredCourses.length > 0 ? (
+              <div className="filter-modal-list-container mb-4">
+                {filteredCategories.length > 0 ? (
                   <>
                     <div
                       className="filter-modal-list-header"
-                      onClick={handleSelectAllCourses}
+                      onClick={handleSelectAllCategories}
                     >
                       <input
                         type="checkbox"
                         className="filter-modal-checkbox"
-                        checked={filteredCourses.every((c) =>
-                          tempSelectedCourseIds.includes(c.id)
+                        checked={filteredCategories.every((c) =>
+                          tempSelectedCatIds.includes(c.id)
                         )}
-                        onChange={() => {}}
+                        onChange={() => {}} // Handled by click listener
                       />
                       <span>
-                        {filteredCourses.every((c) =>
-                          tempSelectedCourseIds.includes(c.id)
+                        {filteredCategories.every((c) =>
+                          tempSelectedCatIds.includes(c.id)
                         )
                           ? "Bỏ chọn tất cả"
                           : "Chọn tất cả"}
                       </span>
                     </div>
 
-                    {filteredCourses.map((c) => {
-                      const isChecked = tempSelectedCourseIds.includes(c.id);
+                    {filteredCategories.map((cat) => {
+                      const isChecked = tempSelectedCatIds.includes(cat.id);
                       return (
                         <div
-                          key={c.id}
+                          key={cat.id}
                           className={`filter-modal-item ${
                             isChecked ? "selected" : ""
                           }`}
-                          onClick={() => handleCourseToggle(c.id, !isChecked)}
+                          onClick={() =>
+                            handleCategoryToggle(cat.id, !isChecked)
+                          }
                         >
                           <input
                             type="checkbox"
                             className="filter-modal-checkbox"
                             checked={isChecked}
-                            onChange={() => {}}
+                            onChange={() => {}} // Handled by click listener
                           />
-                          <span className="filter-modal-item-title">
-                            {c.title}
+                          <span className="filter-modal-item-title font-medium">
+                            {cat.title}
                           </span>
                         </div>
                       );
@@ -195,7 +324,85 @@ const FilterCrawlDataModal: React.FC<FilterCrawlDataModalProps> = ({
                   </>
                 ) : (
                   <div className="filter-modal-empty-msg">
-                    Không tìm thấy môn học nào
+                    Không tìm thấy danh mục nào
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Document Section */}
+            <div className="filter-modal-search-group">
+              <label
+                htmlFor="docSearch"
+                className="filter-modal-search-label"
+              >
+                Tài liệu học tập
+              </label>
+              <div className="filter-modal-search-input-wrapper">
+                <Search className="filter-modal-search-icon w-4 h-4" />
+                <input
+                  ref={documentInputRef}
+                  id="docSearch"
+                  type="text"
+                  placeholder="Tìm kiếm tài liệu..."
+                  className="filter-modal-search-input"
+                  value={documentSearch}
+                  onChange={(e) => setDocumentSearch(e.target.value)}
+                />
+              </div>
+
+              <div className="filter-modal-list-container">
+                {filteredDocuments.length > 0 ? (
+                  <>
+                    <div
+                      className="filter-modal-list-header"
+                      onClick={handleSelectAllDocuments}
+                    >
+                      <input
+                        type="checkbox"
+                        className="filter-modal-checkbox"
+                        checked={filteredDocuments.every((d) =>
+                          tempSelectedDocIds.includes(d.id)
+                        )}
+                        onChange={() => {}} // Handled by click listener
+                      />
+                      <span>
+                        {filteredDocuments.every((d) =>
+                          tempSelectedDocIds.includes(d.id)
+                        )
+                          ? "Bỏ chọn tất cả"
+                          : "Chọn tất cả"}
+                      </span>
+                    </div>
+
+                    {filteredDocuments.map((d) => {
+                      const isChecked = tempSelectedDocIds.includes(d.id);
+                      return (
+                        <div
+                          key={d.id}
+                          className={`filter-modal-item ${
+                            isChecked ? "selected" : ""
+                          }`}
+                          onClick={() => handleDocumentToggle(d.id, !isChecked)}
+                        >
+                          <input
+                            type="checkbox"
+                            className="filter-modal-checkbox"
+                            checked={isChecked}
+                            onChange={() => {}} // Handled by div onClick
+                          />
+                          <div className="flex-1">
+                            <div className="filter-modal-item-title">
+                              {d.title}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                ) : (
+                  <div className="filter-modal-empty-msg">
+                    Không tìm thấy tài liệu nào
                   </div>
                 )}
               </div>
@@ -216,9 +423,9 @@ const FilterCrawlDataModal: React.FC<FilterCrawlDataModalProps> = ({
             type="button"
             className="filter-modal-btn-apply"
             onClick={handleApply}
-            disabled={tempSelectedCourseIds.length === 0}
+            disabled={tempSelectedDocIds.length === 0}
           >
-            Áp dụng ({tempSelectedCourseIds.length})
+            Áp dụng ({tempSelectedDocIds.length})
           </button>
         </div>
       </div>

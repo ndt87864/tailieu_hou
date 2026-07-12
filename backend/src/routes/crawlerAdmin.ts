@@ -41,7 +41,8 @@ crawlerAdminRouter.get("/courses", async (c) => {
 crawlerAdminRouter.get("/resources", async (c) => {
   try {
     const courseIdsParam = c.req.query("course_ids") || "all";
-    const cacheKey = `${CACHE_PREFIX}:resources:${courseIdsParam}`;
+    const docIdsParam = c.req.query("document_ids");
+    const cacheKey = `${CACHE_PREFIX}:resources:${courseIdsParam}:${docIdsParam || "all"}`;
     
     const resources = await cacheGetOrSet(cacheKey, async () => {
       let query = supabaseAdmin
@@ -49,7 +50,23 @@ crawlerAdminRouter.get("/resources", async (c) => {
         .select("*, course:crawler_courses(title, document_id)")
         .order("created_at", { ascending: false });
       
-      if (courseIdsParam !== "all") {
+      if (docIdsParam) {
+        const docIds = docIdsParam.split(",").filter(Boolean);
+        if (docIds.length > 0) {
+          // Lấy danh sách course_id thuộc các document này
+          const { data: coursesData } = await supabaseAdmin
+            .from("crawler_courses")
+            .select("id")
+            .in("document_id", docIds);
+          const cIds = (coursesData || []).map((x) => x.id);
+          if (cIds.length > 0) {
+            query = query.in("course_id", cIds);
+          } else {
+            // Không tìm thấy khóa học nào khớp, trả về rỗng
+            query = query.in("course_id", ["00000000-0000-0000-0000-000000000000"]);
+          }
+        }
+      } else if (courseIdsParam !== "all") {
         const ids = courseIdsParam.split(",").filter(Boolean);
         if (ids.length > 0) query = query.in("course_id", ids);
       }
@@ -68,7 +85,8 @@ crawlerAdminRouter.get("/resources", async (c) => {
 crawlerAdminRouter.get("/questions", async (c) => {
   try {
     const courseIdsParam = c.req.query("course_ids") || "all";
-    const cacheKey = `${CACHE_PREFIX}:questions:${courseIdsParam}`;
+    const docIdsParam = c.req.query("document_ids");
+    const cacheKey = `${CACHE_PREFIX}:questions:${courseIdsParam}:${docIdsParam || "all"}`;
     
     const questions = await cacheGetOrSet(cacheKey, async () => {
       let query = supabaseAdmin
@@ -76,7 +94,23 @@ crawlerAdminRouter.get("/questions", async (c) => {
         .select("*, course:crawler_courses(title, document_id)")
         .order("created_at", { ascending: false });
       
-      if (courseIdsParam !== "all") {
+      if (docIdsParam) {
+        const docIds = docIdsParam.split(",").filter(Boolean);
+        if (docIds.length > 0) {
+          // Lấy danh sách course_id thuộc các document này
+          const { data: coursesData } = await supabaseAdmin
+            .from("crawler_courses")
+            .select("id")
+            .in("document_id", docIds);
+          const cIds = (coursesData || []).map((x) => x.id);
+          if (cIds.length > 0) {
+            query = query.in("course_id", cIds);
+          } else {
+            // Không tìm thấy khóa học nào khớp, trả về rỗng
+            query = query.in("course_id", ["00000000-0000-0000-0000-000000000000"]);
+          }
+        }
+      } else if (courseIdsParam !== "all") {
         const ids = courseIdsParam.split(",").filter(Boolean);
         if (ids.length > 0) query = query.in("course_id", ids);
       }
