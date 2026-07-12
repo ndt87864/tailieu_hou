@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { 
   evaluateFormula, numberToColLetter, parseCellAddress, colLetterToNumber 
 } from "../../utils/formulaEvaluator.js";
+import { GridCell } from "./GridCell.js";
 
 type CellData = {
   value: string;
@@ -43,7 +44,6 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   onUndo,
 }) => {
   const [editingCell, setEditingCell] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState("");
   const [isMouseDown, setIsMouseDown] = useState(false);
   
   const [localClipboard, setLocalClipboard] = useState<{
@@ -51,7 +51,6 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     cells: Record<string, CellData>;
   } | null>(null);
 
-  const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Lưu trữ tọa độ bắt đầu và kết thúc kéo chuột bằng Ref để tránh kích hoạt React re-render liên tục khi kéo
@@ -75,18 +74,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     };
   }, [isMouseDown, onSelectRange]);
 
-  useEffect(() => {
-    if (editingCell && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
-  }, [editingCell]);
-
-  const handleCellMouseDown = (address: string, colIdx: number, rowNum: number, e: React.MouseEvent) => {
-    if (editingCell && editingCell !== address) {
-      commitEdit();
-    }
-    
+  const handleCellMouseDown = React.useCallback((address: string, colIdx: number, rowNum: number, e: React.MouseEvent) => {
     if (e.button !== 0) return;
 
     setIsMouseDown(true);
@@ -105,9 +93,9 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     if (containerRef.current) {
       containerRef.current.focus();
     }
-  };
+  }, [onSelectCell]);
 
-  const handleCellMouseEnter = (address: string, colIdx: number, rowNum: number) => {
+  const handleCellMouseEnter = React.useCallback((address: string, colIdx: number, rowNum: number) => {
     if (isMouseDown && dragStartRef.current) {
       dragEndRef.current = address;
 
@@ -132,7 +120,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
         });
       }
     }
-  };
+  }, [isMouseDown]);
 
   const handleContainerMouseMove = (e: React.MouseEvent) => {
     if (!isMouseDown || !containerRef.current) return;
@@ -156,23 +144,37 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     }
   };
 
-  const handleCellDoubleClick = (address: string) => {
+  const handleCellDoubleClick = React.useCallback((address: string) => {
     onSelectCell(address);
     onSelectRange({ start: address, end: address });
     setEditingCell(address);
-    setEditValue(cells[address]?.formula || cells[address]?.value || "");
-  };
+  }, [onSelectCell, onSelectRange]);
 
-  const commitEdit = () => {
-    if (editingCell) {
-      const isFormula = editValue.startsWith("=");
-      onUpdateCell(editingCell, {
-        value: isFormula ? "" : editValue,
-        formula: isFormula ? editValue : "",
-      });
-      setEditingCell(null);
+  const handleCommitEdit = React.useCallback((address: string, newValue: string, moveDirection: "down" | "none") => {
+    const isFormula = newValue.startsWith("=");
+    onUpdateCell(address, {
+      value: isFormula ? "" : newValue,
+      formula: isFormula ? newValue : "",
+    });
+    setEditingCell(null);
+
+    if (moveDirection === "down") {
+      const match = address.match(/^([A-Z]+)([0-9]+)$/);
+      if (match) {
+        const col = match[1];
+        const row = parseInt(match[2], 10);
+        if (row < rowCount) {
+          const nextAddr = `${col}${row + 1}`;
+          onSelectCell(nextAddr);
+          onSelectRange({ start: nextAddr, end: nextAddr });
+        }
+      }
     }
-  };
+  }, [onUpdateCell, rowCount, onSelectCell, onSelectRange]);
+
+  const handleCancelEdit = React.useCallback(() => {
+    setEditingCell(null);
+  }, []);
 
   const getSelectedAddresses = (): string[] => {
     if (!selectedRange) return selectedCell ? [selectedCell] : [];
@@ -314,23 +316,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     onPasteCells(pastedLocal);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent, address: string) => {
-    if (e.key === "Enter") {
-      commitEdit();
-      const match = address.match(/^([A-Z]+)([0-9]+)$/);
-      if (match) {
-        const col = match[1];
-        const row = parseInt(match[2], 10);
-        if (row < rowCount) {
-          const nextAddr = `${col}${row + 1}`;
-          onSelectCell(nextAddr);
-          onSelectRange({ start: nextAddr, end: nextAddr });
-        }
-      }
-    } else if (e.key === "Escape") {
-      setEditingCell(null);
-    }
-  };
+
 
   const handleContainerKeyDown = (e: React.KeyboardEvent) => {
     if (editingCell) return;
@@ -422,42 +408,23 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
           }
         }
 
-        const cellStyle: React.CSSProperties = {
-          fontWeight: cellData?.bold ? "bold" : "normal",
-          fontStyle: cellData?.italic ? "italic" : "normal",
-          textDecoration: cellData?.underline ? "underline" : "none",
-          color: cellData?.color || "inherit",
-          backgroundColor: cellData?.bg || "transparent",
-          textAlign: cellData?.align || "left",
-          fontFamily: cellData?.fontFamily || "inherit",
-          fontSize: cellData?.fontSize || "inherit",
-        };
-
         rowCells.push(
-          <td
+          <GridCell
             key={address}
-            data-row={r}
-            data-col={c}
-            className={`sheet-cell ${isSelected ? "selected" : ""} ${inRange ? "in-range" : ""}`}
-            style={cellStyle}
-            onMouseDown={(e) => handleCellMouseDown(address, c, r, e)}
-            onMouseEnter={() => handleCellMouseEnter(address, c, r)}
-            onDoubleClick={() => handleCellDoubleClick(address)}
-          >
-            {isEditing ? (
-              <input
-                ref={inputRef}
-                type="text"
-                className="cell-editor"
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                onBlur={commitEdit}
-                onKeyDown={(e) => handleKeyDown(e, address)}
-              />
-            ) : (
-              displayValue
-            )}
-          </td>
+            address={address}
+            row={r}
+            col={c}
+            displayValue={displayValue}
+            cellData={cellData}
+            isSelected={isSelected}
+            isEditing={isEditing}
+            inRange={inRange}
+            onCellMouseDown={handleCellMouseDown}
+            onCellMouseEnter={handleCellMouseEnter}
+            onCellDoubleClick={handleCellDoubleClick}
+            onCommit={handleCommitEdit}
+            onCancel={handleCancelEdit}
+          />
         );
       }
 
@@ -476,7 +443,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
       onMouseMove={handleContainerMouseMove}
       style={{ outline: "none" }}
     >
-      <table className="sheet-table">
+      <table className="sheet-table" style={{ width: `${40 + colCount * 100}px` }}>
         <tbody>{renderCells()}</tbody>
       </table>
     </div>
