@@ -192,7 +192,7 @@ const HomePage: React.FC = () => {
             Tài liệu ôn thi HOU
           </div>
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight text-balance max-w-3xl leading-tight">
-            Kho Tài Liệu Học Tập Chuẩn Hóa
+            Kho Tài Liệu Học Tập eHOU
           </h1>
           <p className="mt-4 text-sm sm:text-base md:text-lg text-white/80 max-w-2xl text-balance font-medium">
             Học tập thông minh hơn với ngân hàng đề thi chất lượng, tóm tắt lý thuyết trực quan và hệ thống bài tập thực hành phong phú.
