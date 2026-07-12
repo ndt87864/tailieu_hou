@@ -122,16 +122,26 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
         })()}
 
         {/* Answer if not in choices */}
-        {(!Array.isArray(q.choices) || q.choices.length === 0) && q.answer && (
+        {(!Array.isArray(q.choices) || q.choices.length === 0) && (q.answer || q.url_answer) && (
           <div className="text-xs p-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 text-emerald-600 space-y-2">
             <div>
-              <strong>Đáp án:</strong> {renderTextWithImages(q.answer, allUrls)}
+              <strong>Đáp án:</strong> {q.answer ? renderTextWithImages(q.answer, allUrls) : "(Chỉ có hình ảnh)"}
             </div>
-            {q.url_answer && !(/\.(?:png|jpe?g|gif|svg|webp|bmp)"?/i.test(q.answer || "") || q.answer.includes("pluginfile.php") || q.answer.includes("@@PLUGINFILE@@")) && (
+            {q.url_answer && (
               <div className="mt-2 border rounded-lg p-1 max-w-sm inline-block bg-[var(--bg-2)] border-[var(--border-soft)]">
                 <img src={q.url_answer} alt="Ảnh đáp án" className="max-h-32 object-contain" />
               </div>
             )}
+          </div>
+        )}
+
+        {/* Luôn hiển thị ảnh đáp án riêng nếu là câu trắc nghiệm mà có url_answer và trong text đáp án không tự chèn ảnh */}
+        {Array.isArray(q.choices) && q.choices.length > 0 && q.url_answer && (
+          <div className="text-xs p-2 rounded-xl bg-emerald-500/5 text-emerald-600 border border-emerald-500/10 inline-block">
+            <span className="font-semibold block mb-1">Ảnh đính kèm đáp án đúng:</span>
+            <div className="border rounded-lg p-1 max-w-sm bg-[var(--bg-2)] border-[var(--border-soft)]">
+              <img src={q.url_answer} alt="Ảnh đáp án đính kèm" className="max-h-24 object-contain" />
+            </div>
           </div>
         )}
       </div>

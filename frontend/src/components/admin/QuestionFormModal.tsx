@@ -112,7 +112,7 @@ const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
               onChange={(e) =>
                 setFormData({ ...formData, document_id: e.target.value })
               }
-              className="input-themed w-full px-3 py-2 text-sm rounded-xl outline-none cursor-pointer font-medium"
+              className="select-themed w-full px-3 py-2 text-sm rounded-xl outline-none cursor-pointer font-medium"
               required
             >
               <option value="" disabled>
@@ -168,11 +168,11 @@ const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
                 const cleanUrl = url.trim();
                 if (!cleanUrl) return null;
                 return (
-                  <div key={uidx} className="relative w-20 h-20 border rounded-lg bg-white overflow-hidden group flex items-center justify-center shadow-sm">
+                  <div key={uidx} tabIndex={0} className="relative w-20 h-20 border rounded-lg bg-white overflow-hidden group focus:outline-none flex items-center justify-center shadow-sm">
                     <img src={cleanUrl} alt={`Ảnh câu hỏi ${uidx + 1}`} className="w-full h-full object-contain p-1" />
                     
-                    {/* Hover Overlay chứa 4 icon hành động */}
-                    <div className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 transition-opacity flex flex-wrap items-center justify-center gap-1.5 p-1">
+                    {/* Hover & Focus Overlay chứa 4 icon hành động (Hỗ trợ mobile khi tap vào container) */}
+                    <div className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 group-focus:opacity-100 focus-within:opacity-100 transition-opacity flex flex-wrap items-center justify-center gap-1.5 p-1">
                       <button
                         type="button"
                         onClick={() => window.open(cleanUrl, "_blank")}
@@ -303,11 +303,11 @@ const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
                         const cleanCUrl = cUrl.trim();
                         if (!cleanCUrl) return null;
                         return (
-                          <div key={cidx} className="relative w-14 h-14 border rounded-lg bg-white overflow-hidden group flex items-center justify-center shadow-sm">
+                          <div key={cidx} tabIndex={0} className="relative w-14 h-14 border rounded-lg bg-white overflow-hidden group focus:outline-none flex items-center justify-center shadow-sm">
                             <img src={cleanCUrl} alt={`Ảnh lựa chọn ${label} ${cidx + 1}`} className="w-full h-full object-contain p-0.5" />
                             
-                            {/* Hover Overlay cho ảnh lựa chọn */}
-                            <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity flex flex-wrap items-center justify-center gap-1 p-0.5">
+                            {/* Hover & Focus Overlay cho ảnh lựa chọn */}
+                            <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 group-focus:opacity-100 focus-within:opacity-100 transition-opacity flex flex-wrap items-center justify-center gap-1 p-0.5">
                               <button
                                 type="button"
                                 onClick={() => window.open(cleanCUrl, "_blank")}
@@ -406,11 +406,11 @@ const QuestionFormModal: React.FC<QuestionFormModalProps> = ({
                 const cleanUrl = url.trim();
                 if (!cleanUrl) return null;
                 return (
-                  <div key={uidx} className="relative w-20 h-20 border rounded-lg bg-white overflow-hidden group flex items-center justify-center shadow-sm">
+                  <div key={uidx} tabIndex={0} className="relative w-20 h-20 border rounded-lg bg-white overflow-hidden group focus:outline-none flex items-center justify-center shadow-sm">
                     <img src={cleanUrl} alt={`Ảnh đáp án ${uidx + 1}`} className="w-full h-full object-contain p-1" />
                     
-                    {/* Hover Overlay chứa 4 icon hành động */}
-                    <div className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 transition-opacity flex flex-wrap items-center justify-center gap-1.5 p-1">
+                    {/* Hover & Focus Overlay chứa 4 icon hành động (Hỗ trợ mobile khi tap vào container) */}
+                    <div className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 group-focus:opacity-100 focus-within:opacity-100 transition-opacity flex flex-wrap items-center justify-center gap-1.5 p-1">
                       <button
                         type="button"
                         onClick={() => window.open(cleanUrl, "_blank")}
