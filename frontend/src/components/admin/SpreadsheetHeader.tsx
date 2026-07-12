@@ -119,11 +119,13 @@ export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Trang tính chưa có tên"
+              style={{ width: `${Math.max(80, title.length * 9.5)}px`, maxWidth: "350px" }}
             />
             <button 
               className={`btn-star ${isStarred ? "starred" : ""}`} 
               onClick={() => setIsStarred(!isStarred)}
               title={isStarred ? "Bỏ gắn dấu sao" : "Gắn dấu sao"}
+              style={{ marginLeft: "-2px" }}
             >
               <Star className={`w-4 h-4 ${isStarred ? "fill-[#f59e0b] text-[#f59e0b]" : "text-gray-400"}`} />
             </button>
