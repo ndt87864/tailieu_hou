@@ -120,7 +120,7 @@ const LessonDocumentPage: React.FC = () => {
         if (fetchedCourses.length > 0 && fetchedWeeks.length > 0) {
           try {
             const courseParams = initialCourseIds.join(",");
-            const weekParams = initialWeeks.join(",");
+            const weekParams = initialWeeks.join("|");
             const resRes: any = await cachedGet(`/api/v1/documents/${id}/lessons/resources?course_ids=${courseParams}&weeks=${encodeURIComponent(weekParams)}`);
             
             let fetchedQuestions = [];
@@ -202,7 +202,7 @@ const LessonDocumentPage: React.FC = () => {
         .then(res => res.data || { resources: [], questionCount: 0 });
     } else {
       const courseParams = selectedCourseIds.join(",");
-      const weekParams = selectedWeeks.join(",");
+      const weekParams = selectedWeeks.join("|");
       
       promiseResources = apiClient.get(`/api/v1/documents/${id}/lessons/resources?course_ids=${courseParams}&weeks=${encodeURIComponent(weekParams)}`)
         .then(res => res.data || { resources: [], questionCount: 0 });
@@ -248,7 +248,7 @@ const LessonDocumentPage: React.FC = () => {
         .then(res => res.data || { questions: [] });
     } else {
       const courseParams = selectedCourseIds.join(",");
-      const weekParams = selectedWeeks.join(",");
+      const weekParams = selectedWeeks.join("|");
       
       promiseQuestions = apiClient.get(`/api/v1/documents/${id}/lessons/questions?course_ids=${courseParams}&weeks=${encodeURIComponent(weekParams)}`)
         .then(res => res.data || { questions: [] });

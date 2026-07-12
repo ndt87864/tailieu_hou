@@ -90,7 +90,7 @@ async function requestWithSso(url, method, requestData) {
     }
 
     updateCookies(response.headers["set-cookie"]);
-    console.log(`    ➡️ [SSO DEBUG] ${method} -> ${currentUrl} | Status: ${response.status}`);
+    //console.log(`    ➡️ [SSO DEBUG] ${method} -> ${currentUrl} | Status: ${response.status}`);
 
     if (response.status >= 300 && response.status < 400 && response.headers.location) {
       currentUrl = response.headers.location;

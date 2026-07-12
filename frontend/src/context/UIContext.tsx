@@ -223,7 +223,7 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         const weeks = metaRes.data.weeks || [];
         if (courses.length > 0 && weeks.length > 0) {
           const courseParams = [courses[0].id].join(",");
-          const weekParams = [weeks[0]].join(",");
+          const weekParams = [weeks[0]].join("|");
           // Prefetch resources
           await cachedGet(`/api/v1/documents/${docId}/lessons/resources?course_ids=${courseParams}&weeks=${encodeURIComponent(weekParams)}`);
         }

@@ -8,6 +8,7 @@ if [ -z "$CONTAINER" ]; then
   exit 0
 fi
 
-echo "🛑 Dừng container: $CONTAINER"
-docker stop "$CONTAINER"
+echo "🛑 Dừng container:"
+echo "$CONTAINER"
+docker stop $CONTAINER
 echo "✅ Đã dừng."

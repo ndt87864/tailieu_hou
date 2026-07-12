@@ -156,7 +156,7 @@ docsRouter.get("/:id/lessons/resources", async (c) => {
     const weeksParam = c.req.query("weeks") || "";
 
     const courseIds = courseIdsParam ? courseIdsParam.split(",") : [];
-    const weeks = weeksParam ? weeksParam.split(",") : [];
+    const weeks = weeksParam ? weeksParam.split("|") : [];
 
     const result = await docService.getCrawlerResourcesFiltered(id, courseIds, weeks);
     return c.json(result);
@@ -185,7 +185,7 @@ docsRouter.get("/:id/lessons/questions", async (c) => {
     const weeksParam = c.req.query("weeks") || "";
 
     const courseIds = courseIdsParam ? courseIdsParam.split(",") : [];
-    const weeks = weeksParam ? weeksParam.split(",") : [];
+    const weeks = weeksParam ? weeksParam.split("|") : [];
 
     // Helper to extract week number from string (e.g. "Tuần 2 - ..." -> 2)
     const getWeekNumber = (weekName: string): number => {
