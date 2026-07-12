@@ -117,7 +117,7 @@ export const LessonQuizTab: React.FC<LessonQuizTabProps> = ({
                                   key={oIdx} 
                                   className={`text-xs p-1 rounded transition-colors ${
                                     isCorrect 
-                                      ? "bg-green-500/10 text-green-600 font-medium border border-green-500/20" 
+                                      ? "bg-[color-mix(in_srgb,var(--accent)_8%,var(--surface))] text-[var(--accent)] font-medium border border-[color-mix(in_srgb,var(--accent)_20%,var(--border))]" 
                                       : "doc-text-muted"
                                   }`}
                                   style={{ paddingLeft: isCorrect ? '0.5rem' : '0.25rem' }}
@@ -137,7 +137,7 @@ export const LessonQuizTab: React.FC<LessonQuizTabProps> = ({
                         </td>
                          <td className="py-4 px-4 align-top">
                            <div className="space-y-1.5">
-                             <div className="font-semibold rounded-lg px-2.5 py-1.5 text-xs border doc-answer-badge bg-green-500/10 text-green-600 border-green-500/20 w-full block">
+                             <div className="font-semibold rounded-lg px-2.5 py-1.5 text-xs border doc-answer-badge bg-[color-mix(in_srgb,var(--accent)_8%,var(--surface))] text-[var(--accent)] border-[color-mix(in_srgb,var(--accent)_20%,var(--border))] w-full block">
                                {renderTextWithImages(stripOptionPrefix(q.answer), allUrls)}
                              </div>
                              {q.url_answer && !(/\.(?:png|jpe?g|gif|svg|webp|bmp)"?/i.test(q.answer || "") || (q.answer || "").includes("pluginfile.php") || (q.answer || "").includes("@@PLUGINFILE@@")) && (

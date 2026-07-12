@@ -4,7 +4,7 @@ import apiClient from "../../services/client.js";
 import * as Icons from "lucide-react";
 import { useUI } from "../../context/UIContext.js";
 
-const { BookOpen,GraduationCap, ChevronDown, ChevronRight, ChevronLeft, X, Crown, Search } = Icons;
+const { GraduationCap, ChevronDown, ChevronRight, ChevronLeft, X, Crown, Search } = Icons;
 
 interface Document {
   id: string;

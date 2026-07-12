@@ -1,13 +1,8 @@
 /* ── Home Page Styles ── */
 
-/* Theme Gradients derived directly from system theme settings to ensure 100% theme match */
-:root {
-  --grad-hero: linear-gradient(135deg, var(--brand-900) 0%, var(--brand-600) 50%, var(--brand-300) 100%);
-  --grad-exam: linear-gradient(135deg, var(--brand-700) 0%, var(--brand-500) 50%, var(--brand-300) 100%);
-  --grad-theory: linear-gradient(135deg, var(--brand-800) 0%, var(--brand-600) 50%, var(--brand-400) 100%);
-  --grad-practice: linear-gradient(135deg, var(--brand-600) 0%, var(--brand-400) 50%, var(--brand-200) 100%);
-  --grad-other: linear-gradient(135deg, var(--brand-900) 0%, var(--brand-700) 50%, var(--brand-500) 100%);
-}
+/* Gradient Hero, exam, theory, practice, other đều kế thừa từ themes.css
+   qua var(--grad-hero) và var(--brand-*). KHÔNG định nghĩa lại ở đây. */
+
 
 .home-hero-container {
   background: var(--grad-hero);

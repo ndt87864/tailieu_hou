@@ -69,7 +69,7 @@ export const DocumentQuizList: React.FC<DocumentQuizListProps> = ({
                                 key={oIdx} 
                                 className={`text-xs p-1 rounded transition-colors ${
                                   isCorrect && !isLocked
-                                    ? "bg-green-500/10 text-green-600 font-medium border border-green-500/20" 
+                                    ? "bg-[color-mix(in_srgb,var(--accent)_8%,var(--surface))] text-[var(--accent)] font-medium border border-[color-mix(in_srgb,var(--accent)_20%,var(--border))]" 
                                     : "doc-text-muted"
                                 }`}
                                 style={{ paddingLeft: isCorrect && !isLocked ? '0.5rem' : '0.25rem' }}
@@ -108,7 +108,7 @@ export const DocumentQuizList: React.FC<DocumentQuizListProps> = ({
                           </div>
                         ) : (
                           <div className="space-y-1.5">
-                            <div className="font-semibold rounded-lg px-2.5 py-1.5 text-xs border doc-answer-badge bg-green-500/10 text-green-600 border-green-500/20 w-full block">
+                            <div className="font-semibold rounded-lg px-2.5 py-1.5 text-xs border doc-answer-badge bg-[color-mix(in_srgb,var(--accent)_8%,var(--surface))] text-[var(--accent)] border-[color-mix(in_srgb,var(--accent)_20%,var(--border))] w-full block">
                               {renderTextWithImages(stripOptionPrefix(q.answer), allUrls)}
                             </div>
                             {q.url_answer && !(/\.(?:png|jpe?g|gif|svg|webp|bmp)"?/i.test(q.answer || "") || (q.answer || "").includes("pluginfile.php") || (q.answer || "").includes("@@PLUGINFILE@@")) && (
@@ -141,7 +141,7 @@ export const DocumentQuizList: React.FC<DocumentQuizListProps> = ({
             return (
               <div key={q.id || idx} className="p-4 rounded-2xl border shadow-sm flex flex-col gap-3.5 bg-[var(--surface)] border-[var(--border-soft)] transition-all">
                 <div className="flex items-center justify-between border-b border-dashed pb-2.5 border-[var(--border-soft)]">
-                  <span className="font-bold text-xs text-[var(--brand-600)] uppercase tracking-wider">Câu {idx + 1}</span>
+                  <span className="font-bold text-xs text-[var(--accent)] uppercase tracking-wider">Câu {idx + 1}</span>
                   {isLocked && (
                     <span className="text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full font-bold text-[10px] flex items-center gap-1 border border-amber-500/20">
                       <Lock className="w-3.5 h-3.5" /> Premium
@@ -163,11 +163,11 @@ export const DocumentQuizList: React.FC<DocumentQuizListProps> = ({
                             key={oIdx} 
                             className={`flex items-start gap-2.5 p-2.5 rounded-xl text-xs border transition-colors ${
                               isCorrect && !isLocked
-                                ? "bg-green-500/10 border-green-500/20 text-green-600 font-semibold"
+                                ? "bg-[color-mix(in_srgb,var(--accent)_8%,var(--surface))] border-[color-mix(in_srgb,var(--accent)_20%,var(--border))] text-[var(--accent)] font-semibold"
                                 : "bg-[var(--bg-2)] border-[var(--border-soft)] text-[var(--fg-2)] hover:bg-[var(--bg-3)]"
                             }`}
                           >
-                            <span className={`font-bold shrink-0 ${isCorrect && !isLocked ? "text-green-600" : "text-[var(--brand-600)]"}`}>{String.fromCharCode(65 + oIdx)}.</span>
+                            <span className={`font-bold shrink-0 ${isCorrect && !isLocked ? "text-[var(--accent)]" : "text-[var(--accent)]"}`}>{String.fromCharCode(65 + oIdx)}.</span>
                             <span className="leading-relaxed">{renderTextWithImages(stripOptionPrefix(opt), allUrls)}</span>
                           </div>
                         );
@@ -198,8 +198,8 @@ export const DocumentQuizList: React.FC<DocumentQuizListProps> = ({
                     )
                   ) : (
                     <div className="space-y-3">
-                      <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10 text-emerald-700 dark:text-emerald-300">
-                        <div className="text-[10px] uppercase font-bold tracking-wider text-emerald-600 dark:text-emerald-400 mb-1">Đáp án đúng</div>
+                      <div className="p-3 rounded-xl bg-[color-mix(in_srgb,var(--accent)_6%,var(--surface))] border border-[color-mix(in_srgb,var(--accent)_15%,var(--border))] text-[var(--fg)]">
+                        <div className="text-[10px] uppercase font-bold tracking-wider text-[var(--accent)] mb-1">Đáp án đúng</div>
                         <div className="text-sm font-semibold leading-relaxed">{renderTextWithImages(stripOptionPrefix(q.answer), allUrls)}</div>
                       </div>
                       {q.url_answer && !(/\.(?:png|jpe?g|gif|svg|webp|bmp)"?/i.test(q.answer || "") || q.answer.includes("pluginfile.php") || q.answer.includes("@@PLUGINFILE@@")) && (

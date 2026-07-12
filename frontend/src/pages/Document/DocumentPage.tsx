@@ -203,7 +203,7 @@ const DocumentPage: React.FC = () => {
               className="md:hidden p-2 -ml-2 rounded-lg hover:bg-[var(--bg-2)] transition-colors text-[var(--muted)] flex items-center justify-center"
               aria-label="Về trang chủ"
             >
-              <Icons.BookOpen className="w-5 h-5 text-[var(--brand-600)]" />
+              <Icons.BookOpen className="w-5 h-5 text-[var(--accent)]" />
             </Link>
           }
           onMobileMenuClick={() => window.dispatchEvent(new Event("open-doc-sidebar"))}
@@ -246,7 +246,7 @@ const DocumentPage: React.FC = () => {
         <div className="flex flex-1 items-center justify-center p-8">
           <div className="text-center space-y-3">
             <p className="text-sm doc-text-muted">Tài liệu này hiện không có sẵn.</p>
-            <Link to="/" className="text-xs text-[var(--brand-600)] hover:underline">← Quay lại</Link>
+            <Link to="/" className="text-xs text-[var(--accent)] hover:underline">← Quay lại</Link>
           </div>
         </div>
       </div>
@@ -265,7 +265,7 @@ const DocumentPage: React.FC = () => {
               className="md:hidden p-2 -ml-2 rounded-lg hover:bg-[var(--bg-2)] transition-colors text-[var(--muted)] flex items-center justify-center"
               aria-label="Về trang chủ"
             >
-              <Icons.BookOpen className="w-5 h-5 text-[var(--brand-600)]" />
+              <Icons.BookOpen className="w-5 h-5 text-[var(--accent)]" />
             </Link>
           }
           onMobileMenuClick={() => window.dispatchEvent(new Event("open-doc-sidebar"))}
@@ -286,7 +286,7 @@ const DocumentPage: React.FC = () => {
             {canDownloadExcel && (
               <button
                 onClick={exportToExcel}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--brand-600)] hover:bg-[var(--brand-700)] text-white font-semibold text-[11px] transition-colors shadow-sm cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-semibold text-[11px] transition-colors shadow-sm cursor-pointer"
                 title={`Tải xuống Excel (${excelPercentage}%)`}
               >
                 <Icons.Download className="w-3.5 h-3.5" />
@@ -303,7 +303,7 @@ const DocumentPage: React.FC = () => {
               placeholder="Tìm kiếm câu hỏi..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 rounded-lg border text-xs focus:outline-none focus:ring-1 focus:ring-[var(--brand-500)] doc-card-themed"
+              className="w-full pl-9 pr-3 py-1.5 rounded-lg border text-xs focus:outline-none focus:ring-1 focus:ring-[var(--accent)] doc-card-themed"
             />
           </div>
         </div>

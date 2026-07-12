@@ -13,16 +13,19 @@
 
 :root {
   /* Semantic tokens sáng — giống tailieu-ehou light */
-  --bg:           #f8f9fa;    /* body background */
+  --bg:           #f8f9fa;
+  --bg-1:         #f4f5f7;    /* giao thoa bg và surface */
   --bg-2:         #f1f3f5;    /* nền phụ */
-  --surface:      #ffffff;    /* card, modal */
+  --bg-3:         #e8eaed;    /* nền đậm hơn, hover state */
+  --surface:      #ffffff;
   --surface-2:    #f8f9fa;
-  --fg:           #111827;    /* text-gray-900 */
-  --fg-2:         #374151;    /* text-gray-700 */
-  --muted:        #6b7280;    /* text-gray-500 */
-  --meta:         #9ca3af;    /* text-gray-400 */
-  --border:       #e5e7eb;    /* border-gray-200 */
+  --fg:           #111827;
+  --fg-2:         #374151;
+  --muted:        #6b7280;
+  --meta:         #9ca3af;
+  --border:       #e5e7eb;
   --border-soft:  #f3f4f6;
+  --border-hover: #d1d5db;
   --accent:       var(--brand-600);
   --accent-hover: var(--brand-700);
   --accent-on:    #ffffff;
@@ -40,20 +43,28 @@
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --motion-fast:  150ms;
   --motion-base:  250ms;
+  /* Các gradient phụ — kế thừa từ --brand-* được override bởi themes.css */
+  --grad-exam:     linear-gradient(135deg, var(--brand-700) 0%, var(--brand-500) 50%, var(--brand-300) 100%);
+  --grad-theory:   linear-gradient(135deg, var(--brand-800) 0%, var(--brand-600) 50%, var(--brand-400) 100%);
+  --grad-practice: linear-gradient(135deg, var(--brand-600) 0%, var(--brand-400) 50%, var(--brand-200) 100%);
+  --grad-other:    linear-gradient(135deg, var(--brand-900) 0%, var(--brand-700) 50%, var(--brand-500) 100%);
 }
 
 /* ─── Dark Mode — giống tailieu-ehou dark ─── */
 .dark {
-  --bg:          #1a1a1a;    /* bg-primary dark */
-  --bg-2:        #2d2d2d;    /* bg-secondary dark */
+  --bg:          #1a1a1a;
+  --bg-1:        #252525;
+  --bg-2:        #2d2d2d;
+  --bg-3:        #3a3a3a;
   --surface:     #2d2d2d;
   --surface-2:   #3a3a3a;
-  --fg:          #e0e0e0;    /* text-primary dark */
+  --fg:          #e0e0e0;
   --fg-2:        #c0c0c0;
-  --muted:       #a0a0a0;    /* text-secondary dark */
+  --muted:       #a0a0a0;
   --meta:        #6b7280;
-  --border:      #3d3d3d;    /* border dark */
+  --border:      #3d3d3d;
   --border-soft: #2d2d2d;
+  --border-hover: #4d4d4d;
   --shadow-sm:   0 1px 3px rgba(0,0,0,.3);
   --shadow-md:   0 4px 20px rgba(0,0,0,.45);
 }
