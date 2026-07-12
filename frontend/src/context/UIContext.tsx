@@ -46,7 +46,7 @@ interface UIContextType {
 const UIContext = createContext<UIContextType | undefined>(undefined);
 
 export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+  const { user, role, loading } = useAuth();
 
   // Khởi tạo từ localStorage ngay khi render lần đầu (sync)
   const [themeMode, setThemeModeState] = useState<ThemeMode>(() => {
@@ -204,9 +204,20 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   }, []);
 
   const setLessonMode = useCallback((mode: boolean) => {
-    setLessonModeState(mode);
-    localStorage.setItem("ui-lesson-mode", String(mode));
-  }, []);
+    const isAdminOrManagement = role === "admin" || role === "management";
+    const targetMode = isAdminOrManagement ? mode : false;
+    setLessonModeState(targetMode);
+    localStorage.setItem("ui-lesson-mode", String(targetMode));
+  }, [role]);
+
+  useEffect(() => {
+    if (loading) return; // Đợi quá trình xác thực và đồng bộ role hoàn tất
+    const isAdminOrManagement = role === "admin" || role === "management";
+    if (!isAdminOrManagement && lessonMode) {
+      setLessonModeState(false);
+      localStorage.setItem("ui-lesson-mode", "false");
+    }
+  }, [role, lessonMode, loading]);
 
   const navigate = useNavigate();
 
