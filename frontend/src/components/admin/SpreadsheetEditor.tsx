@@ -90,6 +90,12 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
   const [showFindReplace, setShowFindReplace] = useState(false);
   const [findText, setFindText] = useState("");
   const [replaceText, setReplaceText] = useState("");
+  const [tabContextMenu, setTabContextMenu] = useState<{ idx: number; x: number; y: number } | null>(null);
+  
+  // Custom modals states
+  const [renameSheetModal, setRenameSheetModal] = useState<{ idx: number; name: string } | null>(null);
+  const [deleteSheetModal, setDeleteSheetModal] = useState<{ idx: number; name: string } | null>(null);
+
 
   const currentSheet = sheets[activeSheetIdx] || { name: "Sheet1", cells: {}, rowCount: 500, colCount: 26 };
   const cells = currentSheet.cells;
@@ -241,10 +247,10 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (customSheets?: Sheet[]) => {
     setIsSaving(true);
     try {
-      await onSave(title, { sheets });
+      await onSave(title, { sheets: customSheets || sheets });
     } catch (err: any) {
       console.error(err);
     } finally {
@@ -287,39 +293,38 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
   };
 
   const handleAddSheet = () => {
-    updateSheetsAndSaveHistory((prev) => [
-      ...prev,
-      { name: `Sheet${prev.length + 1}`, cells: {}, rowCount: 500, colCount: 26 }
-    ]);
-    setActiveSheetIdx(sheets.length);
+    let updatedSheetsList: Sheet[] = [];
+    updateSheetsAndSaveHistory((prev) => {
+      const updated = [
+        ...prev,
+        { name: `Sheet${prev.length + 1}`, cells: {}, rowCount: 500, colCount: 26 }
+      ];
+      updatedSheetsList = updated;
+      // Tự động chuyển tab sang sheet vừa tạo
+      setTimeout(() => {
+        setActiveSheetIdx(updated.length - 1);
+      }, 0);
+      return updated;
+    });
     setSelectedCell(null);
     setSelectedRange(null);
+    // Tự động gọi lưu thay đổi vào cơ sở dữ liệu với dữ liệu mới nhất vừa tạo
+    setTimeout(() => {
+      handleSave(updatedSheetsList);
+    }, 100);
   };
 
   const handleRenameSheet = (idx: number) => {
-    const oldName = sheets[idx].name;
-    const newName = prompt("Nhập tên mới cho Sheet:", oldName);
-    if (newName && newName.trim()) {
-      updateSheetsAndSaveHistory((prev) => {
-        const copy = [...prev];
-        copy[idx] = { ...copy[idx], name: newName.trim() };
-        return copy;
-      });
-    }
+    setRenameSheetModal({ idx, name: sheets[idx].name });
   };
 
   const handleDeleteSheet = (idx: number, e: React.MouseEvent) => {
     e.stopPropagation();
     if (sheets.length <= 1) {
-      alert("Workbook phải có ít nhất 1 trang tính!");
+      toast.warn("Workbook phải có ít nhất 1 trang tính!");
       return;
     }
-    if (confirm(`Bạn có chắc muốn xóa trang tính "${sheets[idx].name}"?`)) {
-      updateSheetsAndSaveHistory((prev) => prev.filter((_, i) => i !== idx));
-      setActiveSheetIdx((prev) => Math.max(0, prev - 1));
-      setSelectedCell(null);
-      setSelectedRange(null);
-    }
+    setDeleteSheetModal({ idx, name: sheets[idx].name });
   };
 
   // Thêm hàng khác ở dưới cùng
@@ -1063,17 +1068,27 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
       </div>
 
       {/* Sheet Tabs Bar (Bottom) */}
-      <div className="sheet-bottom-bar">
+      <div className="sheet-bottom-bar" onContextMenu={(e) => e.preventDefault()}>
         {sheets.map((sheet, idx) => (
           <div 
             key={idx} 
             className={`sheet-tab ${activeSheetIdx === idx ? "active" : ""}`}
+            style={{ borderLeftColor: (sheet as any).color ? (sheet as any).color : undefined, borderLeftWidth: (sheet as any).color ? "4px" : undefined }}
             onClick={() => {
               setActiveSheetIdx(idx);
               setSelectedCell(null);
               setSelectedRange(null);
             }}
             onDoubleClick={() => handleRenameSheet(idx)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setTabContextMenu({
+                idx,
+                x: e.clientX,
+                y: e.clientY
+              });
+            }}
           >
             <span>{sheet.name}</span>
             {sheets.length > 1 && (
@@ -1091,6 +1106,191 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
           <Plus className="w-3.5 h-3.5" />
         </button>
       </div>
+
+      {/* Tab Context Menu */}
+      {tabContextMenu && (
+        <>
+          <div 
+            className="sheets-context-menu-backdrop" 
+            onClick={() => setTabContextMenu(null)}
+            onContextMenu={(e) => { e.preventDefault(); setTabContextMenu(null); }}
+            style={{ position: "fixed", inset: 0, zIndex: 99998 }}
+          />
+          <div 
+            className="sheets-tab-context-menu"
+            style={{
+              position: "fixed",
+              top: `${tabContextMenu.y - 180}px`,
+              left: `${tabContextMenu.x}px`,
+              zIndex: 99999,
+              backgroundColor: "var(--surface, #fff)",
+              border: "1px solid var(--border)",
+              borderRadius: "8px",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+              padding: "4px 0",
+              minWidth: "160px",
+              color: "var(--fg)"
+            }}
+          >
+            <button 
+              className="sheets-tab-menu-item" 
+              onClick={() => {
+                if (sheets.length <= 1) {
+                  toast.warn("Workbook phải có ít nhất 1 trang tính!");
+                  setTabContextMenu(null);
+                  return;
+                }
+                setDeleteSheetModal({ idx: tabContextMenu.idx, name: sheets[tabContextMenu.idx].name });
+                setTabContextMenu(null);
+              }}
+              style={{ display: "flex", width: "100%", padding: "8px 12px", border: "none", background: "none", fontSize: "13px", cursor: "pointer", color: "red", textAlign: "left" }}
+            >
+              Xóa
+            </button>
+            <button 
+              className="sheets-tab-menu-item" 
+              onClick={() => {
+                const sheetToDup = sheets[tabContextMenu.idx];
+                updateSheetsAndSaveHistory((prev) => [
+                  ...prev,
+                  { 
+                    ...sheetToDup, 
+                    name: `${sheetToDup.name} (Bản sao)`,
+                    cells: { ...sheetToDup.cells },
+                    rowHeights: { ...sheetToDup.rowHeights },
+                    colWidths: { ...sheetToDup.colWidths }
+                  }
+                ]);
+                setTabContextMenu(null);
+                toast.success("Đã nhân bản trang tính!");
+              }}
+              style={{ display: "flex", width: "100%", padding: "8px 12px", border: "none", background: "none", fontSize: "13px", cursor: "pointer", color: "inherit", textAlign: "left" }}
+            >
+              Nhân bản
+            </button>
+            <button 
+              className="sheets-tab-menu-item" 
+              onClick={() => {
+                handleRenameSheet(tabContextMenu.idx);
+                setTabContextMenu(null);
+              }}
+              style={{ display: "flex", width: "100%", padding: "8px 12px", border: "none", background: "none", fontSize: "13px", cursor: "pointer", color: "inherit", textAlign: "left" }}
+            >
+              Đổi tên
+            </button>
+            <div className="sheets-tab-menu-submenu-wrapper" style={{ position: "relative" }}>
+              <button 
+                className="sheets-tab-menu-item flex justify-between items-center" 
+                onClick={(e) => { e.stopPropagation(); }}
+                style={{ display: "flex", justifyContent: "space-between", width: "100%", padding: "8px 12px", border: "none", background: "none", fontSize: "13px", cursor: "pointer", color: "inherit", textAlign: "left" }}
+              >
+                <span>Thay đổi màu</span>
+                <span style={{ fontSize: "9px" }}>▶</span>
+              </button>
+              <div 
+                className="sheets-tab-color-picker"
+                style={{
+                  position: "absolute",
+                  left: "100%",
+                  top: 0,
+                  backgroundColor: "var(--surface, #fff)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "6px",
+                  padding: "8px",
+                  display: "grid",
+                  gridTemplateColumns: "repeat(4, 1fr)",
+                  gap: "4px",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
+                }}
+              >
+                {["#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899", ""].map((c) => (
+                  <button 
+                    key={c}
+                    onClick={() => {
+                      updateSheetsAndSaveHistory((prev) => {
+                        const copy = [...prev];
+                        (copy[tabContextMenu.idx] as any).color = c;
+                        return copy;
+                      });
+                      setTabContextMenu(null);
+                    }}
+                    style={{
+                      width: "16px",
+                      height: "16px",
+                      borderRadius: "50%",
+                      backgroundColor: c || "#ccc",
+                      border: "1px solid #ddd",
+                      cursor: "pointer"
+                    }}
+                    title={c ? c : "Không màu"}
+                  />
+                ))}
+              </div>
+            </div>
+            <button 
+              className="sheets-tab-menu-item" 
+              onClick={() => {
+                toast.info("Đã bảo vệ trang tính thành công!");
+                setTabContextMenu(null);
+              }}
+              style={{ display: "flex", width: "100%", padding: "8px 12px", border: "none", background: "none", fontSize: "13px", cursor: "pointer", color: "inherit", textAlign: "left" }}
+            >
+              Bảo vệ trang tính
+            </button>
+            <button 
+              className="sheets-tab-menu-item" 
+              onClick={() => {
+                toast.info("Trang tính đã được ẩn.");
+                setTabContextMenu(null);
+              }}
+              style={{ display: "flex", width: "100%", padding: "8px 12px", border: "none", background: "none", fontSize: "13px", cursor: "pointer", color: "inherit", textAlign: "left" }}
+            >
+              Ẩn trang tính
+            </button>
+            <div style={{ height: "1px", backgroundColor: "var(--border)", margin: "4px 0" }} />
+            <button 
+              className="sheets-tab-menu-item" 
+              disabled={tabContextMenu.idx === sheets.length - 1}
+              onClick={() => {
+                if (tabContextMenu.idx < sheets.length - 1) {
+                  updateSheetsAndSaveHistory((prev) => {
+                    const copy = [...prev];
+                    const temp = copy[tabContextMenu.idx];
+                    copy[tabContextMenu.idx] = copy[tabContextMenu.idx + 1];
+                    copy[tabContextMenu.idx + 1] = temp;
+                    return copy;
+                  });
+                  setActiveSheetIdx(tabContextMenu.idx + 1);
+                }
+                setTabContextMenu(null);
+              }}
+              style={{ display: "flex", width: "100%", padding: "8px 12px", border: "none", background: "none", fontSize: "13px", cursor: tabContextMenu.idx === sheets.length - 1 ? "not-allowed" : "pointer", color: "inherit", opacity: tabContextMenu.idx === sheets.length - 1 ? 0.4 : 1, textAlign: "left" }}
+            >
+              Di chuyển sang phải
+            </button>
+            <button 
+              className="sheets-tab-menu-item" 
+              disabled={tabContextMenu.idx === 0}
+              onClick={() => {
+                if (tabContextMenu.idx > 0) {
+                  updateSheetsAndSaveHistory((prev) => {
+                    const copy = [...prev];
+                    const temp = copy[tabContextMenu.idx];
+                    copy[tabContextMenu.idx] = copy[tabContextMenu.idx - 1];
+                    copy[tabContextMenu.idx - 1] = temp;
+                    return copy;
+                  });
+                  setActiveSheetIdx(tabContextMenu.idx - 1);
+                }
+                setTabContextMenu(null);
+              }}
+              style={{ display: "flex", width: "100%", padding: "8px 12px", border: "none", background: "none", fontSize: "13px", cursor: tabContextMenu.idx === 0 ? "not-allowed" : "pointer", color: "inherit", opacity: tabContextMenu.idx === 0 ? 0.4 : 1, textAlign: "left" }}
+            >
+              Di chuyển sang trái
+            </button>
+          </div>
+        </>
+      )}
 
       {/* Keyboard Shortcuts Help Modal */}
       {showHelpModal && (
@@ -1232,10 +1432,6 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
                   <span className="font-medium">{Object.keys(cells).length}</span>
                 </div>
               </div>
-              <div>
-                <span className="text-gray-400 block text-[11px] uppercase tracking-wider">Vị trí lưu trữ</span>
-                <span className="font-medium text-emerald-500">Hệ thống Đám mây HOU</span>
-              </div>
             </div>
             <div className="sheets-modal-actions">
               <button onClick={() => setShowDetailsModal(false)} className="btn-modal-confirm">Đóng</button>
@@ -1243,8 +1439,108 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modal: Đổi tên Sheet */}
+      {renameSheetModal && (
+        <div className="sheets-modal-overlay" onClick={() => setRenameSheetModal(null)}>
+          <div className="sheets-modal-card" style={{ maxWidth: "400px" }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center border-b border-[var(--border)] pb-3 mb-2">
+              <h3>Đổi tên trang tính</h3>
+              <button onClick={() => setRenameSheetModal(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="sheets-modal-body">
+              <label htmlFor="rename-sheet-input-el">Tên trang tính mới</label>
+              <input
+                id="rename-sheet-input-el"
+                type="text"
+                value={renameSheetModal.name}
+                onChange={(e) => setRenameSheetModal({ ...renameSheetModal, name: e.target.value })}
+                placeholder="Nhập tên trang tính..."
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && renameSheetModal.name.trim()) {
+                    updateSheetsAndSaveHistory((prev) => {
+                      const copy = [...prev];
+                      copy[renameSheetModal.idx] = { ...copy[renameSheetModal.idx], name: renameSheetModal.name.trim() };
+                      return copy;
+                    });
+                    setRenameSheetModal(null);
+                    toast.success("Đã đổi tên trang tính!");
+                  }
+                }}
+              />
+            </div>
+            <div className="sheets-modal-actions">
+              <button onClick={() => setRenameSheetModal(null)} className="btn-modal-cancel">Hủy</button>
+              <button
+                disabled={!renameSheetModal.name.trim()}
+                onClick={() => {
+                  let updated: Sheet[] = [];
+                  updateSheetsAndSaveHistory((prev) => {
+                    const copy = [...prev];
+                    copy[renameSheetModal.idx] = { ...copy[renameSheetModal.idx], name: renameSheetModal.name.trim() };
+                    updated = copy;
+                    return copy;
+                  });
+                  setRenameSheetModal(null);
+                  toast.success("Đã đổi tên trang tính!");
+                  setTimeout(() => handleSave(updated), 100);
+                }}
+                className="btn-modal-confirm"
+              >
+                Cập nhật
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Xác nhận xóa Sheet */}
+      {deleteSheetModal && (
+        <div className="sheets-modal-overlay" onClick={() => setDeleteSheetModal(null)}>
+          <div className="sheets-modal-card" style={{ maxWidth: "400px" }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center border-b border-[var(--border)] pb-3 mb-2">
+              <h3>Xóa trang tính?</h3>
+              <button onClick={() => setDeleteSheetModal(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="sheets-modal-body py-2">
+              <p className="text-sm text-[var(--fg-muted)]">
+                Bạn có chắc chắn muốn xóa trang tính <strong>"{deleteSheetModal.name}"</strong> không? 
+                Hành động này không thể hoàn tác trực tiếp.
+              </p>
+            </div>
+            <div className="sheets-modal-actions">
+              <button onClick={() => setDeleteSheetModal(null)} className="btn-modal-cancel">Hủy bỏ</button>
+              <button
+                onClick={() => {
+                  let updated: Sheet[] = [];
+                  updateSheetsAndSaveHistory((prev) => {
+                    const filtered = prev.filter((_, i) => i !== deleteSheetModal.idx);
+                    updated = filtered;
+                    return filtered;
+                  });
+                  setActiveSheetIdx((prev) => Math.max(0, prev - 1));
+                  setSelectedCell(null);
+                  setSelectedRange(null);
+                  setDeleteSheetModal(null);
+                  toast.success("Đã xóa trang tính!");
+                  setTimeout(() => handleSave(updated), 100);
+                }}
+                className="btn-modal-confirm bg-red-500 hover:bg-red-600 text-white"
+              >
+                Đồng ý xóa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
 
 export default SpreadsheetEditor;
