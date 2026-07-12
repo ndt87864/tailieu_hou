@@ -1,6 +1,7 @@
 import React from "react";
-import { X, Sun, Moon, Laptop, Check, FileText, BookOpen } from "lucide-react";
+import { X, Sun, Moon, Laptop, Check, FileText, BookOpen, Lock } from "lucide-react";
 import { useUI, type ThemeMode, type PrimaryColor } from "../../context/UIContext.js";
+import { useAuth } from "../../context/AuthContext.js";
 import "../../css/modal.css";
 
 
@@ -11,6 +12,7 @@ interface UISettingsModalProps {
 
 const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) => {
   const { themeMode, primaryColor, lessonMode, setThemeMode, setPrimaryColor, setLessonMode } = useUI();
+  const { role } = useAuth();
 
   if (!isOpen) return null;
 
@@ -86,31 +88,44 @@ const UISettingsModal: React.FC<UISettingsModalProps> = ({ isOpen, onClose }) =>
         </div>
 
         {/* Chế độ học tập */}
-        <div className="mb-5">
-          <label className="ui-settings-modal-label">
-            Chế độ học tập
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => setLessonMode(false)}
-              className={`flex flex-col items-center gap-1.5 p-3 rounded-xl text-xs font-medium transition-all duration-200 ${
-                !lessonMode ? "ui-settings-btn-option-active" : "ui-settings-btn-option"
-              }`}
-            >
-              <FileText className="w-4 h-4" />
-              <span>Luyện câu hỏi</span>
-            </button>
-            <button
-              onClick={() => setLessonMode(true)}
-              className={`flex flex-col items-center gap-1.5 p-3 rounded-xl text-xs font-medium transition-all duration-200 ${
-                lessonMode ? "ui-settings-btn-option-active" : "ui-settings-btn-option"
-              }`}
-            >
-              <BookOpen className="w-4 h-4" />
-              <span>Bài học & Tài liệu</span>
-            </button>
+        {(role === "admin" || role === "management") && (
+          <div className="mb-5">
+            <label className="ui-settings-modal-label">
+              Chế độ học tập
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setLessonMode(false)}
+                className={`flex flex-col items-center gap-1.5 p-3 rounded-xl text-xs font-medium transition-all duration-200 ${
+                  !lessonMode ? "ui-settings-btn-option-active" : "ui-settings-btn-option"
+                }`}
+              >
+                <FileText className="w-4 h-4" />
+                <span>Luyện câu hỏi</span>
+              </button>
+              <button
+                onClick={() => {
+                  if (role === "admin" || role === "management") {
+                    setLessonMode(true);
+                  }
+                }}
+                disabled={role !== "admin" && role !== "management"}
+                className={`flex flex-col items-center gap-1.5 p-3 rounded-xl text-xs font-medium transition-all duration-200 ${
+                  role !== "admin" && role !== "management"
+                    ? "opacity-50 cursor-not-allowed ui-settings-btn-option"
+                    : lessonMode ? "ui-settings-btn-option-active" : "ui-settings-btn-option"
+                }`}
+                title={role !== "admin" && role !== "management" ? "Chỉ dành cho Admin & Ban Quản Lý" : undefined}
+              >
+                <div className="flex items-center gap-1">
+                  <BookOpen className="w-4 h-4" />
+                  {role !== "admin" && role !== "management" && <Lock className="w-3 h-3 text-[var(--muted)]" />}
+                </div>
+                <span>Bài học & Tài liệu</span>
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Màu chủ đạo */}
         <div>

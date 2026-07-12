@@ -68,7 +68,7 @@ docsRouter.get("/grouped", async (c) => {
   }
 });
 
-docsRouter.get("/grouped/lms", async (c) => {
+docsRouter.get("/grouped/lms", requireRole("management"), async (c) => {
   try {
     const userRole = (c.get("role") as UserRole | undefined);
     const categories = await docService.getGroupedDocumentsLMS(isPremium(userRole));
@@ -87,7 +87,7 @@ docsRouter.get("/:id", async (c) => {
   return c.json({ document });
 });
 
-docsRouter.get("/:id/lessons", async (c) => {
+docsRouter.get("/:id/lessons", requireRole("management"), async (c) => {
   try {
     const id = c.req.param("id");
     const userRole = (c.get("role") as UserRole | undefined);
@@ -112,7 +112,7 @@ docsRouter.get("/:id/lessons", async (c) => {
   }
 });
 
-docsRouter.get("/:id/lessons/metadata", async (c) => {
+docsRouter.get("/:id/lessons/metadata", requireRole("management"), async (c) => {
   try {
     const id = c.req.param("id");
     const userRole = (c.get("role") as UserRole | undefined);
@@ -137,7 +137,7 @@ docsRouter.get("/:id/lessons/metadata", async (c) => {
   }
 });
 
-docsRouter.get("/:id/lessons/resources", async (c) => {
+docsRouter.get("/:id/lessons/resources", requireRole("management"), async (c) => {
   try {
     const id = c.req.param("id");
     const userRole = (c.get("role") as UserRole | undefined);
@@ -159,7 +159,7 @@ docsRouter.get("/:id/lessons/resources", async (c) => {
   }
 });
 
-docsRouter.get("/:id/lessons/questions", async (c) => {
+docsRouter.get("/:id/lessons/questions", requireRole("management"), async (c) => {
   try {
     const id = c.req.param("id");
     const role = (c.get("role") as UserRole | undefined) || "guest";

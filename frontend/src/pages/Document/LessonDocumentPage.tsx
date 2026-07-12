@@ -74,6 +74,16 @@ const LessonDocumentPage: React.FC = () => {
   const [limitApplied, setLimitApplied] = useState<boolean>(false);
   
   const [activeTab, setActiveTab] = useState<"materials" | "quiz">("materials");
+  const handleTabChange = (tab: "materials" | "quiz") => {
+    if (tab === activeTab) return;
+    setPageLoading(true);
+    setTimeout(() => {
+      setActiveTab(tab);
+      setTimeout(() => {
+        setPageLoading(false);
+      }, 150);
+    }, 50);
+  };
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [questionCount, setQuestionCount] = useState<number>(0);
   const [questionsLoading, setQuestionsLoading] = useState<boolean>(false);
@@ -288,13 +298,13 @@ const LessonDocumentPage: React.FC = () => {
             <div className="lesson-page-header-actions lesson-page-header-actions--top">
               <div className="lesson-tab-switcher">
                 <button
-                  onClick={() => setActiveTab("materials")}
+                  onClick={() => handleTabChange("materials")}
                   className={`lesson-tab-btn ${activeTab === "materials" ? "lesson-tab-btn-active" : ""}`}
                 >
                   <FileText className="w-3.5 h-3.5 shrink-0" /> Bài học &amp; Tài liệu
                 </button>
                 <button
-                  onClick={() => setActiveTab("quiz")}
+                  onClick={() => handleTabChange("quiz")}
                   className={`lesson-tab-btn ${activeTab === "quiz" ? "lesson-tab-btn-active" : ""}`}
                 >
                   <HelpCircle className="w-3.5 h-3.5 shrink-0" /> Câu hỏi {questionsLoading ? "..." : `(${questionCount})`}

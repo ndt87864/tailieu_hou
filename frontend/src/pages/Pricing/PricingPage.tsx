@@ -131,7 +131,7 @@ export const PricingPage: React.FC = () => {
     if (!container || container.children.length === 0) return;
 
     const cardWidth = (container.children[0] as HTMLElement).offsetWidth;
-    const gap = 32;
+    const gap = 24;
     const scrollAmount = cardWidth + gap;
 
     const currentScroll = container.scrollLeft;
