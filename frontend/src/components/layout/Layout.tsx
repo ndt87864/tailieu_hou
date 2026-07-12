@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Outlet } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.js";
-import { BookOpen, User, Shield, LogOut, ChevronDown, Menu, X, Settings, Phone, Home, Calendar } from "lucide-react";
+import { GraduationCap, User, Shield, LogOut, ChevronDown, Menu, X, Settings, Phone, Home, Calendar } from "lucide-react";
 import UISettingsModal from "./UISettingsModal.js";
 import EditProfileModal from "./EditProfileModal.js";
 import { useUI } from "../../context/UIContext.js";
@@ -83,7 +83,7 @@ export const Header: React.FC<HeaderProps> = ({
               className="flex items-center gap-2.5 font-bold text-lg shrink-0 hover:opacity-80 transition-opacity layout-logo-link"
             >
               <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-sm layout-logo-icon-wrapper">
-                <BookOpen className="w-4 h-4 text-white" />
+                <GraduationCap className="w-4 h-4 text-white" />
               </div>
               <span className="hidden sm:inline">Tài liệu HOU</span>
             </Link>
@@ -358,7 +358,7 @@ export const Footer: React.FC = () => (
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg flex items-center justify-center shadow-sm layout-footer-logo">
-            <BookOpen className="w-3.5 h-3.5 text-white" />
+            <GraduationCap className="w-3.5 h-3.5 text-white" />
           </div>
           <span className="layout-footer-title">Tài liệu HOU</span>
           <span className="hidden sm:inline ml-2 layout-footer-copyright">

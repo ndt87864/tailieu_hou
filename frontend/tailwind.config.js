@@ -40,8 +40,8 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['"Inter"', '"SF Pro Display"', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', '"Noto Sans"', 'sans-serif'],
-        display: ['"Inter"', '"SF Pro Display"', '-apple-system', 'system-ui', 'sans-serif'],
+        sans: ['"Montserrat"', '"Inter"', '"Segoe UI Variable Text"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        display: ['"Montserrat"', '"Inter"', '"Segoe UI Variable Display"', '-apple-system', 'system-ui', 'sans-serif'],
         mono: ['"JetBrains Mono"', '"Fira Code"', 'ui-monospace', 'monospace'],
       },
       fontSize: {
