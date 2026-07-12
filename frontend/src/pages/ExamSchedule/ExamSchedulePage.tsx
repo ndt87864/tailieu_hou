@@ -14,14 +14,20 @@ import { ExamScheduleResults } from "../../components/exam-schedule/ExamSchedule
 import "../../css/examschedule.css";
 
 const THEME_MAP: Record<string, { primary: string; dark: string; light: string }> = {
-  green: { primary: "#118d05", dark: "#0a6b04", light: "#15a80a" },
-  blue: { primary: "#0066cc", dark: "#0055aa", light: "#0d74e7" },
-  red: { primary: "#cc0000", dark: "#990000", light: "#ff3333" },
-  purple: { primary: "#6600cc", dark: "#440099", light: "#9933ff" },
-  yellow: { primary: "#ccbb00", dark: "#998800", light: "#ffea00" },
+  blue: { primary: "#2563eb", dark: "#1e40af", light: "#93c5fd" },
+  lime: { primary: "#118d05", dark: "#0a6b04", light: "#15a80a" },
+  red: { primary: "#e11d48", dark: "#9f1239", light: "#fda4af" },
+  orange: { primary: "#ea580c", dark: "#9a3412", light: "#fdba74" },
+  yellow: { primary: "#ca8a04", dark: "#854d0e", light: "#fde047" },
+  mint: { primary: "#059669", dark: "#065f46", light: "#6ee7b7" },
+  charcoal: { primary: "#475569", dark: "#1e293b", light: "#cbd5e1" },
+  purple: { primary: "#9333ea", dark: "#6b21a8", light: "#d8b4fe" },
+  // Giữ green để dự phòng/tương thích
+  green: { primary: "#16a34a", dark: "#166534", light: "#86efac" },
   brown: { primary: "#996633", dark: "#663300", light: "#cc9966" },
   black: { primary: "#333333", dark: "#111111", light: "#666666" },
 };
+
 
 const ExamSchedulePage: React.FC = () => {
   const [localQuery, setLocalQuery] = useState("");
