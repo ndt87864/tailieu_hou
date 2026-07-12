@@ -14,7 +14,6 @@ import {
 import { EditCrawlDataModal } from "./EditCrawlDataModal.js";
 import FilterCrawlDataModal from "./FilterCrawlDataModal.js";
 import CrawlerQuestionCard, { CrawlerQuestion } from "./CrawlerQuestionCard.js";
-import { useAdminCategories } from "../../hooks/useAdminCategories.js";
 
 interface CrawlerCourse {
   id: string;
@@ -57,7 +56,6 @@ export const CrawlDataTab: React.FC<CrawlDataTabProps> = ({ view }) => {
   const [filterType, setFilterType] = useState<"all" | "has_image" | "no_image" | "multiple_choice" | "fill_blank">("all");
   
   const [documents, setDocuments] = useState<{id: string, title: string, category_id?: string | null}[]>([]);
-  const { categories } = useAdminCategories();
 
   const fetchData = (docIds?: string[]) => {
     setLoading(true);
@@ -85,15 +83,19 @@ export const CrawlDataTab: React.FC<CrawlDataTabProps> = ({ view }) => {
     }
   };
 
-  // 1. Tải danh sách documents ban đầu
+  const [categories, setCategories] = useState<{id: string, title: string}[]>([]);
+
+  // 1. Tải danh sách documents và categories có dữ liệu crawler ban đầu
   useEffect(() => {
     if (view === "questions" || view === "resources") {
-      apiClient.get("/api/v1/documents")
+      apiClient.get("/api/v1/admin/crawler/filter-options")
         .then((res) => {
           const docs = res.data.documents || [];
+          const cats = res.data.categories || [];
           setDocuments(docs);
+          setCategories(cats);
           if (docs.length > 0) {
-            // Mặc định chọn tài liệu đầu tiên
+            // Mặc định chọn tài liệu đầu tiên có dữ liệu crawler
             setSelectedDocIds([docs[0].id]);
           }
         })

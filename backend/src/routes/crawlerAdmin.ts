@@ -38,6 +38,55 @@ crawlerAdminRouter.get("/courses", async (c) => {
   }
 });
 
+// Lấy danh mục và tài liệu có dữ liệu crawler
+crawlerAdminRouter.get("/filter-options", async (c) => {
+  try {
+    const cacheKey = `${CACHE_PREFIX}:filter-options`;
+    const filterOptions = await cacheGetOrSet(cacheKey, async () => {
+      // 1. Lấy tất cả document_id từ các crawler_courses có liên kết
+      const { data: coursesData, error: coursesError } = await supabaseAdmin
+        .from("crawler_courses")
+        .select("document_id")
+        .not("document_id", "is", null);
+      if (coursesError) throw coursesError;
+
+      const docIds = Array.from(new Set((coursesData || []).map(x => x.document_id)));
+      if (docIds.length === 0) {
+        return { categories: [], documents: [] };
+      }
+
+      // 2. Lấy thông tin các documents này
+      const { data: docsData, error: docsError } = await supabaseAdmin
+        .from("documents")
+        .select("id, title, category_id")
+        .in("id", docIds);
+      if (docsError) throw docsError;
+
+      const catIds = Array.from(new Set((docsData || []).map(x => x.category_id).filter(Boolean)));
+
+      // 3. Lấy thông tin các categories tương ứng
+      let categoriesData: any[] = [];
+      if (catIds.length > 0) {
+        const { data: cats, error: catsError } = await supabaseAdmin
+          .from("categories")
+          .select("id, title")
+          .in("id", catIds);
+        if (catsError) throw catsError;
+        categoriesData = cats || [];
+      }
+
+      return {
+        categories: categoriesData,
+        documents: docsData || []
+      };
+    }, 60_000); // Cache 1 phút
+
+    return c.json(filterOptions);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 crawlerAdminRouter.get("/resources", async (c) => {
   try {
     const courseIdsParam = c.req.query("course_ids") || "all";

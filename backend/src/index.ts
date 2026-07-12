@@ -14,6 +14,7 @@ import examRouter from "./routes/exam.js";
 import pricingRouter from "./routes/pricingContent.js";
 import pricingPackagesRouter from "./routes/pricingPackages.js";
 import extensionConfigRouter from "./routes/extensionConfig.js";
+import spreadsheetsRouter from "./routes/spreadsheets.js";
 import { authMiddleware } from "./middlewares/auth.js";
 import { securityHeaders } from "./middlewares/security.js";
 import { timeout } from "./middlewares/timeout.js";
@@ -63,6 +64,7 @@ app.route("/api/v1/exam", examRouter);
 app.route("/api/v1/pricing-content", pricingRouter);
 app.route("/api/v1/pricing-packages", pricingPackagesRouter);
 app.route("/api/v1/extension-config", extensionConfigRouter);
+app.route("/api/v1/spreadsheets", spreadsheetsRouter);
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 

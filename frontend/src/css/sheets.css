@@ -1,0 +1,700 @@
+/* frontend/src/css/sheets.css */
+
+.sheets-container {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 120px);
+  background-color: var(--bg-1);
+  color: var(--fg);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.sheets-list-view {
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  gap: 16px;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.sheets-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.sheets-title-section h2 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--fg);
+}
+
+.sheets-title-section p {
+  font-size: 13px;
+  color: var(--fg-muted);
+}
+
+.btn-create-sheet {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--accent);
+  color: var(--accent-on, #fff);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn-create-sheet:hover {
+  opacity: 0.9;
+}
+
+.sheets-grid-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.sheet-card {
+  background-color: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: transform 0.2s, border-color 0.2s;
+  height: 140px;
+}
+
+.sheet-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+}
+
+.sheet-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--fg);
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sheet-card-date {
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+
+.sheet-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.btn-icon-action {
+  background: none;
+  border: none;
+  color: var(--fg-muted);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.btn-icon-action:hover {
+  background-color: var(--bg-3);
+  color: var(--fg);
+}
+
+.btn-icon-action.delete:hover {
+  background-color: #fee2e2;
+  color: #ef4444;
+}
+
+/* Editor Giao diện */
+.sheet-editor-container {
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  background-color: var(--bg-1);
+}
+
+.sheet-editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-b: 1px solid var(--border);
+  background-color: var(--bg-2);
+}
+
+.sheet-editor-title-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sheet-editor-title-input {
+  font-size: 16px;
+  font-weight: 600;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--fg);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.sheet-editor-title-input:focus {
+  border-color: var(--accent);
+  background-color: var(--bg-1);
+  outline: none;
+}
+
+.sheet-editor-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-editor-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-editor-action.back {
+  background-color: var(--bg-3);
+  border: 1px solid var(--border);
+  color: var(--fg);
+}
+
+.btn-editor-action.save {
+  background-color: var(--accent);
+  color: var(--accent-on, #fff);
+  border: none;
+}
+
+.btn-editor-action:hover {
+  opacity: 0.9;
+}
+
+/* Toolbar */
+.sheet-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--border);
+  background-color: var(--bg-3);
+  overflow-x: auto;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 20px;
+  background-color: var(--border);
+  margin: 0 4px;
+}
+
+.btn-tool {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--fg);
+  padding: 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.btn-tool:hover {
+  background-color: var(--bg-2);
+  border-color: var(--border);
+}
+
+.btn-tool.active {
+  background-color: var(--bg-3);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.tool-select {
+  background-color: var(--bg-2);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+}
+
+.tool-color-picker {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+  cursor: pointer;
+}
+
+.tool-color-input {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* Formula Bar */
+.sheet-formula-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--border);
+  background-color: var(--bg-2);
+}
+
+.formula-cell-address {
+  font-family: monospace;
+  font-size: 13px;
+  font-weight: 600;
+  background-color: var(--bg-3);
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  border-radius: 4px;
+  min-width: 48px;
+  text-align: center;
+}
+
+.formula-icon-fx {
+  font-family: serif;
+  font-style: italic;
+  font-weight: bold;
+  color: var(--fg-muted);
+  font-size: 16px;
+  margin: 0 4px;
+}
+
+.formula-input {
+  flex: 1;
+  background-color: var(--bg-1);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.formula-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+/* Grid */
+.sheet-grid-container {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+  background-color: var(--bg-1);
+}
+
+.sheet-table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  user-select: none;
+}
+
+.th-corner {
+  background-color: var(--bg-3);
+  border: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 10;
+  width: 40px;
+  height: 25px;
+}
+
+.th-col {
+  background-color: var(--bg-3);
+  border: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg-muted);
+  text-align: center;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  height: 25px;
+  width: 100px;
+}
+
+.th-row {
+  background-color: var(--bg-3);
+  border: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg-muted);
+  text-align: center;
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  width: 40px;
+}
+
+.sheet-cell {
+  border: 1px solid var(--border);
+  padding: 2px 4px;
+  font-size: 13px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: clip;
+  cursor: cell;
+  background-color: var(--bg-1);
+  height: 25px;
+}
+
+.sheet-cell.selected {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  z-index: 2;
+}
+
+.cell-editor {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  font-style: inherit;
+  text-decoration: inherit;
+  text-align: inherit;
+  padding: 0;
+  margin: 0;
+  outline: none;
+}
+
+/* Modal Popup Styles */
+.sheets-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  animation: fade-in 0.2s ease-out;
+}
+
+.sheets-modal-card {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 420px;
+  padding: 24px;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: slide-up 0.2s ease-out;
+}
+
+.sheets-modal-card h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--fg);
+  margin: 0;
+}
+
+.sheets-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sheets-modal-body label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg-muted);
+}
+
+.sheets-modal-body input {
+  width: 100%;
+  background-color: var(--bg-2);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.sheets-modal-body input:focus {
+  border-color: var(--accent);
+}
+
+.sheets-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.btn-modal-cancel {
+  background-color: var(--bg-3);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn-modal-confirm {
+  background-color: var(--accent);
+  color: var(--accent-on, #fff);
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn-modal-cancel:hover,
+.btn-modal-confirm:hover {
+  opacity: 0.9;
+}
+
+/* Sheet Tabs Bar (Bottom of spreadsheet editor) */
+.sheet-bottom-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--bg-2);
+  border-top: 1px solid var(--border);
+  padding: 6px 16px;
+  overflow-x: auto;
+  user-select: none;
+}
+
+.sheet-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background-color: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 6px 6px 0 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.sheet-tab.active {
+  background-color: var(--surface);
+  color: var(--accent);
+  border-bottom-color: transparent;
+  font-weight: 600;
+}
+
+.btn-tab-close {
+  background: none;
+  border: none;
+  color: var(--fg-muted);
+  padding: 2px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-tab-close:hover {
+  background-color: rgba(0, 0, 0, 0.08);
+  color: var(--danger);
+}
+
+.btn-add-tab {
+  background: none;
+  border: 1px dashed var(--border);
+  color: var(--fg-muted);
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s;
+}
+
+.btn-add-tab:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background-color: var(--bg-3);
+}
+
+/* Find and Replace Panel */
+.find-replace-panel {
+  position: absolute;
+  top: 130px;
+  right: 20px;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  box-shadow: var(--shadow-md);
+  z-index: 15;
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: slide-down 0.15s ease-out;
+}
+
+.find-replace-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--fg);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+
+.find-replace-input {
+  background-color: var(--bg-2);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  outline: none;
+}
+
+.find-replace-input:focus {
+  border-color: var(--accent);
+}
+
+.find-replace-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.btn-find-action {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+}
+
+.btn-find-action.primary {
+  background-color: var(--accent);
+  color: var(--accent-on, #fff);
+  border: none;
+}
+
+.btn-find-action.secondary {
+  background-color: var(--bg-3);
+  color: var(--fg);
+}
+
+.btn-find-action:hover {
+  opacity: 0.9;
+}
+
+/* Range selection styling */
+.sheet-cell.in-range {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+}
+
+/* Add rows panel */
+.add-rows-panel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background-color: var(--bg-1);
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--fg);
+  border-bottom: 1px solid var(--border);
+}
+
+.add-rows-input {
+  width: 60px;
+  text-align: center;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+  outline: none;
+}
+
+.add-rows-input:focus {
+  border-color: var(--accent);
+}
+
+.btn-add-rows {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
+.btn-add-rows:hover {
+  text-decoration: underline;
+}
+
+
+

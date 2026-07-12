@@ -19,7 +19,8 @@ import {
   Menu,
   X,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  FileSpreadsheet
 } from "lucide-react";
 
 // Import actual subpages
@@ -30,6 +31,7 @@ import DocumentsTab from "../../components/admin/DocumentsTab.js";
 import QuestionsTab from "../../components/admin/QuestionsTab.js";
 import StudentInforTab from "../../components/admin/StudentInforTab.js";
 import RoomsTab from "../../components/admin/RoomsTab.js";
+import SheetsTab from "../../components/admin/SheetsTab.js";
 
 import { SessionsTab } from "../../components/admin/SessionsTab.js";
 import {
@@ -64,7 +66,8 @@ type TabId =
   | "subject_prices"
   | "crawler_courses"
   | "crawler_questions"
-  | "crawler_resources";
+  | "crawler_resources"
+  | "sheets";
 
 interface MenuItem {
   id: TabId;
@@ -118,6 +121,7 @@ const AdminPage: React.FC = () => {
         "crawler_courses",
         "crawler_questions",
         "crawler_resources",
+        "sheets",
       ];
       if (validTabIds.includes(subpath as TabId)) {
         return subpath as TabId;
@@ -188,6 +192,7 @@ const AdminPage: React.FC = () => {
         { id: "calendar", label: "Lịch",         icon: <Calendar className="w-4 h-4" /> },
         { id: "footer",   label: "Footer",       icon: <Compass className="w-4 h-4" /> },
         { id: "contacts", label: "Liên hệ",      icon: <Mail className="w-4 h-4" /> },
+        { id: "sheets",   label: "Trang tính",    icon: <FileSpreadsheet className="w-4 h-4" /> },
       ],
     },
   ];
@@ -233,6 +238,8 @@ const AdminPage: React.FC = () => {
         return <CrawlDataTab view="questions" />;
       case "crawler_resources":
         return <CrawlDataTab view="resources" />;
+      case "sheets":
+        return <SheetsTab />;
       default:
         return <DashboardTab />;
     }

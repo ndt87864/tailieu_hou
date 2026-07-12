@@ -8,6 +8,7 @@ import HomePage from "./pages/Home/HomePage.js";
 import LoginPage from "./pages/Login/LoginPage.js";
 import DocumentPage from "./pages/Document/DocumentPage.js";
 import AdminPage from "./pages/Admin/AdminPage.js";
+import SheetEditorPage from "./pages/Admin/SheetEditorPage.js";
 import ExamSchedulePage from "./pages/ExamSchedule/ExamSchedulePage.js";
 import PricingPage from "./pages/Pricing/PricingPage.js";
 import LoadingSpinner from "./components/common/LoadingSpinner.js";
@@ -59,12 +60,20 @@ const App: React.FC = () => {
           <Route
             path="/admin/*"
             element={
-              <ProtectedRoute roles={["admin"]}>
+              <ProtectedRoute roles={["admin", "management"]}>
                 <AdminPage />
               </ProtectedRoute>
             }
           />
         </Route>
+        <Route
+          path="/admin/sheets/:id"
+          element={
+            <ProtectedRoute roles={["admin", "management"]}>
+              <SheetEditorPage />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </>
   );
