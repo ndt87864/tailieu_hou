@@ -11,20 +11,10 @@ import * as XLSX from "xlsx";
 import { cleanForExport } from "../../utils/questionHelper.js";
 import { 
   BookOpen, FileText, HelpCircle,
-  Crown, Filter
+  Crown
 } from "lucide-react";
-import { LessonFilterModal } from "../../components/document/LessonFilterModal.jsx";
 import { LessonMaterials } from "../../components/document/LessonMaterials.js";
 import { LessonQuizTab } from "../../components/document/LessonQuizTab.js";
-
-interface CrawlerCourse {
-  id: string;
-  document_id: string;
-  moodle_course_id: string | null;
-  title: string;
-  url: string | null;
-  created_at: string;
-}
 
 interface CrawlerResource {
   id: string;
@@ -77,93 +67,46 @@ const LessonDocumentPage: React.FC = () => {
   const canDownloadExcel = isExcelEnabled && excelPercentage > 0;
 
   const [doc, setDoc] = useState<Document | null>(null);
-  const [courses, setCourses] = useState<CrawlerCourse[]>([]);
-  const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);
   const [resources, setResources] = useState<CrawlerResource[]>([]);
   const [questions, setQuestions] = useState<CrawlerQuestion[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [limitApplied, setLimitApplied] = useState<boolean>(false);
   
-  // Trạng thái điều hướng tuần
-  const [selectedWeeks, setSelectedWeeks] = useState<string[]>([]);
-  const [allWeeks, setAllWeeks] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<"materials" | "quiz">("materials");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [isFilterOpen, setIsFilterOpen] = useState<boolean>(false);
-  
-  // Trạng thái làm bài trắc nghiệm LMS trực tuyến - đã chuyển sang chế độ hiển thị đáp án trực tiếp
-
   const [questionCount, setQuestionCount] = useState<number>(0);
+  const [questionsLoading, setQuestionsLoading] = useState<boolean>(false);
 
   useEffect(() => {
     if (!id || authLoading) return;
     setLoading(true);
+    setQuestionsLoading(true);
     setPageLoading(true);
     setError(null);
 
-    cachedGet(`/api/v1/documents/${id}/lessons/metadata`)
-      .then(async (res: any) => {
-        const fetchedDoc = res.data.document;
-        const fetchedCourses = res.data.courses || [];
-        const fetchedWeeks = res.data.weeks || [];
+    Promise.all([
+      cachedGet(`/api/v1/documents/${id}/lessons/metadata`),
+      apiClient.get(`/api/v1/documents/${id}/lessons/resources`),
+      apiClient.get(`/api/v1/documents/${id}/lessons/questions`)
+    ])
+      .then(([metaRes, resRes, qRes]: [any, any, any]) => {
+        const fetchedDoc = metaRes.data.document;
+        const fetchedResources = resRes.data.resources || [];
+        const fetchedQuestions = qRes.data.questions || [];
+        const isLimitApplied = qRes.data.limitApplied || false;
 
-        let initialCourseIds: string[] = [];
-        let initialWeeks: string[] = [];
-        if (fetchedCourses.length > 0) {
-          initialCourseIds = [fetchedCourses[0].id];
-        }
-        if (fetchedWeeks.length > 0) {
-          initialWeeks = [fetchedWeeks[0]];
-        }
+        setDoc(fetchedDoc);
+        setResources(fetchedResources);
+        setQuestions(fetchedQuestions);
+        setLimitApplied(isLimitApplied);
 
-        if (fetchedCourses.length > 0 && fetchedWeeks.length > 0) {
-          try {
-            const courseParams = initialCourseIds.join(",");
-            const weekParams = initialWeeks.join("|");
-            const resRes: any = await cachedGet(`/api/v1/documents/${id}/lessons/resources?course_ids=${courseParams}&weeks=${encodeURIComponent(weekParams)}`);
-            
-            let fetchedQuestions = [];
-            let isLimitApplied = false;
-            let qRes: any = null;
-            if (activeTab === "quiz") {
-              setQuestionsLoading(true);
-              qRes = await cachedGet(`/api/v1/documents/${id}/lessons/questions?course_ids=${courseParams}&weeks=${encodeURIComponent(weekParams)}`);
-              fetchedQuestions = qRes.data.questions || [];
-              isLimitApplied = qRes.data.limitApplied || false;
-              setQuestionsLoading(false);
-            }
-
-            setDoc(fetchedDoc);
-            setCourses(fetchedCourses);
-            setAllWeeks(fetchedWeeks);
-            setSelectedCourseIds(initialCourseIds);
-            setSelectedWeeks(initialWeeks);
-            setResources(resRes.data?.resources || []);
-            setQuestions(fetchedQuestions);
-            setLimitApplied(isLimitApplied);
-            const totalQCount = activeTab === "quiz" 
-              ? (qRes?.data?.totalFilteredCount !== undefined ? qRes.data.totalFilteredCount : fetchedQuestions.length)
-              : (resRes.data?.questionCount || 0);
-            setQuestionCount(totalQCount);
-            lastLoadedId.current = id;
-          } catch (err) {
-            console.error(err);
-            toast.error("Lỗi tải tài liệu học tập.");
-          }
-        } else {
-          setDoc(fetchedDoc);
-          setCourses([]);
-          setAllWeeks([]);
-          setSelectedCourseIds([]);
-          setSelectedWeeks([]);
-          setResources([]);
-          setQuestions([]);
-          setQuestionCount(0);
-          lastLoadedId.current = id;
-        }
-
+        const totalQCount = qRes.data.totalFilteredCount !== undefined ? qRes.data.totalFilteredCount : fetchedQuestions.length;
+        setQuestionCount(totalQCount);
+        
+        lastLoadedId.current = id;
         setLoading(false);
+        setQuestionsLoading(false);
         setPageLoading(false);
       })
       .catch((err) => {
@@ -174,139 +117,13 @@ const LessonDocumentPage: React.FC = () => {
           setError("Lỗi tải thông tin bài học. Vui lòng thử lại.");
         }
         setLoading(false);
+        setQuestionsLoading(false);
         setPageLoading(false);
       });
   }, [id, authLoading, setPageLoading]);
 
-  const [questionsLoading, setQuestionsLoading] = useState<boolean>(false);
-
-  // Tải resources theo filter (lớp học và tuần)
-  useEffect(() => {
-    if (!id || authLoading || courses.length === 0 || allWeeks.length === 0) return;
-    if (id !== lastLoadedId.current) return;
-    if (selectedCourseIds.length === 0 || selectedWeeks.length === 0) {
-      setResources([]);
-      return;
-    }
-
-    const isAllCoursesSelected = selectedCourseIds.length === courses.length;
-    const isAllWeeksSelected = selectedWeeks.length === allWeeks.length;
-
-    setLoading(true);
-    setPageLoading(true);
-    
-    let promiseResources;
-
-    if (isAllCoursesSelected && isAllWeeksSelected) {
-      promiseResources = apiClient.get(`/api/v1/documents/${id}/lessons/resources`)
-        .then(res => res.data || { resources: [], questionCount: 0 });
-    } else {
-      const courseParams = selectedCourseIds.join(",");
-      const weekParams = selectedWeeks.join("|");
-      
-      promiseResources = apiClient.get(`/api/v1/documents/${id}/lessons/resources?course_ids=${courseParams}&weeks=${encodeURIComponent(weekParams)}`)
-        .then(res => res.data || { resources: [], questionCount: 0 });
-    }
-
-    promiseResources
-      .then((data) => {
-        setResources(data.resources || []);
-        if (activeTab !== "quiz") {
-          setQuestionCount(data.questionCount || 0);
-        }
-        setLoading(false);
-        setPageLoading(false);
-      })
-      .catch((err) => {
-        console.error(err);
-        toast.error("Lỗi tải tài liệu học tập.");
-        setLoading(false);
-        setPageLoading(false);
-      });
-  }, [id, authLoading, selectedCourseIds, selectedWeeks, courses.length, allWeeks.length, setPageLoading]);
-
-  // Tải questions theo filter (lớp học và tuần) chỉ khi chuyển sang tab quiz
-  useEffect(() => {
-    if (!id || authLoading || courses.length === 0 || allWeeks.length === 0) return;
-    if (id !== lastLoadedId.current) return;
-    if (activeTab !== "quiz") return;
-    if (selectedCourseIds.length === 0 || selectedWeeks.length === 0) {
-      setQuestions([]);
-      return;
-    }
-
-    const isAllCoursesSelected = selectedCourseIds.length === courses.length;
-    const isAllWeeksSelected = selectedWeeks.length === allWeeks.length;
-
-    setQuestionsLoading(true);
-    setPageLoading(true);
-    
-    let promiseQuestions;
-
-    if (isAllCoursesSelected && isAllWeeksSelected) {
-      promiseQuestions = apiClient.get(`/api/v1/documents/${id}/lessons/questions`)
-        .then(res => res.data || { questions: [] });
-    } else {
-      const courseParams = selectedCourseIds.join(",");
-      const weekParams = selectedWeeks.join("|");
-      
-      promiseQuestions = apiClient.get(`/api/v1/documents/${id}/lessons/questions?course_ids=${courseParams}&weeks=${encodeURIComponent(weekParams)}`)
-        .then(res => res.data || { questions: [] });
-    }
-    promiseQuestions
-      .then((data) => {
-        setQuestions(data.questions || []);
-        setLimitApplied(data.limitApplied || false);
-        setQuestionCount(data.totalFilteredCount !== undefined ? data.totalFilteredCount : (data.questions?.length || 0));
-        setQuestionsLoading(false);
-        setPageLoading(false);
-      })
-      .catch((err) => {
-        console.error(err);
-        toast.error("Lỗi tải câu hỏi học tập.");
-        setQuestionsLoading(false);
-        setPageLoading(false);
-      });
-  }, [id, authLoading, selectedCourseIds, selectedWeeks, courses.length, allWeeks.length, activeTab, setPageLoading]);
-
-  // Lọc tài nguyên và câu hỏi theo danh sách lớp học được chọn
-  const activeResources = useMemo(() => {
-    if (selectedCourseIds.length === 0) return [];
-    return resources.filter(r => selectedCourseIds.includes(r.course_id));
-  }, [resources, selectedCourseIds]);
-
-  const activeQuestions = useMemo(() => {
-    if (selectedCourseIds.length === 0) return [];
-    return questions.filter(q => selectedCourseIds.includes(q.course_id));
-  }, [questions, selectedCourseIds]);
-
-  // Danh sách các tuần học duy nhất
-  const weeks = allWeeks;
-
-  // Tự động chọn tuần đầu tiên khi chuyển môn học hoặc khi tuần hiện tại không hợp lệ
-  useEffect(() => {
-    if (weeks.length > 0) {
-      const validWeeks = selectedWeeks.filter(w => weeks.includes(w));
-      if (validWeeks.length === 0) {
-        setSelectedWeeks([weeks[0]]);
-      } else if (validWeeks.length !== selectedWeeks.length) {
-        setSelectedWeeks(validWeeks);
-      }
-    } else {
-      setSelectedWeeks([]);
-    }
-  }, [weeks]);
-
-  // Lọc tài nguyên & câu hỏi của các tuần được chọn
-  const currentResources = useMemo(() => {
-    if (selectedWeeks.length === 0) return [];
-    return activeResources.filter(r => selectedWeeks.includes(r.week_name));
-  }, [activeResources, selectedWeeks]);
-
-  const currentQuestions = useMemo(() => {
-    if (selectedWeeks.length === 0) return [];
-    return activeQuestions.filter(q => selectedWeeks.includes(q.week_name));
-  }, [activeQuestions, selectedWeeks]);
+  const currentResources = resources;
+  const currentQuestions = questions;
 
   // Bộ lọc câu hỏi theo thanh tìm kiếm
   const filteredQuestions = useMemo(() => {
@@ -319,87 +136,31 @@ const LessonDocumentPage: React.FC = () => {
     );
   }, [currentQuestions, searchQuery]);
 
-  // Tiêu đề hiển thị cho các tuần được chọn
-  const weekTitle = useMemo(() => {
-    if (selectedWeeks.length === 0) return "Chưa chọn tuần học";
-    if (selectedWeeks.length === 1) return selectedWeeks[0];
-    const sorted = [...selectedWeeks].sort((a, b) => 
-      a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
-    );
-    return `Các tuần: ${sorted.map(w => w.split(" - ")[0]).join(", ")}`;
-  }, [selectedWeeks]);
-
-  // Nhãn hiển thị tuần lọc ở nút bấm
-  const filterLabelWeeks = useMemo(() => {
-    if (selectedWeeks.length === 0) return "Chưa chọn tuần";
-    if (selectedWeeks.length === weeks.length) return "Tất cả tuần";
-    if (selectedWeeks.length === 1) return selectedWeeks[0].split(" - ")[0];
-    const sorted = [...selectedWeeks].sort((a, b) => 
-      a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
-    );
-    return `Tuần: ${sorted.map(w => w.split(" - ")[0].replace("Tuần ", "")).join(",")}`;
-  }, [selectedWeeks, weeks]);
-
-  // Nhãn hiển thị lớp lọc ở nút bấm
-  const filterLabelCourses = useMemo(() => {
-    if (selectedCourseIds.length === 0) return "Chưa chọn lớp";
-    if (selectedCourseIds.length === courses.length) return "Tất cả lớp";
-    if (selectedCourseIds.length === 1) {
-      const title = courses.find(c => c.id === selectedCourseIds[0])?.title || "";
-      const parts = title.split(" - ");
-      return parts.length > 1 ? parts[1] : title;
-    }
-    return `Lớp (${selectedCourseIds.length})`;
-  }, [selectedCourseIds, courses]);
-
-  // Gom nhóm tài nguyên theo tuần
+  // Gom nhóm tài nguyên theo tuần tự động từ resources
   const groupedResources = useMemo(() => {
-    const groups: { [weekName: string]: { files: CrawlerResource[], videos: CrawlerResource[] } } = {};
+    const groups: { [weekName: string]: CrawlerResource[] } = {};
     
-    const sortedWeeks = [...selectedWeeks].sort((a, b) => 
-      a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
-    );
-
-    sortedWeeks.forEach(w => {
-      groups[w] = { files: [], videos: [] };
-    });
-
     currentResources.forEach(r => {
-      if (groups[r.week_name]) {
-        if (r.type === "file") {
-          groups[r.week_name].files.push(r);
-        } else if (r.type === "youtube") {
-          groups[r.week_name].videos.push(r);
-        }
+      const wName = r.week_name || "Khác";
+      if (!groups[wName]) {
+        groups[wName] = [];
+      }
+      if (r.type === "file") {
+        groups[wName].push(r);
       }
     });
+
+    const sortedWeeks = Object.keys(groups).sort((a, b) => 
+      a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+    );
 
     return sortedWeeks
       .map(w => ({
         weekName: w,
-        files: groups[w].files,
-        videos: groups[w].videos
+        files: groups[w],
       }))
-      .filter(g => g.files.length > 0 || g.videos.length > 0);
-  }, [currentResources, selectedWeeks]);
-
-  // Trích xuất ID youtube để nhúng iframe
-  const getEmbedUrl = (url: string) => {
-    try {
-      let videoId = "";
-      if (url.includes("youtu.be/")) {
-        videoId = url.split("youtu.be/")[1]?.split(/[?#]/)[0];
-      } else if (url.includes("youtube.com/watch")) {
-        const urlParams = new URLSearchParams(new URL(url).search);
-        videoId = urlParams.get("v") || "";
-      } else if (url.includes("youtube.com/embed/")) {
-        videoId = url.split("youtube.com/embed/")[1]?.split(/[?#]/)[0];
-      }
-      return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
-    } catch {
-      return null;
-    }
-  };
+      .filter(g => g.files.length > 0);
+  }, [resources]);
 
   // Export excel TOÀN BỘ câu hỏi LMS
   const exportAllToExcel = () => {
@@ -450,8 +211,8 @@ const LessonDocumentPage: React.FC = () => {
         { wch: 20 },
       ];
 
-      const weekLabel = selectedWeeks.length === weeks.length ? "Tat_ca_tuan" : selectedWeeks.map(w => w.split(" - ")[0].replace(" ", "")).join("_");
-      XLSX.utils.book_append_sheet(workbook, worksheet, weekLabel.substring(0, 30));
+      const weekLabel = "Tat_ca_tuan";
+      XLSX.utils.book_append_sheet(workbook, worksheet, weekLabel);
       
       let safeTitle = (doc?.title || "Mon_hoc").replace(/[\\\/\?\*\[\]:<>|"]/g, "_");
       const percentageSuffix = excelPercentage < 100 ? `_${excelPercentage}percent` : "";
@@ -461,7 +222,7 @@ const LessonDocumentPage: React.FC = () => {
       XLSX.writeFile(workbook, fileName);
       toast.success(`Xuất file Excel câu hỏi LMS thành công!`);
     } catch (err) {
-      console.error("Lỗi xuất excel (Bộ lọc):", err);
+      console.error("Lỗi xuất excel:", err);
       toast.error("Có lỗi xảy ra khi xuất file Excel.");
     }
   };
@@ -498,11 +259,13 @@ const LessonDocumentPage: React.FC = () => {
     );
   }
 
+  const hasNoData = resources.length === 0 && questions.length === 0;
+
   return (
     <div className="flex-1 min-w-0 w-full flex flex-col doc-main-bg">
       <Header 
         title={doc.title}
-        subtitle={weekTitle || doc.category?.title || "Bài học  "}
+        subtitle={doc.category?.title || "Bài học"}
         hideLogo={true}
         onMobileMenuClick={() => window.dispatchEvent(new Event("open-doc-sidebar"))}
         onOpenSettings={() => window.dispatchEvent(new Event("open-settings"))}
@@ -510,7 +273,7 @@ const LessonDocumentPage: React.FC = () => {
       />
 
       <div className="lesson-detail-container flex justify-center">
-        {weeks.length === 0 ? (
+        {hasNoData ? (
           <div className="lesson-empty-state max-w-4xl w-full">
             <BookOpen className="lesson-empty-icon" />
             <h3 className="lesson-empty-title">Chưa có bài học LMS</h3>
@@ -521,7 +284,7 @@ const LessonDocumentPage: React.FC = () => {
           </div>
         ) : (
           <div className="lesson-layout-wrapper max-w-5xl w-full mx-auto">
-            {/* Tab switcher + Bộ lọc */}
+            {/* Tab switcher */}
             <div className="lesson-page-header-actions lesson-page-header-actions--top">
               <div className="lesson-tab-switcher">
                 <button
@@ -537,30 +300,13 @@ const LessonDocumentPage: React.FC = () => {
                   <HelpCircle className="w-3.5 h-3.5 shrink-0" /> Câu hỏi {questionsLoading ? "..." : `(${questionCount})`}
                 </button>
               </div>
-
-              <button
-                onClick={() => setIsFilterOpen(true)}
-                className="lesson-filter-trigger-btn"
-              >
-                <Filter className="w-4 h-4 text-[var(--brand-600)]" />
-                <span className="lesson-filter-trigger-sep" />
-                <span className="lesson-filter-trigger-val">{filterLabelWeeks}</span>
-                {courses.length > 1 && (
-                  <>
-                    <span className="lesson-filter-trigger-pipe">|</span>
-                    <span className="lesson-filter-trigger-courses">{filterLabelCourses}</span>
-                  </>
-                )}
-              </button>
             </div>
-
 
             {/* Tab 1: Bài học & Tài liệu */}
             {activeTab === "materials" && (
               <div className="lesson-tab-content">
                 <LessonMaterials
                   groupedResources={groupedResources}
-                  getEmbedUrl={getEmbedUrl}
                 />
               </div>
             )}
@@ -587,19 +333,6 @@ const LessonDocumentPage: React.FC = () => {
           </div>
         )}
       </div>
-
-      <LessonFilterModal
-        isOpen={isFilterOpen}
-        onClose={() => setIsFilterOpen(false)}
-        courses={courses}
-        selectedCourseIds={selectedCourseIds}
-        weeks={weeks}
-        selectedWeeks={selectedWeeks}
-        onApply={(courseIds, weeks) => {
-          setSelectedCourseIds(courseIds);
-          setSelectedWeeks(weeks);
-        }}
-      />
     </div>
   );
 };

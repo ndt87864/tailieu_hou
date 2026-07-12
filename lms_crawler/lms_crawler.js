@@ -611,6 +611,11 @@ async function main() {
                 continue;
               }
 
+              // Chỉ tải tài liệu ở môn khớp đầu tiên, các môn sau chỉ lấy câu hỏi trắc nghiệm bổ sung
+              if (cIdx > 0 && !href.includes("mod/quiz/view.php")) {
+                continue;
+              }
+
               if (href.includes("mod/resource/view.php")) {
                 try {
                   // 1. Bắt buộc lấy tên file thực tế từ header Content-Disposition của Moodle

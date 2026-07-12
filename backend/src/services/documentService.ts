@@ -375,37 +375,30 @@ export const getCrawlerDataFiltered = async (courseIds: string[], weeks: string[
   };
 };
 
-export const getCrawlerResourcesFiltered = async (documentId: string, courseIds: string[], weeks: string[]) => {
-  const cacheKey = `${CACHE_PREFIX}:resources_filtered:${documentId}:${courseIds.join("-")}:${weeks.join("-")}`;
+export const getCrawlerResourcesFiltered = async (documentId: string) => {
+  const cacheKey = `${CACHE_PREFIX}:resources_filtered:${documentId}`;
 
   return cacheGetOrSet(
     cacheKey,
     async () => {
-      let targetCourseIds = courseIds;
-      if (targetCourseIds.length === 0) {
-        const { data: courses } = await supabaseAdmin
-          .from("crawler_courses")
-          .select("id")
-          .eq("document_id", documentId);
-        targetCourseIds = courses?.map(c => c.id) || [];
-      }
+      const { data: courses } = await supabaseAdmin
+        .from("crawler_courses")
+        .select("id")
+        .eq("document_id", documentId);
+      const targetCourseIds = courses?.map(c => c.id) || [];
 
       if (targetCourseIds.length === 0) return { resources: [], questionCount: 0 };
 
       let query = supabaseAdmin
         .from("crawler_resources")
         .select("*")
-        .in("course_id", targetCourseIds);
+        .in("course_id", targetCourseIds)
+        .eq("type", "file");
 
       let qQuery = supabaseAdmin
         .from("crawler_questions")
         .select("*", { count: "exact", head: true })
         .in("course_id", targetCourseIds);
-
-      if (weeks.length > 0) {
-        query = query.in("week_name", weeks);
-        qQuery = qQuery.in("week_name", weeks);
-      }
 
       const [resResult, qCountResult] = await Promise.all([
         query.order("created_at", { ascending: true }),
@@ -425,20 +418,17 @@ export const getCrawlerResourcesFiltered = async (documentId: string, courseIds:
   );
 };
 
-export const getCrawlerQuestionsFiltered = async (documentId: string, courseIds: string[], weeks: string[]) => {
-  const cacheKey = `${CACHE_PREFIX}:questions_filtered:${documentId}:${courseIds.join("-")}:${weeks.join("-")}`;
+export const getCrawlerQuestionsFiltered = async (documentId: string) => {
+  const cacheKey = `${CACHE_PREFIX}:questions_filtered:${documentId}`;
 
   return cacheGetOrSet(
     cacheKey,
     async () => {
-      let targetCourseIds = courseIds;
-      if (targetCourseIds.length === 0) {
-        const { data: courses } = await supabaseAdmin
-          .from("crawler_courses")
-          .select("id")
-          .eq("document_id", documentId);
-        targetCourseIds = courses?.map(c => c.id) || [];
-      }
+      const { data: courses } = await supabaseAdmin
+        .from("crawler_courses")
+        .select("id")
+        .eq("document_id", documentId);
+      const targetCourseIds = courses?.map(c => c.id) || [];
 
       if (targetCourseIds.length === 0) return [];
 
@@ -446,10 +436,6 @@ export const getCrawlerQuestionsFiltered = async (documentId: string, courseIds:
         .from("crawler_questions")
         .select("*")
         .in("course_id", targetCourseIds);
-
-      if (weeks.length > 0) {
-        query = query.in("week_name", weeks);
-      }
 
       const { data, error } = await query.order("created_at", { ascending: true });
 

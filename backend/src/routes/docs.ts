@@ -152,13 +152,7 @@ docsRouter.get("/:id/lessons/resources", async (c) => {
       return c.json({ error: "Tài liệu này chỉ dành cho tài khoản Premium", isPremiumLocked: true }, 403);
     }
 
-    const courseIdsParam = c.req.query("course_ids") || "";
-    const weeksParam = c.req.query("weeks") || "";
-
-    const courseIds = courseIdsParam ? courseIdsParam.split(",") : [];
-    const weeks = weeksParam ? weeksParam.split("|") : [];
-
-    const result = await docService.getCrawlerResourcesFiltered(id, courseIds, weeks);
+    const result = await docService.getCrawlerResourcesFiltered(id);
     return c.json(result);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
@@ -181,11 +175,7 @@ docsRouter.get("/:id/lessons/questions", async (c) => {
       return c.json({ error: "Tài liệu này chỉ dành cho tài khoản Premium", isPremiumLocked: true }, 403);
     }
 
-    const courseIdsParam = c.req.query("course_ids") || "";
-    const weeksParam = c.req.query("weeks") || "";
 
-    const courseIds = courseIdsParam ? courseIdsParam.split(",") : [];
-    const weeks = weeksParam ? weeksParam.split("|") : [];
 
     // Helper to extract week number from string (e.g. "Tuần 2 - ..." -> 2)
     const getWeekNumber = (weekName: string): number => {
@@ -197,12 +187,12 @@ docsRouter.get("/:id/lessons/questions", async (c) => {
     const isBypass = process.env.BYPASS_QUESTION_LIMIT === "true";
 
     // Run all database calls in parallel to achieve sub-second latency
-    const [allQuestions, hasFullAccess, ratios, questions] = await Promise.all([
-      docService.getCrawlerQuestionsFiltered(id, [], []),
+    const [allQuestions, hasFullAccess, ratios] = await Promise.all([
+      docService.getCrawlerQuestionsFiltered(id),
       isBypass ? true : checkFullAccess(role, user, id),
-      getQuestionRatios(),
-      docService.getCrawlerQuestionsFiltered(id, courseIds, weeks)
+      getQuestionRatios()
     ]);
+    const questions = allQuestions;
 
     // Sort allQuestions so that smaller weeks come first (getting unlocked first)
     // and larger/later weeks get pushed to the end (getting locked first)
