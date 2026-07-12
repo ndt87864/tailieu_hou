@@ -371,6 +371,17 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     return col >= minCol && col <= maxCol && cell.row >= minRow && cell.row <= maxRow;
   };
 
+  // Tối ưu hóa hiệu năng bằng cách chỉ vẽ 40 dòng hiển thị ban đầu, các dòng còn lại được vẽ song song sau 50ms
+  const [renderedRowCount, setRenderedRowCount] = useState(() => Math.min(rowCount, 40));
+
+  useEffect(() => {
+    setRenderedRowCount(Math.min(rowCount, 40));
+    const timer = setTimeout(() => {
+      setRenderedRowCount(rowCount);
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [rowCount]);
+
   const renderCells = () => {
     const tableRows = [];
     const headerCols = [<th key="corner" className="th-corner"></th>];
@@ -384,7 +395,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     }
     tableRows.push(<tr key="header-row">{headerCols}</tr>);
 
-    for (let r = 1; r <= rowCount; r++) {
+    for (let r = 1; r <= renderedRowCount; r++) {
       const rowCells = [
         <td key={`row-header-${r}`} className="th-row">
           {r}

@@ -1,12 +1,12 @@
 // frontend/src/components/admin/SpreadsheetEditor.tsx
 import React, { useState, useEffect } from "react";
-import { 
-  ArrowLeft, Save, Download, Upload, Bold, Italic, Underline,
-  AlignLeft, AlignCenter, AlignRight, Search, FileJson, Plus, X 
-} from "lucide-react";
+import { X, Plus, FileSpreadsheet, Clock, ArrowRight } from "lucide-react";
 import { SpreadsheetGrid } from "./SpreadsheetGrid.js";
-import { getCellRange } from "../../utils/formulaEvaluator.js";
+import { getCellRange, parseCellAddress, colLetterToNumber, numberToColLetter } from "../../utils/formulaEvaluator.js";
 import { toast } from "react-toastify";
+import { SpreadsheetHeader } from "./SpreadsheetHeader.js";
+import { SpreadsheetToolbar } from "./SpreadsheetToolbar.js";
+import apiClient from "../../services/client.js";
 
 type CellData = {
   value: string;
@@ -14,6 +14,7 @@ type CellData = {
   bold?: boolean;
   italic?: boolean;
   underline?: boolean;
+  strikethrough?: boolean;
   color?: string;
   bg?: string;
   align?: "left" | "center" | "right";
@@ -59,8 +60,19 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
     return [{ name: "Sheet1", cells: initialContent?.cells || {}, rowCount: 500, colCount: 26 }];
   });
 
-  // Stack lịch sử lưu các trạng thái trước đó để phục vụ hoàn tác (Undo)
-  const [history, setHistory] = useState<Sheet[][]>([]);
+  // Stack lịch sử lưu các trạng thái trước đó để phục vụ hoàn tác (Undo) và Nhật ký phiên bản
+  const [history, setHistory] = useState<Array<{ timestamp: string; sheets: Sheet[] }>>([]);
+  const [isStarred, setIsStarred] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState("100%");
+  const [showHelpModal, setShowHelpModal] = useState(false);
+
+  // Modal file management states
+  const [showOpenModal, setShowOpenModal] = useState(false);
+  const [otherSheetsList, setOtherSheetsList] = useState<any[]>([]);
+  const [loadingOtherSheets, setLoadingOtherSheets] = useState(false);
+
+  const [showVersionHistoryModal, setShowVersionHistoryModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   const [activeSheetIdx, setActiveSheetIdx] = useState(0);
   const [selectedCell, setSelectedCell] = useState<string | null>(null);
@@ -94,7 +106,7 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
     return getCellRange(`${selectedRange.start}:${selectedRange.end}`);
   };
 
-  // Helper cập nhật sheets đồng thời lưu snapshot vào lịch sử để Ctrl+Z hoạt động
+  // Helper cập nhật sheets đồng thời lưu snapshot vào lịch sử để Ctrl+Z và Lịch sử phiên bản hoạt động
   const updateSheetsAndSaveHistory = (
     newSheets: Sheet[] | ((prev: Sheet[]) => Sheet[]),
     skipHistory: boolean = false
@@ -104,14 +116,17 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
       
       if (!skipHistory) {
         setHistory((prevHistory) => {
-          // Lưu bản sao sâu của tất cả sheet và ô dữ liệu
           const snapshot = currentSheets.map((s) => ({
             name: s.name,
             cells: { ...s.cells },
             rowCount: s.rowCount,
             colCount: s.colCount,
           }));
-          return [...prevHistory.slice(-49), snapshot]; // Giới hạn tối đa 50 bước hoàn tác
+          const newEntry = {
+            timestamp: new Date().toLocaleTimeString("vi-VN"),
+            sheets: snapshot
+          };
+          return [...prevHistory.slice(-49), newEntry]; // Giới hạn tối đa 50 bước hoàn tác
         });
       }
       
@@ -130,8 +145,7 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
       const copy = [...prevHistory];
       const previousState = copy.pop();
       if (previousState) {
-        // Cập nhật lại sheets và bỏ qua việc lưu chính nó vào lịch sử mới
-        updateSheetsAndSaveHistory(previousState, true);
+        updateSheetsAndSaveHistory(previousState.sheets, true);
         toast.success("Đã hoàn tác!");
       }
       return copy;
@@ -151,6 +165,7 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
           ...updatedProps,
         },
       };
+      
       newSheets[activeSheetIdx] = targetSheet;
       return newSheets;
     });
@@ -160,42 +175,42 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
     updateSheetsAndSaveHistory((prev) => {
       const newSheets = [...prev];
       const targetSheet = { ...newSheets[activeSheetIdx] };
+      
       targetSheet.cells = {
         ...targetSheet.cells,
         ...pastedCells,
       };
+      
       newSheets[activeSheetIdx] = targetSheet;
       return newSheets;
     });
   };
 
-  const applyStyleToSelection = (updatedProps: Partial<CellData>) => {
+  const applyStyleToSelection = (styleProps: Partial<CellData>) => {
     const addresses = getSelectedAddresses();
     if (addresses.length === 0) return;
 
     updateSheetsAndSaveHistory((prev) => {
       const newSheets = [...prev];
       const targetSheet = { ...newSheets[activeSheetIdx] };
-      const updatedCells = { ...targetSheet.cells };
-
-      addresses.forEach((address) => {
-        const currentCell = updatedCells[address] || { value: "", formula: "" };
-        updatedCells[address] = {
+      
+      addresses.forEach((addr) => {
+        const currentCell = targetSheet.cells[addr] || { value: "", formula: "" };
+        targetSheet.cells[addr] = {
           ...currentCell,
-          ...updatedProps,
+          ...styleProps,
         };
       });
-
-      targetSheet.cells = updatedCells;
+      
       newSheets[activeSheetIdx] = targetSheet;
       return newSheets;
     });
   };
 
-  const handleToolbarStyleChange = (styleKey: "bold" | "italic" | "underline") => {
+  const handleToolbarStyleChange = (key: "bold" | "italic" | "underline" | "strikethrough") => {
     if (!selectedCell) return;
-    const currentVal = cells[selectedCell]?.[styleKey];
-    applyStyleToSelection({ [styleKey]: !currentVal });
+    const currentCell = cells[selectedCell] || { value: "", formula: "" };
+    applyStyleToSelection({ [key]: !currentCell[key] });
   };
 
   const handleAlignChange = (align: "left" | "center" | "right") => {
@@ -358,216 +373,382 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
   };
 
   const handleExportCSV = () => {
-    const addresses = Object.keys(cells);
-    if (addresses.length === 0) {
-      alert("Trang tính trống!");
+    handleDownload("csv");
+  };
+
+  const insertRow = (atRow: number, position: "above" | "below") => {
+    const targetRow = position === "above" ? atRow : atRow + 1;
+    updateSheetsAndSaveHistory((prev) => {
+      const newSheets = [...prev];
+      const targetSheet = { ...newSheets[activeSheetIdx] };
+      const currentCells = targetSheet.cells;
+      const newCells: Record<string, CellData> = {};
+
+      Object.keys(currentCells).forEach((addr) => {
+        const parsed = parseCellAddress(addr);
+        if (parsed) {
+          if (parsed.row >= targetRow) {
+            const nextAddr = `${parsed.col}${parsed.row + 1}`;
+            newCells[nextAddr] = currentCells[addr];
+          } else {
+            newCells[addr] = currentCells[addr];
+          }
+        }
+      });
+      targetSheet.cells = newCells;
+      targetSheet.rowCount = (targetSheet.rowCount || 500) + 1;
+      newSheets[activeSheetIdx] = targetSheet;
+      return newSheets;
+    });
+    toast.success(`Đã chèn hàng mới tại dòng ${targetRow}!`);
+  };
+
+  const insertColumn = (atColLetter: string, position: "left" | "right") => {
+    const atColIdx = colLetterToNumber(atColLetter);
+    const targetColIdx = position === "left" ? atColIdx : atColIdx + 1;
+    updateSheetsAndSaveHistory((prev) => {
+      const newSheets = [...prev];
+      const targetSheet = { ...newSheets[activeSheetIdx] };
+      const currentCells = targetSheet.cells;
+      const newCells: Record<string, CellData> = {};
+
+      Object.keys(currentCells).forEach((addr) => {
+        const parsed = parseCellAddress(addr);
+        if (parsed) {
+          const colIdx = colLetterToNumber(parsed.col);
+          if (colIdx >= targetColIdx) {
+            const nextColLetter = numberToColLetter(colIdx + 1);
+            const nextAddr = `${nextColLetter}${parsed.row}`;
+            newCells[nextAddr] = currentCells[addr];
+          } else {
+            newCells[addr] = currentCells[addr];
+          }
+        }
+      });
+      targetSheet.cells = newCells;
+      targetSheet.colCount = (targetSheet.colCount || 26) + 1;
+      newSheets[activeSheetIdx] = targetSheet;
+      return newSheets;
+    });
+    toast.success(`Đã chèn cột mới!`);
+  };
+
+  const formatSelection = (type: "currency" | "percent" | "decimal-inc" | "decimal-dec") => {
+    const addresses = getSelectedAddresses();
+    if (addresses.length === 0) return;
+    updateSheetsAndSaveHistory((prev) => {
+      const newSheets = [...prev];
+      const targetSheet = { ...newSheets[activeSheetIdx] };
+      addresses.forEach((addr) => {
+        const cell = targetSheet.cells[addr] || { value: "", formula: "" };
+        let val = cell.value || "";
+        if (!cell.formula) {
+          const clean = val.replace(/[^0-9.-]/g, "");
+          const num = parseFloat(clean);
+          if (!isNaN(num)) {
+            if (type === "currency") {
+              val = `$${num.toLocaleString()}`;
+            } else if (type === "percent") {
+              val = `${num}%`;
+            } else if (type === "decimal-inc") {
+              val = num.toFixed(2);
+            } else if (type === "decimal-dec") {
+              val = Math.round(num).toString();
+            }
+          } else {
+            if (type === "currency") val = `$${val}`;
+            else if (type === "percent") val = `${val}%`;
+          }
+        }
+        targetSheet.cells[addr] = { ...cell, value: val };
+      });
+      newSheets[activeSheetIdx] = targetSheet;
+      return newSheets;
+    });
+    toast.success("Đã thay đổi định dạng ô tính!");
+  };
+
+  const insertFormula = (funcName: string) => {
+    if (!selectedCell) {
+      toast.warn("Vui lòng chọn một ô trước khi chèn công thức!");
       return;
     }
+    let rangeStr = "A1:A5";
+    if (selectedRange) {
+      rangeStr = `${selectedRange.start}:${selectedRange.end}`;
+    }
+    const formulaStr = `=${funcName}(${rangeStr})`;
+    handleUpdateCell(selectedCell, {
+      value: "",
+      formula: formulaStr
+    });
+    setFormulaValue(formulaStr);
+    toast.success(`Đã chèn công thức ${funcName}!`);
+  };
+
+  const handleCopy = () => {
+    const addresses = getSelectedAddresses();
+    if (addresses.length === 0) return;
+
+    const textDataRows: string[][] = [];
+    const start = parseCellAddress(selectedRange?.start || selectedCell || "A1");
+    const end = parseCellAddress(selectedRange?.end || selectedCell || "A1");
+    if (start && end) {
+      const startColIdx = colLetterToNumber(start.col);
+      const endColIdx = colLetterToNumber(end.col);
+      const minCol = Math.min(startColIdx, endColIdx);
+      const maxCol = Math.max(startColIdx, endColIdx);
+      const minRow = Math.min(start.row, end.row);
+      const maxRow = Math.max(start.row, end.row);
+
+      for (let r = minRow; r <= maxRow; r++) {
+        const rowVal: string[] = [];
+        for (let c = minCol; c <= maxCol; c++) {
+          const addr = `${numberToColLetter(c)}${r}`;
+          if (cells[addr]) {
+            rowVal.push(cells[addr].formula || cells[addr].value || "");
+          } else {
+            rowVal.push("");
+          }
+        }
+        textDataRows.push(rowVal);
+      }
+    }
+
+    const tabSeparatedText = textDataRows.map(row => row.join("\t")).join("\n");
+    navigator.clipboard.writeText(tabSeparatedText)
+      .then(() => toast.success("Đã sao chép nội dung ô tính!"))
+      .catch(() => {});
+  };
+
+  const handlePaste = async () => {
+    if (!selectedCell) return;
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        const targetCellParsed = parseCellAddress(selectedCell);
+        if (!targetCellParsed) return;
+
+        const targetColIdx = colLetterToNumber(targetCellParsed.col);
+        const startRow = targetCellParsed.row;
+
+        const rows = text.split(/\r?\n/);
+        const pasted: Record<string, CellData> = {};
+
+        rows.forEach((row, rOffset) => {
+          if (rOffset === rows.length - 1 && row.trim() === "") return;
+
+          const cols = row.split("\t");
+          cols.forEach((val, cOffset) => {
+            const colIdx = targetColIdx + cOffset;
+            const rowNum = startRow + rOffset;
+
+            if (colIdx >= 0 && colIdx < colCount && rowNum >= 1 && rowNum <= rowCount) {
+              const addr = `${numberToColLetter(colIdx)}${rowNum}`;
+              const isFormula = val.startsWith("=");
+              pasted[addr] = {
+                value: isFormula ? "" : val,
+                formula: isFormula ? val : "",
+              };
+            }
+          });
+        });
+
+        if (Object.keys(pasted).length > 0) {
+          handlePasteCells(pasted);
+          toast.success("Đã dán nội dung từ bộ nhớ tạm!");
+        }
+      }
+    } catch (err) {
+      toast.error("Không thể dán dữ liệu!");
+    }
+  };
+
+  // Google Sheets File Menu Logic
+  const handleNewSpreadsheet = async () => {
+    const name = prompt("Nhập tên cho bảng tính mới:", "Trang tính chưa có tên");
+    if (name === null) return;
+    const trimmed = name.trim() || "Trang tính chưa có tên";
+    try {
+      const res = await apiClient.post("/api/v1/spreadsheets", {
+        title: trimmed,
+        content: { sheets: [{ name: "Sheet1", cells: {}, rowCount: 500, colCount: 26 }] }
+      });
+      toast.success("Đã tạo bảng tính mới thành công!");
+      window.location.href = `/admin/sheets/${res.data.data.id}`;
+    } catch (err: any) {
+      toast.error("Lỗi: " + (err.response?.data?.error || err.message));
+    }
+  };
+
+  const handleOpenSpreadsheet = async () => {
+    setShowOpenModal(true);
+    setLoadingOtherSheets(true);
+    try {
+      const res = await apiClient.get("/api/v1/spreadsheets");
+      setOtherSheetsList(res.data.data || []);
+    } catch (err: any) {
+      toast.error("Không thể tải danh sách tệp!");
+    } finally {
+      setLoadingOtherSheets(false);
+    }
+  };
+
+  const handleMakeCopy = async () => {
+    try {
+      const res = await apiClient.post("/api/v1/spreadsheets", {
+        title: `${title} - Bản sao`,
+        content: { sheets }
+      });
+      toast.success("Tạo bản sao thành công!");
+      window.location.href = `/admin/sheets/${res.data.data.id}`;
+    } catch (err: any) {
+      toast.error("Không thể nhân bản: " + (err.response?.data?.error || err.message));
+    }
+  };
+
+  const handleShare = () => {
+    navigator.clipboard.writeText(window.location.href);
+    toast.success("Đã sao chép liên kết trang tính vào bộ nhớ tạm!");
+  };
+
+  const handleEmail = () => {
+    window.location.href = `mailto:?subject=${encodeURIComponent("Bảng tính: " + title)}&body=${encodeURIComponent("Truy cập bảng tính tại đây: " + window.location.href)}`;
+  };
+
+  const handleDownload = (type: "csv" | "tsv" | "xlsx" | "pdf") => {
+    const isCsvOrTsv = type === "csv" || type === "tsv";
+    const separator = type === "tsv" ? "\t" : ",";
 
     let maxRow = 1;
     let maxColIdx = 0;
-
-    const parseAddress = (addr: string) => {
-      const match = addr.match(/^([A-Z]+)([0-9]+)$/);
-      if (!match) return { col: "A", row: 1 };
-      return { col: match[1], row: parseInt(match[2], 10) };
-    };
-
-    const colLetterToNum = (letter: string) => {
-      let num = 0;
-      for (let i = 0; i < letter.length; i++) {
-        num = num * 26 + (letter.charCodeAt(i) - 64);
-      }
-      return num - 1;
-    };
-
+    const addresses = Object.keys(cells);
     addresses.forEach((addr) => {
-      const parsed = parseAddress(addr);
-      if (parsed.row > maxRow) maxRow = parsed.row;
-      const colIdx = colLetterToNum(parsed.col);
-      if (colIdx > maxColIdx) maxColIdx = colIdx;
+      const parsed = parseCellAddress(addr);
+      if (parsed) {
+        if (parsed.row > maxRow) maxRow = parsed.row;
+        const colIdx = colLetterToNumber(parsed.col);
+        if (colIdx > maxColIdx) maxColIdx = colIdx;
+      }
     });
 
-    const numToColLetter = (num: number): string => {
-      let letter = "";
-      let temp = num;
-      while (temp >= 0) {
-        letter = String.fromCharCode((temp % 26) + 65) + letter;
-        temp = Math.floor(temp / 26) - 1;
-      }
-      return letter;
-    };
-
-    let csvContent = "";
+    let contentStr = "";
     for (let r = 1; r <= maxRow; r++) {
       const rowData = [];
       for (let c = 0; c <= maxColIdx; c++) {
-        const colLetter = numToColLetter(c);
+        const colLetter = numberToColLetter(c);
         const cell = cells[`${colLetter}${r}`];
         const val = cell ? cell.value || cell.formula || "" : "";
         const escaped = ("" + val).replace(/"/g, '""');
         rowData.push(`"${escaped}"`);
       }
-      csvContent += rowData.join(",") + "\n";
+      contentStr += rowData.join(separator) + "\n";
     }
 
-    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: "text/csv;charset=utf-8;" });
+    const fileExt = isCsvOrTsv ? type : (type === "xlsx" ? "csv" : "pdf");
+    if (!isCsvOrTsv) {
+      toast.info(`Tính năng tải ${type.toUpperCase()} đang đồng bộ, hệ thống sẽ tải file CSV thay thế.`);
+    }
+
+    const mimeType = type === "tsv" ? "text/tab-separated-values;charset=utf-8;" : "text/csv;charset=utf-8;";
+    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), contentStr], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `${title || "sheet"}.csv`);
+    link.setAttribute("download", `${title || "sheet"}.${fileExt}`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleRenameFocus = () => {
+    const input = document.getElementById("sheet-title-input-el");
+    if (input) {
+      input.focus();
+      (input as HTMLInputElement).select();
+    }
+  };
+
+  const handleMoveToTrash = async () => {
+    if (confirm(`Bạn có chắc chắn muốn xóa trang tính "${title}" và di chuyển vào thùng rác?`)) {
+      try {
+        await apiClient.delete(`/api/v1/spreadsheets/${sheetId}`);
+        toast.success("Xóa trang tính thành công!");
+        onBack();
+      } catch (err: any) {
+        toast.error("Lỗi khi xóa trang tính!");
+      }
+    }
   };
 
   const activeCell = selectedCell ? cells[selectedCell] : null;
 
   return (
     <div className="sheet-editor-container">
-      {/* Header */}
-      <div className="sheet-editor-header">
-        <div className="sheet-editor-title-container">
-          <button onClick={onBack} className="btn-editor-action back">
-            <ArrowLeft className="w-4 h-4" /> Quay lại
-          </button>
-          <input
-            type="text"
-            className="sheet-editor-title-input"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Nhập tiêu đề trang tính..."
-          />
-        </div>
-        <div className="sheet-editor-actions">
-          <label className="btn-editor-action back flex items-center gap-1 cursor-pointer">
-            <Upload className="w-4 h-4" /> Nhập JSON
-            <input type="file" accept=".json" onChange={handleImportJSON} className="hidden" />
-          </label>
-          <button onClick={handleExportJSON} className="btn-editor-action back" title="Xuất JSON">
-            <FileJson className="w-4 h-4" /> Xuất JSON
-          </button>
-          <button onClick={handleExportCSV} className="btn-editor-action back">
-            <Download className="w-4 h-4" /> Xuất CSV
-          </button>
-          <button onClick={handleSave} disabled={isSaving} className="btn-editor-action save">
-            <Save className="w-4 h-4" /> {isSaving ? "Đang lưu..." : "Lưu"}
-          </button>
-        </div>
-      </div>
+      {/* Google Sheets Header */}
+      <SpreadsheetHeader
+        title={title}
+        setTitle={setTitle}
+        isStarred={isStarred}
+        setIsStarred={setIsStarred}
+        isSaving={isSaving}
+        onBack={onBack}
+        onSave={handleSave}
+        handleImportJSON={handleImportJSON}
+        handleExportJSON={handleExportJSON}
+        handleExportCSV={handleExportCSV}
+        onUndo={handleUndo}
+        onCopy={handleCopy}
+        onPaste={handlePaste}
+        onToggleFindReplace={() => setShowFindReplace(!showFindReplace)}
+        onInsertRow={(pos) => {
+          if (selectedCell) {
+            const addr = parseCellAddress(selectedCell);
+            if (addr) insertRow(addr.row, pos);
+          } else {
+            insertRow(rowCount, pos);
+          }
+        }}
+        onInsertCol={(pos) => {
+          if (selectedCell) {
+            const addr = parseCellAddress(selectedCell);
+            if (addr) insertColumn(addr.col, pos);
+          } else {
+            insertColumn(numberToColLetter(colCount - 1), pos);
+          }
+        }}
+        onInsertFormula={insertFormula}
+        onApplyStyle={handleToolbarStyleChange}
+        onOpenHelp={() => setShowHelpModal(true)}
+        
+        // Google Sheets File Menu Handlers
+        onNewSpreadsheet={handleNewSpreadsheet}
+        onOpenSpreadsheet={handleOpenSpreadsheet}
+        onMakeCopy={handleMakeCopy}
+        onShare={handleShare}
+        onEmail={handleEmail}
+        onDownload={handleDownload}
+        onRename={handleRenameFocus}
+        onMoveToTrash={handleMoveToTrash}
+        onVersionHistory={() => setShowVersionHistoryModal(true)}
+        onShowDetails={() => setShowDetailsModal(true)}
+      />
 
-      {/* Toolbar */}
-      <div className="sheet-toolbar">
-        {/* Font Family */}
-        <select 
-          className="tool-select"
-          value={activeCell?.fontFamily || "Inter"}
-          onChange={(e) => handleFontChange("fontFamily", e.target.value)}
-        >
-          <option value="Inter">Inter</option>
-          <option value="Montserrat">Montserrat</option>
-          <option value="Arial">Arial</option>
-          <option value="Courier New">Courier New</option>
-          <option value="Georgia">Georgia</option>
-          <option value="Times New Roman">Times New Roman</option>
-        </select>
-
-        {/* Font Size */}
-        <select 
-          className="tool-select"
-          value={activeCell?.fontSize || "13px"}
-          onChange={(e) => handleFontChange("fontSize", e.target.value)}
-        >
-          <option value="10px">10</option>
-          <option value="12px">12</option>
-          <option value="13px">13</option>
-          <option value="14px">14</option>
-          <option value="16px">16</option>
-          <option value="18px">18</option>
-          <option value="20px">20</option>
-          <option value="24px">24</option>
-        </select>
-
-        <div className="toolbar-divider"></div>
-
-        <button
-          onClick={() => handleToolbarStyleChange("bold")}
-          className={`btn-tool ${activeCell?.bold ? "active" : ""}`}
-          title="In đậm"
-        >
-          <Bold className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => handleToolbarStyleChange("italic")}
-          className={`btn-tool ${activeCell?.italic ? "active" : ""}`}
-          title="In nghiêng"
-        >
-          <Italic className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => handleToolbarStyleChange("underline")}
-          className={`btn-tool ${activeCell?.underline ? "active" : ""}`}
-          title="Gạch chân"
-        >
-          <Underline className="w-4 h-4" />
-        </button>
-
-        <div className="toolbar-divider"></div>
-
-        <button
-          onClick={() => handleAlignChange("left")}
-          className={`btn-tool ${activeCell?.align === "left" ? "active" : ""}`}
-          title="Căn trái"
-        >
-          <AlignLeft className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => handleAlignChange("center")}
-          className={`btn-tool ${activeCell?.align === "center" ? "active" : ""}`}
-          title="Căn giữa"
-        >
-          <AlignCenter className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => handleAlignChange("right")}
-          className={`btn-tool ${activeCell?.align === "right" ? "active" : ""}`}
-          title="Căn phải"
-        >
-          <AlignRight className="w-4 h-4" />
-        </button>
-
-        <div className="toolbar-divider"></div>
-
-        <div className="tool-color-picker" title="Màu chữ">
-          <span className="text-xs">Chữ:</span>
-          <input
-            type="color"
-            className="tool-color-input"
-            value={activeCell?.color || "#000000"}
-            onChange={(e) => handleColorChange("color", e.target.value)}
-          />
-        </div>
-
-        <div className="tool-color-picker" title="Màu nền">
-          <span className="text-xs">Nền:</span>
-          <input
-            type="color"
-            className="tool-color-input"
-            value={activeCell?.bg || "#ffffff"}
-            onChange={(e) => handleColorChange("bg", e.target.value)}
-          />
-        </div>
-
-        <div className="toolbar-divider"></div>
-
-        <button 
-          onClick={() => setShowFindReplace(!showFindReplace)} 
-          className={`btn-tool ${showFindReplace ? "active" : ""}`}
-          title="Tìm kiếm và Thay thế"
-        >
-          <Search className="w-4 h-4" />
-        </button>
-      </div>
+      {/* Google Sheets Toolbar */}
+      <SpreadsheetToolbar
+        activeCell={activeCell}
+        zoomLevel={zoomLevel}
+        setZoomLevel={setZoomLevel}
+        showFindReplace={showFindReplace}
+        setShowFindReplace={setShowFindReplace}
+        handleUndo={handleUndo}
+        handleFontChange={handleFontChange}
+        handleToolbarStyleChange={handleToolbarStyleChange}
+        handleAlignChange={handleAlignChange}
+        handleColorChange={handleColorChange}
+        onFormatSelection={formatSelection}
+        onInsertFormula={insertFormula}
+      />
 
       {/* Floating Find & Replace Panel */}
       {showFindReplace && (
@@ -613,21 +794,29 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
         />
       </div>
 
-      {/* Grid */}
-      <SpreadsheetGrid
-        cells={cells}
-        selectedCell={selectedCell}
-        onSelectCell={setSelectedCell}
-        selectedRange={selectedRange}
-        onSelectRange={setSelectedRange}
-        onUpdateCell={handleUpdateCell}
-        onPasteCells={handlePasteCells}
-        rowCount={rowCount}
-        colCount={colCount}
-        onUndo={handleUndo}
-      />
+      {/* Grid Wrapper for scaling */}
+      <div 
+        style={{ 
+          zoom: zoomLevel === "100%" ? undefined : parseFloat(zoomLevel) / 100, 
+          overflow: "auto", 
+          flex: 1 
+        }}
+      >
+        <SpreadsheetGrid
+          cells={cells}
+          selectedCell={selectedCell}
+          onSelectCell={setSelectedCell}
+          selectedRange={selectedRange}
+          onSelectRange={setSelectedRange}
+          onUpdateCell={handleUpdateCell}
+          onPasteCells={handlePasteCells}
+          rowCount={rowCount}
+          colCount={colCount}
+          onUndo={handleUndo}
+        />
+      </div>
 
-      {/* Add Rows Panel (Google Sheet Styled) */}
+      {/* Add Rows Panel */}
       <div className="add-rows-panel">
         <span>Thêm</span>
         <input 
@@ -669,6 +858,158 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
           <Plus className="w-3.5 h-3.5" />
         </button>
       </div>
+
+      {/* Keyboard Shortcuts Help Modal */}
+      {showHelpModal && (
+        <div className="sheets-modal-overlay">
+          <div className="sheets-modal-card" style={{ maxWidth: "500px" }}>
+            <h3>Trợ giúp & Phím tắt Bảng tính</h3>
+            <div className="sheets-modal-body" style={{ fontSize: "13px", gap: "10px", maxHeight: "300px", overflowY: "auto" }}>
+              <p><strong>Thao tác ô tính:</strong></p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Nhấp đúp chuột vào ô để sửa dữ liệu hoặc nhập công thức bắt đầu bằng dấu <code>=</code> (Ví dụ: <code>=SUM(A1:A5)</code>).</li>
+                <li>Kéo chuột trái từ ô này sang ô khác để chọn vùng dữ liệu (Range Selection).</li>
+                <li>Ấn phím <strong>Enter</strong> để lưu chỉnh sửa và di chuyển xuống ô dưới.</li>
+                <li>Ấn phím <strong>Escape</strong> để hủy bỏ chỉnh sửa hiện tại.</li>
+              </ul>
+              <p className="mt-2"><strong>Phím tắt hữu ích:</strong></p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li><code>Ctrl + Z</code>: Hoàn tác hành động gần nhất.</li>
+                <li><code>Ctrl + C</code>: Sao chép nội dung vùng chọn.</li>
+                <li><code>Ctrl + V</code>: Dán nội dung từ clipboard.</li>
+                <li><code>Ctrl + A</code>: Chọn toàn bộ bảng tính.</li>
+                <li><code>Ctrl + H</code>: Tìm kiếm & Thay thế.</li>
+              </ul>
+            </div>
+            <div className="sheets-modal-actions">
+              <button onClick={() => setShowHelpModal(false)} className="btn-modal-confirm">Đóng</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Mở bảng tính khác (Open Spreadsheet) */}
+      {showOpenModal && (
+        <div className="sheets-modal-overlay" onClick={() => setShowOpenModal(false)}>
+          <div className="sheets-modal-card" style={{ maxWidth: "500px" }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center border-b border-[var(--border)] pb-3 mb-2">
+              <h3>Mở trang tính</h3>
+              <button onClick={() => setShowOpenModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="sheets-modal-body" style={{ maxHeight: "320px", overflowY: "auto" }}>
+              {loadingOtherSheets ? (
+                <div className="text-center py-8">Đang tải danh sách...</div>
+              ) : otherSheetsList.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">Chưa có trang tính nào khác trên hệ thống.</div>
+              ) : (
+                <div className="space-y-2">
+                  {otherSheetsList.map((item) => (
+                    <a
+                      key={item.id}
+                      href={`/admin/sheets/${item.id}`}
+                      className="flex items-center justify-between p-3 rounded-lg border border-[var(--border)] bg-[var(--bg-2)] hover:bg-[var(--bg-3)] transition-colors cursor-pointer text-[var(--fg)] text-sm"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
+                        <span className="font-medium truncate max-w-[280px]">{item.title}</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-[11px] text-gray-400">
+                        <span>Mở</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Nhật ký thay đổi (In-session Version History) */}
+      {showVersionHistoryModal && (
+        <div className="sheets-modal-overlay" onClick={() => setShowVersionHistoryModal(false)}>
+          <div className="sheets-modal-card" style={{ maxWidth: "500px" }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center border-b border-[var(--border)] pb-3 mb-2">
+              <h3>Nhật ký phiên bản</h3>
+              <button onClick={() => setShowVersionHistoryModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="sheets-modal-body" style={{ maxHeight: "320px", overflowY: "auto" }}>
+              {history.length === 0 ? (
+                <div className="text-center py-8 text-gray-500 flex flex-col items-center gap-2">
+                  <Clock className="w-8 h-8 text-gray-400" />
+                  <p>Chưa có thay đổi nào trong phiên làm việc này.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {history.map((entry, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between p-3 rounded-lg border border-[var(--border)] bg-[var(--bg-2)] hover:bg-[var(--bg-3)] transition-colors text-sm"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Clock className="w-4 h-4 text-gray-400" />
+                        <span className="font-medium">Phiên bản sửa đổi lúc {entry.timestamp}</span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          updateSheetsAndSaveHistory(entry.sheets);
+                          setShowVersionHistoryModal(false);
+                          toast.success(`Đã hồi phục bảng tính về phiên bản lúc ${entry.timestamp}!`);
+                        }}
+                        className="btn-modal-confirm py-1 px-2.5 text-xs"
+                      >
+                        Khôi phục
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Chi tiết trang tính (Details) */}
+      {showDetailsModal && (
+        <div className="sheets-modal-overlay" onClick={() => setShowDetailsModal(false)}>
+          <div className="sheets-modal-card" style={{ maxWidth: "400px" }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center border-b border-[var(--border)] pb-3 mb-2">
+              <h3>Chi tiết tài liệu</h3>
+              <button onClick={() => setShowDetailsModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="sheets-modal-body" style={{ fontSize: "13px", gap: "12px" }}>
+              <div>
+                <span className="text-gray-400 block text-[11px] uppercase tracking-wider">Tên tài liệu</span>
+                <span className="font-semibold text-sm">{title}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="text-gray-400 block text-[11px] uppercase tracking-wider">Số trang tính (Sheet)</span>
+                  <span className="font-medium">{sheets.length}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400 block text-[11px] uppercase tracking-wider">Tổng số ô dữ liệu</span>
+                  <span className="font-medium">{Object.keys(cells).length}</span>
+                </div>
+              </div>
+              <div>
+                <span className="text-gray-400 block text-[11px] uppercase tracking-wider">Vị trí lưu trữ</span>
+                <span className="font-medium text-emerald-500">Hệ thống Đám mây HOU</span>
+              </div>
+            </div>
+            <div className="sheets-modal-actions">
+              <button onClick={() => setShowDetailsModal(false)} className="btn-modal-confirm">Đóng</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

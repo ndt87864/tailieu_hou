@@ -24,3 +24,4 @@ backend/.env
 lms_crawler/cookies.txt
 README.md
 /.agents
+backend/node_modules/

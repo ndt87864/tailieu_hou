@@ -728,6 +728,286 @@
   }
 }
 
+/* Google Sheets Header Design */
+.sheet-google-header {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 16px 4px 16px;
+}
+
+.sheet-google-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.sheet-google-left-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sheet-google-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #10b981; /* Google Sheets green */
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.sheet-google-logo:hover {
+  background-color: var(--bg-3);
+}
+
+.sheet-google-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sheet-google-title-input {
+  font-size: 18px;
+  font-weight: 500;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--fg);
+  padding: 2px 6px;
+  border-radius: 4px;
+  max-width: 250px;
+}
+
+.sheet-google-title-input:focus {
+  border-color: var(--accent);
+  background-color: var(--bg-1);
+  outline: none;
+}
+
+.btn-star, .btn-cloud-status {
+  background: none;
+  border: none;
+  color: var(--fg-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.btn-star:hover {
+  background-color: var(--bg-3);
+  color: #f59e0b; /* yellow */
+}
+
+.btn-star.starred {
+  color: #f59e0b;
+}
+
+.sheet-google-right-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-header-icon {
+  background: none;
+  border: none;
+  color: var(--fg-muted);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.btn-header-icon:hover {
+  background-color: var(--bg-3);
+  color: var(--fg);
+}
+
+.sheet-google-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--border);
+  cursor: pointer;
+}
+
+/* Row 2: Menubar */
+.sheet-google-menubar {
+  display: flex;
+  gap: 14px;
+  padding: 2px 0 6px 36px;
+  font-size: 13px;
+  color: var(--fg);
+}
+
+.menu-item-dropdown {
+  position: relative;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  user-select: none;
+}
+
+.menu-item-dropdown:hover {
+  background-color: var(--bg-3);
+}
+
+.menu-dropdown-content {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: var(--shadow-md);
+  z-index: 100;
+  min-width: 160px;
+  margin-top: 4px;
+  display: none;
+  flex-direction: column;
+  padding: 4px 0;
+}
+
+.menu-item-dropdown:hover .menu-dropdown-content {
+  display: flex;
+}
+
+.dropdown-action-btn {
+  background: none;
+  border: none;
+  color: var(--fg);
+  text-align: left;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.2s;
+}
+
+.dropdown-action-btn:hover {
+  background-color: var(--bg-3);
+}
+
+/* Row 3: Google Sheets Toolbar */
+.sheet-google-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background-color: #f1f3f4; /* light google sheets toolbar bg */
+  border-radius: 20px;
+  padding: 4px 12px;
+  margin-top: 4px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+}
+
+.dark .sheet-google-toolbar {
+  background-color: var(--bg-3);
+}
+
+.toolbar-font-size-control {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background-color: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+
+.btn-size-step {
+  background: none;
+  border: none;
+  color: var(--fg);
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 14px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.input-size-value {
+  width: 24px;
+  border: none;
+  background: transparent;
+  color: var(--fg);
+  text-align: center;
+  font-size: 12px;
+  outline: none;
+}
+
+.menu-dropdown-divider {
+  height: 1px;
+  background-color: var(--border);
+  margin: 6px 0;
+  width: 100%;
+}
+
+@media print {
+  /* Hide all Google Sheets menus, toolbars, and controls during print */
+  .sheet-google-header,
+  .sheet-google-toolbar,
+  .sheet-formula-bar,
+  .add-rows-panel,
+  .sheet-bottom-bar,
+  .find-replace-panel,
+  .sheets-modal-overlay {
+    display: none !important;
+  }
+
+  /* Expand container to occupy the print page correctly */
+  .sheet-editor-container {
+    height: auto !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    padding: 0 !important;
+  }
+
+  .sheet-grid-container {
+    overflow: visible !important;
+    height: auto !important;
+    width: 100% !important;
+  }
+
+  /* Make cells clearly visible in black/white print layout */
+  .sheet-cell {
+    border-color: #bbbbbb !important;
+    color: #000000 !important;
+    background-color: #ffffff !important;
+  }
+
+  .sheet-table {
+    width: 100% !important;
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+}
+
+
+
+
 
 
 
