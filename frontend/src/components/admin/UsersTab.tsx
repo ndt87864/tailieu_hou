@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
 import apiClient from "../../services/client.js";
-import LoadingSpinner from "../../components/common/LoadingSpinner.js";
 import { toast } from "react-toastify";
 import { useAuth } from "../../context/AuthContext.js";
 import { Search, Plus, Trash2, RefreshCw, BookOpen } from "lucide-react";
 import { useConfirm } from "../../context/ConfirmContext.js";
 import UserPermissionModal from "./UserPermissionModal.js";
+import { useUI } from "../../context/UIContext.js";
 
 interface Profile {
   id: string;
@@ -26,6 +26,7 @@ const UsersTab: React.FC = () => {
   const confirm = useConfirm();
   const [users, setUsers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
+  const { setPageLoading } = useUI();
   const [searchTerm, setSearchTerm] = useState("");
   const [docSearch, setDocSearch] = useState("");
   const [questionRatios, setQuestionRatios] = useState<any[]>([]);
@@ -137,7 +138,7 @@ const UsersTab: React.FC = () => {
   };
 
   const fetchUsers = () => {
-    setLoading(true);
+    setPageLoading(true);
     apiClient
       .get("/api/v1/admin/users")
       .then((res) => {
@@ -148,6 +149,9 @@ const UsersTab: React.FC = () => {
         console.error(err);
         toast.error("Không thể tải danh sách tài khoản.");
         setLoading(false);
+      })
+      .finally(() => {
+        setPageLoading(false);
       });
   };
 
@@ -240,7 +244,7 @@ const UsersTab: React.FC = () => {
       (u.full_name || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (loading) return <LoadingSpinner />;
+  if (loading) return null;
 
   return (
     <div className="space-y-4">

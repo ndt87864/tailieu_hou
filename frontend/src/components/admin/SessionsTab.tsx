@@ -3,6 +3,7 @@ import { Plus, Trash2, Edit2, Clock, X, Loader2 } from "lucide-react";
 import { toast } from "react-toastify";
 import apiClient from "../../services/client.js";
 import { useConfirm } from "../../context/ConfirmContext.js";
+import { useUI } from "../../context/UIContext.js";
 
 interface ExamSession {
   id: string;
@@ -35,16 +36,19 @@ export const SessionsTab: React.FC = () => {
 
   const [formData, setFormData] = useState(defaultForm);
 
+  const { setPageLoading } = useUI();
+
   const fetchSessions = async () => {
-    setLoading(true);
+    setPageLoading(true);
     try {
       const res = await apiClient.get("/api/v1/admin/exam-sessions");
       setSessions(res.data.sessions || []);
+      setLoading(false);
     } catch (err: any) {
       console.error(err);
       toast.error("Không thể tải danh sách ca thi.");
     } finally {
-      setLoading(false);
+      setPageLoading(false);
     }
   };
 
@@ -165,11 +169,7 @@ export const SessionsTab: React.FC = () => {
         </button>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center items-center py-10">
-          <Loader2 className="w-6 h-6 animate-spin text-brand-600" />
-        </div>
-      ) : (
+      {loading ? null : (
         <>
           {/* Table view - Desktop View */}
           <div className="admin-table-card-wrapper hidden md:block">

@@ -3,6 +3,7 @@ import { Plus, Trash2, Upload, RefreshCw, Loader2, X } from "lucide-react";
 import { toast } from "react-toastify";
 import apiClient from "../../services/client.js";
 import { useConfirm } from "../../context/ConfirmContext.js";
+import { useUI } from "../../context/UIContext.js";
 import RoomTable from "./RoomTable.js";
 import {
   ensureXLSX,
@@ -53,16 +54,19 @@ const RoomsTab: React.FC = () => {
 
   const [importing, setImporting] = useState(false);
 
+  const { setPageLoading } = useUI();
+
   const loadData = async () => {
-    setLoading(true);
+    setPageLoading(true);
     try {
       const res = await apiClient.get("/api/v1/admin/room-infor");
       setRooms(res.data.rooms || []);
+      setLoading(false);
     } catch (err) {
       console.error(err);
       toast.error("Không thể tải danh sách phòng thi.");
     } finally {
-      setLoading(false);
+      setPageLoading(false);
     }
   };
 

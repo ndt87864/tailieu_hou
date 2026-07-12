@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
 import apiClient from "../../services/client.js";
-import LoadingSpinner from "../../components/common/LoadingSpinner.js";
 import { toast } from "react-toastify";
 import { Search, Plus, Trash2, Edit2, RefreshCw, Loader2, Eye, EyeOff, Crown } from "lucide-react";
 import { useConfirm } from "../../context/ConfirmContext.js";
 import { useAdminCategories } from "../../hooks/useAdminCategories.js";
+import { useUI } from "../../context/UIContext.js";
 
 interface Document {
   id: string;
@@ -59,8 +59,10 @@ const DocumentsTab: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
+  const { setPageLoading } = useUI();
+
   const fetchInitialData = async () => {
-    setLoading(true);
+    setPageLoading(true);
     try {
       const docsRes = await apiClient.get("/api/v1/admin/documents");
       setDocuments(docsRes.data.documents || []);
@@ -69,6 +71,8 @@ const DocumentsTab: React.FC = () => {
       console.error(err);
       toast.error("Không thể tải danh sách tài liệu.");
       setLoading(false);
+    } finally {
+      setPageLoading(false);
     }
   };
 
@@ -176,7 +180,7 @@ const DocumentsTab: React.FC = () => {
       (d.category?.title || "").toLowerCase().includes(search.toLowerCase())
   );
 
-  if (loading) return <LoadingSpinner />;
+  if (loading) return null;
 
   return (
     <div className="space-y-4">

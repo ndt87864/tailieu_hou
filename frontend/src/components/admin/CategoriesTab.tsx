@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import apiClient from "../../services/client.js";
-import LoadingSpinner from "../../components/common/LoadingSpinner.js";
 import { toast } from "react-toastify";
 import * as Icons from "lucide-react";
 import { useConfirm } from "../../context/ConfirmContext.js";
+import { useUI } from "../../context/UIContext.js";
 
 const { Search, Plus, Trash2, Edit2, RefreshCw, Loader2, Eye, EyeOff, Crown } = Icons;
 
@@ -96,8 +96,10 @@ const CategoriesTab: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
+  const { setPageLoading } = useUI();
+
   const fetchCategories = () => {
-    setLoading(true);
+    setPageLoading(true);
     apiClient
       .get("/api/v1/admin/categories")
       .then((res) => {
@@ -108,6 +110,9 @@ const CategoriesTab: React.FC = () => {
         console.error(err);
         toast.error("Không thể tải danh sách danh mục.");
         setLoading(false);
+      })
+      .finally(() => {
+        setPageLoading(false);
       });
   };
 
@@ -202,7 +207,7 @@ const CategoriesTab: React.FC = () => {
 
   const filtered = categories.filter((c) => c.title.toLowerCase().includes(search.toLowerCase()));
 
-  if (loading) return <LoadingSpinner />;
+  if (loading) return null;
 
   return (
     <div className="space-y-4">

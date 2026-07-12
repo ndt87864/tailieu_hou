@@ -16,11 +16,14 @@ interface SheetItem {
   created_by: string;
 }
 
+import { useUI } from "../../context/UIContext.js";
+
 export const SheetsTab: React.FC = () => {
   const navigate = useNavigate();
   const [sheets, setSheets] = useState<SheetItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const { setPageLoading } = useUI();
   
   // Custom Modal States
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -30,14 +33,15 @@ export const SheetsTab: React.FC = () => {
   const confirm = useConfirm();
 
   const fetchSheets = async () => {
-    setLoading(true);
+    setPageLoading(true);
     try {
       const res = await apiClient.get("/api/v1/spreadsheets");
       setSheets(res.data.data || []);
+      setLoading(false);
     } catch (err: any) {
       toast.error("Không thể tải danh sách trang tính: " + (err.response?.data?.error || err.message));
     } finally {
-      setLoading(false);
+      setPageLoading(false);
     }
   };
 
@@ -132,9 +136,7 @@ export const SheetsTab: React.FC = () => {
         </button>
       </div>
 
-      {loading ? (
-        <LoadingSpinner />
-      ) : filteredSheets.length === 0 ? (
+      {loading ? null : filteredSheets.length === 0 ? (
         <div className="text-center py-12 text-gray-500 bg-[var(--bg-2)] border border-[var(--border)] rounded-xl">
           <FileSpreadsheet className="w-12 h-12 mx-auto text-gray-400 mb-3" />
           <p className="text-base font-semibold">Chưa có trang tính nào</p>

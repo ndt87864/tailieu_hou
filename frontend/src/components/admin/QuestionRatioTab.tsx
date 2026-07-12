@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import apiClient from "../../services/client.js";
 import { toast } from "react-toastify";
 import { Save, Loader2, RefreshCw, Link2, Link2Off } from "lucide-react";
+import { useUI } from "../../context/UIContext.js";
 
 interface RoleConfig {
   ratio_percent: number;
@@ -26,8 +27,10 @@ export const QuestionRatioTab: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
 
+  const { setPageLoading } = useUI();
+
   const fetchRatios = async () => {
-    setLoading(true);
+    setPageLoading(true);
     try {
       const response = await apiClient.get("/api/v1/admin/question-ratios");
       const fetchedRatios = response.data?.ratios;
@@ -55,11 +58,12 @@ export const QuestionRatioTab: React.FC = () => {
           pro: newRatios.pro.excel_ratio_unpaid === newRatios.pro.excel_ratio_paid,
         });
       }
+      setLoading(false);
     } catch (err: any) {
       console.error(err);
       toast.error("Không thể tải cấu hình tỷ lệ câu hỏi!");
     } finally {
-      setLoading(false);
+      setPageLoading(false);
     }
   };
 
@@ -151,14 +155,7 @@ export const QuestionRatioTab: React.FC = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-brand-600 mb-2" />
-        <span className="text-xs text-muted-foreground">Đang tải cấu hình...</span>
-      </div>
-    );
-  }
+  if (loading) return null;
 
   const renderRoleSection = (roleKey: "free" | "plus" | "pro", title: string, desc: string) => {
     const config = ratios[roleKey];

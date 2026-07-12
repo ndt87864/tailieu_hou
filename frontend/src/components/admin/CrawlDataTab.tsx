@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import apiClient from "../../services/client.js";
-import LoadingSpinner from "../../components/common/LoadingSpinner.js";
 import { toast } from "react-toastify";
 import { useConfirm } from "../../context/ConfirmContext.js";
+import { useUI } from "../../context/UIContext.js";
 import {
   Trash2,
   RefreshCw,
@@ -57,7 +57,10 @@ export const CrawlDataTab: React.FC<CrawlDataTabProps> = ({ view }) => {
   
   const [documents, setDocuments] = useState<{id: string, title: string, category_id?: string | null}[]>([]);
 
+  const { setPageLoading } = useUI();
+
   const fetchData = (docIds?: string[]) => {
+    setPageLoading(true);
     setLoading(true);
     setSelectedIds([]);
     if (view === "courses") {
@@ -65,21 +68,37 @@ export const CrawlDataTab: React.FC<CrawlDataTabProps> = ({ view }) => {
         .then(res => {
           setCourses(res.data.courses || []);
           setAllCourses((res.data.courses || []).map((c: any) => ({ id: c.id, title: c.title })));
+          setLoading(false);
         })
         .catch(() => toast.error("Không thể tải danh sách khóa học"))
-        .finally(() => setLoading(false));
+        .finally(() => {
+          setLoading(false);
+          setPageLoading(false);
+        });
     } else if (view === "resources") {
       const params = docIds && docIds.length > 0 ? `?document_ids=${docIds.join(",")}` : "";
       apiClient.get(`/api/v1/admin/crawler/resources${params}`)
-        .then(res => setResources(res.data.resources || []))
+        .then(res => {
+          setResources(res.data.resources || []);
+          setLoading(false);
+        })
         .catch(() => toast.error("Không thể tải danh sách tài nguyên"))
-        .finally(() => setLoading(false));
+        .finally(() => {
+          setLoading(false);
+          setPageLoading(false);
+        });
     } else if (view === "questions") {
       const params = docIds && docIds.length > 0 ? `?document_ids=${docIds.join(",")}` : "";
       apiClient.get(`/api/v1/admin/crawler/questions${params}`)
-        .then(res => setQuestions(res.data.questions || []))
+        .then(res => {
+          setQuestions(res.data.questions || []);
+          setLoading(false);
+        })
         .catch(() => toast.error("Không thể tải danh sách câu hỏi"))
-        .finally(() => setLoading(false));
+        .finally(() => {
+          setLoading(false);
+          setPageLoading(false);
+        });
     }
   };
 
@@ -468,9 +487,7 @@ export const CrawlDataTab: React.FC<CrawlDataTabProps> = ({ view }) => {
         }}
       />
 
-      {loading ? (
-        <LoadingSpinner />
-      ) : (
+      {loading ? null : (
         <>
           {/* Questions view: dùng container trong suốt, để card từng câu hỏi tự nổi */}
           {view === "questions" ? (

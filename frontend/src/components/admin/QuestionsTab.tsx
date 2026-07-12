@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import apiClient from "../../services/client.js";
-import LoadingSpinner from "../../components/common/LoadingSpinner.js";
 import { toast } from "react-toastify";
+import { useUI } from "../../context/UIContext.js";
 import {
   Search,
   Plus,
@@ -80,8 +80,11 @@ const QuestionsTab: React.FC = () => {
   });
   const [submitting, setSubmitting] = useState(false);
 
+  const { setPageLoading } = useUI();
+
   // Fetch documents on load (categories come from shared hook)
   useEffect(() => {
+    setPageLoading(true);
     setLoadingDocs(true);
     apiClient
       .get("/api/v1/documents")
@@ -94,6 +97,9 @@ const QuestionsTab: React.FC = () => {
         console.error(err);
         toast.error("Không thể tải danh sách tài liệu.");
         setLoadingDocs(false);
+      })
+      .finally(() => {
+        setPageLoading(false);
       });
   }, []);
 
@@ -163,6 +169,7 @@ const QuestionsTab: React.FC = () => {
       setQuestions([]);
       return;
     }
+    setPageLoading(true);
     setLoadingQuestions(true);
     setSelectedQuestionIds([]);
     apiClient
@@ -175,6 +182,9 @@ const QuestionsTab: React.FC = () => {
         console.error(err);
         toast.error("Không thể tải câu hỏi.");
         setLoadingQuestions(false);
+      })
+      .finally(() => {
+        setPageLoading(false);
       });
   };
 
@@ -546,7 +556,7 @@ const QuestionsTab: React.FC = () => {
     }
   };
 
-  if (loadingDocs) return <LoadingSpinner />;
+  if (loadingDocs) return null;
 
   return (
     <div className="space-y-4">
@@ -803,9 +813,7 @@ const QuestionsTab: React.FC = () => {
       )}
 
       {/* List content */}
-      {loadingQuestions ? (
-        <LoadingSpinner />
-      ) : (
+      {loadingQuestions ? null : (
         <div className="space-y-3">
           {filtered.length === 0 ? (
             <div className="card p-8 text-center text-sm card-empty-state">

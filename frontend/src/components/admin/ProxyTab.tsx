@@ -3,6 +3,7 @@ import { Search, RefreshCw, Download, Eye, X, Loader2 } from "lucide-react";
 import { toast } from "react-toastify";
 import { useConfirm } from "../../context/ConfirmContext.js";
 import { supabase } from "../../context/AuthContext.js";
+import { useUI } from "../../context/UIContext.js";
 import * as XLSX from "xlsx";
 
 interface Registration {
@@ -52,7 +53,10 @@ export const ProxyTab: React.FC = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const { setPageLoading } = useUI();
+
   const fetchRegistrations = async () => {
+    setPageLoading(true);
     try {
       setLoading(true);
       const { data: regData, error: regError } = await supabase
@@ -91,11 +95,12 @@ export const ProxyTab: React.FC = () => {
       } else {
         setRegistrations(regData || []);
       }
+      setLoading(false);
     } catch (err) {
       console.error("Fetch error:", err);
       toast.error("Không thể tải danh sách đăng ký.");
     } finally {
-      setLoading(false);
+      setPageLoading(false);
     }
   };
 
@@ -238,13 +243,7 @@ export const ProxyTab: React.FC = () => {
     0
   );
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center py-20">
-        <Loader2 className="w-8 h-8 animate-spin text-brand-600" />
-      </div>
-    );
-  }
+  if (loading) return null;
 
   return (
     <div className="space-y-4">

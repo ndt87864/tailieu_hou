@@ -77,21 +77,25 @@ function DonutChart({ data }: { data: { value: number; color: string }[] }) {
   );
 }
 
+import { useUI } from "../../context/UIContext.js";
+
 const DashboardTab: React.FC = () => {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
+  const { setPageLoading } = useUI();
 
   const fetchStats = () => {
-    setLoading(true);
+    setPageLoading(true);
     apiClient
       .get("/api/v1/admin/stats")
       .then((res) => { setStats(res.data.stats || null); setLoading(false); })
-      .catch((err) => { console.error(err); setLoading(false); });
+      .catch((err) => { console.error(err); setLoading(false); })
+      .finally(() => setPageLoading(false));
   };
 
   useEffect(() => { fetchStats(); }, []);
 
-  if (loading || !stats) return <LoadingSpinner />;
+  if (loading || !stats) return null;
 
   const totalPaid = stats.roles.plus + stats.roles.pro + stats.roles.ultra;
   const paidPct = stats.totalUsers > 0 ? Math.round((totalPaid / stats.totalUsers) * 100) : 0;

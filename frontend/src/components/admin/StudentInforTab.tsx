@@ -3,6 +3,7 @@ import { Search, Plus, Trash2, Upload, Download, RefreshCw, Loader2 } from "luci
 import { toast } from "react-toastify";
 import apiClient from "../../services/client.js";
 import { useConfirm } from "../../context/ConfirmContext.js";
+import { useUI } from "../../context/UIContext.js";
 import StudentList from "./StudentList.js";
 import StudentFormModal from "./StudentFormModal.js";
 import StudentImportModal from "./StudentImportModal.js";
@@ -71,8 +72,10 @@ const StudentInforTab: React.FC = () => {
   const [formData, setFormData] = useState(emptyForm);
   const [submitting, setSubmitting] = useState(false);
 
+  const { setPageLoading } = useUI();
+
   const fetchStudents = () => {
-    setLoading(true);
+    setPageLoading(true);
     apiClient
       .get("/api/v1/admin/students", {
         params: {
@@ -93,6 +96,9 @@ const StudentInforTab: React.FC = () => {
         console.error(err);
         toast.error("Không thể tải danh sách sinh viên.");
         setLoading(false);
+      })
+      .finally(() => {
+        setPageLoading(false);
       });
   };
 
@@ -456,11 +462,7 @@ const StudentInforTab: React.FC = () => {
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center items-center py-10">
-          <Loader2 className="w-6 h-6 animate-spin text-brand-600" />
-        </div>
-      ) : (
+      {loading ? null : (
         <div className="admin-table-card-wrapper">
           <div className="overflow-x-auto p-1 md:p-0">
             <StudentList

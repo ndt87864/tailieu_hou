@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import { Plus, Edit, Trash2, X, Loader2, Link2 } from "lucide-react";
 import "../../css/contacts-tab.css";
 import { useConfirm } from "../../context/ConfirmContext.js";
+import { useUI } from "../../context/UIContext.js";
 
 interface ContactLink {
   linkText: string;
@@ -30,16 +31,19 @@ export const ContactsTab: React.FC = () => {
   const [text, setText] = useState("");
   const [links, setLinks] = useState<ContactLink[]>([]);
 
+  const { setPageLoading } = useUI();
+
   const fetchContent = async () => {
-    setLoading(true);
+    setPageLoading(true);
     try {
       const res = await apiClient.get("/api/v1/pricing-content");
       setContentList(res.data.content || []);
+      setLoading(false);
     } catch (err: any) {
       console.error(err);
       toast.error("Không thể tải danh sách nội dung liên hệ.");
     } finally {
-      setLoading(false);
+      setPageLoading(false);
     }
   };
 
@@ -124,14 +128,7 @@ export const ContactsTab: React.FC = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-brand-600 mb-2" />
-        <span className="text-xs text-muted-foreground">Đang tải dữ liệu...</span>
-      </div>
-    );
-  }
+  if (loading) return null;
 
   return (
     <div className="contacts-tab-container">

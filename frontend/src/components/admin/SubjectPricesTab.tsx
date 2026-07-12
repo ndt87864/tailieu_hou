@@ -3,6 +3,7 @@ import { Plus, Trash2, Edit, Loader2, Search } from "lucide-react";
 import { toast } from "react-toastify";
 import apiClient from "../../services/client.js";
 import { useConfirm } from "../../context/ConfirmContext.js";
+import { useUI } from "../../context/UIContext.js";
 
 interface SubjectPrice {
   id: string;
@@ -25,16 +26,19 @@ export const SubjectPricesTab: React.FC = () => {
   const [subject, setSubject] = useState("");
   const [priceVal, setPriceVal] = useState("100000");
 
+  const { setPageLoading } = useUI();
+
   const fetchPrices = async () => {
-    setLoading(true);
+    setPageLoading(true);
     try {
       const res = await apiClient.get("/api/v1/admin/subject-prices");
       setPrices(res.data.prices || []);
+      setLoading(false);
     } catch (err: any) {
       console.error(err);
       toast.error("Không thể tải danh sách giá môn học.");
     } finally {
-      setLoading(false);
+      setPageLoading(false);
     }
   };
 
@@ -127,11 +131,7 @@ export const SubjectPricesTab: React.FC = () => {
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center items-center py-10">
-          <Loader2 className="w-6 h-6 animate-spin text-brand-600" />
-        </div>
-      ) : (
+      {loading ? null : (
         <div className="table-responsive rounded-2xl border border-[var(--border)] overflow-hidden bg-[var(--surface)]">
           <table className="w-full text-left border-collapse text-sm">
             <thead>

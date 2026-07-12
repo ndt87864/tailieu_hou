@@ -3,6 +3,7 @@ import { Plus, Calendar, Lock, X, Loader2, Trash2, Leaf, Zap, Crown, Gem, Star, 
 import apiClient from "../../services/client.js";
 import { toast } from "react-toastify";
 import { useConfirm } from "../../context/ConfirmContext.js";
+import { useUI } from "../../context/UIContext.js";
 
 
 
@@ -49,16 +50,19 @@ export const PricingTab: React.FC = () => {
   const [featuresText, setFeaturesText] = useState("");
   const [displayOrder, setDisplayOrder] = useState(1);
 
+  const { setPageLoading } = useUI();
+
   const fetchPackages = async () => {
-    setLoading(true);
+    setPageLoading(true);
     try {
       const res = await apiClient.get("/api/v1/pricing-packages/admin");
       setPackages(res.data.packages || []);
+      setLoading(false);
     } catch (err: any) {
       console.error(err);
       toast.error("Không thể tải danh sách gói dịch vụ.");
     } finally {
-      setLoading(false);
+      setPageLoading(false);
     }
   };
 
@@ -152,11 +156,7 @@ export const PricingTab: React.FC = () => {
         </button>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center items-center py-10">
-          <Loader2 className="w-6 h-6 animate-spin text-brand-600" />
-        </div>
-      ) : (
+      {loading ? null : (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {packages.map((p) => {
             const matchedIcon = iconOptions.find((opt) => opt.value === p.icon);

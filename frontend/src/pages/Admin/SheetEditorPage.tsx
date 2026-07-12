@@ -2,28 +2,30 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import apiClient from "../../services/client.js";
-import LoadingSpinner from "../../components/common/LoadingSpinner.js";
-import { SpreadsheetEditor } from "../../components/admin/SpreadsheetEditor.js";
+import { useUI } from "../../context/UIContext.js";
 import { toast } from "react-toastify";
+import { SpreadsheetEditor } from "../../components/admin/SpreadsheetEditor.js";
 
 const SheetEditorPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { setPageLoading } = useUI();
   
   const [loading, setLoading] = useState(true);
   const [sheetData, setSheetData] = useState<any | null>(null);
 
   const fetchSheetDetail = async () => {
     if (!id) return;
-    setLoading(true);
+    setPageLoading(true);
     try {
       const res = await apiClient.get(`/api/v1/spreadsheets/${id}`);
       setSheetData(res.data.data);
+      setLoading(false);
     } catch (err: any) {
       toast.error("Không thể tải thông tin trang tính: " + (err.response?.data?.error || err.message));
       navigate("/admin/sheets"); // Quay lại trang quản trị
     } finally {
-      setLoading(false);
+      setPageLoading(false);
     }
   };
 
@@ -47,9 +49,7 @@ const SheetEditorPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="w-screen h-screen flex items-center justify-center bg-[var(--bg)]">
-        <LoadingSpinner />
-      </div>
+      <div className="w-screen h-screen bg-[var(--bg-1)]" />
     );
   }
 
