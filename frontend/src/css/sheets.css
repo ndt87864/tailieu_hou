@@ -478,6 +478,8 @@
   justify-content: center;
   z-index: 999999;
   animation: fade-in 0.2s ease-out;
+  /* Tối ưu hiệu năng: Kích hoạt tăng tốc phần cứng GPU cho animation mượt mà */
+  will-change: opacity, backdrop-filter;
 }
 
 .sheets-modal-card {
@@ -492,6 +494,8 @@
   flex-direction: column;
   gap: 16px;
   animation: slide-up 0.2s ease-out;
+  /* Tối ưu hiệu năng: Kích hoạt tăng tốc phần cứng GPU cho animation mượt mà */
+  will-change: transform, opacity;
 }
 
 .sheets-modal-card h3 {
@@ -861,7 +865,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+  /* Tránh sử dụng 'all' để không trigger tính toán lại layout (reflow) không cần thiết */
+  transition: background-color 0.2s, color 0.2s;
 }
 
 .btn-star:hover {
@@ -1324,6 +1329,8 @@
   box-shadow: -4px 0 32px rgba(0,0,0,0.22);
   overflow: hidden;
   animation: printSlideIn 0.22s ease;
+  /* Tối ưu hiệu năng: Kích hoạt tăng tốc phần cứng GPU cho hiệu ứng trượt panel mượt mà */
+  will-change: transform, opacity;
 }
 
 @keyframes printSlideIn {

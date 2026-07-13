@@ -81,7 +81,8 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   onCut,
 }) => {
   const [editingCell, setEditingCell] = useState<string | null>(null);
-  const [isMouseDown, setIsMouseDown] = useState(false);
+  // Sử dụng useRef thay vì useState để lưu trạng thái nhấn chuột, tránh kích hoạt render lại toàn bộ Grid khi kéo chọn vùng
+  const isMouseDownRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: "row" | "col"; index: number } | null>(null);
 
@@ -151,21 +152,21 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
 
   useEffect(() => {
     const handleGlobalMouseUp = () => {
-      if (isMouseDown && dragStartRef.current && dragEndRef.current) {
+      if (isMouseDownRef.current && dragStartRef.current && dragEndRef.current) {
         onSelectRange({
           start: `${numberToColLetter(dragStartRef.current.col)}${dragStartRef.current.row}`,
           end: dragEndRef.current,
         });
       }
-      setIsMouseDown(false);
+      isMouseDownRef.current = false;
     };
     window.addEventListener("mouseup", handleGlobalMouseUp);
     return () => window.removeEventListener("mouseup", handleGlobalMouseUp);
-  }, [isMouseDown, onSelectRange]);
+  }, [onSelectRange]);
 
   const handleCellMouseDown = React.useCallback((address: string, colIdx: number, rowNum: number, e: React.MouseEvent) => {
     if (e.button !== 0) return;
-    setIsMouseDown(true);
+    isMouseDownRef.current = true;
     dragStartRef.current = { col: colIdx, row: rowNum };
     dragEndRef.current = address;
     onSelectCell(address);
@@ -174,7 +175,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   }, [onSelectCell]);
 
   const handleCellMouseEnter = React.useCallback((address: string, colIdx: number, rowNum: number) => {
-    if (isMouseDown && dragStartRef.current) {
+    if (isMouseDownRef.current && dragStartRef.current) {
       dragEndRef.current = address;
       const start = dragStartRef.current;
       const minRow = Math.min(start.row, rowNum);
@@ -193,10 +194,10 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
         }
       });
     }
-  }, [isMouseDown]);
+  }, []);
 
   const handleContainerMouseMove = (e: React.MouseEvent) => {
-    if (!isMouseDown || !containerRef.current) return;
+    if (!isMouseDownRef.current || !containerRef.current) return;
     const container = containerRef.current;
     const rect = container.getBoundingClientRect();
     const threshold = 40;

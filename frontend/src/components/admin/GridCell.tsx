@@ -121,16 +121,40 @@ export const GridCell: React.FC<GridCellProps> = React.memo(({
     </td>
   );
 }, (prevProps, nextProps) => {
+  // So sánh sâu đối tượng style để tránh render lại cell khi component cha tạo style object mới nhưng giữ nguyên thuộc tính
+  const styleEqual = 
+    (!prevProps.style && !nextProps.style) ||
+    (!!prevProps.style && !!nextProps.style &&
+     prevProps.style.position === nextProps.style.position &&
+     prevProps.style.top === nextProps.style.top &&
+     prevProps.style.left === nextProps.style.left &&
+     prevProps.style.zIndex === nextProps.style.zIndex);
+
+  // So sánh sâu cellData để tránh render lại không cần thiết khi đối tượng data thay đổi tham chiếu nhưng giữ nguyên giá trị
+  const cellDataEqual =
+    prevProps.cellData === nextProps.cellData ||
+    (!!prevProps.cellData && !!nextProps.cellData &&
+     prevProps.cellData.value === nextProps.cellData.value &&
+     prevProps.cellData.formula === nextProps.cellData.formula &&
+     prevProps.cellData.bold === nextProps.cellData.bold &&
+     prevProps.cellData.italic === nextProps.cellData.italic &&
+     prevProps.cellData.underline === nextProps.cellData.underline &&
+     prevProps.cellData.color === nextProps.cellData.color &&
+     prevProps.cellData.bg === nextProps.cellData.bg &&
+     prevProps.cellData.align === nextProps.cellData.align &&
+     prevProps.cellData.fontFamily === nextProps.cellData.fontFamily &&
+     prevProps.cellData.fontSize === nextProps.cellData.fontSize);
+
   return (
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.isEditing === nextProps.isEditing &&
     prevProps.inRange === nextProps.inRange &&
     prevProps.displayValue === nextProps.displayValue &&
-    prevProps.cellData === nextProps.cellData &&
+    cellDataEqual &&
     prevProps.onCellMouseDown === nextProps.onCellMouseDown &&
     prevProps.onCellMouseEnter === nextProps.onCellMouseEnter &&
     prevProps.onCellDoubleClick === nextProps.onCellDoubleClick &&
-    prevProps.style === nextProps.style
+    styleEqual
   );
 });
 
