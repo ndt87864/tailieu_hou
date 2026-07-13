@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { 
-  FileSpreadsheet, Star, Upload, FileJson, Download, Save,
+  FileSpreadsheet, Star, Save,
   ChevronDown, User, Home, Calendar, Phone, Shield, Settings, LogOut, ChevronRight
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext.js";
@@ -54,8 +54,6 @@ export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
   onBack,
   onSave,
   onImportExcelClick,
-  handleExportJSON,
-  handleExportCSV,
   onUndo,
   onCopy,
   onPaste,
@@ -69,12 +67,9 @@ export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
   onNewSpreadsheet,
   onOpenSpreadsheet,
   onMakeCopy,
-  onShare,
-  onEmail,
   onDownload,
   onRename,
   onMoveToTrash,
-  onVersionHistory,
   onShowDetails,
   sheets,
   onUnhideSheet,
@@ -83,13 +78,18 @@ export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const menubarRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
         setUserMenuOpen(false);
+      }
+      if (menubarRef.current && !menubarRef.current.contains(e.target as Node)) {
+        setActiveMenu(null);
       }
     };
     document.addEventListener("mousedown", handler);
@@ -263,16 +263,20 @@ export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
       </div>
 
       {/* Row 2: Menubar */}
-      <div className="sheet-google-menubar">
-        <div className="menu-item-dropdown">
+      <div className="sheet-google-menubar" ref={menubarRef}>
+        <div 
+          className={`menu-item-dropdown ${activeMenu === "file" ? "active" : ""}`}
+          onClick={() => setActiveMenu(activeMenu === "file" ? null : "file")}
+          onMouseEnter={() => { if (activeMenu) setActiveMenu("file"); }}
+        >
           Tệp
-          <div className="menu-dropdown-content">
+          <div className="menu-dropdown-content" onClick={() => setActiveMenu(null)}>
             {/* Mới (New) Submenu */}
-            <div className="dropdown-action-btn relative group/sub flex justify-between items-center pr-2">
+            <div className="dropdown-action-btn relative group/sub flex justify-between items-center pr-2" onClick={(e) => e.stopPropagation()}>
               <span>Mới</span>
               <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
               <div className="absolute left-full ml-[-4px] top-[-6px] hidden group-hover/sub:flex flex-col bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-lg py-1 z-[100] min-w-[160px]">
-                <button onClick={onNewSpreadsheet} className="dropdown-action-btn w-full text-left">Bảng tính mới</button>
+                <button onClick={() => { onNewSpreadsheet(); setActiveMenu(null); }} className="dropdown-action-btn w-full text-left">Bảng tính mới</button>
               </div>
             </div>
 
@@ -291,14 +295,14 @@ export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
             <div className="menu-dropdown-divider"></div>
 
             {/* Tải xuống Submenu */}
-            <div className="dropdown-action-btn relative group/sub flex justify-between items-center pr-2">
+            <div className="dropdown-action-btn relative group/sub flex justify-between items-center pr-2" onClick={(e) => e.stopPropagation()}>
               <span>Tải xuống</span>
               <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
               <div className="absolute left-full ml-[-4px] top-[-6px] hidden group-hover/sub:flex flex-col bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-lg py-1 z-[100] min-w-[200px]">
-                <button onClick={() => onDownload("xlsx")} className="dropdown-action-btn w-full text-left">Microsoft Excel (.xlsx)</button>
-                <button onClick={() => onDownload("pdf")} className="dropdown-action-btn w-full text-left">Tài liệu PDF (.pdf)</button>
-                <button onClick={() => onDownload("csv")} className="dropdown-action-btn w-full text-left">Giá trị phân tách bằng dấu phẩy (.csv)</button>
-                <button onClick={() => onDownload("tsv")} className="dropdown-action-btn w-full text-left">Giá trị phân tách bằng dấu tab (.tsv)</button>
+                <button onClick={() => { onDownload("xlsx"); setActiveMenu(null); }} className="dropdown-action-btn w-full text-left">Microsoft Excel (.xlsx)</button>
+                <button onClick={() => { onDownload("pdf"); setActiveMenu(null); }} className="dropdown-action-btn w-full text-left">Tài liệu PDF (.pdf)</button>
+                <button onClick={() => { onDownload("csv"); setActiveMenu(null); }} className="dropdown-action-btn w-full text-left">Giá trị phân tách bằng dấu phẩy (.csv)</button>
+                <button onClick={() => { onDownload("tsv"); setActiveMenu(null); }} className="dropdown-action-btn w-full text-left">Giá trị phân tách bằng dấu tab (.tsv)</button>
               </div>
             </div>
 
@@ -326,9 +330,13 @@ export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
           </div>
         </div>
 
-        <div className="menu-item-dropdown">
+        <div 
+          className={`menu-item-dropdown ${activeMenu === "edit" ? "active" : ""}`}
+          onClick={() => setActiveMenu(activeMenu === "edit" ? null : "edit")}
+          onMouseEnter={() => { if (activeMenu) setActiveMenu("edit"); }}
+        >
           Chỉnh sửa
-          <div className="menu-dropdown-content">
+          <div className="menu-dropdown-content" onClick={() => setActiveMenu(null)}>
             <button onClick={onUndo} className="dropdown-action-btn">
               Hoàn tác (Ctrl+Z)
             </button>
@@ -344,10 +352,14 @@ export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
           </div>
         </div>
 
-        <div className="menu-item-dropdown">
+        <div 
+          className={`menu-item-dropdown ${activeMenu === "view" ? "active" : ""}`}
+          onClick={() => setActiveMenu(activeMenu === "view" ? null : "view")}
+          onMouseEnter={() => { if (activeMenu) setActiveMenu("view"); }}
+        >
           Xem
-          <div className="menu-dropdown-content">
-            <div className="dropdown-action-btn relative group/sub flex justify-between items-center pr-2">
+          <div className="menu-dropdown-content" onClick={() => setActiveMenu(null)}>
+            <div className="dropdown-action-btn relative group/sub flex justify-between items-center pr-2" onClick={(e) => e.stopPropagation()}>
               <span>Trang tính đã ẩn</span>
               <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
               <div className="absolute left-full ml-[-4px] top-[-6px] hidden group-hover/sub:flex flex-col bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-lg py-1 z-[100] min-w-[200px]">
@@ -358,7 +370,7 @@ export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
                     sheet.isHidden && (
                       <button 
                         key={idx} 
-                        onClick={() => onUnhideSheet(idx)} 
+                        onClick={() => { onUnhideSheet(idx); setActiveMenu(null); }} 
                         className="dropdown-action-btn w-full text-left"
                       >
                         {sheet.name}
@@ -371,9 +383,13 @@ export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
           </div>
         </div>
 
-        <div className="menu-item-dropdown">
+        <div 
+          className={`menu-item-dropdown ${activeMenu === "insert" ? "active" : ""}`}
+          onClick={() => setActiveMenu(activeMenu === "insert" ? null : "insert")}
+          onMouseEnter={() => { if (activeMenu) setActiveMenu("insert"); }}
+        >
           Chèn
-          <div className="menu-dropdown-content">
+          <div className="menu-dropdown-content" onClick={() => setActiveMenu(null)}>
             <button onClick={() => onInsertRow("above")} className="dropdown-action-btn">
               Hàng ở trên
             </button>
@@ -396,9 +412,13 @@ export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
           </div>
         </div>
 
-        <div className="menu-item-dropdown">
+        <div 
+          className={`menu-item-dropdown ${activeMenu === "format" ? "active" : ""}`}
+          onClick={() => setActiveMenu(activeMenu === "format" ? null : "format")}
+          onMouseEnter={() => { if (activeMenu) setActiveMenu("format"); }}
+        >
           Định dạng
-          <div className="menu-dropdown-content">
+          <div className="menu-dropdown-content" onClick={() => setActiveMenu(null)}>
             <button onClick={() => onApplyStyle("bold")} className="dropdown-action-btn font-bold">
               In đậm (B)
             </button>
@@ -414,12 +434,12 @@ export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
           </div>
         </div>
 
-        <div className="menu-item-dropdown" onClick={onOpenHelp}>Trợ giúp</div>
+        <div className="menu-item-dropdown" onClick={() => { onOpenHelp(); setActiveMenu(null); }}>Trợ giúp</div>
       </div>
 
       {/* Modals for settings and profile */}
-      <UISettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-      <EditProfileModal open={profileOpen} onClose={() => setProfileOpen(false)} />
+      <UISettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <EditProfileModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} />
     </div>
   );
 };
