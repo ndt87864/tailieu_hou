@@ -21,3 +21,7 @@ vps-deployment/README_VPS.md
 .env
 frontend/.env
 backend/.env
+/.agents
+/backend/node_modules
+*.txt
+/lms_crawler/node_modules
