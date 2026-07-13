@@ -17,7 +17,7 @@ interface SpreadsheetHeaderProps {
   isSaving: boolean;
   onBack: () => void;
   onSave: () => void;
-  handleImportJSON: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onImportExcelClick: () => void;
   handleExportJSON: () => void;
   handleExportCSV: () => void;
   onUndo: () => void;
@@ -41,6 +41,8 @@ interface SpreadsheetHeaderProps {
   onMoveToTrash: () => void;
   onVersionHistory: () => void;
   onShowDetails: () => void;
+  sheets: any[];
+  onUnhideSheet: (idx: number) => void;
 }
 
 export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
@@ -51,7 +53,7 @@ export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
   isSaving,
   onBack,
   onSave,
-  handleImportJSON,
+  onImportExcelClick,
   handleExportJSON,
   handleExportCSV,
   onUndo,
@@ -74,6 +76,8 @@ export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
   onMoveToTrash,
   onVersionHistory,
   onShowDetails,
+  sheets,
+  onUnhideSheet,
 }) => {
   const { user, profile, role, logout } = useAuth();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -267,7 +271,7 @@ export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
             <div className="dropdown-action-btn relative group/sub flex justify-between items-center pr-2">
               <span>Mới</span>
               <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
-              <div className="absolute left-full top-[-6px] hidden group-hover/sub:flex flex-col bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-lg py-1 z-[100] min-w-[160px]">
+              <div className="absolute left-full ml-[-4px] top-[-6px] hidden group-hover/sub:flex flex-col bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-lg py-1 z-[100] min-w-[160px]">
                 <button onClick={onNewSpreadsheet} className="dropdown-action-btn w-full text-left">Bảng tính mới</button>
               </div>
             </div>
@@ -276,10 +280,9 @@ export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
               Mở (Ctrl+O)
             </button>
 
-            <label className="dropdown-action-btn cursor-pointer flex items-center gap-1">
+            <button onClick={onImportExcelClick} className="dropdown-action-btn">
               Nhập
-              <input type="file" accept=".json" onChange={handleImportJSON} className="hidden" />
-            </label>
+            </button>
 
             <button onClick={onMakeCopy} className="dropdown-action-btn">
               Tạo bản sao
@@ -287,19 +290,11 @@ export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
 
             <div className="menu-dropdown-divider"></div>
 
-            <button onClick={onShare} className="dropdown-action-btn">
-              Chia sẻ
-            </button>
-
-            <button onClick={onEmail} className="dropdown-action-btn">
-              Email
-            </button>
-
             {/* Tải xuống Submenu */}
             <div className="dropdown-action-btn relative group/sub flex justify-between items-center pr-2">
               <span>Tải xuống</span>
               <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
-              <div className="absolute left-full top-[-6px] hidden group-hover/sub:flex flex-col bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-lg py-1 z-[100] min-w-[200px]">
+              <div className="absolute left-full ml-[-4px] top-[-6px] hidden group-hover/sub:flex flex-col bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-lg py-1 z-[100] min-w-[200px]">
                 <button onClick={() => onDownload("xlsx")} className="dropdown-action-btn w-full text-left">Microsoft Excel (.xlsx)</button>
                 <button onClick={() => onDownload("pdf")} className="dropdown-action-btn w-full text-left">Tài liệu PDF (.pdf)</button>
                 <button onClick={() => onDownload("csv")} className="dropdown-action-btn w-full text-left">Giá trị phân tách bằng dấu phẩy (.csv)</button>
@@ -319,23 +314,8 @@ export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
 
             <div className="menu-dropdown-divider"></div>
 
-            {/* Nhật ký phiên bản Submenu */}
-            <div className="dropdown-action-btn relative group/sub flex justify-between items-center pr-2">
-              <span>Nhật ký phiên bản</span>
-              <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
-              <div className="absolute left-full top-[-6px] hidden group-hover/sub:flex flex-col bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-lg py-1 z-[100] min-w-[180px]">
-                <button onClick={onVersionHistory} className="dropdown-action-btn w-full text-left">Xem lịch sử thay đổi</button>
-              </div>
-            </div>
-
-            <div className="menu-dropdown-divider"></div>
-
             <button onClick={onShowDetails} className="dropdown-action-btn">
               Chi tiết
-            </button>
-
-            <button onClick={() => setSettingsOpen(true)} className="dropdown-action-btn">
-              Cài đặt
             </button>
 
             <div className="menu-dropdown-divider"></div>
@@ -361,6 +341,33 @@ export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
             <button onClick={onToggleFindReplace} className="dropdown-action-btn">
               Tìm kiếm & Thay thế (Ctrl+H)
             </button>
+          </div>
+        </div>
+
+        <div className="menu-item-dropdown">
+          Xem
+          <div className="menu-dropdown-content">
+            <div className="dropdown-action-btn relative group/sub flex justify-between items-center pr-2">
+              <span>Trang tính đã ẩn</span>
+              <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
+              <div className="absolute left-full ml-[-4px] top-[-6px] hidden group-hover/sub:flex flex-col bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-lg py-1 z-[100] min-w-[200px]">
+                {sheets.filter((s) => s.isHidden).length === 0 ? (
+                  <span className="px-4 py-2 text-xs text-gray-400 italic">Không có trang tính ẩn</span>
+                ) : (
+                  sheets.map((sheet, idx) => (
+                    sheet.isHidden && (
+                      <button 
+                        key={idx} 
+                        onClick={() => onUnhideSheet(idx)} 
+                        className="dropdown-action-btn w-full text-left"
+                      >
+                        {sheet.name}
+                      </button>
+                    )
+                  ))
+                )}
+              </div>
+            </div>
           </div>
         </div>
 

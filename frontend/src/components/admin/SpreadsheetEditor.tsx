@@ -1,12 +1,15 @@
 // frontend/src/components/admin/SpreadsheetEditor.tsx
 import React, { useState, useEffect } from "react";
-import { X, Plus, FileSpreadsheet, Clock, ArrowRight } from "lucide-react";
+import { X, Plus, FileSpreadsheet, Clock, ArrowRight, Lock } from "lucide-react";
 import { SpreadsheetGrid } from "./SpreadsheetGrid.js";
 import { getCellRange, parseCellAddress, colLetterToNumber, numberToColLetter, serializeCellsToHtml, parseHtmlToCells } from "../../utils/formulaEvaluator.js";
 import { toast } from "react-toastify";
 import { SpreadsheetHeader } from "./SpreadsheetHeader.js";
 import { SpreadsheetToolbar } from "./SpreadsheetToolbar.js";
 import apiClient from "../../services/client.js";
+import { useNavigate } from "react-router-dom";
+import * as XLSX from "xlsx";
+import { useConfirm } from "../../context/ConfirmContext.js";
 
 type CellData = {
   value: string;
@@ -29,6 +32,9 @@ interface Sheet {
   colCount?: number;
   rowHeights?: Record<number, number>;
   colWidths?: Record<string, number>;
+  isProtected?: boolean;
+  isHidden?: boolean;
+  isVip?: boolean;
 }
 
 interface SpreadsheetEditorProps {
@@ -48,6 +54,13 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
 }) => {
   const [title, setTitle] = useState(initialTitle);
   const [isSaving, setIsSaving] = useState(false);
+  const navigate = useNavigate();
+  const confirm = useConfirm();
+
+  // Excel Import States
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importedSheets, setImportedSheets] = useState<Sheet[]>([]);
+  const [importOption, setImportOption] = useState<"new_doc" | "new_sheet" | "replace_current">("new_sheet");
 
   // Khởi tạo sheets list từ database content, mặc định ban đầu là 500 hàng
   const [sheets, setSheets] = useState<Sheet[]>(() => {
@@ -58,15 +71,18 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
         rowCount: s.rowCount || 500,
         colCount: s.colCount || 26,
         rowHeights: s.rowHeights || {},
-        colWidths: s.colWidths || {}
+        colWidths: s.colWidths || {},
+        isProtected: s.isProtected || false,
+        isHidden: s.isHidden || false,
+        isVip: s.isVip || false
       }));
     }
-    return [{ name: "Sheet1", cells: initialContent?.cells || {}, rowCount: 500, colCount: 26, rowHeights: {}, colWidths: {} }];
+    return [{ name: "Sheet1", cells: initialContent?.cells || {}, rowCount: 500, colCount: 26, rowHeights: {}, colWidths: {}, isProtected: false, isHidden: false, isVip: false }];
   });
 
   // Stack lịch sử lưu các trạng thái trước đó để phục vụ hoàn tác (Undo) và Nhật ký phiên bản
   const [history, setHistory] = useState<Array<{ timestamp: string; sheets: Sheet[] }>>([]);
-  const [isStarred, setIsStarred] = useState(false);
+  const [isStarred, setIsStarred] = useState(!!initialContent?.isStarred);
   const [zoomLevel, setZoomLevel] = useState("100%");
   const [showHelpModal, setShowHelpModal] = useState(false);
 
@@ -95,12 +111,191 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
   // Custom modals states
   const [renameSheetModal, setRenameSheetModal] = useState<{ idx: number; name: string } | null>(null);
   const [deleteSheetModal, setDeleteSheetModal] = useState<{ idx: number; name: string } | null>(null);
+  const [newDocModal, setNewDocModal] = useState<{ show: boolean; title: string; defaultName: string; action: (name: string) => void }>({ show: false, title: "Tạo trang tính mới", defaultName: "Trang tính chưa có tên", action: () => {} });
+
+  const isSpreadsheetClean = () => {
+    if (sheets.length > 1) return false;
+    const firstSheet = sheets[0];
+    if (!firstSheet) return true;
+    const hasData = Object.keys(firstSheet.cells).some((key) => {
+      const cell = firstSheet.cells[key];
+      return cell && (cell.value || cell.formula);
+    });
+    return !hasData;
+  };
+
+  const parseExcelToSheets = (arrayBuffer: ArrayBuffer): Sheet[] => {
+    const workbook = XLSX.read(arrayBuffer, { type: "array" });
+    const parsedSheets: Sheet[] = [];
+    workbook.SheetNames.forEach((sheetName) => {
+      const worksheet = workbook.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1, defval: "" });
+      const parsedCells: Record<string, CellData> = {};
+      let maxRow = 500;
+      let maxCol = 26;
+      
+      rows.forEach((row: any[], rIdx: number) => {
+        row.forEach((val: any, cIdx: number) => {
+          if (val !== undefined && val !== null && val !== "") {
+            const colLetter = numberToColLetter(cIdx);
+            const address = `${colLetter}${rIdx + 1}`;
+            parsedCells[address] = {
+              value: String(val),
+              formula: ""
+            };
+          }
+        });
+      });
+      
+      if (rows.length > maxRow) maxRow = rows.length + 50;
+      const colCounts = rows.map((r) => r.length);
+      const longestRow = colCounts.length > 0 ? Math.max(...colCounts) : 0;
+      if (longestRow > maxCol) maxCol = longestRow + 5;
+
+      parsedSheets.push({
+        name: sheetName,
+        cells: parsedCells,
+        rowCount: maxRow,
+        colCount: maxCol,
+        rowHeights: {},
+        colWidths: {}
+      });
+    });
+    
+    return parsedSheets.length > 0 ? parsedSheets : [{ name: "Sheet1", cells: {}, rowCount: 500, colCount: 26 }];
+  };
+
+  const handleExcelOpenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const arrayBuffer = evt.target?.result as ArrayBuffer;
+        const parsed = parseExcelToSheets(arrayBuffer);
+        const clean = isSpreadsheetClean();
+        if (clean) {
+          updateSheetsAndSaveHistory(parsed);
+          setActiveSheetIdx(0);
+          setSelectedCell(null);
+          setSelectedRange(null);
+          toast.success("Đã mở tệp Excel thành công!");
+          setTimeout(() => handleSave(parsed), 200);
+        } else {
+          const confirmReplace = await confirm({
+            title: "Ghi đè dữ liệu trang tính?",
+            message: "Trang tính hiện tại đã có dữ liệu. Bạn có muốn thay thế toàn bộ dữ liệu hiện tại bằng nội dung của tệp Excel này không?",
+            confirmText: "Ghi đè dữ liệu",
+            cancelText: "Hủy bỏ",
+            type: "warning"
+          });
+          if (confirmReplace) {
+            updateSheetsAndSaveHistory(parsed);
+            setActiveSheetIdx(0);
+            setSelectedCell(null);
+            setSelectedRange(null);
+            toast.success("Đã thay thế toàn bộ dữ liệu bằng tệp Excel!");
+            setTimeout(() => handleSave(parsed), 200);
+          }
+        }
+      } catch (err) {
+        console.error(err);
+        toast.error("Lỗi khi đọc tệp Excel!");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    e.target.value = "";
+  };
+
+  const handleExcelImportChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const arrayBuffer = evt.target?.result as ArrayBuffer;
+        const parsed = parseExcelToSheets(arrayBuffer);
+        setImportedSheets(parsed);
+        setShowImportModal(true);
+      } catch (err) {
+        console.error(err);
+        toast.error("Lỗi khi đọc tệp Excel!");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    e.target.value = "";
+  };
+
+  const handleImportExcelClick = () => {
+    document.getElementById("excel-import-file-input")?.click();
+  };
+
+  const handleExecuteImport = async () => {
+    if (importedSheets.length === 0) return;
+    try {
+      if (importOption === "new_doc") {
+        setNewDocModal({
+          show: true,
+          title: "Tạo trang tính mới từ Excel",
+          defaultName: "Bảng tính mới từ Excel",
+          action: async (trimmed) => {
+            try {
+              const res = await apiClient.post("/api/v1/spreadsheets", {
+                title: trimmed,
+                content: { sheets: importedSheets }
+              });
+              toast.success("Đã tạo bảng tính mới từ dữ liệu Excel!");
+              setShowImportModal(false);
+              navigate(`/admin/sheets/${res.data.data.id}`);
+            } catch (err: any) {
+              toast.error("Lỗi: " + (err.response?.data?.error || err.message));
+            }
+          }
+        });
+        return;
+      } else if (importOption === "new_sheet") {
+        let updatedList: Sheet[] = [];
+        updateSheetsAndSaveHistory((prev) => {
+          const updated = [...prev, ...importedSheets];
+          updatedList = updated;
+          return updated;
+        });
+        setActiveSheetIdx(sheets.length);
+        toast.success("Đã thêm trang tính mới từ dữ liệu Excel!");
+        setShowImportModal(false);
+        setTimeout(() => handleSave(updatedList), 200);
+      } else if (importOption === "replace_current") {
+        let updatedList: Sheet[] = [];
+        updateSheetsAndSaveHistory((prev) => {
+          const copy = [...prev];
+          const firstImported = importedSheets[0];
+          copy[activeSheetIdx] = {
+            ...copy[activeSheetIdx],
+            cells: firstImported.cells,
+            rowCount: Math.max(copy[activeSheetIdx].rowCount || 500, firstImported.rowCount || 500),
+            colCount: Math.max(copy[activeSheetIdx].colCount || 26, firstImported.colCount || 26)
+          };
+          updatedList = copy;
+          return copy;
+        });
+        toast.success("Đã thay thế dữ liệu trang tính hiện tại bằng Excel!");
+        setShowImportModal(false);
+        setTimeout(() => handleSave(updatedList), 200);
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Lỗi khi nhập dữ liệu: " + (err.response?.data?.error || err.message));
+    }
+  };
 
 
   const currentSheet = sheets[activeSheetIdx] || { name: "Sheet1", cells: {}, rowCount: 500, colCount: 26 };
   const cells = currentSheet.cells;
   const rowCount = currentSheet.rowCount || 500;
   const colCount = currentSheet.colCount || 26;
+  const visibleSheetsCount = sheets.filter((s) => !s.isHidden).length;
 
   useEffect(() => {
     if (selectedCell) {
@@ -131,6 +326,8 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
             cells: { ...s.cells },
             rowCount: s.rowCount,
             colCount: s.colCount,
+            isProtected: s.isProtected,
+            isHidden: s.isHidden,
           }));
           const newEntry = {
             timestamp: new Date().toLocaleTimeString("vi-VN"),
@@ -247,15 +444,24 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
     }
   };
 
-  const handleSave = async (customSheets?: Sheet[]) => {
+  const handleSave = async (customSheets?: Sheet[], customStarred?: boolean) => {
     setIsSaving(true);
     try {
-      await onSave(title, { sheets: customSheets || sheets });
+      await onSave(title, {
+        sheets: customSheets || sheets,
+        isStarred: customStarred !== undefined ? customStarred : isStarred
+      });
     } catch (err: any) {
       console.error(err);
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleToggleStar = (newStarred: boolean) => {
+    setIsStarred(newStarred);
+    toast.success(newStarred ? "Đã gắn dấu sao trang tính!" : "Đã bỏ gắn dấu sao trang tính!");
+    handleSave(undefined, newStarred);
   };
 
   const handleFind = () => {
@@ -320,6 +526,10 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
 
   const handleDeleteSheet = (idx: number, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (sheets[idx].isProtected) {
+      toast.error("Không thể xóa trang tính đang được bảo vệ!");
+      return;
+    }
     if (sheets.length <= 1) {
       toast.warn("Workbook phải có ít nhất 1 trang tính!");
       return;
@@ -350,36 +560,7 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
     downloadAnchor.removeChild(downloadAnchor);
   };
 
-  const handleImportJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const parsed = JSON.parse(event.target?.result as string);
-        if (parsed.sheets && Array.isArray(parsed.sheets)) {
-          const loadedSheets = parsed.sheets.map((s: any) => ({
-            name: s.name || "Sheet1",
-            cells: s.cells || {},
-            rowCount: s.rowCount || 500,
-            colCount: s.colCount || 26
-          }));
-          updateSheetsAndSaveHistory(loadedSheets);
-          if (parsed.title) setTitle(parsed.title);
-          setActiveSheetIdx(0);
-          setSelectedCell(null);
-          setSelectedRange(null);
-          toast.success("Nhập dữ liệu thành công!");
-        } else {
-          alert("Định dạng tệp JSON không hợp lệ!");
-        }
-      } catch (err) {
-        alert("Lỗi khi đọc file JSON!");
-      }
-    };
-    reader.readAsText(file);
-  };
 
   const handleExportCSV = () => {
     handleDownload("csv");
@@ -750,34 +931,41 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
     }
   };
 
-  // Google Sheets File Menu Logic
-  const handleNewSpreadsheet = async () => {
-    const name = prompt("Nhập tên cho bảng tính mới:", "Trang tính chưa có tên");
-    if (name === null) return;
-    const trimmed = name.trim() || "Trang tính chưa có tên";
-    try {
-      const res = await apiClient.post("/api/v1/spreadsheets", {
-        title: trimmed,
-        content: { sheets: [{ name: "Sheet1", cells: {}, rowCount: 500, colCount: 26 }] }
-      });
-      toast.success("Đã tạo bảng tính mới thành công!");
-      window.location.href = `/admin/sheets/${res.data.data.id}`;
-    } catch (err: any) {
-      toast.error("Lỗi: " + (err.response?.data?.error || err.message));
-    }
+  const handleNewSpreadsheet = () => {
+    setNewDocModal({
+      show: true,
+      title: "Tạo trang tính mới",
+      defaultName: "Trang tính chưa có tên",
+      action: async (trimmed) => {
+        try {
+          let initialSheets: Sheet[] = [{ name: "Sheet1", cells: {}, rowCount: 500, colCount: 26 }];
+          const vipTemplateStr = localStorage.getItem("hou_vip_sheet_template");
+          if (vipTemplateStr) {
+            try {
+              const parsedVip = JSON.parse(vipTemplateStr);
+              if (parsedVip && parsedVip.name) {
+                initialSheets = [parsedVip];
+              }
+            } catch (e) {
+              console.error("Lỗi đọc VIP sheet template:", e);
+            }
+          }
+
+          const res = await apiClient.post("/api/v1/spreadsheets", {
+            title: trimmed,
+            content: { sheets: initialSheets }
+          });
+          toast.success("Đã tạo bảng tính mới thành công!");
+          navigate(`/admin/sheets/${res.data.data.id}`);
+        } catch (err: any) {
+          toast.error("Lỗi: " + (err.response?.data?.error || err.message));
+        }
+      }
+    });
   };
 
-  const handleOpenSpreadsheet = async () => {
-    setShowOpenModal(true);
-    setLoadingOtherSheets(true);
-    try {
-      const res = await apiClient.get("/api/v1/spreadsheets");
-      setOtherSheetsList(res.data.data || []);
-    } catch (err: any) {
-      toast.error("Không thể tải danh sách tệp!");
-    } finally {
-      setLoadingOtherSheets(false);
-    }
+  const handleOpenSpreadsheet = () => {
+    document.getElementById("excel-open-file-input")?.click();
   };
 
   const handleMakeCopy = async () => {
@@ -911,6 +1099,22 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
 
   const activeCell = getCommonStyleForSelection();
 
+  const handleUnhideSheet = (idx: number) => {
+    updateSheetsAndSaveHistory((prev) => {
+      const copy = [...prev];
+      copy[idx] = {
+        ...copy[idx],
+        isHidden: false
+      };
+      return copy;
+    });
+    setActiveSheetIdx(idx);
+    toast.success(`Đã hiển thị lại trang tính: ${sheets[idx].name}`);
+    setTimeout(() => {
+      handleSave();
+    }, 100);
+  };
+
   return (
     <div className="sheet-editor-container">
       {/* Google Sheets Header */}
@@ -918,11 +1122,11 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
         title={title}
         setTitle={setTitle}
         isStarred={isStarred}
-        setIsStarred={setIsStarred}
+        setIsStarred={handleToggleStar}
         isSaving={isSaving}
         onBack={onBack}
         onSave={handleSave}
-        handleImportJSON={handleImportJSON}
+        onImportExcelClick={handleImportExcelClick}
         handleExportJSON={handleExportJSON}
         handleExportCSV={handleExportCSV}
         onUndo={handleUndo}
@@ -960,6 +1164,8 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
         onMoveToTrash={handleMoveToTrash}
         onVersionHistory={() => setShowVersionHistoryModal(true)}
         onShowDetails={() => setShowDetailsModal(true)}
+        sheets={sheets}
+        onUnhideSheet={handleUnhideSheet}
       />
 
       {/* Google Sheets Toolbar */}
@@ -1070,37 +1276,60 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
       {/* Sheet Tabs Bar (Bottom) */}
       <div className="sheet-bottom-bar" onContextMenu={(e) => e.preventDefault()}>
         {sheets.map((sheet, idx) => (
-          <div 
-            key={idx} 
-            className={`sheet-tab ${activeSheetIdx === idx ? "active" : ""}`}
-            style={{ borderLeftColor: (sheet as any).color ? (sheet as any).color : undefined, borderLeftWidth: (sheet as any).color ? "4px" : undefined }}
-            onClick={() => {
-              setActiveSheetIdx(idx);
-              setSelectedCell(null);
-              setSelectedRange(null);
-            }}
-            onDoubleClick={() => handleRenameSheet(idx)}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setTabContextMenu({
-                idx,
-                x: e.clientX,
-                y: e.clientY
-              });
-            }}
-          >
-            <span>{sheet.name}</span>
-            {sheets.length > 1 && (
-              <button 
-                className="btn-tab-close" 
-                onClick={(e) => handleDeleteSheet(idx, e)}
-                title="Xóa Sheet"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            )}
-          </div>
+          !sheet.isHidden && (
+            <div 
+              key={idx} 
+              className={`sheet-tab ${activeSheetIdx === idx ? "active" : ""}`}
+              style={{ borderLeftColor: (sheet as any).color ? (sheet as any).color : undefined, borderLeftWidth: (sheet as any).color ? "4px" : undefined }}
+              onClick={() => {
+                setActiveSheetIdx(idx);
+                setSelectedCell(null);
+                setSelectedRange(null);
+              }}
+              onDoubleClick={() => handleRenameSheet(idx)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setTabContextMenu({
+                  idx,
+                  x: e.clientX,
+                  y: e.clientY
+                });
+              }}
+            >
+              <span className="flex items-center gap-1">
+                {sheet.name}
+                {sheet.isVip && (
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-500 border border-amber-500/30 ml-1" title="Sheet VIP (Mặc định khi tạo trang tính mới)">
+                    ⭐ VIP
+                  </span>
+                )}
+              </span>
+              {sheet.isProtected ? (
+                <button 
+                  className="btn-tab-close" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toast.error("Không thể xóa trang tính đang được bảo vệ!");
+                  }}
+                  title="Trang tính được bảo vệ"
+                  style={{ cursor: "default" }}
+                >
+                  <Lock className="w-3 h-3 text-amber-500" />
+                </button>
+              ) : (
+                visibleSheetsCount > 1 && (
+                  <button 
+                    className="btn-tab-close" 
+                    onClick={(e) => handleDeleteSheet(idx, e)}
+                    title="Xóa Sheet"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )
+              )}
+            </div>
+          )
         ))}
         <button onClick={handleAddSheet} className="btn-add-tab">
           <Plus className="w-3.5 h-3.5" />
@@ -1135,6 +1364,11 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
             <button 
               className="sheets-tab-menu-item" 
               onClick={() => {
+                if (sheets[tabContextMenu.idx].isProtected) {
+                  toast.error("Không thể xóa trang tính đang được bảo vệ!");
+                  setTabContextMenu(null);
+                  return;
+                }
                 if (sheets.length <= 1) {
                   toast.warn("Workbook phải có ít nhất 1 trang tính!");
                   setTabContextMenu(null);
@@ -1143,7 +1377,18 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
                 setDeleteSheetModal({ idx: tabContextMenu.idx, name: sheets[tabContextMenu.idx].name });
                 setTabContextMenu(null);
               }}
-              style={{ display: "flex", width: "100%", padding: "8px 12px", border: "none", background: "none", fontSize: "13px", cursor: "pointer", color: "red", textAlign: "left" }}
+              style={{ 
+                display: "flex", 
+                width: "100%", 
+                padding: "8px 12px", 
+                border: "none", 
+                background: "none", 
+                fontSize: "13px", 
+                cursor: sheets[tabContextMenu.idx].isProtected ? "not-allowed" : "pointer", 
+                color: sheets[tabContextMenu.idx].isProtected ? "gray" : "red", 
+                opacity: sheets[tabContextMenu.idx].isProtected ? 0.5 : 1,
+                textAlign: "left" 
+              }}
             >
               Xóa
             </button>
@@ -1230,22 +1475,104 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
             <button 
               className="sheets-tab-menu-item" 
               onClick={() => {
-                toast.info("Đã bảo vệ trang tính thành công!");
+                const targetIdx = tabContextMenu.idx;
+                const isCurrentProtected = !!sheets[targetIdx].isProtected;
+                updateSheetsAndSaveHistory((prev) => {
+                  const copy = [...prev];
+                  copy[targetIdx] = {
+                    ...copy[targetIdx],
+                    isProtected: !isCurrentProtected
+                  };
+                  return copy;
+                });
+                toast.success(
+                  isCurrentProtected 
+                    ? "Đã hủy bảo vệ trang tính thành công!" 
+                    : "Đã bảo vệ trang tính thành công!"
+                );
                 setTabContextMenu(null);
+                // Auto save changes
+                setTimeout(() => {
+                  handleSave();
+                }, 100);
               }}
               style={{ display: "flex", width: "100%", padding: "8px 12px", border: "none", background: "none", fontSize: "13px", cursor: "pointer", color: "inherit", textAlign: "left" }}
             >
-              Bảo vệ trang tính
+              {sheets[tabContextMenu.idx].isProtected ? "Hủy bảo vệ trang tính" : "Bảo vệ trang tính"}
             </button>
+            {visibleSheetsCount > 1 && (
+              <button 
+                className="sheets-tab-menu-item" 
+                onClick={() => {
+                  const targetIdx = tabContextMenu.idx;
+                  updateSheetsAndSaveHistory((prev) => {
+                    const copy = [...prev];
+                    copy[targetIdx] = {
+                      ...copy[targetIdx],
+                      isHidden: true
+                    };
+                    return copy;
+                  });
+                  // Tìm trang tính khác đang hiển thị để chuyển sang làm active tab
+                  const nextVisibleIdx = sheets.findIndex((s, i) => i !== targetIdx && !s.isHidden);
+                  if (nextVisibleIdx !== -1) {
+                    setActiveSheetIdx(nextVisibleIdx);
+                  }
+                  toast.success("Trang tính đã được ẩn thành công!");
+                  setTabContextMenu(null);
+                  setTimeout(() => {
+                    handleSave();
+                  }, 100);
+                }}
+                style={{ display: "flex", width: "100%", padding: "8px 12px", border: "none", background: "none", fontSize: "13px", cursor: "pointer", color: "inherit", textAlign: "left" }}
+              >
+                Ẩn trang tính
+              </button>
+            )}
             <button 
               className="sheets-tab-menu-item" 
               onClick={() => {
-                toast.info("Trang tính đã được ẩn.");
+                const targetIdx = tabContextMenu.idx;
+                const targetSheet = sheets[targetIdx];
+                const isCurrentVip = !!targetSheet.isVip;
+
+                updateSheetsAndSaveHistory((prev) => {
+                  const copy = prev.map((s, i) => {
+                    if (i === targetIdx) {
+                      return { ...s, isVip: !isCurrentVip };
+                    }
+                    return !isCurrentVip ? { ...s, isVip: false } : s;
+                  });
+                  return copy;
+                });
+
+                if (!isCurrentVip) {
+                  const vipData = {
+                    name: targetSheet.name,
+                    cells: JSON.parse(JSON.stringify(targetSheet.cells || {})),
+                    rowCount: targetSheet.rowCount || 500,
+                    colCount: targetSheet.colCount || 26,
+                    rowHeights: JSON.parse(JSON.stringify(targetSheet.rowHeights || {})),
+                    colWidths: JSON.parse(JSON.stringify(targetSheet.colWidths || {})),
+                    isProtected: false,
+                    isHidden: false,
+                    isVip: true,
+                  };
+                  localStorage.setItem("hou_vip_sheet_template", JSON.stringify(vipData));
+                  toast.success(`Đã gán "${targetSheet.name}" làm Sheet VIP mẫu cho trang tính mới!`);
+                } else {
+                  localStorage.removeItem("hou_vip_sheet_template");
+                  toast.info(`Đã hủy gán Sheet VIP cho "${targetSheet.name}".`);
+                }
+
                 setTabContextMenu(null);
+                setTimeout(() => {
+                  handleSave();
+                }, 100);
               }}
               style={{ display: "flex", width: "100%", padding: "8px 12px", border: "none", background: "none", fontSize: "13px", cursor: "pointer", color: "inherit", textAlign: "left" }}
             >
-              Ẩn trang tính
+              {sheets[tabContextMenu.idx].isVip ? "⭐ Hủy gán Sheet VIP" : "⭐ Gán làm Sheet VIP"}
             </button>
             <div style={{ height: "1px", backgroundColor: "var(--border)", margin: "4px 0" }} />
             <button 
@@ -1538,6 +1865,137 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
           </div>
         </div>
       )}
+      {/* Modal: Nhập dữ liệu Excel (Import Options) */}
+      {showImportModal && (
+        <div className="sheets-modal-overlay" onClick={() => setShowImportModal(false)}>
+          <div className="sheets-modal-card" style={{ maxWidth: "450px" }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center border-b border-[var(--border)] pb-3 mb-4">
+              <h3 className="text-lg font-bold">Nhập dữ liệu từ Excel</h3>
+              <button onClick={() => setShowImportModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="sheets-modal-body py-2 space-y-4" style={{ fontSize: "14px" }}>
+              <p className="text-sm text-[var(--fg-muted)] mb-3">
+                Chọn vị trí bạn muốn nhập dữ liệu từ tệp tin Excel này:
+              </p>
+              <div className="space-y-3">
+                <label className="flex items-center gap-3 cursor-pointer p-2.5 rounded-lg border border-[var(--border)] bg-[var(--bg-2)] hover:bg-[var(--bg-3)]">
+                  <input 
+                    type="radio" 
+                    name="importOption" 
+                    value="new_doc" 
+                    checked={importOption === "new_doc"} 
+                    onChange={() => setImportOption("new_doc")} 
+                    className="w-4 h-4 text-emerald-500 focus:ring-emerald-500"
+                  />
+                  <div>
+                    <span className="font-semibold block text-left">Tạo trang tính mới</span>
+                    <span className="text-xs text-gray-400 text-left block">Tạo một tài liệu bảng tính hoàn toàn mới trên hệ thống</span>
+                  </div>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer p-2.5 rounded-lg border border-[var(--border)] bg-[var(--bg-2)] hover:bg-[var(--bg-3)]">
+                  <input 
+                    type="radio" 
+                    name="importOption" 
+                    value="new_sheet" 
+                    checked={importOption === "new_sheet"} 
+                    onChange={() => setImportOption("new_sheet")} 
+                    className="w-4 h-4 text-emerald-500 focus:ring-emerald-500"
+                  />
+                  <div>
+                    <span className="font-semibold block text-left">Chèn trang sheet mới</span>
+                    <span className="text-xs text-gray-400 text-left block">Tạo thêm tab sheet mới vào tài liệu hiện tại</span>
+                  </div>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer p-2.5 rounded-lg border border-[var(--border)] bg-[var(--bg-2)] hover:bg-[var(--bg-3)]">
+                  <input 
+                    type="radio" 
+                    name="importOption" 
+                    value="replace_current" 
+                    checked={importOption === "replace_current"} 
+                    onChange={() => setImportOption("replace_current")} 
+                    className="w-4 h-4 text-emerald-500 focus:ring-emerald-500"
+                  />
+                  <div>
+                    <span className="font-semibold block text-left">Thay thế trang sheet hiện tại</span>
+                    <span className="text-xs text-gray-400 text-left block">Ghi đè hoàn toàn dữ liệu của tab hiện tại bằng dữ liệu mới</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+            <div className="sheets-modal-actions mt-6">
+              <button onClick={() => setShowImportModal(false)} className="btn-modal-cancel">Hủy bỏ</button>
+              <button
+                onClick={handleExecuteImport}
+                className="btn-modal-confirm bg-emerald-500 hover:bg-emerald-600 text-white"
+              >
+                Nhập dữ liệu
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Modal: Nhập tên trang tính mới */}
+      {newDocModal.show && (
+        <div className="sheets-modal-overlay" onClick={() => setNewDocModal({ ...newDocModal, show: false })}>
+          <div className="sheets-modal-card" style={{ maxWidth: "420px" }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center border-b border-[var(--border)] pb-3 mb-2">
+              <h3 className="text-base font-bold">{newDocModal.title}</h3>
+              <button onClick={() => setNewDocModal({ ...newDocModal, show: false })} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="sheets-modal-body py-2">
+              <label htmlFor="new-doc-name-input">Tên trang tính</label>
+              <input
+                id="new-doc-name-input"
+                type="text"
+                value={newDocModal.defaultName}
+                onChange={(e) => setNewDocModal({ ...newDocModal, defaultName: e.target.value })}
+                placeholder="Nhập tên trang tính..."
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newDocModal.defaultName.trim()) {
+                    newDocModal.action(newDocModal.defaultName.trim());
+                    setNewDocModal({ ...newDocModal, show: false });
+                  }
+                }}
+              />
+            </div>
+            <div className="sheets-modal-actions mt-4">
+              <button onClick={() => setNewDocModal({ ...newDocModal, show: false })} className="btn-modal-cancel">Hủy</button>
+              <button
+                disabled={!newDocModal.defaultName.trim()}
+                onClick={() => {
+                  newDocModal.action(newDocModal.defaultName.trim());
+                  setNewDocModal({ ...newDocModal, show: false });
+                }}
+                className="btn-modal-confirm bg-emerald-500 hover:bg-emerald-600 text-white"
+              >
+                Xác nhận
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hidden file inputs for Excel import and open */}
+      <input 
+        type="file" 
+        id="excel-open-file-input" 
+        accept=".xlsx,.xls,.csv" 
+        style={{ display: "none" }} 
+        onChange={handleExcelOpenChange} 
+      />
+      <input 
+        type="file" 
+        id="excel-import-file-input" 
+        accept=".xlsx,.xls,.csv" 
+        style={{ display: "none" }} 
+        onChange={handleExcelImportChange} 
+      />
     </div>
   );
 };

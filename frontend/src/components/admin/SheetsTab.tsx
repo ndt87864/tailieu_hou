@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import apiClient from "../../services/client.js";
 import LoadingSpinner from "../common/LoadingSpinner.js";
 import { toast } from "react-toastify";
-import { Plus, Trash2, FileSpreadsheet, Search, RefreshCw, X } from "lucide-react";
+import { Plus, Trash2, FileSpreadsheet, Search, RefreshCw, X, Star } from "lucide-react";
 import { useConfirm } from "../../context/ConfirmContext.js";
 import "../../css/sheets.css";
 
@@ -14,6 +14,10 @@ interface SheetItem {
   created_at: string;
   updated_at: string;
   created_by: string;
+  content?: {
+    sheets?: any[];
+    isStarred?: boolean;
+  };
 }
 
 import { useUI } from "../../context/UIContext.js";
@@ -63,9 +67,22 @@ export const SheetsTab: React.FC = () => {
 
     setIsCreating(true);
     try {
+      let initialSheets: any[] = [{ name: "Sheet1", cells: {}, rowCount: 500, colCount: 26 }];
+      const vipTemplateStr = localStorage.getItem("hou_vip_sheet_template");
+      if (vipTemplateStr) {
+        try {
+          const parsedVip = JSON.parse(vipTemplateStr);
+          if (parsedVip && parsedVip.name) {
+            initialSheets = [parsedVip];
+          }
+        } catch (e) {
+          console.error("Lỗi đọc VIP sheet template:", e);
+        }
+      }
+
       const res = await apiClient.post("/api/v1/spreadsheets", {
         title: trimmedTitle,
-        content: { sheets: [{ name: "Sheet1", cells: {}, rowCount: 500, colCount: 26 }] }
+        content: { sheets: initialSheets }
       });
       toast.success("Tạo trang tính thành công!");
       setShowCreateModal(false);
@@ -99,14 +116,39 @@ export const SheetsTab: React.FC = () => {
     }
   };
 
+  const handleToggleStar = async (sheet: SheetItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const currentStarred = !!sheet.content?.isStarred;
+    const updatedContent = {
+      ...(sheet.content || {}),
+      isStarred: !currentStarred
+    };
+    try {
+      await apiClient.put(`/api/v1/spreadsheets/${sheet.id}`, {
+        content: updatedContent
+      });
+      toast.success(!currentStarred ? "Đã gắn dấu sao trang tính!" : "Đã bỏ gắn dấu sao!");
+      fetchSheets();
+    } catch (err: any) {
+      toast.error("Lỗi khi cập nhật trạng thái dấu sao: " + (err.response?.data?.error || err.message));
+    }
+  };
+
   const handleOpenSheet = (id: string) => {
     // Chuyển hướng trực tiếp tới trang biên tập độc lập (full-screen)
     navigate(`/admin/sheets/${id}`);
   };
 
-  const filteredSheets = sheets.filter((sheet) =>
-    sheet.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredSheets = sheets
+    .filter((sheet) => sheet.title.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => {
+      const aStarred = a.content?.isStarred ? 1 : 0;
+      const bStarred = b.content?.isStarred ? 1 : 0;
+      if (aStarred !== bStarred) {
+        return bStarred - aStarred; // Starred items on TOP!
+      }
+      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+    });
 
   return (
     <div className="sheets-list-view">
@@ -153,13 +195,23 @@ export const SheetsTab: React.FC = () => {
               <div>
                 <div className="flex items-center gap-2 text-emerald-500 mb-2">
                   <FileSpreadsheet className="w-5 h-5" />
+                  {sheet.content?.isStarred && (
+                    <Star className="w-4 h-4 fill-amber-400 text-amber-400 ml-auto" />
+                  )}
                 </div>
                 <h3 className="sheet-card-title">{sheet.title}</h3>
                 <p className="sheet-card-date">
                   Cập nhật: {new Date(sheet.updated_at).toLocaleString("vi-VN")}
                 </p>
               </div>
-              <div className="sheet-card-actions">
+              <div className="sheet-card-actions flex items-center gap-1">
+                <button
+                  className={`btn-icon-action ${sheet.content?.isStarred ? "text-amber-400" : "text-gray-400 hover:text-amber-400"}`}
+                  onClick={(e) => handleToggleStar(sheet, e)}
+                  title={sheet.content?.isStarred ? "Bỏ gắn dấu sao" : "Gắn dấu sao"}
+                >
+                  <Star className={`w-4 h-4 ${sheet.content?.isStarred ? "fill-amber-400 text-amber-400" : ""}`} />
+                </button>
                 <button
                   className="btn-icon-action delete"
                   onClick={(e) => handleDeleteSheet(sheet.id, e)}
