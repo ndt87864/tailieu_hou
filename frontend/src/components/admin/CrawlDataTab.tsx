@@ -51,7 +51,6 @@ export const CrawlDataTab: React.FC<CrawlDataTabProps> = ({ view }) => {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [editData, setEditData] = useState<any | null>(null);
-  const [allCourses, setAllCourses] = useState<{id: string, title: string}[]>([]);
   const [sortBy, setSortBy] = useState<"default" | "az" | "za" | "oldest" | "newest">("default");
   const [filterType, setFilterType] = useState<"all" | "has_image" | "no_image" | "multiple_choice" | "fill_blank">("all");
   
@@ -67,7 +66,6 @@ export const CrawlDataTab: React.FC<CrawlDataTabProps> = ({ view }) => {
       apiClient.get(`/api/v1/admin/crawler/courses`)
         .then(res => {
           setCourses(res.data.courses || []);
-          setAllCourses((res.data.courses || []).map((c: any) => ({ id: c.id, title: c.title })));
           setLoading(false);
         })
         .catch(() => toast.error("Không thể tải danh sách khóa học"))
@@ -176,7 +174,6 @@ export const CrawlDataTab: React.FC<CrawlDataTabProps> = ({ view }) => {
       await apiClient.delete(`/api/v1/admin/crawler/courses/${id}`);
       toast.success("Xoá toàn bộ dữ liệu crawl của môn học thành công!");
       setCourses((prev) => prev.filter((c) => c.id !== id));
-      setAllCourses((prev) => prev.filter((c) => c.id !== id));
       setSelectedIds(prev => prev.filter(selectedId => selectedId !== id));
     } catch (e: any) {
       toast.error(e.response?.data?.error || "Xóa thất bại");
@@ -198,7 +195,6 @@ export const CrawlDataTab: React.FC<CrawlDataTabProps> = ({ view }) => {
       toast.success(`Đã xoá ${selectedIds.length} mục!`);
       if (view === "courses") {
         setCourses(prev => prev.filter(c => !selectedIds.includes(c.id)));
-        setAllCourses(prev => prev.filter(c => !selectedIds.includes(c.id)));
       } else if (view === "resources") {
         setResources(prev => prev.filter(r => !selectedIds.includes(r.id)));
       } else if (view === "questions") {
@@ -225,7 +221,6 @@ export const CrawlDataTab: React.FC<CrawlDataTabProps> = ({ view }) => {
   const handleEditSuccess = (updatedItem: any) => {
     if (view === "courses") {
       setCourses(prev => prev.map(c => c.id === updatedItem.id ? { ...c, ...updatedItem } : c));
-      setAllCourses(prev => prev.map(c => c.id === updatedItem.id ? { ...c, ...updatedItem } : c));
     } else if (view === "resources") {
       setResources(prev => prev.map(r => r.id === updatedItem.id ? { ...r, ...updatedItem } : r));
     } else if (view === "questions") {

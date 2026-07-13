@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Loader2, Image, Trash2, Maximize2, Link2, Edit3, Plus } from "lucide-react";
+import { Loader2, Trash2, Maximize2, Link2, Edit3, Plus } from "lucide-react";
 
 interface Question {
   id: string;

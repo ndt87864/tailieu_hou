@@ -3,11 +3,12 @@ import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { 
   FileSpreadsheet, Star, Save,
-  ChevronDown, User, Home, Calendar, Phone, Shield, Settings, LogOut, ChevronRight
+  ChevronDown, User, Home, Calendar, Phone, Shield, Settings, LogOut
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext.js";
 import UISettingsModal from "../layout/UISettingsModal.js";
 import EditProfileModal from "../layout/EditProfileModal.js";
+import { SpreadsheetMenubar } from "./SpreadsheetMenubar.js";
 
 interface SpreadsheetHeaderProps {
   title: string;
@@ -21,8 +22,11 @@ interface SpreadsheetHeaderProps {
   handleExportJSON: () => void;
   handleExportCSV: () => void;
   onUndo: () => void;
+  onRedo: () => void;
+  onCut: () => void;
   onCopy: () => void;
   onPaste: () => void;
+  onPasteSpecial: (option: "value" | "format") => void;
   onToggleFindReplace: () => void;
   onInsertRow: (position: "above" | "below") => void;
   onInsertCol: (position: "left" | "right") => void;
@@ -43,6 +47,32 @@ interface SpreadsheetHeaderProps {
   onShowDetails: () => void;
   sheets: any[];
   onUnhideSheet: (idx: number) => void;
+
+  // View settings
+  showFormulaBar: boolean;
+  setShowFormulaBar: (v: boolean) => void;
+  showGridlines: boolean;
+  setShowGridlines: (v: boolean) => void;
+  showFormulas: boolean;
+  setShowFormulas: (v: boolean) => void;
+
+  // Freeze rows and cols
+  freezeRows: number;
+  setFreezeRows: (r: number) => void;
+  freezeCols: number;
+  setFreezeCols: (c: number) => void;
+
+  onSortSheet: (dir: "asc" | "desc") => void;
+  onTrimWhitespace: () => void;
+  onRemoveEmptyRows: () => void;
+  selectedCell: string | null;
+  onDeleteRow: (row: number) => void;
+  onDeleteCol: (colLetter: string) => void;
+  onClearValues: () => void;
+  onFormatSelection: (type: "currency" | "percent" | "decimal-inc" | "decimal-dec") => void;
+  onAlignChange: (align: "left" | "center" | "right") => void;
+  onRemoveDuplicates: () => void;
+  onClearFormatting: () => void;
 }
 
 export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
@@ -55,8 +85,11 @@ export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
   onSave,
   onImportExcelClick,
   onUndo,
+  onRedo,
+  onCut,
   onCopy,
   onPaste,
+  onPasteSpecial,
   onToggleFindReplace,
   onInsertRow,
   onInsertCol,
@@ -73,6 +106,28 @@ export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
   onShowDetails,
   sheets,
   onUnhideSheet,
+
+  showFormulaBar,
+  setShowFormulaBar,
+  showGridlines,
+  setShowGridlines,
+  showFormulas,
+  setShowFormulas,
+  freezeRows,
+  setFreezeRows,
+  freezeCols,
+  setFreezeCols,
+  onSortSheet,
+  onTrimWhitespace,
+  onRemoveEmptyRows,
+  selectedCell,
+  onDeleteRow,
+  onDeleteCol,
+  onClearValues,
+  onFormatSelection,
+  onAlignChange,
+  onRemoveDuplicates,
+  onClearFormatting,
 }) => {
   const { user, profile, role, logout } = useAuth();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -263,179 +318,54 @@ export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
       </div>
 
       {/* Row 2: Menubar */}
-      <div className="sheet-google-menubar" ref={menubarRef}>
-        <div 
-          className={`menu-item-dropdown ${activeMenu === "file" ? "active" : ""}`}
-          onClick={() => setActiveMenu(activeMenu === "file" ? null : "file")}
-          onMouseEnter={() => { if (activeMenu) setActiveMenu("file"); }}
-        >
-          Tệp
-          <div className="menu-dropdown-content" onClick={() => setActiveMenu(null)}>
-            {/* Mới (New) Submenu */}
-            <div className="dropdown-action-btn relative group/sub flex justify-between items-center pr-2" onClick={(e) => e.stopPropagation()}>
-              <span>Mới</span>
-              <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
-              <div className="absolute left-full ml-[-4px] top-[-6px] hidden group-hover/sub:flex flex-col bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-lg py-1 z-[100] min-w-[160px]">
-                <button onClick={() => { onNewSpreadsheet(); setActiveMenu(null); }} className="dropdown-action-btn w-full text-left">Bảng tính mới</button>
-              </div>
-            </div>
-
-            <button onClick={onOpenSpreadsheet} className="dropdown-action-btn">
-              Mở (Ctrl+O)
-            </button>
-
-            <button onClick={onImportExcelClick} className="dropdown-action-btn">
-              Nhập
-            </button>
-
-            <button onClick={onMakeCopy} className="dropdown-action-btn">
-              Tạo bản sao
-            </button>
-
-            <div className="menu-dropdown-divider"></div>
-
-            {/* Tải xuống Submenu */}
-            <div className="dropdown-action-btn relative group/sub flex justify-between items-center pr-2" onClick={(e) => e.stopPropagation()}>
-              <span>Tải xuống</span>
-              <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
-              <div className="absolute left-full ml-[-4px] top-[-6px] hidden group-hover/sub:flex flex-col bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-lg py-1 z-[100] min-w-[200px]">
-                <button onClick={() => { onDownload("xlsx"); setActiveMenu(null); }} className="dropdown-action-btn w-full text-left">Microsoft Excel (.xlsx)</button>
-                <button onClick={() => { onDownload("pdf"); setActiveMenu(null); }} className="dropdown-action-btn w-full text-left">Tài liệu PDF (.pdf)</button>
-                <button onClick={() => { onDownload("csv"); setActiveMenu(null); }} className="dropdown-action-btn w-full text-left">Giá trị phân tách bằng dấu phẩy (.csv)</button>
-                <button onClick={() => { onDownload("tsv"); setActiveMenu(null); }} className="dropdown-action-btn w-full text-left">Giá trị phân tách bằng dấu tab (.tsv)</button>
-              </div>
-            </div>
-
-            <div className="menu-dropdown-divider"></div>
-
-            <button onClick={onRename} className="dropdown-action-btn">
-              Đổi tên
-            </button>
-
-            <button onClick={onMoveToTrash} className="dropdown-action-btn text-red-500 hover:bg-red-500/10">
-              Chuyển vào thùng rác
-            </button>
-
-            <div className="menu-dropdown-divider"></div>
-
-            <button onClick={onShowDetails} className="dropdown-action-btn">
-              Chi tiết
-            </button>
-
-            <div className="menu-dropdown-divider"></div>
-
-            <button onClick={() => window.print()} className="dropdown-action-btn">
-              In (Ctrl+P)
-            </button>
-          </div>
-        </div>
-
-        <div 
-          className={`menu-item-dropdown ${activeMenu === "edit" ? "active" : ""}`}
-          onClick={() => setActiveMenu(activeMenu === "edit" ? null : "edit")}
-          onMouseEnter={() => { if (activeMenu) setActiveMenu("edit"); }}
-        >
-          Chỉnh sửa
-          <div className="menu-dropdown-content" onClick={() => setActiveMenu(null)}>
-            <button onClick={onUndo} className="dropdown-action-btn">
-              Hoàn tác (Ctrl+Z)
-            </button>
-            <button onClick={onCopy} className="dropdown-action-btn">
-              Sao chép (Ctrl+C)
-            </button>
-            <button onClick={onPaste} className="dropdown-action-btn">
-              Dán (Ctrl+V)
-            </button>
-            <button onClick={onToggleFindReplace} className="dropdown-action-btn">
-              Tìm kiếm & Thay thế (Ctrl+H)
-            </button>
-          </div>
-        </div>
-
-        <div 
-          className={`menu-item-dropdown ${activeMenu === "view" ? "active" : ""}`}
-          onClick={() => setActiveMenu(activeMenu === "view" ? null : "view")}
-          onMouseEnter={() => { if (activeMenu) setActiveMenu("view"); }}
-        >
-          Xem
-          <div className="menu-dropdown-content" onClick={() => setActiveMenu(null)}>
-            <div className="dropdown-action-btn relative group/sub flex justify-between items-center pr-2" onClick={(e) => e.stopPropagation()}>
-              <span>Trang tính đã ẩn</span>
-              <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
-              <div className="absolute left-full ml-[-4px] top-[-6px] hidden group-hover/sub:flex flex-col bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-lg py-1 z-[100] min-w-[200px]">
-                {sheets.filter((s) => s.isHidden).length === 0 ? (
-                  <span className="px-4 py-2 text-xs text-gray-400 italic">Không có trang tính ẩn</span>
-                ) : (
-                  sheets.map((sheet, idx) => (
-                    sheet.isHidden && (
-                      <button 
-                        key={idx} 
-                        onClick={() => { onUnhideSheet(idx); setActiveMenu(null); }} 
-                        className="dropdown-action-btn w-full text-left"
-                      >
-                        {sheet.name}
-                      </button>
-                    )
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div 
-          className={`menu-item-dropdown ${activeMenu === "insert" ? "active" : ""}`}
-          onClick={() => setActiveMenu(activeMenu === "insert" ? null : "insert")}
-          onMouseEnter={() => { if (activeMenu) setActiveMenu("insert"); }}
-        >
-          Chèn
-          <div className="menu-dropdown-content" onClick={() => setActiveMenu(null)}>
-            <button onClick={() => onInsertRow("above")} className="dropdown-action-btn">
-              Hàng ở trên
-            </button>
-            <button onClick={() => onInsertRow("below")} className="dropdown-action-btn">
-              Hàng ở dưới
-            </button>
-            <button onClick={() => onInsertCol("left")} className="dropdown-action-btn">
-              Cột bên trái
-            </button>
-            <button onClick={() => onInsertCol("right")} className="dropdown-action-btn">
-              Cột bên phải
-            </button>
-            <div className="toolbar-divider" style={{ margin: "4px 0", width: "100%", height: "1px" }}></div>
-            <button onClick={() => onInsertFormula("SUM")} className="dropdown-action-btn">
-              Hàm SUM
-            </button>
-            <button onClick={() => onInsertFormula("AVERAGE")} className="dropdown-action-btn">
-              Hàm AVERAGE
-            </button>
-          </div>
-        </div>
-
-        <div 
-          className={`menu-item-dropdown ${activeMenu === "format" ? "active" : ""}`}
-          onClick={() => setActiveMenu(activeMenu === "format" ? null : "format")}
-          onMouseEnter={() => { if (activeMenu) setActiveMenu("format"); }}
-        >
-          Định dạng
-          <div className="menu-dropdown-content" onClick={() => setActiveMenu(null)}>
-            <button onClick={() => onApplyStyle("bold")} className="dropdown-action-btn font-bold">
-              In đậm (B)
-            </button>
-            <button onClick={() => onApplyStyle("italic")} className="dropdown-action-btn italic">
-              In nghiêng (I)
-            </button>
-            <button onClick={() => onApplyStyle("underline")} className="dropdown-action-btn underline">
-              Gạch chân (U)
-            </button>
-            <button onClick={() => onApplyStyle("strikethrough")} className="dropdown-action-btn line-through">
-              Gạch ngang (S)
-            </button>
-          </div>
-        </div>
-
-        <div className="menu-item-dropdown" onClick={() => { onOpenHelp(); setActiveMenu(null); }}>Trợ giúp</div>
-      </div>
+      <SpreadsheetMenubar
+        activeMenu={activeMenu}
+        setActiveMenu={setActiveMenu}
+        menubarRef={menubarRef}
+        onNewSpreadsheet={onNewSpreadsheet}
+        onOpenSpreadsheet={onOpenSpreadsheet}
+        onImportExcelClick={onImportExcelClick}
+        onMakeCopy={onMakeCopy}
+        onDownload={onDownload}
+        onRename={onRename}
+        onMoveToTrash={onMoveToTrash}
+        onShowDetails={onShowDetails}
+        onUndo={onUndo}
+        onRedo={onRedo}
+        onCut={onCut}
+        onCopy={onCopy}
+        onPaste={onPaste}
+        onPasteSpecial={onPasteSpecial}
+        onToggleFindReplace={onToggleFindReplace}
+        sheets={sheets}
+        onUnhideSheet={onUnhideSheet}
+        showFormulaBar={showFormulaBar}
+        setShowFormulaBar={setShowFormulaBar}
+        showGridlines={showGridlines}
+        setShowGridlines={setShowGridlines}
+        showFormulas={showFormulas}
+        setShowFormulas={setShowFormulas}
+        freezeRows={freezeRows}
+        setFreezeRows={setFreezeRows}
+        freezeCols={freezeCols}
+        setFreezeCols={setFreezeCols}
+        onInsertRow={onInsertRow}
+        onInsertCol={onInsertCol}
+        onInsertFormula={onInsertFormula}
+        onApplyStyle={onApplyStyle}
+        onSortSheet={onSortSheet}
+        onTrimWhitespace={onTrimWhitespace}
+        onRemoveEmptyRows={onRemoveEmptyRows}
+        onOpenHelp={onOpenHelp}
+        selectedCell={selectedCell}
+        onDeleteRow={onDeleteRow}
+        onDeleteCol={onDeleteCol}
+        onClearValues={onClearValues}
+        onFormatSelection={onFormatSelection}
+        onAlignChange={onAlignChange}
+        onRemoveDuplicates={onRemoveDuplicates}
+        onClearFormatting={onClearFormatting}
+      />
 
       {/* Modals for settings and profile */}
       <UISettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />

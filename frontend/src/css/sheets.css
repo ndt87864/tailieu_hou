@@ -242,6 +242,11 @@
   color: var(--accent);
   border-color: var(--accent);
 }
+.btn-tool:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
 
 .tool-select {
   background-color: var(--bg-2);
@@ -1554,6 +1559,11 @@
 .sheets-print-select:focus {
   border-color: #1a73e8;
   background: #fff;
+}
+
+/* Hide Gridlines option */
+.sheet-table.hide-gridlines td.sheet-cell {
+  border-color: transparent !important;
 }
 
 

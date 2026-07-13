@@ -42,6 +42,9 @@ interface SpreadsheetToolbarProps {
   showFindReplace: boolean;
   setShowFindReplace: (s: boolean) => void;
   handleUndo: () => void;
+  handleRedo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
   handleFontChange: (key: "fontFamily" | "fontSize", value: string) => void;
   handleToolbarStyleChange: (style: "bold" | "italic" | "underline" | "strikethrough") => void;
   handleAlignChange: (align: "left" | "center" | "right") => void;
@@ -57,6 +60,9 @@ export const SpreadsheetToolbar: React.FC<SpreadsheetToolbarProps> = ({
   showFindReplace,
   setShowFindReplace,
   handleUndo,
+  handleRedo,
+  canUndo,
+  canRedo,
   handleFontChange,
   handleToolbarStyleChange,
   handleAlignChange,
@@ -88,10 +94,10 @@ export const SpreadsheetToolbar: React.FC<SpreadsheetToolbarProps> = ({
       
       <div className="toolbar-divider"></div>
 
-      <button onClick={handleUndo} className="btn-tool" title="Hoàn tác (Ctrl+Z)">
+      <button onClick={handleUndo} className="btn-tool" title="Hoàn tác (Ctrl+Z)" disabled={!canUndo}>
         <Undo className="w-4 h-4" />
       </button>
-      <button className="btn-tool" title="Làm lại (Ctrl+Y)" disabled>
+      <button onClick={handleRedo} className="btn-tool" title="Làm lại (Ctrl+Y)" disabled={!canRedo}>
         <Redo className="w-4 h-4" />
       </button>
       <button onClick={() => window.print()} className="btn-tool" title="In">

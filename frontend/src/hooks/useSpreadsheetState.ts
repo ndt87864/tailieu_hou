@@ -1,12 +1,24 @@
 // frontend/src/hooks/useSpreadsheetState.ts
 import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
-import { 
-  getCellRange as getCellRangeUtil, 
-  parseCellAddress, 
-  colLetterToNumber, 
-  numberToColLetter 
-} from "../utils/formulaEvaluator.js";
+import { getCellRange as getCellRangeUtil, parseCellAddress, colLetterToNumber, numberToColLetter } from "../utils/formulaEvaluator.js";
+import {
+  insertRowInSheets,
+  insertColumnInSheets,
+  deleteRowInSheets,
+  deleteColumnInSheets,
+  clearRowInSheets,
+  clearColumnInSheets,
+  updateRowHeightInSheets,
+  updateColWidthInSheets,
+} from "../utils/spreadsheetRowColOperations.js";
+import {
+  sortActiveSheetInSheets,
+  trimWhitespaceInSheets,
+  removeEmptyRowsInSheets,
+  formatSelectionInSheets,
+  removeDuplicatesInSheets,
+} from "../utils/spreadsheetMenuOperations.js";
 
 export type CellData = {
   value: string;
@@ -44,6 +56,18 @@ export const useSpreadsheetState = (initialTitle: string, initialContent: any, o
   const [zoomLevel, setZoomLevel] = useState("100%");
   const [addRowsNum, setAddRowsNum] = useState(500);
 
+  // View settings
+  const [showFormulaBar, setShowFormulaBar] = useState(true);
+  const [showGridlines, setShowGridlines] = useState(true);
+  const [showFormulas, setShowFormulas] = useState(false);
+
+  // Freeze rows and cols
+  const [freezeRows, setFreezeRows] = useState(0);
+  const [freezeCols, setFreezeCols] = useState(0);
+
+  // Clipboard local state
+  const [localClipboard, setLocalClipboard] = useState<{ startCell: string; cells: Record<string, CellData> } | null>(null);
+
   const [sheets, setSheets] = useState<Sheet[]>(() => {
     if (initialContent?.sheets && Array.isArray(initialContent.sheets)) {
       return initialContent.sheets.map((s: any) => ({
@@ -55,13 +79,14 @@ export const useSpreadsheetState = (initialTitle: string, initialContent: any, o
         colWidths: s.colWidths || {},
         isProtected: s.isProtected || false,
         isHidden: s.isHidden || false,
-        isVip: s.isVip || false
+        isVip: s.isVip || false,
       }));
     }
     return [{ name: "Sheet1", cells: initialContent?.cells || {}, rowCount: 500, colCount: 26, rowHeights: {}, colWidths: {}, isProtected: false, isHidden: false, isVip: false }];
   });
 
   const [history, setHistory] = useState<Array<{ timestamp: string; sheets: Sheet[] }>>([]);
+  const [redoList, setRedoList] = useState<Array<{ sheets: Sheet[] }>>([]);
 
   const currentSheet = sheets[activeSheetIdx] || { name: "Sheet1", cells: {}, rowCount: 500, colCount: 26 };
   const cells = currentSheet.cells;
@@ -88,8 +113,8 @@ export const useSpreadsheetState = (initialTitle: string, initialContent: any, o
   ) => {
     setSheets((currentSheets) => {
       const resolved = typeof newSheets === "function" ? newSheets(currentSheets) : newSheets;
-      
       if (!skipHistory) {
+        setRedoList([]); // Clear redo list on new action
         setHistory((prevHistory) => {
           const snapshot = currentSheets.map((s) => ({
             name: s.name,
@@ -102,14 +127,9 @@ export const useSpreadsheetState = (initialTitle: string, initialContent: any, o
             isHidden: s.isHidden,
             isVip: s.isVip,
           }));
-          const newEntry = {
-            timestamp: new Date().toLocaleTimeString("vi-VN"),
-            sheets: snapshot
-          };
-          return [...prevHistory.slice(-49), newEntry];
+          return [...prevHistory.slice(-49), { timestamp: new Date().toLocaleTimeString("vi-VN"), sheets: snapshot }];
         });
       }
-      
       return resolved;
     });
   };
@@ -119,13 +139,30 @@ export const useSpreadsheetState = (initialTitle: string, initialContent: any, o
       toast.info("Không có hành động nào để hoàn tác!");
       return;
     }
-
-    setHistory((prevHistory) => {
-      const copy = [...prevHistory];
-      const previousState = copy.pop();
-      if (previousState) {
-        updateSheetsAndSaveHistory(previousState.sheets, true);
+    setHistory((prev) => {
+      const copy = [...prev];
+      const previous = copy.pop();
+      if (previous) {
+        setRedoList((r) => [...r, { sheets: sheets.map((s) => ({ ...s, cells: { ...s.cells } })) }]);
+        updateSheetsAndSaveHistory(previous.sheets, true);
         toast.success("Đã hoàn tác!");
+      }
+      return copy;
+    });
+  };
+
+  const handleRedo = () => {
+    if (redoList.length === 0) {
+      toast.info("Không có hành động nào để làm lại!");
+      return;
+    }
+    setRedoList((prev) => {
+      const copy = [...prev];
+      const nextState = copy.pop();
+      if (nextState) {
+        setHistory((h) => [...h, { timestamp: new Date().toLocaleTimeString("vi-VN"), sheets: sheets.map((s) => ({ ...s, cells: { ...s.cells } })) }]);
+        updateSheetsAndSaveHistory(nextState.sheets, true);
+        toast.success("Đã làm lại!");
       }
       return copy;
     });
@@ -136,30 +173,113 @@ export const useSpreadsheetState = (initialTitle: string, initialContent: any, o
       const newSheets = [...prev];
       const targetSheet = { ...newSheets[activeSheetIdx] };
       const currentCell = targetSheet.cells[address] || { value: "", formula: "" };
-      
-      targetSheet.cells = {
-        ...targetSheet.cells,
-        [address]: {
-          ...currentCell,
-          ...updatedProps,
-        },
-      };
-      
+      targetSheet.cells = { ...targetSheet.cells, [address]: { ...currentCell, ...updatedProps } };
       newSheets[activeSheetIdx] = targetSheet;
       return newSheets;
     });
+  };
+
+  // Unify Cut/Copy/Paste
+  const copySelection = () => {
+    const addresses = getSelectedAddresses();
+    if (addresses.length === 0) return;
+    const copied: Record<string, CellData> = {};
+    addresses.forEach((addr) => {
+      if (cells[addr]) copied[addr] = { ...cells[addr] };
+    });
+    setLocalClipboard({ startCell: selectedRange ? selectedRange.start : (selectedCell || "A1"), cells: copied });
+    toast.success("Đã sao chép vào bộ nhớ tạm cục bộ!");
+  };
+
+  const cutSelection = () => {
+    const addresses = getSelectedAddresses();
+    if (addresses.length === 0) return;
+    const copied: Record<string, CellData> = {};
+    addresses.forEach((addr) => {
+      if (cells[addr]) copied[addr] = { ...cells[addr] };
+    });
+    setLocalClipboard({ startCell: selectedRange ? selectedRange.start : (selectedCell || "A1"), cells: copied });
+    updateSheetsAndSaveHistory((prev) => {
+      const newSheets = [...prev];
+      const targetSheet = { ...newSheets[activeSheetIdx] };
+      const updatedCells = { ...targetSheet.cells };
+      addresses.forEach((addr) => { delete updatedCells[addr]; });
+      targetSheet.cells = updatedCells;
+      newSheets[activeSheetIdx] = targetSheet;
+      return newSheets;
+    });
+    toast.success("Đã cắt vùng chọn!");
+  };
+
+  const pasteClipboard = (specialOption?: "all" | "value" | "format") => {
+    if (!localClipboard || !selectedCell) {
+      toast.info("Không có dữ liệu trong clipboard cục bộ!");
+      return;
+    }
+    const startCellParsed = parseCellAddress(localClipboard.startCell);
+    const targetCellParsed = parseCellAddress(selectedCell);
+    if (!startCellParsed || !targetCellParsed) return;
+
+    const colOffset = colLetterToNumber(targetCellParsed.col) - colLetterToNumber(startCellParsed.col);
+    const rowOffset = targetCellParsed.row - startCellParsed.row;
+    const opt = specialOption || "all";
+
+    updateSheetsAndSaveHistory((prev) => {
+      const newSheets = [...prev];
+      const targetSheet = { ...newSheets[activeSheetIdx] };
+      const newCells = { ...targetSheet.cells };
+
+      Object.keys(localClipboard.cells).forEach((addr) => {
+        const parsed = parseCellAddress(addr);
+        if (parsed) {
+          const newColIdx = colLetterToNumber(parsed.col) + colOffset;
+          const newRow = parsed.row + rowOffset;
+          if (newColIdx >= 0 && newColIdx < colCount && newRow >= 1 && newRow <= rowCount) {
+            const destAddr = `${numberToColLetter(newColIdx)}${newRow}`;
+            const sourceCell = localClipboard.cells[addr];
+            const destCell = newCells[destAddr] || { value: "", formula: "" };
+
+            if (opt === "value") {
+              newCells[destAddr] = { ...destCell, value: sourceCell.value, formula: sourceCell.formula };
+            } else if (opt === "format") {
+              const { value, formula, ...onlyStyle } = sourceCell;
+              newCells[destAddr] = { value: destCell.value, formula: destCell.formula, ...onlyStyle };
+            } else {
+              newCells[destAddr] = { ...sourceCell };
+            }
+          }
+        }
+      });
+
+      targetSheet.cells = newCells;
+      newSheets[activeSheetIdx] = targetSheet;
+      return newSheets;
+    });
+    toast.success("Đã dán dữ liệu!");
+  };
+
+  // Sort Sheet by selected column
+  const sortActiveSheet = (colLetter: string, direction: "asc" | "desc") => {
+    updateSheetsAndSaveHistory((prev) => sortActiveSheetInSheets(prev, activeSheetIdx, colLetter, direction));
+    toast.success(`Đã sắp xếp cột ${colLetter} (${direction === "asc" ? "A - Z" : "Z - A"})`);
+  };
+
+  // Data Cleanups
+  const trimWhitespace = () => {
+    updateSheetsAndSaveHistory((prev) => trimWhitespaceInSheets(prev, activeSheetIdx));
+    toast.success("Đã dọn dẹp khoảng trắng thừa!");
+  };
+
+  const removeEmptyRows = () => {
+    updateSheetsAndSaveHistory((prev) => removeEmptyRowsInSheets(prev, activeSheetIdx, rowCount, colCount));
+    toast.success("Đã loại bỏ các hàng trống!");
   };
 
   const handlePasteCells = (pastedCells: Record<string, CellData>) => {
     updateSheetsAndSaveHistory((prev) => {
       const newSheets = [...prev];
       const targetSheet = { ...newSheets[activeSheetIdx] };
-      
-      targetSheet.cells = {
-        ...targetSheet.cells,
-        ...pastedCells,
-      };
-      
+      targetSheet.cells = { ...targetSheet.cells, ...pastedCells };
       newSheets[activeSheetIdx] = targetSheet;
       return newSheets;
     });
@@ -168,295 +288,92 @@ export const useSpreadsheetState = (initialTitle: string, initialContent: any, o
   const applyStyleToSelection = (styleProps: Partial<CellData>) => {
     const addresses = getSelectedAddresses();
     if (addresses.length === 0) return;
-
     updateSheetsAndSaveHistory((prev) => {
       const newSheets = [...prev];
       const targetSheet = { ...newSheets[activeSheetIdx] };
-      
       addresses.forEach((addr) => {
         const currentCell = targetSheet.cells[addr] || { value: "", formula: "" };
-        targetSheet.cells[addr] = {
-          ...currentCell,
-          ...styleProps,
-        };
+        targetSheet.cells[addr] = { ...currentCell, ...styleProps };
       });
-      
       newSheets[activeSheetIdx] = targetSheet;
       return newSheets;
     });
   };
 
-  const handleToolbarStyleChange = (key: "bold" | "italic" | "underline" | "strikethrough") => {
-    if (!selectedCell) return;
-    const currentCell = cells[selectedCell] || { value: "", formula: "" };
-    applyStyleToSelection({ [key]: !currentCell[key] });
+  const handleToolbarStyleChange = (styleKey: "bold" | "italic" | "underline" | "strikethrough") => {
+    const addresses = getSelectedAddresses();
+    if (addresses.length === 0) return;
+    const isCurrentlyStyled = addresses.every((addr) => cells[addr]?.[styleKey]);
+    applyStyleToSelection({ [styleKey]: !isCurrentlyStyled });
   };
 
-  const handleAlignChange = (align: "left" | "center" | "right") => {
-    applyStyleToSelection({ align });
-  };
-
-  const handleColorChange = (key: "color" | "bg", value: string) => {
-    applyStyleToSelection({ [key]: value });
-  };
-
-  const handleFontChange = (key: "fontFamily" | "fontSize", value: string) => {
-    applyStyleToSelection({ [key]: value });
-  };
+  const handleAlignChange = (align: "left" | "center" | "right") => applyStyleToSelection({ align });
+  const handleColorChange = (type: "text" | "bg", color: string) => applyStyleToSelection(type === "text" ? { color } : { bg: color });
+  const handleFontChange = (fontFamily: string) => applyStyleToSelection({ fontFamily });
 
   const handleFormulaInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!selectedCell) return;
     const val = e.target.value;
     setFormulaValue(val);
-    if (selectedCell) {
-      const isFormula = val.startsWith("=");
-      handleUpdateCell(selectedCell, {
-        value: isFormula ? "" : val,
-        formula: isFormula ? val : "",
-      });
-    }
+    handleUpdateCell(selectedCell, val.startsWith("=") ? { value: "", formula: val } : { value: val, formula: "" });
+  };
+  const removeDuplicates = () => {
+    updateSheetsAndSaveHistory((prev) => removeDuplicatesInSheets(prev, activeSheetIdx, rowCount, colCount));
+    toast.success("Đã loại bỏ các hàng trùng lặp!");
+  };
+
+  const clearFormatting = () => {
+    applyStyleToSelection({
+      bold: false,
+      italic: false,
+      underline: false,
+      strikethrough: false,
+      color: "inherit",
+      bg: "transparent"
+    });
+    toast.success("Đã xóa định dạng!");
   };
 
   const handleAddSheet = () => {
-    let updatedSheetsList: Sheet[] = [];
+    let updated: Sheet[] = [];
     updateSheetsAndSaveHistory((prev) => {
-      const updated = [
-        ...prev,
-        { name: `Sheet${prev.length + 1}`, cells: {}, rowCount: 500, colCount: 26 }
-      ];
-      updatedSheetsList = updated;
-      setTimeout(() => {
-        setActiveSheetIdx(updated.length - 1);
-      }, 0);
+      const newName = `Sheet${prev.length + 1}`;
+      updated = [...prev, { name: newName, cells: {}, rowCount: 500, colCount: 26, rowHeights: {}, colWidths: {}, isProtected: false, isHidden: false }];
       return updated;
     });
-    setSelectedCell(null);
-    setSelectedRange(null);
-    return updatedSheetsList;
+    setActiveSheetIdx(sheets.length);
+    toast.success("Đã thêm trang tính mới!");
+    setTimeout(() => handleSave(updated), 200);
   };
 
   const handleAddRows = () => {
+    let updated: Sheet[] = [];
     updateSheetsAndSaveHistory((prev) => {
       const newSheets = [...prev];
-      const targetSheet = { ...newSheets[activeSheetIdx] };
-      const currentRows = targetSheet.rowCount || 500;
-      targetSheet.rowCount = currentRows + addRowsNum;
-      newSheets[activeSheetIdx] = targetSheet;
+      const target = { ...newSheets[activeSheetIdx] };
+      target.rowCount = (target.rowCount || 500) + addRowsNum;
+      newSheets[activeSheetIdx] = target;
+      updated = newSheets;
       return newSheets;
     });
-    toast.success(`Đã thêm thành công ${addRowsNum} hàng mới!`);
+    toast.success(`Đã thêm ${addRowsNum} hàng!`);
+    setTimeout(() => handleSave(updated), 200);
   };
 
-  const insertRow = (atRow: number, position: "above" | "below") => {
-    const targetRow = position === "above" ? atRow : atRow + 1;
-    updateSheetsAndSaveHistory((prev) => {
-      const newSheets = [...prev];
-      const targetSheet = { ...newSheets[activeSheetIdx] };
-      const currentCells = targetSheet.cells;
-      const newCells: Record<string, CellData> = {};
-
-      Object.keys(currentCells).forEach((addr) => {
-        const parsed = parseCellAddress(addr);
-        if (parsed) {
-          if (parsed.row >= targetRow) {
-            const nextAddr = `${parsed.col}${parsed.row + 1}`;
-            newCells[nextAddr] = currentCells[addr];
-          } else {
-            newCells[addr] = currentCells[addr];
-          }
-        }
-      });
-      targetSheet.cells = newCells;
-      targetSheet.rowCount = (targetSheet.rowCount || 500) + 1;
-      newSheets[activeSheetIdx] = targetSheet;
-      return newSheets;
-    });
-    toast.success(`Đã chèn hàng mới tại dòng ${targetRow}!`);
-  };
-
-  const insertColumn = (atColLetter: string, position: "left" | "right") => {
-    const atColIdx = colLetterToNumber(atColLetter);
-    const targetColIdx = position === "left" ? atColIdx : atColIdx + 1;
-    updateSheetsAndSaveHistory((prev) => {
-      const newSheets = [...prev];
-      const targetSheet = { ...newSheets[activeSheetIdx] };
-      const currentCells = targetSheet.cells;
-      const newCells: Record<string, CellData> = {};
-
-      Object.keys(currentCells).forEach((addr) => {
-        const parsed = parseCellAddress(addr);
-        if (parsed) {
-          const colIdx = colLetterToNumber(parsed.col);
-          if (colIdx >= targetColIdx) {
-            const nextColLetter = numberToColLetter(colIdx + 1);
-            const nextAddr = `${nextColLetter}${parsed.row}`;
-            newCells[nextAddr] = currentCells[addr];
-          } else {
-            newCells[addr] = currentCells[addr];
-          }
-        }
-      });
-      targetSheet.cells = newCells;
-      targetSheet.colCount = (targetSheet.colCount || 26) + 1;
-      newSheets[activeSheetIdx] = targetSheet;
-      return newSheets;
-    });
-    toast.success(`Đã chèn cột mới!`);
-  };
-
-  const deleteRow = (atRow: number) => {
-    updateSheetsAndSaveHistory((prev) => {
-      const newSheets = [...prev];
-      const targetSheet = { ...newSheets[activeSheetIdx] };
-      const currentCells = targetSheet.cells;
-      const newCells: Record<string, CellData> = {};
-
-      Object.keys(currentCells).forEach((addr) => {
-        const parsed = parseCellAddress(addr);
-        if (parsed) {
-          if (parsed.row > atRow) {
-            const nextAddr = `${parsed.col}${parsed.row - 1}`;
-            newCells[nextAddr] = currentCells[addr];
-          } else if (parsed.row < atRow) {
-            newCells[addr] = currentCells[addr];
-          }
-        }
-      });
-      targetSheet.cells = newCells;
-      targetSheet.rowCount = Math.max(1, (targetSheet.rowCount || 500) - 1);
-      newSheets[activeSheetIdx] = targetSheet;
-      return newSheets;
-    });
-    toast.success(`Đã xóa hàng ${atRow}!`);
-  };
-
-  const clearRow = (atRow: number) => {
-    updateSheetsAndSaveHistory((prev) => {
-      const newSheets = [...prev];
-      const targetSheet = { ...newSheets[activeSheetIdx] };
-      const updatedCells = { ...targetSheet.cells };
-      
-      Object.keys(updatedCells).forEach((addr) => {
-        const parsed = parseCellAddress(addr);
-        if (parsed && parsed.row === atRow) {
-          delete updatedCells[addr];
-        }
-      });
-      
-      targetSheet.cells = updatedCells;
-      newSheets[activeSheetIdx] = targetSheet;
-      return newSheets;
-    });
-    toast.success(`Đã xóa nội dung hàng ${atRow}!`);
-  };
-
-  const deleteColumn = (atColLetter: string) => {
-    const atColIdx = colLetterToNumber(atColLetter);
-    updateSheetsAndSaveHistory((prev) => {
-      const newSheets = [...prev];
-      const targetSheet = { ...newSheets[activeSheetIdx] };
-      const currentCells = targetSheet.cells;
-      const newCells: Record<string, CellData> = {};
-
-      Object.keys(currentCells).forEach((addr) => {
-        const parsed = parseCellAddress(addr);
-        if (parsed) {
-          const colIdx = colLetterToNumber(parsed.col);
-          if (colIdx > atColIdx) {
-            const nextColLetter = numberToColLetter(colIdx - 1);
-            const nextAddr = `${nextColLetter}${parsed.row}`;
-            newCells[nextAddr] = currentCells[addr];
-          } else if (colIdx < atColIdx) {
-            newCells[addr] = currentCells[addr];
-          }
-        }
-      });
-      targetSheet.cells = newCells;
-      targetSheet.colCount = Math.max(1, (targetSheet.colCount || 26) - 1);
-      newSheets[activeSheetIdx] = targetSheet;
-      return newSheets;
-    });
-    toast.success(`Đã xóa cột ${atColLetter}!`);
-  };
-
-  const clearColumn = (atColLetter: string) => {
-    updateSheetsAndSaveHistory((prev) => {
-      const newSheets = [...prev];
-      const targetSheet = { ...newSheets[activeSheetIdx] };
-      const updatedCells = { ...targetSheet.cells };
-      
-      Object.keys(updatedCells).forEach((addr) => {
-        const parsed = parseCellAddress(addr);
-        if (parsed && parsed.col === atColLetter) {
-          delete updatedCells[addr];
-        }
-      });
-      
-      targetSheet.cells = updatedCells;
-      newSheets[activeSheetIdx] = targetSheet;
-      return newSheets;
-    });
-    toast.success(`Đã xóa nội dung cột ${atColLetter}!`);
-  };
-
-  const handleUpdateRowHeight = (rowNum: number, height: number) => {
-    updateSheetsAndSaveHistory((prev) => {
-      const newSheets = [...prev];
-      const targetSheet = { ...newSheets[activeSheetIdx] };
-      targetSheet.rowHeights = {
-        ...(targetSheet.rowHeights || {}),
-        [rowNum]: height,
-      };
-      newSheets[activeSheetIdx] = targetSheet;
-      return newSheets;
-    });
-  };
-
-  const handleUpdateColWidth = (colLetter: string, width: number) => {
-    updateSheetsAndSaveHistory((prev) => {
-      const newSheets = [...prev];
-      const targetSheet = { ...newSheets[activeSheetIdx] };
-      targetSheet.colWidths = {
-        ...(targetSheet.colWidths || {}),
-        [colLetter]: width,
-      };
-      newSheets[activeSheetIdx] = targetSheet;
-      return newSheets;
-    });
-  };
+  // Hook wrapper row col operations
+  const insertRow = (atRow: number, pos: "above" | "below") => updateSheetsAndSaveHistory((prev) => insertRowInSheets(prev, activeSheetIdx, atRow, pos));
+  const insertColumn = (atColLetter: string, pos: "left" | "right") => updateSheetsAndSaveHistory((prev) => insertColumnInSheets(prev, activeSheetIdx, atColLetter, pos));
+  const deleteRow = (atRow: number) => updateSheetsAndSaveHistory((prev) => deleteRowInSheets(prev, activeSheetIdx, atRow));
+  const deleteColumn = (atColLetter: string) => updateSheetsAndSaveHistory((prev) => deleteColumnInSheets(prev, activeSheetIdx, atColLetter));
+  const clearRow = (atRow: number) => updateSheetsAndSaveHistory((prev) => clearRowInSheets(prev, activeSheetIdx, atRow));
+  const clearColumn = (atColLetter: string) => updateSheetsAndSaveHistory((prev) => clearColumnInSheets(prev, activeSheetIdx, atColLetter));
+  const handleUpdateRowHeight = (row: number, h: number) => updateSheetsAndSaveHistory((prev) => updateRowHeightInSheets(prev, activeSheetIdx, row, h), true);
+  const handleUpdateColWidth = (col: string, w: number) => updateSheetsAndSaveHistory((prev) => updateColWidthInSheets(prev, activeSheetIdx, col, w), true);
 
   const formatSelection = (type: "currency" | "percent" | "decimal-inc" | "decimal-dec") => {
     const addresses = getSelectedAddresses();
     if (addresses.length === 0) return;
-    updateSheetsAndSaveHistory((prev) => {
-      const newSheets = [...prev];
-      const targetSheet = { ...newSheets[activeSheetIdx] };
-      addresses.forEach((addr) => {
-        const cell = targetSheet.cells[addr] || { value: "", formula: "" };
-        let val = cell.value || "";
-        if (!cell.formula) {
-          const clean = val.replace(/[^0-9.-]/g, "");
-          const num = parseFloat(clean);
-          if (!isNaN(num)) {
-            if (type === "currency") {
-              val = `$${num.toLocaleString()}`;
-            } else if (type === "percent") {
-              val = `${num}%`;
-            } else if (type === "decimal-inc") {
-              val = num.toFixed(2);
-            } else if (type === "decimal-dec") {
-              val = Math.round(num).toString();
-            }
-          } else {
-            if (type === "currency") val = `$${val}`;
-            else if (type === "percent") val = `${val}%`;
-          }
-        }
-        targetSheet.cells[addr] = { ...cell, value: val };
-      });
-      newSheets[activeSheetIdx] = targetSheet;
-      return newSheets;
-    });
-    toast.success("Đã thay đổi định dạng ô tính!");
+    updateSheetsAndSaveHistory((prev) => formatSelectionInSheets(prev, activeSheetIdx, addresses, type));
   };
 
   const insertFormula = (funcName: string) => {
@@ -464,15 +381,9 @@ export const useSpreadsheetState = (initialTitle: string, initialContent: any, o
       toast.warn("Vui lòng chọn một ô trước khi chèn công thức!");
       return;
     }
-    let rangeStr = "A1:A5";
-    if (selectedRange) {
-      rangeStr = `${selectedRange.start}:${selectedRange.end}`;
-    }
+    const rangeStr = selectedRange ? `${selectedRange.start}:${selectedRange.end}` : "A1:A5";
     const formulaStr = `=${funcName}(${rangeStr})`;
-    handleUpdateCell(selectedCell, {
-      value: "",
-      formula: formulaStr
-    });
+    handleUpdateCell(selectedCell, { value: "", formula: formulaStr });
     setFormulaValue(formulaStr);
     toast.success(`Đã chèn công thức ${funcName}!`);
   };
@@ -481,7 +392,7 @@ export const useSpreadsheetState = (initialTitle: string, initialContent: any, o
     try {
       await onSave(title, {
         sheets: customSheets || sheets,
-        isStarred: customStarred !== undefined ? customStarred : isStarred
+        isStarred: customStarred !== undefined ? customStarred : isStarred,
       });
     } catch (err: any) {
       console.error(err);
@@ -511,9 +422,33 @@ export const useSpreadsheetState = (initialTitle: string, initialContent: any, o
     rowCount,
     colCount,
     history,
+    redoList,
+    localClipboard,
+    setLocalClipboard,
+    showFormulaBar,
+    setShowFormulaBar,
+    showGridlines,
+    setShowGridlines,
+    showFormulas,
+    setShowFormulas,
+    freezeRows,
+    setFreezeRows,
+    freezeCols,
+    setFreezeCols,
     updateSheetsAndSaveHistory,
     handleUndo,
+    handleRedo,
+    canUndo: history.length > 0,
+    canRedo: redoList.length > 0,
     handleUpdateCell,
+    copySelection,
+    cutSelection,
+    pasteClipboard,
+    sortActiveSheet,
+    trimWhitespace,
+    removeEmptyRows,
+    removeDuplicates,
+    clearFormatting,
     handlePasteCells,
     applyStyleToSelection,
     handleToolbarStyleChange,
@@ -534,6 +469,6 @@ export const useSpreadsheetState = (initialTitle: string, initialContent: any, o
     formatSelection,
     insertFormula,
     getSelectedAddresses,
-    handleSave
+    handleSave,
   };
 };

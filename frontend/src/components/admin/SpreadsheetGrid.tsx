@@ -1,7 +1,7 @@
 // frontend/src/components/admin/SpreadsheetGrid.tsx
 import React, { useState, useEffect, useRef } from "react";
 import { 
-  evaluateFormula, numberToColLetter, parseCellAddress, colLetterToNumber, serializeCellsToHtml, parseHtmlToCells 
+  evaluateFormula, numberToColLetter, parseCellAddress, colLetterToNumber 
 } from "../../utils/formulaEvaluator.js";
 import { GridCell } from "./GridCell.js";
 import { useGridResize } from "../../hooks/useGridResize.js";
@@ -28,7 +28,6 @@ interface SpreadsheetGridProps {
   selectedRange: { start: string; end: string } | null;
   onSelectRange: (range: { start: string; end: string } | null) => void;
   onUpdateCell: (address: string, data: Partial<CellData>) => void;
-  onPasteCells: (pastedCells: Record<string, CellData>) => void;
   rowCount: number;
   colCount: number;
   onUndo: () => void;
@@ -42,6 +41,14 @@ interface SpreadsheetGridProps {
   colWidths?: Record<string, number>;
   onUpdateRowHeight: (rowNum: number, height: number) => void;
   onUpdateColWidth: (colLetter: string, width: number) => void;
+  showGridlines: boolean;
+  showFormulas: boolean;
+  freezeRows: number;
+  freezeCols: number;
+  onCopy: () => void;
+  onPaste: () => void;
+  onCut: () => void;
+  onRedo: () => void;
 }
 
 export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
@@ -51,10 +58,10 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   selectedRange,
   onSelectRange,
   onUpdateCell,
-  onPasteCells,
   rowCount,
   colCount,
   onUndo,
+  onRedo,
   onInsertRow,
   onInsertCol,
   onDeleteRow,
@@ -65,6 +72,13 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   colWidths,
   onUpdateRowHeight,
   onUpdateColWidth,
+  showGridlines,
+  showFormulas,
+  freezeRows,
+  freezeCols,
+  onCopy,
+  onPaste,
+  onCut,
 }) => {
   const [editingCell, setEditingCell] = useState<string | null>(null);
   const [isMouseDown, setIsMouseDown] = useState(false);
@@ -79,8 +93,6 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     onUpdateColWidth,
     onUpdateRowHeight
   );
-
-  const [localClipboard, setLocalClipboard] = useState<{ startCell: string; cells: Record<string, CellData> } | null>(null);
 
   useEffect(() => {
     const handleDocumentClick = () => setContextMenu(null);
@@ -132,13 +144,6 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     e.preventDefault();
     handleRowHeaderClick(rowNum);
     setContextMenu({ x: e.clientX, y: e.clientY, type: "row", index: rowNum });
-  };
-
-  const handleCut = () => {
-    handleCopy();
-    getSelectedAddresses().forEach((addr) => {
-      onUpdateCell(addr, { value: "", formula: "" });
-    });
   };
 
   const dragStartRef = useRef<{ col: number; row: number } | null>(null);
@@ -229,155 +234,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
 
   const handleCancelEdit = React.useCallback(() => setEditingCell(null), []);
 
-  const getSelectedAddresses = (): string[] => {
-    if (!selectedRange) return selectedCell ? [selectedCell] : [];
-    const parts = `${selectedRange.start}:${selectedRange.end}`.split(":");
-    if (parts.length !== 2) return [selectedRange.start];
-    const start = parseCellAddress(parts[0]);
-    const end = parseCellAddress(parts[1]);
-    if (!start || !end) return [];
 
-    const startColIdx = colLetterToNumber(start.col);
-    const endColIdx = colLetterToNumber(end.col);
-    const startRow = Math.min(start.row, end.row);
-    const endRow = Math.max(start.row, end.row);
-    const minCol = Math.min(startColIdx, endColIdx);
-    const maxCol = Math.max(startColIdx, endColIdx);
-
-    const addresses: string[] = [];
-    for (let c = minCol; c <= maxCol; c++) {
-      const colLetter = numberToColLetter(c);
-      for (let r = startRow; r <= endRow; r++) {
-        addresses.push(`${colLetter}${r}`);
-      }
-    }
-    return addresses;
-  };
-
-  const handleCopy = () => {
-    const addresses = getSelectedAddresses();
-    if (addresses.length === 0) return;
-
-    const copied: Record<string, CellData> = {};
-    const textDataRows: string[][] = [];
-    
-    const start = parseCellAddress(selectedRange?.start || selectedCell || "A1");
-    const end = parseCellAddress(selectedRange?.end || selectedCell || "A1");
-    if (start && end) {
-      const startColIdx = colLetterToNumber(start.col);
-      const endColIdx = colLetterToNumber(end.col);
-      const minCol = Math.min(startColIdx, endColIdx);
-      const maxCol = Math.max(startColIdx, endColIdx);
-      const minRow = Math.min(start.row, end.row);
-      const maxRow = Math.max(start.row, end.row);
-
-      for (let r = minRow; r <= maxRow; r++) {
-        const rowVal: string[] = [];
-        for (let c = minCol; c <= maxCol; c++) {
-          const addr = `${numberToColLetter(c)}${r}`;
-          if (cells[addr]) {
-            copied[addr] = { ...cells[addr] };
-            rowVal.push(cells[addr].formula || cells[addr].value || "");
-          } else {
-            rowVal.push("");
-          }
-        }
-        textDataRows.push(rowVal);
-      }
-    }
-
-    setLocalClipboard({ startCell: selectedRange ? selectedRange.start : (selectedCell || "A1"), cells: copied });
-
-    const tabSeparatedText = textDataRows.map(row => row.join("\t")).join("\n");
-    let htmlText = "";
-    if (start && end) {
-      htmlText = serializeCellsToHtml(cells, Math.min(start.row, end.row), Math.max(start.row, end.row), Math.min(colLetterToNumber(start.col), colLetterToNumber(end.col)), Math.max(colLetterToNumber(start.col), colLetterToNumber(end.col)));
-    }
-
-    if (htmlText) {
-      navigator.clipboard.write([
-        new ClipboardItem({ "text/html": new Blob([htmlText], { type: "text/html" }), "text/plain": new Blob([tabSeparatedText], { type: "text/plain" }) })
-      ]).catch(() => {
-        navigator.clipboard.writeText(tabSeparatedText).catch(() => {});
-      });
-    } else {
-      navigator.clipboard.writeText(tabSeparatedText).catch(() => {});
-    }
-  };
-
-  const handlePaste = async () => {
-    if (!selectedCell) return;
-    try {
-      const clipboardItems = await navigator.clipboard.read();
-      let htmlText = "";
-      let plainText = "";
-
-      for (const item of clipboardItems) {
-        if (item.types.includes("text/html")) htmlText = await (await item.getType("text/html")).text();
-        if (item.types.includes("text/plain")) plainText = await (await item.getType("text/plain")).text();
-      }
-
-      const targetCellParsed = parseCellAddress(selectedCell);
-      if (!targetCellParsed) return;
-
-      const targetColIdx = colLetterToNumber(targetCellParsed.col);
-      const startRow = targetCellParsed.row;
-      const pasted: Record<string, CellData> = {};
-
-      if (htmlText) {
-        const parsed = parseHtmlToCells(htmlText);
-        parsed?.rows.forEach((row, rOffset) => row.forEach((cellData, cOffset) => {
-          const colIdx = targetColIdx + cOffset;
-          const rowNum = startRow + rOffset;
-          if (colIdx >= 0 && colIdx < colCount && rowNum >= 1 && rowNum <= rowCount) {
-            pasted[`${numberToColLetter(colIdx)}${rowNum}`] = cellData;
-          }
-        }));
-      }
-
-      if (Object.keys(pasted).length === 0 && plainText) {
-        const rows = plainText.split(/\r?\n/);
-        rows.forEach((row, rOffset) => {
-          if (rOffset === rows.length - 1 && row.trim() === "") return;
-          row.split("\t").forEach((val, cOffset) => {
-            const colIdx = targetColIdx + cOffset;
-            const rowNum = startRow + rOffset;
-            if (colIdx >= 0 && colIdx < colCount && rowNum >= 1 && rowNum <= rowCount) {
-              pasted[`${numberToColLetter(colIdx)}${rowNum}`] = { value: val.startsWith("=") ? "" : val, formula: val.startsWith("=") ? val : "" };
-            }
-          });
-        });
-      }
-
-      if (Object.keys(pasted).length > 0) {
-        onPasteCells(pasted);
-        return;
-      }
-    } catch {
-      // Fallback
-    }
-
-    if (!localClipboard) return;
-    const startCellParsed = parseCellAddress(localClipboard.startCell);
-    const targetCellParsed = parseCellAddress(selectedCell);
-    if (!startCellParsed || !targetCellParsed) return;
-
-    const colOffset = colLetterToNumber(targetCellParsed.col) - colLetterToNumber(startCellParsed.col);
-    const rowOffset = targetCellParsed.row - startCellParsed.row;
-    const pastedLocal: Record<string, CellData> = {};
-
-    Object.keys(localClipboard.cells).forEach((addr) => {
-      const parsed = parseCellAddress(addr);
-      if (parsed) {
-        const newColIdx = colLetterToNumber(parsed.col) + colOffset;
-        const newRow = parsed.row + rowOffset;
-        if (newColIdx >= 0 && newColIdx < colCount && newRow >= 1 && newRow <= rowCount) {
-          pastedLocal[`${numberToColLetter(newColIdx)}${newRow}`] = { ...localClipboard.cells[addr] };
-        }
-      }
-    });
-    onPasteCells(pastedLocal);
-  };
 
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -391,15 +248,17 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
           onSelectCell("A1");
           onSelectRange({ start: "A1", end: `${numberToColLetter(colCount - 1)}${rowCount}` });
           containerRef.current?.querySelectorAll(".sheet-cell").forEach(el => el.classList.add("in-range"));
-        } else if (key === "c") { e.preventDefault(); handleCopy(); }
-        else if (key === "v") { e.preventDefault(); handlePaste(); }
+        } else if (key === "c") { e.preventDefault(); onCopy(); }
+        else if (key === "v") { e.preventDefault(); onPaste(); }
+        else if (key === "x") { e.preventDefault(); onCut(); }
         else if (key === "z") { e.preventDefault(); onUndo(); }
+        else if (key === "y") { e.preventDefault(); onRedo(); }
       }
     };
 
     window.addEventListener("keydown", handleGlobalKeyDown);
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [editingCell, colCount, rowCount, onSelectCell, onSelectRange, onUndo, cells, selectedRange, selectedCell, localClipboard]);
+  }, [editingCell, colCount, rowCount, onSelectCell, onSelectRange, onUndo, onRedo, onCopy, onPaste, onCut]);
 
   const isCellInRange = (addr: string) => {
     if (!selectedRange) return false;
@@ -425,14 +284,38 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
 
   const renderCells = () => {
     const tableRows = [];
-    const headerCols = [<th key="corner" className="th-corner" style={{ width: "40px", minWidth: "40px", maxWidth: "40px" }}></th>];
+    const cornerHeaderStyle: React.CSSProperties = {
+      width: "40px", minWidth: "40px", maxWidth: "40px",
+      position: "sticky", top: 0, left: 0, zIndex: 30
+    };
+    const headerCols = [<th key="corner" className="th-corner" style={cornerHeaderStyle}></th>];
     for (let c = 0; c < colCount; c++) {
       const colLetter = numberToColLetter(c);
       const colWidth = colWidths?.[colLetter] || 100;
+
+      const isColFrozen = c < freezeCols;
+      let stickyLeft = 0;
+      if (isColFrozen) {
+        let offset = 40;
+        for (let prevC = 0; prevC < c; prevC++) {
+          offset += colWidths?.[numberToColLetter(prevC)] || 100;
+        }
+        stickyLeft = offset;
+      }
+
+      const colHeaderStyle: React.CSSProperties = {
+        width: `${colWidth}px`, minWidth: `${colWidth}px`, maxWidth: `${colWidth}px`,
+        position: "sticky", top: 0,
+        zIndex: isColFrozen ? 22 : 5
+      };
+      if (isColFrozen) {
+        colHeaderStyle.left = `${stickyLeft}px`;
+      }
+
       headerCols.push(
         <th 
           key={colLetter} className="th-col"
-          style={{ width: `${colWidth}px`, minWidth: `${colWidth}px`, maxWidth: `${colWidth}px`, position: "relative" }}
+          style={colHeaderStyle}
           onClick={() => handleColHeaderClick(c)} onContextMenu={(e) => handleColHeaderContextMenu(e, c)}
         >
           {colLetter}
@@ -444,9 +327,28 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
 
     for (let r = 1; r <= renderedRowCount; r++) {
       const rowHeight = rowHeights?.[r] || 25;
+
+      const isRowFrozen = r <= freezeRows;
+      let stickyTop = 0;
+      if (isRowFrozen) {
+        let offset = 25;
+        for (let prevR = 1; prevR < r; prevR++) {
+          offset += rowHeights?.[prevR] || 25;
+        }
+        stickyTop = offset;
+      }
+
+      const rowHeaderStyle: React.CSSProperties = {
+        position: "sticky", left: 0,
+        zIndex: isRowFrozen ? 21 : 5
+      };
+      if (isRowFrozen) {
+        rowHeaderStyle.top = `${stickyTop}px`;
+      }
+
       const rowCells = [
         <td 
-          key={`row-header-${r}`} className="th-row" style={{ position: "relative" }}
+          key={`row-header-${r}`} className="th-row" style={rowHeaderStyle}
           onClick={() => handleRowHeaderClick(r)} onContextMenu={(e) => handleRowHeaderContextMenu(e, r)}
         >
           {r}
@@ -458,7 +360,29 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
         const colLetter = numberToColLetter(c);
         const address = `${colLetter}${r}`;
         const cellData = cells[address];
-        const displayValue = cellData ? (cellData.formula ? evaluateFormula(cellData.formula, cells) : (cellData.value || "")) : "";
+        const displayValue = cellData ? (showFormulas ? (cellData.formula || cellData.value || "") : (cellData.formula ? evaluateFormula(cellData.formula, cells) : (cellData.value || ""))) : "";
+
+        const isColFrozen = c < freezeCols;
+        let stickyLeft = 0;
+        if (isColFrozen) {
+          let offset = 40;
+          for (let prevC = 0; prevC < c; prevC++) {
+            offset += colWidths?.[numberToColLetter(prevC)] || 100;
+          }
+          stickyLeft = offset;
+        }
+
+        const cellStyle: React.CSSProperties = {};
+        if (isRowFrozen) {
+          cellStyle.position = "sticky";
+          cellStyle.top = `${stickyTop}px`;
+          cellStyle.zIndex = isColFrozen ? 20 : 10;
+        }
+        if (isColFrozen) {
+          cellStyle.position = "sticky";
+          cellStyle.left = `${stickyLeft}px`;
+          cellStyle.zIndex = isRowFrozen ? 20 : 9;
+        }
 
         rowCells.push(
           <GridCell
@@ -466,6 +390,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
             isSelected={selectedCell === address} isEditing={editingCell === address} inRange={isCellInRange(address)}
             onCellMouseDown={handleCellMouseDown} onCellMouseEnter={handleCellMouseEnter}
             onCellDoubleClick={handleCellDoubleClick} onCommit={(val, dir) => handleCommitEdit(address, val, dir)} onCancel={handleCancelEdit}
+            style={cellStyle}
           />
         );
       }
@@ -481,13 +406,13 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
       ref={containerRef} className="sheet-grid-container" tabIndex={0}
       onMouseMove={handleContainerMouseMove} style={{ outline: "none", position: "relative" }}
     >
-      <table className="sheet-table" style={{ width: `${totalTableWidth}px`, tableLayout: "fixed" }}>
+      <table className={`sheet-table ${showGridlines ? "" : "hide-gridlines"}`} style={{ width: `${totalTableWidth}px`, tableLayout: "fixed" }}>
         <tbody>{renderCells()}</tbody>
       </table>
 
       <GridContextMenu
         contextMenu={contextMenu} onClose={() => setContextMenu(null)}
-        handleCut={handleCut} handleCopy={handleCopy} handlePaste={handlePaste}
+        handleCut={onCut} handleCopy={onCopy} handlePaste={onPaste}
         onInsertRow={onInsertRow} onDeleteRow={onDeleteRow} onClearRow={onClearRow} rowHeights={rowHeights} onUpdateRowHeight={onUpdateRowHeight}
         onInsertCol={onInsertCol} onDeleteCol={onDeleteCol} onClearCol={onClearCol} colWidths={colWidths} onUpdateColWidth={onUpdateColWidth}
       />

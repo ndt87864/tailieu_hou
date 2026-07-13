@@ -218,7 +218,13 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
           link.click();
         }}
         handleExportCSV={() => { exportToCsvOrTsv("csv", state.title, state.cells); toast.success("Đã xuất CSV!"); }}
-        onUndo={state.handleUndo} onCopy={() => {}} onPaste={() => {}} onToggleFindReplace={() => setShowFindReplace(!showFindReplace)}
+        onUndo={state.handleUndo}
+        onRedo={state.handleRedo}
+        onCut={state.cutSelection}
+        onCopy={state.copySelection}
+        onPaste={() => state.pasteClipboard("all")}
+        onPasteSpecial={state.pasteClipboard}
+        onToggleFindReplace={() => setShowFindReplace(!showFindReplace)}
         onInsertRow={(pos) => state.selectedCell ? state.insertRow(parseCellAddress(state.selectedCell)!.row, pos) : state.insertRow(state.rowCount, pos)}
         onInsertCol={(pos) => state.selectedCell ? state.insertColumn(parseCellAddress(state.selectedCell)!.col, pos) : state.insertColumn(numberToColLetter(state.colCount - 1), pos)}
         onInsertFormula={state.insertFormula} onApplyStyle={state.handleToolbarStyleChange} onOpenHelp={() => setShowHelpModal(true)}
@@ -251,13 +257,48 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
           state.updateSheetsAndSaveHistory(prev => { const copy = [...prev]; copy[idx] = { ...copy[idx], isHidden: false }; return copy; });
           state.setActiveSheetIdx(idx);
         }}
+        showFormulaBar={state.showFormulaBar}
+        setShowFormulaBar={state.setShowFormulaBar}
+        showGridlines={state.showGridlines}
+        setShowGridlines={state.setShowGridlines}
+        showFormulas={state.showFormulas}
+        setShowFormulas={state.setShowFormulas}
+        freezeRows={state.freezeRows}
+        setFreezeRows={state.setFreezeRows}
+        freezeCols={state.freezeCols}
+        setFreezeCols={state.setFreezeCols}
+        onSortSheet={(dir) => { if (state.selectedCell) { const col = parseCellAddress(state.selectedCell)!.col; state.sortActiveSheet(col, dir); } }}
+        onTrimWhitespace={state.trimWhitespace}
+        onRemoveEmptyRows={state.removeEmptyRows}
+        selectedCell={state.selectedCell}
+        onDeleteRow={(rowNum) => state.deleteRow(rowNum)}
+        onDeleteCol={(colLetter) => state.deleteColumn(colLetter)}
+        onClearValues={() => {
+          const addresses = state.getSelectedAddresses();
+          if (addresses.length === 0) return;
+          state.updateSheetsAndSaveHistory((prev) => {
+            const newSheets = [...prev];
+            const targetSheet = { ...newSheets[state.activeSheetIdx] };
+            addresses.forEach((addr) => {
+              targetSheet.cells[addr] = { value: "", formula: "" };
+            });
+            newSheets[state.activeSheetIdx] = targetSheet;
+            return newSheets;
+          });
+        }}
+        onFormatSelection={state.formatSelection}
+        onAlignChange={state.handleAlignChange}
+        onRemoveDuplicates={state.removeDuplicates}
+        onClearFormatting={state.clearFormatting}
       />
 
       <SpreadsheetToolbar
         activeCell={activeCellStyle} zoomLevel={state.zoomLevel} setZoomLevel={state.setZoomLevel}
-        showFindReplace={showFindReplace} setShowFindReplace={setShowFindReplace} handleUndo={state.handleUndo}
+        showFindReplace={showFindReplace} setShowFindReplace={setShowFindReplace}
+        handleUndo={state.handleUndo} handleRedo={state.handleRedo}
+        canUndo={state.canUndo} canRedo={state.canRedo}
         handleFontChange={state.handleFontChange} handleToolbarStyleChange={state.handleToolbarStyleChange}
-        handleAlignChange={state.handleAlignChange} handleColorChange={state.handleColorChange}
+        handleAlignChange={state.handleAlignChange} handleColorChange={(key, value) => state.handleColorChange(key === "color" ? "text" : "bg", value)}
         onFormatSelection={state.formatSelection} onInsertFormula={state.insertFormula}
       />
 
@@ -273,23 +314,28 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
         </div>
       )}
 
-      <div className="sheet-formula-bar">
-        <div className="formula-cell-address">{state.selectedCell || ""}</div>
-        <div className="formula-icon-fx">fx</div>
-        <input
-          type="text" className="formula-input" value={state.formulaValue} onChange={state.handleFormulaInputChange}
-          placeholder="Nhập giá trị hoặc công thức (ví dụ: =SUM(A1:A5))" disabled={!state.selectedCell}
-        />
-      </div>
+      {state.showFormulaBar && (
+        <div className="sheet-formula-bar">
+          <div className="formula-cell-address">{state.selectedCell || ""}</div>
+          <div className="formula-icon-fx">fx</div>
+          <input
+            type="text" className="formula-input" value={state.formulaValue} onChange={state.handleFormulaInputChange}
+            placeholder="Nhập giá trị hoặc công thức (ví dụ: =SUM(A1:A5))" disabled={!state.selectedCell}
+          />
+        </div>
+      )}
 
       <div style={{ zoom: state.zoomLevel === "100%" ? undefined : parseFloat(state.zoomLevel) / 100, overflow: "auto", flex: 1 }}>
         <SpreadsheetGrid
           cells={state.cells} selectedCell={state.selectedCell} onSelectCell={state.setSelectedCell}
           selectedRange={state.selectedRange} onSelectRange={state.setSelectedRange} onUpdateCell={state.handleUpdateCell}
-          onPasteCells={state.handlePasteCells} rowCount={state.rowCount} colCount={state.colCount} onUndo={state.handleUndo}
+          rowCount={state.rowCount} colCount={state.colCount} onUndo={state.handleUndo}
+          onRedo={state.handleRedo}
           onInsertRow={state.insertRow} onInsertCol={state.insertColumn} onDeleteRow={state.deleteRow} onDeleteCol={state.deleteColumn}
           onClearRow={state.clearRow} onClearCol={state.clearColumn} rowHeights={state.sheets[state.activeSheetIdx]?.rowHeights}
           colWidths={state.sheets[state.activeSheetIdx]?.colWidths} onUpdateRowHeight={state.handleUpdateRowHeight} onUpdateColWidth={state.handleUpdateColWidth}
+          showGridlines={state.showGridlines} showFormulas={state.showFormulas} freezeRows={state.freezeRows} freezeCols={state.freezeCols}
+          onCopy={state.copySelection} onPaste={() => state.pasteClipboard("all")} onCut={state.cutSelection}
         />
       </div>
 
@@ -320,7 +366,7 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
             )}
           </div>
         ))}
-        <button onClick={() => { const u = state.handleAddSheet(); setTimeout(() => state.handleSave(u), 100); }} className="btn-add-tab"><Plus className="w-3.5 h-3.5" /></button>
+        <button onClick={state.handleAddSheet} className="btn-add-tab"><Plus className="w-3.5 h-3.5" /></button>
       </div>
 
       <TabContextMenu

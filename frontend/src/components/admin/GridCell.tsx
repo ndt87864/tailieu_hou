@@ -68,6 +68,7 @@ interface GridCellProps {
   onCellDoubleClick: (address: string) => void;
   onCommit: (newValue: string, moveDirection: "down" | "none") => void;
   onCancel: () => void;
+  style?: React.CSSProperties;
 }
 
 export const GridCell: React.FC<GridCellProps> = React.memo(({
@@ -84,6 +85,7 @@ export const GridCell: React.FC<GridCellProps> = React.memo(({
   onCellDoubleClick,
   onCommit,
   onCancel,
+  style,
 }) => {
   const cellStyle: React.CSSProperties = {
     fontWeight: cellData?.bold ? "bold" : "normal",
@@ -94,6 +96,7 @@ export const GridCell: React.FC<GridCellProps> = React.memo(({
     textAlign: cellData?.align || "left",
     fontFamily: cellData?.fontFamily || "inherit",
     fontSize: cellData?.fontSize || "inherit",
+    ...style,
   };
 
   return (
@@ -118,7 +121,6 @@ export const GridCell: React.FC<GridCellProps> = React.memo(({
     </td>
   );
 }, (prevProps, nextProps) => {
-  // Chỉ re-render nếu có các thay đổi quan trọng dưới đây
   return (
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.isEditing === nextProps.isEditing &&
@@ -127,7 +129,8 @@ export const GridCell: React.FC<GridCellProps> = React.memo(({
     prevProps.cellData === nextProps.cellData &&
     prevProps.onCellMouseDown === nextProps.onCellMouseDown &&
     prevProps.onCellMouseEnter === nextProps.onCellMouseEnter &&
-    prevProps.onCellDoubleClick === nextProps.onCellDoubleClick
+    prevProps.onCellDoubleClick === nextProps.onCellDoubleClick &&
+    prevProps.style === nextProps.style
   );
 });
 
