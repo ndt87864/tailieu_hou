@@ -1,23 +1,15 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import apiClient from "../../services/client.js";
 import * as Icons from "lucide-react";
 import { useUI } from "../../context/UIContext.js";
 
-const { GraduationCap, ChevronDown, ChevronRight, ChevronLeft, X, Crown, Search } = Icons;
+const { GraduationCap, ChevronRight, ChevronLeft, X, Search } = Icons;
 
 interface Document {
   id: string;
   title: string;
-  description: string;
-  premium?: boolean;
-  crawler_courses?: any;
   category_id?: string | null;
-  category?: {
-    title: string;
-    logo?: string | null;
-    stt?: number | null;
-  } | null;
 }
 
 interface SidebarCategory {
@@ -35,60 +27,36 @@ interface DocumentSidebarProps {
 
 export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
   currentDocId,
-  isContactPage: _isContactPage = false,
+  isContactPage = false,
 }) => {
-  const { lessonMode, navigateWithPrefetch } = useUI();
+  const { lessonMode } = useUI();
+  const location = useLocation();
   const [sidebarCategories, setSidebarCategories] = useState<SidebarCategory[]>([]);
-
-  const [searchQuery, setSearchQuery] = useState("");
-  const displayedCategories = useMemo(() => {
-    let cats = sidebarCategories;
-    
-    // Lọc theo tìm kiếm
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      cats = cats.map(cat => ({
-        ...cat,
-        documents: cat.documents.filter(d => d.title.toLowerCase().includes(q))
-      }));
-    }
-
-    return cats.filter((cat) => cat.documents.length > 0);
-  }, [sidebarCategories, searchQuery]);
-
-  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
-  
-  // Tự động mở category khi có tìm kiếm
-  useEffect(() => {
-    if (searchQuery.trim() && displayedCategories.length > 0) {
-      const newExpanded: Record<string, boolean> = {};
-      displayedCategories.forEach(cat => {
-        newExpanded[cat.id] = true;
-      });
-      setExpandedCategories(prev => ({ ...prev, ...newExpanded }));
-    }
-  }, [searchQuery, displayedCategories]);
-
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [activeTabletPopover, setActiveTabletPopover] = useState<string | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(() => {
     const stored = localStorage.getItem("sidebar-collapsed");
     if (stored !== null) return stored === "true";
     return window.innerWidth < 1024;
   });
+  const [isHovered, setIsHovered] = useState(false);
+  const [tempDisableHover, setTempDisableHover] = useState(false);
 
   const toggleCollapse = () => {
     setIsCollapsed((prev) => {
       const next = !prev;
       localStorage.setItem("sidebar-collapsed", String(next));
+      if (next) {
+        setTempDisableHover(true);
+      }
       return next;
     });
+    setIsHovered(false);
   };
 
   useEffect(() => {
     const apiPath = lessonMode 
-      ? "/api/v1/documents/grouped/lms" 
-      : "/api/v1/documents/grouped?full=true";
+      ? "/api/v1/documents/categories?lms=true" 
+      : "/api/v1/documents/categories";
 
     apiClient.get<{ categories: SidebarCategory[] }>(apiPath)
       .then((res) => {
@@ -101,29 +69,33 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
   }, [lessonMode]);
 
   useEffect(() => {
-    if (currentDocId && displayedCategories.length > 0) {
-      const activeCat = displayedCategories.find((cat) =>
-        cat.documents.some((d) => d.id === currentDocId)
-      );
-      if (activeCat) {
-        setExpandedCategories((prev) => ({ ...prev, [activeCat.id]: true }));
-      }
-    }
-  }, [currentDocId, displayedCategories]);
-
-  useEffect(() => {
-    const handleOutsideClick = () => {
-      setActiveTabletPopover(null);
-    };
-    document.addEventListener("click", handleOutsideClick);
-    return () => document.removeEventListener("click", handleOutsideClick);
-  }, []);
-
-  useEffect(() => {
     const handleOpenSidebar = () => setMobileOpen(true);
     window.addEventListener("open-doc-sidebar", handleOpenSidebar);
     return () => window.removeEventListener("open-doc-sidebar", handleOpenSidebar);
   }, []);
+
+  const [currentCategoryId, setCurrentCategoryId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const matchCat = location.pathname.match(/\/categories\/([^/]+)/);
+    if (matchCat) {
+      setCurrentCategoryId(matchCat[1]);
+    } else if (currentDocId) {
+      apiClient.get<{ document: any }>(`/api/v1/documents/${currentDocId}`)
+        .then((res) => {
+          if (res.data.document) {
+            setCurrentCategoryId(res.data.document.category_id);
+          }
+        })
+        .catch((err) => {
+          console.error("Lỗi lấy thông tin tài liệu cho sidebar:", err);
+        });
+    } else {
+      setCurrentCategoryId(null);
+    }
+  }, [location.pathname, currentDocId]);
+
+  const activeCategoryId = currentCategoryId;
 
   const getCategoryInfo = (catId: string, customTitle?: string | null, logoName?: string | null) => {
     const title = customTitle || (catId === "other" ? "Khác" : "Chuyên mục");
@@ -138,18 +110,16 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
       const normalized = title.toLowerCase();
       if (normalized.includes("thi") || normalized.includes("khảo sát") || normalized.includes("đề")) {
         icon = (className: string) => <Icons.GraduationCap className={className} />;
-      } else if (normalized.includes("thuyết") || normalized.includes("sách") || normalized.includes("tài liệu") || normalized.includes("bài giảng") || normalized.includes("giáo trình")) {
+      } else if (normalized.includes("thuyết") || normalized.includes("sách") || normalized.includes("tài liệu")) {
         icon = (className: string) => <Icons.Book className={className} />;
-      } else if (normalized.includes("tập") || normalized.includes("hành")) {
-        icon = (className: string) => <Icons.PenTool className={className} />;
       }
     }
-
     return { label: title, icon };
   };
 
   return (
     <>
+      {/* Mobile Sidebar Drawer */}
       {mobileOpen && (
         <>
           <div 
@@ -168,82 +138,40 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
               </button>
             </div>
             
-            <div className="px-4 py-3 shrink-0 border-b doc-border-brand">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50" />
-                <input
-                  type="text"
-                  placeholder="Tìm môn học..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-8 py-1.5 rounded-lg bg-[rgba(255,255,255,0.08)] border border-white/10 text-white text-sm focus:outline-none focus:border-white/30 placeholder:text-white/50 transition-colors"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery("")}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-colors"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
-              {displayedCategories.map((cat) => {
-                const isExpanded = !!expandedCategories[cat.id];
+            <div className="flex-1 overflow-y-auto p-4 space-y-2 pb-24">
+              {sidebarCategories.map((cat) => {
+                const isActive = activeCategoryId === cat.id;
+                const catInfo = getCategoryInfo(cat.id, cat.title, cat.logo);
                 return (
-                  <div key={cat.id} className="space-y-1">
-                    <button
-                      onClick={() => setExpandedCategories((prev) => ({ ...prev, [cat.id]: !prev[cat.id] }))}
-                      className="w-full flex items-center justify-between p-2 rounded-lg transition-colors text-left text-white/90 hover:bg-[rgba(255,255,255,0.08)]"
-                    >
-                      <span className="font-semibold text-sm truncate flex items-center gap-2">
-                        {getCategoryInfo(cat.id, cat.title, cat.logo).icon("w-4 h-4 text-white/80 shrink-0")}
-                        {cat.title}
-                      </span>
-                      {isExpanded ? <ChevronDown className="w-4 h-4 text-white/70" /> : <ChevronRight className="w-4 h-4 text-white/70" />}
-                    </button>
-                    {isExpanded && (
-                      <div className="pl-3 border-l ml-2 space-y-1 py-1 doc-border-light">
-                        {cat.documents.map((d) => {
-                          const isActive = d.id === currentDocId;
-                          return (
-                            <a
-                              key={d.id}
-                              href={`/documents/${d.id}`}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setMobileOpen(false);
-                                navigateWithPrefetch(d.id);
-                              }}
-                              className={`block p-2 rounded-md text-xs transition-all ${
-                                isActive ? "text-white font-bold doc-sidebar-item-active" : "text-white/70 hover:text-white hover:bg-[rgba(255,255,255,0.08)]"
-                              }`}
-                            >
-                              <span className="flex items-center gap-1.5">
-                                {d.title}
-                                {d.premium && <Crown className="w-2.5 h-2.5 text-amber-400 shrink-0" />}
-                              </span>
-                            </a>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
+                  <Link
+                    key={cat.id}
+                    to={`/categories/${cat.id}`}
+                    onClick={() => setMobileOpen(false)}
+                    className={`flex items-center justify-between p-3 rounded-xl transition-colors text-left ${
+                      isActive 
+                        ? "text-white font-bold bg-[rgba(255,255,255,0.15)] doc-sidebar-item-active" 
+                        : "text-white/70 hover:text-white hover:bg-[rgba(255,255,255,0.08)]"
+                    }`}
+                  >
+                    <span className="font-semibold text-sm truncate flex items-center gap-3">
+                      {catInfo.icon("w-5 h-5 shrink-0")}
+                      {cat.title}
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-white/50" />
+                  </Link>
                 );
               })}
 
               <Link
                 to="/pricing"
                 onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-2 p-2 rounded-lg text-sm transition-colors ${
-                  _isContactPage
-                    ? "text-white font-bold bg-[rgba(255,255,255,0.12)] doc-sidebar-item-active"
-                    : "text-white/90 hover:bg-[rgba(255,255,255,0.08)]"
+                className={`flex items-center gap-3 p-3 rounded-xl text-sm transition-colors mt-2 ${
+                  isContactPage
+                    ? "text-white font-bold bg-[rgba(255,255,255,0.15)] doc-sidebar-item-active"
+                    : "text-white/70 hover:bg-[rgba(255,255,255,0.08)]"
                 }`}
               >
-                <Icons.Phone className="w-4 h-4 text-white/80 shrink-0" />
+                <Icons.Phone className="w-5 h-5 shrink-0" />
                 <span className="font-semibold">Liên hệ</span>
               </Link>
             </div>
@@ -251,186 +179,126 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
         </>
       )}
 
+      {/* Desktop Layout Spacer (ngăn dịch chuyển layout khi hover sidebar) */}
       <div 
-        className={`${isCollapsed ? "hidden md:flex" : "hidden"} w-20 shrink-0 flex-col items-center py-6 border-r md:sticky md:top-0 md:h-[calc(100vh/0.9)] z-20 doc-brand-header`}
+        className={`hidden md:block shrink-0 transition-all duration-300 ${isCollapsed ? "w-16" : "w-64"}`} 
+      />
+
+      {/* Unified Desktop Sidebar with Hover Expand (Lenovo Vantage Style) */}
+      <div 
+        onMouseEnter={() => {
+          if (!tempDisableHover && window.matchMedia("(hover: hover)").matches) {
+            setIsHovered(true);
+          }
+        }}
+        onMouseLeave={() => {
+          setIsHovered(false);
+          setTempDisableHover(false);
+        }}
+        className={`hidden md:flex flex-col border-r border-white/10 fixed top-0 bottom-0 left-0 z-[60] transition-all duration-300 doc-brand-header ${
+          isCollapsed 
+            ? isHovered 
+              ? "w-64 shadow-2xl" 
+              : "w-16" 
+            : "w-64"
+        }`}
       >
-        <Link to="/" className="mb-4 text-white hover:opacity-80 transition-opacity" title="Về trang chủ">
-          <GraduationCap className="w-6 h-6" />
-        </Link>
-        <button
-          onClick={toggleCollapse}
-          className="mb-8 p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-[rgba(255,255,255,0.08)] transition-colors"
-          title="Mở rộng sidebar"
-        >
-          <ChevronRight className="w-5 h-5" />
-        </button>
-        <div className="flex-1 w-full space-y-4 px-2 flex flex-col items-center">
-          {displayedCategories.map((cat) => {
+        {/* Header của Sidebar */}
+        <div className="p-4 pb-0 shrink-0">
+          <div className="flex items-center justify-between border-b border-white/10 mb-4 pb-2 h-10 overflow-hidden">
+            <Link 
+              to="/"
+              className={`flex items-center gap-2.5 font-bold text-base text-white hover:opacity-80 transition-opacity ${
+                !isCollapsed || isHovered ? "opacity-100" : "opacity-0 w-0 pointer-events-none"
+              }`}
+            >
+              <GraduationCap className="w-5 h-5 text-white" />
+              <span className="truncate">Tài liệu HOU</span>
+            </Link>
+            
+            {/* Nút Toggle cứng (Cố định ở bên phải khi mở rộng, hoặc nằm giữa khi thu gọn) */}
+            <button
+              onClick={toggleCollapse}
+              className={`p-1.5 rounded-lg text-white/75 hover:text-white hover:bg-[rgba(255,255,255,0.08)] transition-all ${
+                isCollapsed && !isHovered ? "mx-auto" : ""
+              }`}
+              title={isCollapsed ? "Mở rộng sidebar" : "Thu nhỏ sidebar"}
+            >
+              {isCollapsed ? (
+                isHovered ? <ChevronLeft className="w-4 h-4" /> : <Icons.Menu className="w-4 h-4" />
+              ) : (
+                <ChevronLeft className="w-4 h-4" />
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Danh sách Chuyên mục */}
+        <div className={`flex-1 overflow-y-auto px-2 space-y-2 py-2 scrollbar-thin ${isCollapsed && !isHovered ? "flex flex-col items-center" : ""}`}>
+          {sidebarCategories.map((cat) => {
+            const isActive = activeCategoryId === cat.id;
             const catInfo = getCategoryInfo(cat.id, cat.title, cat.logo);
-            const isPopoverOpen = activeTabletPopover === cat.id;
-            return (
-              <div 
-                key={cat.id} 
-                className="relative"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setActiveTabletPopover(isPopoverOpen ? null : cat.id);
-                }}
-              >
-                <button 
+            
+            if (isCollapsed && !isHovered) {
+              return (
+                <Link 
+                  key={cat.id} 
+                  to={`/categories/${cat.id}`}
                   title={cat.title}
-                  className={`w-12 h-12 rounded-xl flex items-center justify-center text-white/90 hover:bg-[rgba(255,255,255,0.08)] transition-colors ${
-                    isPopoverOpen ? "bg-[rgba(255,255,255,0.12)] text-white" : ""
+                  className={`w-11 h-11 rounded-xl flex items-center justify-center text-white/90 hover:bg-[rgba(255,255,255,0.08)] transition-colors ${
+                    isActive ? "bg-[rgba(255,255,255,0.15)] text-white shadow-sm" : ""
                   }`}
                 >
                   {catInfo.icon("w-5 h-5")}
-                </button>
-                {isPopoverOpen && (
-                  <div 
-                    className="absolute left-full top-0 ml-2 w-64 rounded-xl shadow-xl p-3 z-30 animate-scale-in origin-left doc-brand-header border border-white/10"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <h4 className="font-bold text-sm text-white mb-2 pb-1 border-b border-white/10 truncate">
-                      {cat.title}
-                    </h4>
-                    <div className="space-y-1 max-h-60 overflow-y-auto">
-                      {cat.documents.map((d) => {
-                        const isActive = d.id === currentDocId;
-                        return (
-                          <a
-                            key={d.id}
-                            href={`/documents/${d.id}`}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setActiveTabletPopover(null);
-                              navigateWithPrefetch(d.id);
-                            }}
-                            className={`block p-2 rounded-md text-xs transition-all ${
-                              isActive ? "text-white font-bold doc-popover-item-active" : "text-white/70 hover:text-white hover:bg-[rgba(255,255,255,0.08)]"
-                            }`}
-                          >
-                            <span className="flex items-center gap-1.5">
-                              {d.title}
-                              {d.premium && <Crown className="w-2.5 h-2.5 text-amber-400 shrink-0" />}
-                            </span>
-                          </a>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
+                </Link>
+              );
+            }
+
+            return (
+              <Link
+                key={cat.id}
+                to={`/categories/${cat.id}`}
+                className={`flex items-center justify-between p-3 rounded-xl transition-all w-full text-left ${
+                  isActive 
+                    ? "text-white font-bold bg-[rgba(255,255,255,0.15)] border-l-2 border-white doc-sidebar-item-active" 
+                    : "text-white/70 hover:text-white hover:bg-[rgba(255,255,255,0.08)]"
+                }`}
+              >
+                <span className="font-semibold text-xs truncate flex items-center gap-2.5">
+                  {catInfo.icon("w-4.5 h-4.5 shrink-0")}
+                  {cat.title}
+                </span>
+                <ChevronRight className="w-3.5 h-3.5 opacity-50 shrink-0" />
+              </Link>
             );
           })}
         </div>
-        <Link
-          to="/pricing"
-          title="Liên hệ"
-          className={`w-12 h-12 rounded-xl flex items-center justify-center text-white/90 hover:bg-[rgba(255,255,255,0.08)] transition-colors mt-2 ${
-            _isContactPage ? "bg-[rgba(255,255,255,0.12)] text-white" : ""
-          }`}
-        >
-          <Icons.Phone className="w-5 h-5" />
-        </Link>
-      </div>
 
-      <div 
-        className={`${isCollapsed ? "hidden" : "hidden md:flex"} w-72 shrink-0 flex-col border-r md:sticky md:top-0 md:h-[calc(100vh/0.9)] z-10 animate-fade-in doc-brand-header`}
-      >
-        <div className="p-4 pb-0 shrink-0">
-          <div className="flex items-center justify-between border-b doc-border-brand mb-4 pb-2">
-            <Link 
-              to="/"
-              className="flex items-center gap-2.5 font-bold text-lg text-white hover:opacity-80 transition-opacity"
-            >
-              <GraduationCap className="w-5 h-5 text-white" />
-              <span>Tài liệu HOU</span>
-            </Link>
-            <button
-              onClick={toggleCollapse}
-              className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-[rgba(255,255,255,0.08)] transition-colors"
-              title="Thu nhỏ sidebar"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="relative mb-2">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50" />
-            <input
-              type="text"
-              placeholder="Tìm môn học..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-8 py-1.5 rounded-lg bg-[rgba(255,255,255,0.08)] border border-white/10 text-white text-sm focus:outline-none focus:border-white/30 placeholder:text-white/50 transition-colors"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-colors"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4 pt-2 pb-24 space-y-4">
-          <div className="space-y-2">
-            {displayedCategories.map((cat) => {
-              const isExpanded = !!expandedCategories[cat.id];
-              return (
-                <div key={cat.id} className="space-y-1">
-                  <button
-                    onClick={() => setExpandedCategories((prev) => ({ ...prev, [cat.id]: !prev[cat.id] }))}
-                    className="w-full flex items-center justify-between p-2 rounded-lg transition-colors text-left text-white/90 hover:bg-[rgba(255,255,255,0.08)]"
-                  >
-                    <span className="font-semibold text-sm truncate flex items-center gap-2">
-                      {getCategoryInfo(cat.id, cat.title, cat.logo).icon("w-4 h-4 text-white/80 shrink-0")}
-                      {cat.title}
-                    </span>
-                    {isExpanded ? <ChevronDown className="w-4 h-4 text-white/70" /> : <ChevronRight className="w-4 h-4 text-white/70" />}
-                  </button>
-                  {isExpanded && (
-                    <div className="pl-3 border-l ml-2 space-y-1 py-1 doc-border-light">
-                      {cat.documents.map((d) => {
-                        const isActive = d.id === currentDocId;
-                        return (
-                          <a
-                            key={d.id}
-                            href={`/documents/${d.id}`}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              navigateWithPrefetch(d.id);
-                            }}
-                            className={`block p-2 rounded-md text-xs transition-all ${
-                              isActive ? "text-white font-bold border-l-2 doc-sidebar-item-active" : "text-white/70 hover:text-white hover:bg-[rgba(255,255,255,0.08)]"
-                            }`}
-                          >
-                            <span className="flex items-center gap-1.5">
-                              {d.title}
-                              {d.premium && <Crown className="w-2.5 h-2.5 text-amber-400 shrink-0" />}
-                            </span>
-                          </a>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+        {/* Nút Liên hệ ở dưới cùng */}
+        <div className="p-2 border-t border-white/10 shrink-0">
+          {isCollapsed && !isHovered ? (
             <Link
               to="/pricing"
-              className={`flex items-center gap-2 p-2 rounded-lg text-sm transition-colors mt-2 ${
-                _isContactPage
-                  ? "text-white font-bold bg-[rgba(255,255,255,0.12)] border-l-2 doc-sidebar-item-active"
-                  : "text-white/90 hover:bg-[rgba(255,255,255,0.08)]"
+              title="Liên hệ"
+              className={`w-12 h-12 rounded-xl flex items-center justify-center text-white/90 hover:bg-[rgba(255,255,255,0.08)] transition-colors mx-auto ${
+                isContactPage ? "bg-[rgba(255,255,255,0.15)] text-white" : ""
               }`}
             >
-              <Icons.Phone className="w-4 h-4 text-white/80 shrink-0" />
+              <Icons.Phone className="w-5 h-5" />
+            </Link>
+          ) : (
+            <Link
+              to="/pricing"
+              className={`flex items-center gap-2.5 p-3 rounded-xl text-xs transition-colors w-full text-left ${
+                isContactPage
+                  ? "text-white font-bold bg-[rgba(255,255,255,0.15)] border-l-2 border-white doc-sidebar-item-active"
+                  : "text-white/70 hover:bg-[rgba(255,255,255,0.08)]"
+              }`}
+            >
+              <Icons.Phone className="w-4.5 h-4.5 shrink-0" />
               <span className="font-semibold">Liên hệ</span>
             </Link>
-          </div>
+          )}
         </div>
       </div>
     </>

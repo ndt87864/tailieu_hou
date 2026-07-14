@@ -11,7 +11,7 @@ import * as XLSX from "xlsx";
 import { cleanForExport } from "../../utils/questionHelper.js";
 import { 
   BookOpen, FileText, HelpCircle,
-  Crown
+  Crown, Search, X, Download
 } from "lucide-react";
 import { LessonMaterials } from "../../components/document/LessonMaterials.js";
 import { LessonQuizTab } from "../../components/document/LessonQuizTab.js";
@@ -137,9 +137,14 @@ const LessonDocumentPage: React.FC = () => {
 
   // Bộ lọc câu hỏi theo thanh tìm kiếm
   const filteredQuestions = useMemo(() => {
-    if (!searchQuery) return currentQuestions;
+    let list = currentQuestions;
+    
+    // LỌC: Bỏ qua câu hỏi thuộc tuần thử nghiệm
+    list = list.filter(q => !(q.week_name || "").toLowerCase().includes("thử nghiệm"));
+    
+    if (!searchQuery) return list;
     const query = searchQuery.toLowerCase().trim();
-    return currentQuestions.filter(q => 
+    return list.filter(q => 
       q.question.toLowerCase().includes(query) || 
       q.answer.toLowerCase().includes(query) ||
       q.choices?.some(c => c.toLowerCase().includes(query))
@@ -152,6 +157,12 @@ const LessonDocumentPage: React.FC = () => {
     
     currentResources.forEach(r => {
       const wName = r.week_name || "Khác";
+      
+      // LỌC: Bỏ qua tuần thử nghiệm hoặc file thử nghiệm
+      if (wName.toLowerCase().includes("thử nghiệm") || r.title.toLowerCase().includes("thử nghiệm")) {
+        return;
+      }
+      
       if (!groups[wName]) {
         groups[wName] = [];
       }
@@ -244,6 +255,7 @@ const LessonDocumentPage: React.FC = () => {
         <Header 
           title="Bài học & Học liệu"
           hideLogo={true}
+          showSubjectSearch={true}
           onMobileMenuClick={() => window.dispatchEvent(new Event("open-doc-sidebar"))}
           onOpenSettings={() => window.dispatchEvent(new Event("open-settings"))}
           onOpenProfile={() => window.dispatchEvent(new Event("open-profile"))}
@@ -277,6 +289,7 @@ const LessonDocumentPage: React.FC = () => {
         title={doc.title}
         subtitle={doc.category?.title || "Bài học"}
         hideLogo={true}
+        showSubjectSearch={true}
         onMobileMenuClick={() => window.dispatchEvent(new Event("open-doc-sidebar"))}
         onOpenSettings={() => window.dispatchEvent(new Event("open-settings"))}
         onOpenProfile={() => window.dispatchEvent(new Event("open-profile"))}
@@ -295,21 +308,61 @@ const LessonDocumentPage: React.FC = () => {
         ) : (
           <div className="lesson-layout-wrapper max-w-5xl w-full mx-auto">
             {/* Tab switcher */}
-            <div className="lesson-page-header-actions lesson-page-header-actions--top">
-              <div className="lesson-tab-switcher">
-                <button
-                  onClick={() => handleTabChange("materials")}
-                  className={`lesson-tab-btn ${activeTab === "materials" ? "lesson-tab-btn-active" : ""}`}
-                >
-                  <FileText className="w-3.5 h-3.5 shrink-0" /> Bài học &amp; Tài liệu
-                </button>
-                <button
-                  onClick={() => handleTabChange("quiz")}
-                  className={`lesson-tab-btn ${activeTab === "quiz" ? "lesson-tab-btn-active" : ""}`}
-                >
-                  <HelpCircle className="w-3.5 h-3.5 shrink-0" /> Câu hỏi {questionsLoading ? "..." : `(${questionCount})`}
-                </button>
+            <div className="lesson-page-header-actions lesson-page-header-actions--top flex items-center justify-between gap-4">
+              <div className="lesson-tab-switcher shrink-0">
+                <div className="relative group">
+                  <button
+                    onClick={() => handleTabChange("materials")}
+                    className={`lesson-tab-btn ${activeTab === "materials" ? "lesson-tab-btn-active" : ""}`}
+                  >
+                    <FileText className="w-3.5 h-3.5 shrink-0" />
+                  </button>
+                  <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-800 text-white text-[10px] px-2 py-1 rounded shadow-md whitespace-nowrap z-50">
+                    Bài học &amp; Tài liệu
+                  </span>
+                </div>
+                <div className="relative group">
+                  <button
+                    onClick={() => handleTabChange("quiz")}
+                    className={`lesson-tab-btn ${activeTab === "quiz" ? "lesson-tab-btn-active" : ""}`}
+                  >
+                    <HelpCircle className="w-3.5 h-3.5 shrink-0" />
+                  </button>
+                  <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-800 text-white text-[10px] px-2 py-1 rounded shadow-md whitespace-nowrap z-50">
+                    Câu hỏi {questionsLoading ? "..." : `(${questionCount})`}
+                  </span>
+                </div>
               </div>
+
+              {activeTab === "quiz" && !questionsLoading && (
+                <div className="flex items-center gap-2 flex-1 justify-end min-w-0">
+                  <div className="lesson-quiz-search-wrap flex-1 max-w-[200px] sm:max-w-xs relative flex items-center">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[var(--muted)]" />
+                    <input
+                      type="text"
+                      placeholder="Tìm câu hỏi, đáp án..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-8 pr-7 py-1.5 rounded-lg border text-xs bg-[var(--surface)] border-[var(--border)] text-[var(--fg)] focus:outline-none"
+                    />
+                    {searchQuery && (
+                      <button onClick={() => setSearchQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--muted)] hover:text-[var(--fg)]">
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                  {currentQuestions.length > 0 && (
+                    <button
+                      onClick={exportAllToExcel}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-[var(--bg-2)] text-[var(--accent)] hover:bg-[var(--bg-3)] border border-[var(--border)] transition-all cursor-pointer whitespace-nowrap"
+                      title="Tải Excel toàn bộ câu hỏi của môn học"
+                    >
+                      <Download className="w-3.5 h-3.5 text-[var(--accent)]" />
+                      <span className="hidden sm:inline">Tải Excel</span>
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Tab 1: Bài học & Tài liệu */}

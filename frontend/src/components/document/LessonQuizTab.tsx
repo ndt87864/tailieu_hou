@@ -40,35 +40,6 @@ export const LessonQuizTab: React.FC<LessonQuizTabProps> = ({
 
   return (
     <div>
-      {/* Toolbar: search + export */}
-      <div className="lesson-quiz-toolbar">
-        <div className="lesson-quiz-search-wrap">
-          <Search className="lesson-quiz-search-icon w-3.5 h-3.5" />
-          <input
-            type="text"
-            placeholder="Tìm kiếm câu hỏi, lựa chọn, đáp án..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="lesson-quiz-search"
-          />
-          {searchQuery && (
-            <button onClick={() => setSearchQuery("")} className="lesson-quiz-clear-btn">
-              <X className="w-3 h-3" />
-            </button>
-          )}
-        </div>
-        {currentQuestions.length > 0 && (
-          <div className="flex items-center justify-center md:justify-end gap-2 mt-4 md:mt-0 shrink-0">
-            <button
-              onClick={exportAllToExcel}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--bg-2)] text-[var(--accent)] hover:bg-[var(--bg-3)] border border-[var(--border)] transition-all cursor-pointer"
-              title="Tải Excel toàn bộ câu hỏi của môn học"
-            >
-              <Download className="w-3.5 h-3.5 text-[var(--accent)]" /> Tải Excel
-            </button>
-          </div>
-        )}
-      </div>
 
       {searchQuery && (
         <p className="text-xs text-[var(--muted)] mb-2">

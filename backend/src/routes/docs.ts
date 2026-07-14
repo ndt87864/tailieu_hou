@@ -48,7 +48,9 @@ docsRouter.get("/", async (c) => {
     }
     // Lấy role từ JWT payload (được gắn bởi requireRole middleware hoặc middleware auth)
     const userRole = (c.get("role") as UserRole | undefined);
-    const documents = await docService.listDocuments(categoryId, isPremium(userRole));
+    const search = c.req.query("q") || c.req.query("search");
+    const lms = c.req.query("lms") === "true";
+    const documents = await docService.listDocuments(categoryId, isPremium(userRole), search, lms);
     return c.json({ documents });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
@@ -73,6 +75,32 @@ docsRouter.get("/grouped/lms", async (c) => {
     const userRole = (c.get("role") as UserRole | undefined);
     const categories = await docService.getGroupedDocumentsLMS(isPremium(userRole));
     return c.json({ categories });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+docsRouter.get("/categories", async (c) => {
+  try {
+    const userRole = (c.get("role") as UserRole | undefined);
+    const lms = c.req.query("lms") === "true";
+    const categories = await docService.listCategories(isPremium(userRole), lms);
+    return c.json({ categories });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+docsRouter.get("/categories/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const userRole = (c.get("role") as UserRole | undefined);
+    const lms = c.req.query("lms") === "true";
+    const category = await docService.getCategoryById(id, isPremium(userRole), lms);
+    if (!category) {
+      return c.json({ error: "Category not found" }, 404);
+    }
+    return c.json({ category });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }

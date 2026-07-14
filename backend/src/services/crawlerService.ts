@@ -227,14 +227,21 @@ export const startCrawlerBackground = async (username: string, password: string,
             try {
               activeProgress.logs.push(`   📎 Đang tải tài liệu: "${activityName}"...`);
               const filePublicUrl = await uploadFileToStorage(href, "files");
-              await supabaseAdmin.from("crawler_resources").insert({
-                course_id: dbCourse.id,
-                type: "file",
-                title: activityName,
-                content_url: filePublicUrl,
-                week_name: sectionName
-              });
-              activeProgress.logs.push(`   ✅ Đã tải & lưu file lên Storage.`);
+              const cleanUrl = filePublicUrl.split("?")[0].toLowerCase();
+              const isWebFile = cleanUrl.endsWith(".php") || cleanUrl.endsWith(".html") || cleanUrl.endsWith(".htm");
+
+              if (isWebFile) {
+                activeProgress.logs.push(`   ⚠️ Bỏ qua file dạng web (.php/.html): "${activityName}"`);
+              } else {
+                await supabaseAdmin.from("crawler_resources").insert({
+                  course_id: dbCourse.id,
+                  type: "file",
+                  title: activityName,
+                  content_url: filePublicUrl,
+                  week_name: sectionName
+                });
+                activeProgress.logs.push(`   ✅ Đã tải & lưu file lên Storage.`);
+              }
             } catch (err: any) {
               activeProgress.logs.push(`   ⚠️ Lỗi tải file "${activityName}": ${err.message}`);
             }

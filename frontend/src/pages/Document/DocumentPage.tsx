@@ -197,6 +197,7 @@ const DocumentPage: React.FC = () => {
           title={doc.title}
           subtitle={doc.category?.title || ""}
           hideLogo={true}
+          showSubjectSearch={true}
           leftElement={
             <Link
               to="/"
@@ -259,6 +260,7 @@ const DocumentPage: React.FC = () => {
           title={doc.title}
           subtitle={doc.category?.title || ""}
           hideLogo={true}
+          showSubjectSearch={true}
           leftElement={
             <Link
               to="/"

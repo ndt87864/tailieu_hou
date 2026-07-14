@@ -1,0 +1,6 @@
+- [x] Tạo trang `CategoryPage.tsx` hiển thị toàn bộ document của một category
+- [x] Đăng ký route `/categories/:id` trong `App.tsx`
+- [x] Cập nhật `DocumentSidebar.tsx` chỉ hiển thị các category và chuyển hướng khi click
+- [x] Cập nhật `Header` trong `Layout.tsx` để hỗ trợ ô tìm kiếm môn học
+- [x] Tích hợp ô tìm kiếm môn học trên Header của `DocumentPage.tsx` và `LessonDocumentPage.tsx`
+- [x] Nâng cấp Sidebar Admin và giao diện trang trung gian Admin trong `AdminPage.tsx`

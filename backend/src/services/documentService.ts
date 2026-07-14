@@ -9,28 +9,134 @@ const TTL_ALL_DOCS = 12 * 60 * 60 * 1000;
 // Prefix dùng để invalidate hàng loạt
 const CACHE_PREFIX = "docs";
 
+const getSimilarity = (s1: string, s2: string): number => {
+  const len1 = s1.length;
+  const len2 = s2.length;
+  if (len1 === 0 || len2 === 0) return 0;
+  
+  const clean = (str: string) => str.toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[đĐ]/g, "d")
+    .replace(/[^a-z0-9 ]/g, "")
+    .trim();
+
+  const n1 = clean(s1);
+  const n2 = clean(s2);
+
+  if (n1 === n2) return 1.0;
+  if (n1.includes(n2) || n2.includes(n1)) {
+    const minLen = Math.min(n1.length, n2.length);
+    const maxLen = Math.max(n1.length, n2.length);
+    return 0.9 + (minLen / maxLen) * 0.1;
+  }
+
+  const matrix: number[][] = [];
+  for (let i = 0; i <= n1.length; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 0; j <= n2.length; j++) {
+    matrix[0][j] = j;
+  }
+  for (let i = 1; i <= n1.length; i++) {
+    for (let j = 1; j <= n2.length; j++) {
+      if (n1[i - 1] === n2[j - 1]) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
+      }
+    }
+  }
+  const dist = matrix[n1.length][n2.length];
+  const maxLen = Math.max(n1.length, n2.length);
+  return 1.0 - dist / maxLen;
+};
+
 export const listDocuments = async (
   categoryId?: string,
-  isPremiumUser = false
+  isPremiumUser = false,
+  search?: string,
+  lms?: boolean
 ): Promise<Document[]> => {
   const fetcher = async () => {
+    const selectStr = lms 
+      ? "*, category:categories(title, logo, stt), crawler_courses:crawler_courses!inner(id)" 
+      : "*, category:categories(title, logo, stt)";
+    
+    const cleanSearch = search ? search.trim() : "";
+    if (search && !cleanSearch) {
+      return []; // Không cho phép tìm kiếm chỉ toàn khoảng trắng
+    }
+
+    if (cleanSearch) {
+      // 1. Thử tìm kiếm chính xác trước (khớp 100% bằng ILIKE)
+      let strictQuery = supabaseAdmin
+        .from("documents")
+        .select(selectStr)
+        .eq("active", true)
+        .not("category_id", "is", null)
+        .ilike("title", `%${cleanSearch}%`)
+        .order("created_at", { ascending: true });
+
+      if (!isPremiumUser) {
+        strictQuery = strictQuery.eq("premium", false);
+      }
+      if (categoryId) {
+        strictQuery = strictQuery.eq("category_id", categoryId);
+      }
+
+      const { data: strictData, error: strictError } = await strictQuery;
+      if (!strictError && strictData && strictData.length > 0) {
+        return strictData;
+      }
+
+      // 2. Chấp nhận kết quả khớp thấp hơn (tối thiểu 90%) nếu không khớp 100%
+      let allQuery = supabaseAdmin
+        .from("documents")
+        .select(selectStr)
+        .eq("active", true)
+        .not("category_id", "is", null);
+
+      if (!isPremiumUser) {
+        allQuery = allQuery.eq("premium", false);
+      }
+      if (categoryId) {
+        allQuery = allQuery.eq("category_id", categoryId);
+      }
+
+      const { data: allData, error: allError } = await allQuery;
+      if (allError || !allData) {
+        return [];
+      }
+
+      const matched = allData.map(doc => {
+        const score = getSimilarity(doc.title, cleanSearch);
+        return { doc, score };
+      })
+      .filter(item => item.score >= 0.88) // Lọc kết quả tương đồng tối thiểu ~90%
+      .sort((a, b) => b.score - a.score)
+      .map(item => item.doc);
+
+      return matched;
+    }
+
     let query = supabaseAdmin
       .from("documents")
-      .select("*, category:categories(title, logo, stt)")
+      .select(selectStr)
       .eq("active", true)
+      .not("category_id", "is", null)
       .order("created_at", { ascending: true });
 
-    // Nếu không phải premium, ẩn các tài liệu premium
     if (!isPremiumUser) {
       query = query.eq("premium", false);
     }
 
     if (categoryId) {
-      if (categoryId === "other") {
-        query = query.is("category_id", null);
-      } else {
-        query = query.eq("category_id", categoryId);
-      }
+      query = query.eq("category_id", categoryId);
     }
 
     const { data, error } = await query;
@@ -41,11 +147,11 @@ export const listDocuments = async (
     return data || [];
   };
 
-  // Chỉ cache khi không có filter và không phải premium (để tránh leak data)
-  if (!categoryId && !isPremiumUser) {
+  // Chỉ cache khi không có filter và không phải premium
+  if (!categoryId && !search && !lms && !isPremiumUser) {
     return cacheGetOrSet<Document[]>(`${CACHE_PREFIX}:all:free`, fetcher, TTL_ALL_DOCS);
   }
-  if (!categoryId && isPremiumUser) {
+  if (!categoryId && !search && !lms && isPremiumUser) {
     return cacheGetOrSet<Document[]>(`${CACHE_PREFIX}:all:premium`, fetcher, TTL_ALL_DOCS);
   }
   return fetcher();
@@ -98,6 +204,7 @@ async function _fetchGroupedDocuments(isPremiumUser = false, preview = true): Pr
     .from("documents")
     .select("id, title, description, category_id, slug, created_at, updated_at, active, premium")
     .eq("active", true)
+    .not("category_id", "is", null)
     .order("created_at", { ascending: true });
 
   if (!isPremiumUser) {
@@ -138,7 +245,6 @@ async function _fetchGroupedDocuments(isPremiumUser = false, preview = true): Pr
 
   // Gom nhóm documents theo category_id
   const docsByCat = new Map<string, any[]>();
-  const noCatDocs: any[] = [];
 
   docsData.forEach((d: any) => {
     const docWithCourses = {
@@ -150,8 +256,6 @@ async function _fetchGroupedDocuments(isPremiumUser = false, preview = true): Pr
         docsByCat.set(d.category_id, []);
       }
       docsByCat.get(d.category_id)!.push(docWithCourses);
-    } else {
-      noCatDocs.push(docWithCourses);
     }
   });
 
@@ -173,17 +277,6 @@ async function _fetchGroupedDocuments(isPremiumUser = false, preview = true): Pr
       total_count: catDocs.length,
     });
   });
-
-  // Nhóm các tài liệu không có danh mục ("Khác")
-  if (noCatDocs.length > 0) {
-    const documentsToShow = preview ? noCatDocs.slice(0, 10) : noCatDocs;
-    result.push({
-      id: "other",
-      title: "Khác",
-      documents: documentsToShow,
-      total_count: noCatDocs.length,
-    });
-  }
 
   return result;
 }
@@ -287,9 +380,39 @@ export const getCrawlerDataForDoc = async (documentId: string) => {
           .order("created_at", { ascending: true })
       ]);
 
+      const allResources = resResult.data || [];
+      const filteredResources: any[] = [];
+      const idsToDelete: string[] = [];
+
+      allResources.forEach((res: any) => {
+        const url = res.content_url || "";
+        const cleanUrl = url.split("?")[0].toLowerCase();
+        const isWebFile = cleanUrl.endsWith(".php") || cleanUrl.endsWith(".html") || cleanUrl.endsWith(".htm");
+
+        if (isWebFile) {
+          idsToDelete.push(res.id);
+        } else {
+          filteredResources.push(res);
+        }
+      });
+
+      // Kích hoạt việc xóa bất đồng bộ trong background để làm sạch database
+      if (idsToDelete.length > 0) {
+        supabaseAdmin.from("crawler_resources")
+          .delete()
+          .in("id", idsToDelete)
+          .then(({ error }) => {
+            if (error) {
+              console.error("Lỗi tự động xóa file web ở DB:", error.message);
+            } else {
+              console.log(`[Auto-Clean] Đã tự động loại bỏ ${idsToDelete.length} tài nguyên web (.php/.html) khỏi DB.`);
+            }
+          });
+      }
+
       return {
         courses: courses || [],
-        resources: resResult.data || [],
+        resources: filteredResources,
         questions: qResult.data || [],
       };
     },
@@ -463,26 +586,15 @@ async function _fetchGroupedDocumentsLMS(isPremiumUser = false): Promise<any[]> 
     `)
     .eq("active", true)
     .eq("documents.active", true)
-    .order("stt", { ascending: true });
+    .order("stt", { ascending: true })
+    .order("created_at", { referencedTable: "documents", ascending: true });
 
   if (!isPremiumUser) {
     catQuery = catQuery.eq("premium", false).eq("documents.premium", false);
   }
 
-  // Query 2: Lấy các active documents không thuộc category nào và có crawler_courses
-  let noCatQuery = supabaseAdmin
-    .from("documents")
-    .select("*, crawler_courses:crawler_courses!inner(id)")
-    .is("category_id", null)
-    .eq("active", true)
-    .order("created_at", { ascending: true });
-
-  if (!isPremiumUser) {
-    noCatQuery = noCatQuery.eq("premium", false);
-  }
-
-  // Chạy song song cả 2 truy vấn để giảm tối đa độ trễ mạng xuống còn 1 roundtrip
-  const [catResult, noCatResult] = await Promise.all([catQuery, noCatQuery]);
+  // Chạy truy vấn lấy danh mục
+  const catResult = await catQuery;
 
   if (catResult.error) {
     console.warn("Could not fetch LMS grouped categories from database:", catResult.error.message);
@@ -506,19 +618,114 @@ async function _fetchGroupedDocumentsLMS(isPremiumUser = false): Promise<any[]> 
     });
   });
 
-  // 2. Xử lý nhóm "Khác" (no category) nếu có
-  const noCatDocs = noCatResult.data || [];
-  if (noCatDocs.length > 0) {
-    result.push({
-      id: "other",
-      title: "Khác",
-      documents: noCatDocs,
-      total_count: noCatDocs.length,
-    });
-  }
-
   return result;
 }
+
+export const getCategoryById = async (
+  id: string,
+  isPremiumUser = false,
+  lms = false
+): Promise<any | null> => {
+  const fetcher = async () => {
+    // 1. Lấy thông tin category
+    let catQuery = supabaseAdmin
+      .from("categories")
+      .select("id, title, logo, stt, premium, active")
+      .eq("id", id)
+      .eq("active", true)
+      .single();
+      
+    const { data: catData, error: catError } = await catQuery;
+    if (catError || !catData) return null;
+    
+    // Nếu category là premium nhưng user không phải premium
+    if (catData.premium && !isPremiumUser) return null;
+
+    // 2. Lấy danh sách documents của category này
+    const selectStr = lms 
+      ? "id, title, description, category_id, slug, created_at, updated_at, active, premium, crawler_courses:crawler_courses!inner(id)" 
+      : "id, title, description, category_id, slug, created_at, updated_at, active, premium";
+
+    let docQuery = supabaseAdmin
+      .from("documents")
+      .select(selectStr)
+      .eq("category_id", id)
+      .eq("active", true)
+      .order("created_at", { ascending: true });
+
+    if (!isPremiumUser) {
+      docQuery = docQuery.eq("premium", false);
+    }
+
+    const { data: docsData, error: docsError } = await docQuery;
+    if (docsError) {
+      console.error("Error fetching category docs:", docsError.message);
+      return null;
+    }
+
+    // Nếu không phải lms, ta lấy mapping crawler_courses cho từng document để nhất quán
+    let docsWithCourses = docsData || [];
+    if (!lms && docsWithCourses.length > 0) {
+      const docIds = docsWithCourses.map(d => d.id);
+      const { data: coursesData } = await supabaseAdmin
+        .from("crawler_courses")
+        .select("id, document_id")
+        .in("document_id", docIds);
+
+      const coursesByDoc = new Map<string, any[]>();
+      (coursesData || []).forEach((c: any) => {
+        if (c.document_id) {
+          if (!coursesByDoc.has(c.document_id)) {
+            coursesByDoc.set(c.document_id, []);
+          }
+          coursesByDoc.get(c.document_id)!.push({ id: c.id });
+        }
+      });
+
+      docsWithCourses = docsWithCourses.map(d => ({
+        ...d,
+        crawler_courses: coursesByDoc.get(d.id) || []
+      }));
+    }
+
+    return {
+      id: catData.id,
+      title: catData.title,
+      logo: catData.logo,
+      documents: docsWithCourses
+    };
+  };
+
+  const cacheKey = `${CACHE_PREFIX}:category:${id}:${isPremiumUser ? "premium" : "free"}:${lms ? "lms" : "normal"}`;
+  return cacheGetOrSet(cacheKey, fetcher, 5 * 60 * 1000);
+};
+
+export const listCategories = async (
+  isPremiumUser = false,
+  lms = false
+): Promise<any[]> => {
+  const fetcher = async () => {
+    let query = supabaseAdmin
+      .from("categories")
+      .select("id, title, logo, stt, premium, active")
+      .eq("active", true)
+      .order("stt", { ascending: true });
+
+    if (!isPremiumUser) {
+      query = query.eq("premium", false);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      console.error("Error listing categories:", error.message);
+      return [];
+    }
+    return data || [];
+  };
+
+  const cacheKey = `${CACHE_PREFIX}:categories:list:${isPremiumUser ? "premium" : "free"}:${lms ? "lms" : "normal"}`;
+  return cacheGetOrSet(cacheKey, fetcher, 12 * 60 * 60 * 1000);
+};
 
 
 

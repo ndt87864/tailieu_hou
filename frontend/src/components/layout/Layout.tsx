@@ -1,12 +1,13 @@
-import React, { useState, useRef, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import React, { useState, useRef, useEffect, useMemo } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Outlet } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.js";
-import { GraduationCap, User, Shield, LogOut, ChevronDown, Menu, X, Settings, Phone, Home, Calendar } from "lucide-react";
+import { GraduationCap, User, Shield, LogOut, ChevronDown, Menu, X, Settings, Phone, Home, Calendar, Search } from "lucide-react";
 import UISettingsModal from "./UISettingsModal.js";
 import EditProfileModal from "./EditProfileModal.js";
 import { useUI } from "../../context/UIContext.js";
 import DocumentSidebar from "./DocumentSidebar.js";
+import apiClient from "../../services/client.js";
 
 export interface HeaderProps {
   onOpenSettings: () => void;
@@ -19,6 +20,7 @@ export interface HeaderProps {
   hideLogo?: boolean;
   onMobileMenuClick?: () => void;
   hideMobileMenuToggle?: boolean;
+  showSubjectSearch?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -32,22 +34,59 @@ export const Header: React.FC<HeaderProps> = ({
   hideLogo = false,
   onMobileMenuClick,
   hideMobileMenuToggle = false,
+  showSubjectSearch = false,
 }) => {
   const { user, role, profile, logout } = useAuth();
+  const { lessonMode } = useUI();
   const location = useLocation();
+  const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // States for Quick Subject Search
+  const [subjects, setSubjects] = useState<{ id: string; title: string; categoryTitle?: string }[]>([]);
+  const [subjectQuery, setSubjectQuery] = useState("");
+  const [showSubjectSuggestions, setShowSubjectSuggestions] = useState(false);
+  const [subjectSearchLoading, setSubjectSearchLoading] = useState(false);
+  const subjectSearchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setDropdownOpen(false);
       }
+      if (subjectSearchRef.current && !subjectSearchRef.current.contains(e.target as Node)) {
+        setShowSubjectSuggestions(false);
+      }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  const handleHeaderSearch = () => {
+    if (!subjectQuery.trim()) {
+      setSubjects([]);
+      return;
+    }
+    setSubjectSearchLoading(true);
+    const apiPath = `/api/v1/documents?q=${encodeURIComponent(subjectQuery)}${lessonMode ? "&lms=true" : ""}`;
+    apiClient.get<{ documents: any[] }>(apiPath)
+      .then((res) => {
+        const docs = res.data.documents || [];
+        const list = docs.map((doc: any) => ({
+          id: doc.id,
+          title: doc.title,
+          categoryTitle: doc.category?.title || ""
+        })).slice(0, 8);
+        setSubjects(list);
+        setSubjectSearchLoading(false);
+      })
+      .catch((err) => {
+        console.error("Lỗi tìm kiếm nhanh môn học ở Header:", err);
+        setSubjectSearchLoading(false);
+      });
+  };
 
   useEffect(() => {
     setMobileOpen(false);
@@ -91,7 +130,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Title or Desktop Nav */}
           {title ? (
-            <div className="flex flex-col min-w-0 max-w-[50%] md:max-w-none text-left flex-1 ml-4">
+            <div className="flex flex-col min-w-0 max-w-[40%] md:max-w-none text-left flex-1 ml-4">
               <h1 className="text-xs md:text-sm font-bold text-[var(--fg)] truncate">{title}</h1>
               {subtitle && <p className="text-[9px] md:text-[10px] text-[var(--muted)] truncate">{subtitle}</p>}
             </div>
@@ -113,6 +152,55 @@ export const Header: React.FC<HeaderProps> = ({
                 ))}
               </nav>
             )
+          )}
+
+          {/* Quick Subject Search on Header */}
+          {showSubjectSearch && (
+            <div className="relative mx-4 flex-1 max-w-[180px] sm:max-w-[260px] md:max-w-[300px]" ref={subjectSearchRef}>
+              <div className="relative">
+                <button 
+                  onClick={handleHeaderSearch}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 border-none bg-transparent text-[var(--muted)] hover:text-[var(--fg)] cursor-pointer transition-colors p-0 flex items-center justify-center z-10"
+                >
+                  <Search className="w-3.5 h-3.5" />
+                </button>
+                <input
+                  type="text"
+                  placeholder="Tìm môn học..."
+                  value={subjectQuery}
+                  onChange={(e) => {
+                    setSubjectQuery(e.target.value);
+                    if (!e.target.value) setSubjects([]);
+                    setShowSubjectSuggestions(true);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleHeaderSearch();
+                    }
+                  }}
+                  onFocus={() => setShowSubjectSuggestions(true)}
+                  className="w-full pl-8 pr-3 py-1.5 rounded-lg border text-xs bg-[var(--surface)] border-[var(--border)] text-[var(--fg)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                />
+              </div>
+              {showSubjectSuggestions && subjects.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 max-h-60 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-lg z-50 py-1">
+                  {subjects.map(s => (
+                    <button
+                      key={s.id}
+                      onClick={() => {
+                        setSubjectQuery("");
+                        setShowSubjectSuggestions(false);
+                        navigate(`/documents/${s.id}`);
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs hover:bg-[var(--bg-2)] transition-colors block border-b border-[var(--border-soft)] last:border-0"
+                    >
+                      <div className="font-semibold text-[var(--fg)] truncate">{s.title}</div>
+                      <div className="text-[10px] text-[var(--muted)] truncate">{s.categoryTitle}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           {/* Right side */}
@@ -177,30 +265,34 @@ export const Header: React.FC<HeaderProps> = ({
                         <User className="w-4 h-4 layout-icon-meta" />
                         Trang cá nhân
                       </button>
-                      <Link
-                        to="/"
-                        onClick={() => setDropdownOpen(false)}
-                        className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] transition-colors layout-text-fg2 text-left"
-                      >
-                        <Home className="w-4 h-4 layout-icon-meta" />
-                        Trang chủ
-                      </Link>
-                      <Link
-                        to="/lich-thi"
-                        onClick={() => setDropdownOpen(false)}
-                        className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] transition-colors layout-text-fg2 text-left"
-                      >
-                        <Calendar className="w-4 h-4 layout-icon-meta" />
-                        Lịch thi
-                      </Link>
-                      <Link
-                        to="/pricing"
-                        onClick={() => setDropdownOpen(false)}
-                        className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] transition-colors layout-text-fg2 text-left"
-                      >
-                        <Phone className="w-4 h-4 layout-icon-meta" />
-                        Liên hệ
-                      </Link>
+                      {location.pathname !== "/" && (
+                        <>
+                          <Link
+                            to="/"
+                            onClick={() => setDropdownOpen(false)}
+                            className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] transition-colors layout-text-fg2 text-left"
+                          >
+                            <Home className="w-4 h-4 layout-icon-meta" />
+                            Trang chủ
+                          </Link>
+                          <Link
+                            to="/lich-thi"
+                            onClick={() => setDropdownOpen(false)}
+                            className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] transition-colors layout-text-fg2 text-left"
+                          >
+                            <Calendar className="w-4 h-4 layout-icon-meta" />
+                            Lịch thi
+                          </Link>
+                          <Link
+                            to="/pricing"
+                            onClick={() => setDropdownOpen(false)}
+                            className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] transition-colors layout-text-fg2 text-left"
+                          >
+                            <Phone className="w-4 h-4 layout-icon-meta" />
+                            Liên hệ
+                          </Link>
+                        </>
+                      )}
                       {role === "admin" && (
                         <Link
                           to="/admin"
@@ -245,30 +337,34 @@ export const Header: React.FC<HeaderProps> = ({
                       className="absolute right-0 mt-2 w-56 rounded-2xl py-1.5 animate-scale-in origin-top-right z-50 layout-dropdown"
                     >
                       <div className="py-1">
-                        <Link
-                          to="/"
-                          onClick={() => setDropdownOpen(false)}
-                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] transition-colors layout-text-fg2 text-left"
-                        >
-                          <Home className="w-4 h-4 layout-icon-meta" />
-                          Trang chủ
-                        </Link>
-                        <Link
-                          to="/lich-thi"
-                          onClick={() => setDropdownOpen(false)}
-                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] transition-colors layout-text-fg2 text-left"
-                        >
-                          <Calendar className="w-4 h-4 layout-icon-meta" />
-                          Lịch thi
-                        </Link>
-                        <Link
-                          to="/pricing"
-                          onClick={() => setDropdownOpen(false)}
-                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] transition-colors layout-text-fg2 text-left"
-                        >
-                          <Phone className="w-4 h-4 layout-icon-meta" />
-                          Liên hệ
-                        </Link>
+                        {location.pathname !== "/" && (
+                          <>
+                            <Link
+                              to="/"
+                              onClick={() => setDropdownOpen(false)}
+                              className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] transition-colors layout-text-fg2 text-left"
+                            >
+                              <Home className="w-4 h-4 layout-icon-meta" />
+                              Trang chủ
+                            </Link>
+                            <Link
+                              to="/lich-thi"
+                              onClick={() => setDropdownOpen(false)}
+                              className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] transition-colors layout-text-fg2 text-left"
+                            >
+                              <Calendar className="w-4 h-4 layout-icon-meta" />
+                              Lịch thi
+                            </Link>
+                            <Link
+                              to="/pricing"
+                              onClick={() => setDropdownOpen(false)}
+                              className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] transition-colors layout-text-fg2 text-left"
+                            >
+                              <Phone className="w-4 h-4 layout-icon-meta" />
+                              Liên hệ
+                            </Link>
+                          </>
+                        )}
                         <button
                           onClick={() => { setDropdownOpen(false); onOpenSettings(); }}
                           className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-[var(--fg-2)] hover:bg-[var(--bg-2)] transition-colors text-left"
@@ -385,9 +481,10 @@ const Layout: React.FC = () => {
   const location = useLocation();
 
   const isDocPage = location.pathname.startsWith("/documents/");
+  const isCategoryPage = location.pathname.startsWith("/categories/");
   const isAdminPage = location.pathname.startsWith("/admin");
   const isPricingPage = location.pathname === "/pricing";
-  const isFullWidthPage = isDocPage || isAdminPage || isPricingPage || location.pathname === "/lich-thi";
+  const isFullWidthPage = isDocPage || isCategoryPage || isAdminPage || isPricingPage || location.pathname === "/lich-thi";
 
   useEffect(() => {
     const handleOpenSettings = () => setSettingsOpen(true);
@@ -402,7 +499,7 @@ const Layout: React.FC = () => {
     };
   }, []);
 
-  const hasDocumentSidebar = isDocPage || isPricingPage;
+  const hasDocumentSidebar = isDocPage || isPricingPage || isCategoryPage;
 
   const content = hasDocumentSidebar ? (
     <div className="layout-content-wrapper flex flex-row min-h-screen w-full">
@@ -418,7 +515,7 @@ const Layout: React.FC = () => {
     </div>
   ) : (
     <div className="layout-content-wrapper">
-      {!isDocPage && !isAdminPage && !isPricingPage && (
+      {!isDocPage && !isCategoryPage && !isAdminPage && !isPricingPage && (
         <Header 
           onOpenSettings={() => setSettingsOpen(true)} 
           onOpenProfile={() => setProfileOpen(true)} 

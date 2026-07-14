@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
+import { Link } from "react-router-dom";
 import apiClient from "../../services/client.js";
 import { cachedGet } from "../../utils/apiCache.js";
 import { SkeletonCard } from "../../components/common/LoadingSpinner.js";
@@ -9,7 +10,7 @@ import * as Icons from "lucide-react";
 import "../../css/home.css";
 import "../../css/lesson.css";
 
-const { BookOpen, Search, FileText, ChevronRight, Filter, X, Crown, GraduationCap, Award, Compass } = Icons;
+const { BookOpen, Search, FileText, ChevronRight, Filter, X, Crown, GraduationCap, Award, Compass, Calendar } = Icons;
 
 interface Document {
   id: string;
@@ -34,17 +35,18 @@ interface GroupedCategory {
 
 const HomePage: React.FC = () => {
   const { lessonMode, navigateWithPrefetch } = useUI();
-  const { loading: authLoading } = useAuth();
+  const { loading: authLoading, role, profile } = useAuth();
 
   if (lessonMode) {
     return <LessonHomePage />;
   }
   const [groupedCategories, setGroupedCategories] = useState<GroupedCategory[]>([]);
-  const [allDocuments, setAllDocuments] = useState<Document[]>([]);
-  const [allDocumentsLoaded, setAllDocumentsLoaded] = useState(false);
+  const [searchResults, setSearchResults] = useState<Document[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [activeSearchQuery, setActiveSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
@@ -53,7 +55,7 @@ const HomePage: React.FC = () => {
 
   useEffect(() => {
     if (authLoading) return;
-    cachedGet<{ categories: GroupedCategory[] }>("/api/v1/documents/grouped")
+    cachedGet<{ categories: any[] }>("/api/v1/documents/categories")
       .then((res) => {
         setGroupedCategories(res.data.categories || []);
         setLoading(false);
@@ -65,16 +67,25 @@ const HomePage: React.FC = () => {
       });
   }, [authLoading]);
 
-  useEffect(() => {
-    if (search && !allDocumentsLoaded) {
-      cachedGet<{ documents: Document[] }>("/api/v1/documents")
-        .then(res => {
-          setAllDocuments(res.data.documents || []);
-          setAllDocumentsLoaded(true);
-        })
-        .catch(err => console.error("Failed to load all documents for search:", err));
+  const handleSearch = () => {
+    if (!search.trim()) {
+      setSearchResults([]);
+      setActiveSearchQuery("");
+      return;
     }
-  }, [search, allDocumentsLoaded]);
+    setSearchLoading(true);
+    apiClient.get<{ documents: Document[] }>(`/api/v1/documents?q=${encodeURIComponent(search)}`)
+      .then((res) => {
+        setSearchResults(res.data.documents || []);
+        setActiveSearchQuery(search);
+      })
+      .catch((err) => {
+        console.error("Lỗi khi tìm kiếm tài liệu:", err);
+      })
+      .finally(() => {
+        setSearchLoading(false);
+      });
+  };
 
   const handleExpand = async (catId: string) => {
     if (expandedCategories[catId]) {
@@ -146,14 +157,10 @@ const HomePage: React.FC = () => {
   }, {} as Record<string, { title: string; logo?: string | null }>);
 
   const categories = Object.keys(uniqueCategoryMap);
-  const isSearchActive = !!search;
+  const isSearchActive = !!activeSearchQuery;
 
-  const filteredSearchDocs = allDocuments.filter((doc) => {
-    const matchSearch =
-      doc.title.toLowerCase().includes(search.toLowerCase()) ||
-      doc.description.toLowerCase().includes(search.toLowerCase());
-    const matchCat = !selectedCategory || (doc.category_id || "other") === selectedCategory;
-    return matchSearch && matchCat;
+  const filteredSearchDocs = searchResults.filter((doc) => {
+    return !selectedCategory || (doc.category_id || "other") === selectedCategory;
   });
 
   const searchGrouped = filteredSearchDocs.reduce((acc, doc) => {
@@ -172,6 +179,13 @@ const HomePage: React.FC = () => {
     acc[cat].total_count++;
     return acc;
   }, {} as Record<string, { id: string; title: string; logo?: string | null; documents: Document[]; total_count: number }>);
+
+  const matchedCategories = useMemo(() => {
+    if (!search.trim()) return [];
+    return groupedCategories.filter((cat) =>
+      cat.title.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [groupedCategories, search]);
 
   const searchGroupedCategories = Object.values(searchGrouped);
   const normalGroupedCategories = groupedCategories.filter(
@@ -201,16 +215,40 @@ const HomePage: React.FC = () => {
           {/* Search Box */}
           <div className="mt-8 flex flex-col sm:flex-row items-center gap-3 w-full max-w-lg">
             <div className="relative flex-1 w-full">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50" />
+              <button 
+                onClick={handleSearch}
+                className="absolute left-4 top-1/2 -translate-y-1/2 border-none bg-transparent text-white/50 hover:text-white/90 cursor-pointer transition-colors p-0 flex items-center justify-center z-10"
+              >
+                <Search className="w-4 h-4" />
+              </button>
               <input
                 type="text"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSearch(val);
+                  if (!val.trim()) {
+                    setSearchResults([]);
+                    setActiveSearchQuery("");
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleSearch();
+                  }
+                }}
                 placeholder="Nhập tên tài liệu, môn học hoặc từ khóa cần tìm..."
                 className="w-full pl-11 pr-10 py-3.5 rounded-xl text-white placeholder:text-white/50 text-sm focus:outline-none transition-all duration-250 home-hero-search-card"
               />
               {search && (
-                <button onClick={() => setSearch("")} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/90 transition-colors">
+                <button 
+                  onClick={() => {
+                    setSearch("");
+                    setSearchResults([]);
+                    setActiveSearchQuery("");
+                  }} 
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/90 transition-colors border-none bg-transparent cursor-pointer"
+                >
                   <X className="w-4 h-4" />
                 </button>
               )}
@@ -235,166 +273,287 @@ const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* ── Category Filter ── */}
-      {categories.length > 1 && (
-        <div className="flex items-center gap-2.5 mb-8 overflow-x-auto pb-2 scrollbar-none">
-          <button
-            onClick={() => setSelectedCategory(null)}
-            className={`shrink-0 px-4 py-2.5 rounded-full text-xs font-bold transition-all duration-200 ${
-              !selectedCategory ? "home-filter-btn-active" : "home-filter-btn-inactive"
-            }`}
-          >
-            <Filter className="w-3.5 h-3.5 inline mr-1.5" />
-            Tất cả danh mục
-          </button>
-          {categories.map((cat) => {
-            const titleObj = uniqueCategoryMap[cat] || { title: "Chuyên mục", logo: null };
-            const info = getCategoryInfo(cat, titleObj.title, titleObj.logo);
-            const active = selectedCategory === cat;
-            return (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(active ? null : cat)}
-                className={`shrink-0 px-4 py-2.5 rounded-full text-xs font-bold transition-all duration-200 inline-flex items-center gap-1.5 ${
-                  active ? "home-filter-btn-active" : "home-filter-btn-inactive"
-                }`}
-              >
-                {info.icon(`w-4 h-4 ${active ? 'text-[var(--brand-700)]' : 'text-[var(--brand-600)]'}`)}
-                {info.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {/* ── Document Grid (Hiển thị ngay dưới thanh tìm kiếm/Banner khi đang thực hiện tìm kiếm) ── */}
+      {isSearchActive && (
+        <div className="mt-6 pb-10 animate-fade-in">
+          {/* ── Error State ── */}
+          {error && (
+            <div className="p-6 text-center home-error-container mb-8">
+              <p className="text-red-600 text-sm font-medium">{error}</p>
+            </div>
+          )}
 
-      {/* ── Error State ── */}
-      {error && (
-        <div className="p-6 text-center animate-fade-in home-error-container mb-8">
-          <p className="text-red-600 text-sm font-medium">{error}</p>
-          <button onClick={() => window.location.reload()} className="mt-3 text-xs text-red-500 hover:text-red-700 underline font-semibold">
-            Thử tải lại trang
-          </button>
-        </div>
-      )}
+          {/* ── Loading Spinner ── */}
+          {loading && (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)}
+            </div>
+          )}
 
-      {/* ── Loading Spinner ── */}
-      {loading && (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
-        </div>
-      )}
+          {/* ── Empty State ── */}
+          {!loading && !error && activeCategories.length === 0 && matchedCategories.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="w-16 h-16 flex items-center justify-center mb-4 home-empty-icon-wrapper shadow-sm">
+                <FileText className="w-8 h-8 home-empty-icon text-[var(--muted)]" />
+              </div>
+              <h3 className="text-sm font-bold mb-1 home-empty-title">
+                Không tìm thấy kết quả phù hợp
+              </h3>
+              <p className="text-xs text-center home-empty-text">
+                Hãy thử sử dụng từ khóa khác hoặc kiểm tra lỗi chính tả.
+              </p>
+            </div>
+          )}
 
-      {/* ── Empty State ── */}
-      {!loading && !error && activeCategories.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-24 animate-fade-in">
-          <div className="w-20 h-20 flex items-center justify-center mb-5 home-empty-icon-wrapper shadow-sm">
-            <FileText className="w-9 h-9 home-empty-icon text-[var(--muted)]" />
-          </div>
-          <h3 className="text-lg font-bold mb-1.5 home-empty-title">
-            {!isSearchActive ? "Chưa có tài liệu nào" : "Không tìm thấy kết quả phù hợp"}
-          </h3>
-          <p className="text-sm max-w-md text-center home-empty-text">
-            {!isSearchActive ? "Hệ thống đang tích cực cập nhật thêm tài liệu mới. Vui lòng quay lại sau." : "Hãy thử thay đổi bộ lọc, sử dụng từ khóa ngắn hơn hoặc kiểm tra lỗi chính tả."}
-          </p>
-          {search && (
-            <button
-              onClick={() => { setSearch(""); setSelectedCategory(null); }}
-              className="mt-6 text-sm hover:opacity-80 font-bold transition-opacity home-text-brand"
-            >
-              Làm mới tìm kiếm
-            </button>
+          {/* ── Matched Chuyên ngành/Chuyên mục List ── */}
+          {!loading && !error && matchedCategories.length > 0 && (
+            <div className="mb-10 animate-fade-in">
+              <h3 className="text-xs font-bold text-[var(--muted)] uppercase tracking-wider mb-4">
+                Chuyên ngành đào tạo ({matchedCategories.length})
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {matchedCategories.map((cat) => {
+                  const catInfo = getCategoryInfo(cat.id, cat.title, cat.logo);
+                  return (
+                    <Link
+                      key={cat.id}
+                      to={`/categories/${cat.id}`}
+                      className="flex flex-col items-center justify-center p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--bg-2)] hover:border-[var(--brand-600)] transition-all text-center group"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-[var(--bg-2)] flex items-center justify-center mb-2 group-hover:bg-[var(--brand-50)] transition-colors border border-[var(--border)]">
+                        {catInfo.icon("w-5 h-5 text-[var(--brand-600)]")}
+                      </div>
+                      <span className="text-xs font-bold text-[var(--fg)] group-hover:text-[var(--brand-600)] transition-colors line-clamp-1">
+                        {catInfo.label}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ── Search Results List ── */}
+          {!loading && !error && activeCategories.length > 0 && (
+            <div>
+              <div className="flex items-baseline justify-between mb-5">
+                <p className="text-xs home-text-meta font-medium">
+                  Tìm thấy <span className="font-bold home-text-fg2">{filteredSearchDocs.length}</span> tài liệu phù hợp
+                </p>
+              </div>
+
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {activeCategories.map((cat) => {
+                  const docs = cat.documents;
+                  const themeClass = getCategoryThemeClass(cat.id, cat.title);
+
+                  return (
+                    <div key={cat.id} className="home-category-card animate-fade-up">
+                      <div className={`home-card-header-bg ${themeClass}`} />
+                      <div className="home-card-header-wrapper">
+                        <div className="home-card-icon-container">
+                          <div className="min-w-0 flex-1">
+                            <h3 className="home-card-title truncate text-xs font-bold">
+                              {cat.title}
+                            </h3>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="home-doc-list">
+                        {docs.map((doc) => (
+                          <a
+                            key={doc.id}
+                            href={`/documents/${doc.id}`}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              navigateWithPrefetch(doc.id);
+                            }}
+                            className={`home-doc-item ${themeClass}`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                              <FileText className="w-4 h-4 text-[var(--muted)] shrink-0" />
+                              <span className="home-doc-title truncate text-xs">
+                                {doc.title}
+                              </span>
+                              {doc.premium && (
+                                <span title="Tài liệu Premium"><Crown className="w-3.5 h-3.5 text-amber-500 shrink-0" /></span>
+                              )}
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-[var(--meta)] shrink-0 transition-transform" />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
       )}
 
-      {/* ── Document Grid ── */}
-      {!loading && !error && activeCategories.length > 0 && (
-        <div>
-          <div className="flex items-baseline justify-between mb-5">
-            <p className="text-sm home-text-meta font-medium">
-              Đang hiển thị <span className="font-bold home-text-fg2">{activeCategories.length}</span> chuyên mục học tập
-              {search && <span className="home-text-meta"> cho kết quả tìm kiếm "<span className="home-bold home-text-fg2">{search}</span>"</span>}
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {activeCategories.map((cat) => {
-              const isExpanded = !!expandedCategories[cat.id];
-              const isCatLoading = !!loadingCategory[cat.id];
-              const docs = (isExpanded && expandedDocs[cat.id]) ? expandedDocs[cat.id] : cat.documents;
+      {/* ── Lenovo Vantage Style Dashboard (Chỉ hiển thị khi không tìm kiếm) ── */}
+      {!isSearchActive && (
+        <section className="mb-10 animate-fade-in">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            {/* Cột trái (Chiếm 2/3 chiều rộng trên desktop) */}
+            <div className="lg:col-span-2 space-y-6">
               
-              const catInfo = getCategoryInfo(cat.id, cat.title, cat.logo);
-              const showExpandButton = !isSearchActive && cat.total_count > 10;
-              const themeClass = getCategoryThemeClass(cat.id, cat.title);
-
-              return (
-                <div key={cat.id} className="home-category-card animate-fade-up">
-                  {/* Visual Theme Stripe */}
-                  <div className={`home-card-header-bg ${themeClass}`} />
-
-                  {/* Category Header */}
-                  <div className="home-card-header-wrapper">
-                    <div className="home-card-icon-container">
-                      <div className={`home-card-icon-wrapper ${themeClass}`}>
-                        {catInfo.icon("w-5 h-5")}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="home-card-title truncate">
-                          {catInfo.label}
-                        </h3>
-                        <p className="home-card-meta">
-                          {cat.total_count || docs.length} tài liệu học tập
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Document Items List */}
-                  <div className="home-doc-list">
-                    {docs.map((doc) => (
-                      <a
-                        key={doc.id}
-                        href={`/documents/${doc.id}`}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          navigateWithPrefetch(doc.id);
-                        }}
-                        className={`home-doc-item ${themeClass}`}
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                          <FileText className="w-4 h-4 text-[var(--muted)] shrink-0" />
-                          <span className="home-doc-title truncate">
-                            {doc.title}
-                          </span>
-                          {doc.premium && (
-                            <span title="Tài liệu Premium"><Crown className="w-3.5 h-3.5 text-amber-500 shrink-0" /></span>
-                          )}
-                        </div>
-                        <ChevronRight className="w-4 h-4 text-[var(--meta)] shrink-0 transition-transform" />
-                      </a>
-                    ))}
-                    {isCatLoading && (
-                      <div className="text-center py-3 text-xs text-[var(--meta)] font-medium">
-                        Đang tải danh sách tài liệu...
-                      </div>
+              {/* Card 1: Thông tin Sinh viên (Giống Card thông tin Laptop Lenovo) */}
+              <div className="p-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] hover:shadow-md transition-shadow relative overflow-hidden">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-bold text-[var(--fg)] flex items-center gap-2">
+                    {role === "admin" 
+                      ? "Thông tin quản trị viên" 
+                      : role === "management" 
+                        ? "Thông tin quản lý" 
+                        : "Thông tin học viên"}
+                  </h3>
+                  <button
+                    onClick={() => window.dispatchEvent(new Event("open-profile"))}
+                    className="p-1.5 rounded-lg bg-[var(--bg-2)] hover:bg-[var(--bg-3)] cursor-pointer text-[var(--fg)] border-none flex items-center justify-center transition-colors"
+                    title="Chỉnh sửa thông tin"
+                  >
+                    <Icons.Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row items-center gap-6">
+                  {/* Ảnh minh họa hoặc Avatar */}
+                  <div className="w-24 h-24 rounded-2xl bg-[var(--bg-2)] flex items-center justify-center border border-[var(--border)] shrink-0 overflow-hidden">
+                    {profile?.avatar_url ? (
+                      <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <Icons.GraduationCap className="w-12 h-12 text-[var(--brand-600)]" />
                     )}
                   </div>
+                  
+                  {/* Chi tiết tài khoản */}
+                  <div className="flex-1 w-full space-y-2">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                      <span className="text-[var(--muted)] font-medium">Họ & Tên:</span>
+                      <span className="font-bold text-[var(--fg)] truncate">{useAuth().user?.name || useAuth().profile?.full_name || "Học viên HOU"}</span>
+                      
+                      <span className="text-[var(--muted)] font-medium">Email:</span>
+                      <span className="font-bold text-[var(--fg)] truncate">{useAuth().user?.email || "Chưa liên kết"}</span>
+                      
+                      <span className="text-[var(--muted)] font-medium">Quyền hạn:</span>
+                      <span className="font-bold text-[var(--brand-600)]">
+                        {useAuth().role === "admin" ? "Quản trị viên" : useAuth().role === "management" ? "Quản lý" : "Học viên Premium"}
+                      </span>
+                      
+                      <span className="text-[var(--muted)] font-medium">Học chế:</span>
+                      <span className="font-bold text-green-600 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                        Trực tuyến (eHOU)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-                  {/* Expand / Collapse Button */}
-                  {showExpandButton && (
-                    <button
-                      onClick={() => handleExpand(cat.id)}
-                      disabled={isCatLoading}
-                      className={`home-expand-btn ${isExpanded ? "home-expand-btn-expanded" : "home-expand-btn-collapsed"}`}
-                    >
-                      {isExpanded ? "Thu gọn danh mục" : `Xem tất cả ${cat.total_count} tài liệu`}
-                    </button>
+              {/* Card 2: Danh mục môn học (Giống Support Services) */}
+              <div className="p-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] hover:shadow-md transition-shadow relative">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-bold text-[var(--fg)]">
+                    Chuyên mục đào tạo
+                  </h3>
+                  {groupedCategories[0] && (
+                    <div className="flex items-center gap-1.5">
+                      <Link 
+                        to={`/categories/${groupedCategories[0].id}`}
+                        className="p-1 rounded bg-[var(--bg-2)] hover:bg-[var(--bg-3)] cursor-pointer text-[var(--fg)] border-none flex items-center justify-center"
+                      >
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </Link>
+                    </div>
                   )}
                 </div>
-              );
-            })}
+
+                {/* Bento grid con */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {groupedCategories.map((cat) => {
+                    const catInfo = getCategoryInfo(cat.id, cat.title, cat.logo);
+                    return (
+                      <Link
+                        key={cat.id}
+                        to={`/categories/${cat.id}`}
+                        className="flex flex-col items-center justify-center p-4 rounded-xl border border-[var(--border)] bg-[var(--bg-2)] hover:bg-[var(--surface)] hover:border-[var(--brand-600)] transition-all text-center group"
+                      >
+                        <div className="w-10 h-10 rounded-lg bg-[var(--surface)] flex items-center justify-center mb-2 group-hover:bg-[var(--brand-50)] transition-colors border border-[var(--border)]">
+                          {catInfo.icon("w-5 h-5 text-[var(--brand-600)]")}
+                        </div>
+                        <span className="text-xs font-bold text-[var(--fg)] group-hover:text-[var(--brand-600)] transition-colors line-clamp-1">
+                          {catInfo.label}
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+
+            </div>
+
+            {/* Cột phải (Chiếm 1/3 chiều rộng trên desktop) */}
+            <div className="space-y-6">
+              
+              {/* Card 3: Tiến độ học tập & Lịch thi (Giống Battery Widget nhưng chứa thông tin thật) */}
+              <div className="p-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] hover:shadow-md transition-shadow text-center flex flex-col items-center relative overflow-hidden">
+                <h3 className="text-sm font-bold text-[var(--fg)] mb-4 self-start">
+                  Lịch thi eHOU
+                </h3>
+                
+                {/* Lịch thi Icon Container */}
+                <div className="w-20 h-20 rounded-full bg-blue-50 flex items-center justify-center border border-blue-100 mb-4 shrink-0">
+                  <Calendar className="w-10 h-10 text-[var(--brand-600)]" />
+                </div>
+                
+                <p className="text-xs font-semibold text-[var(--fg)] mb-2">Tra cứu lịch thi trực tuyến</p>
+                <p className="text-[10px] text-[var(--muted)] mb-5 max-w-[200px]">Xem phòng thi, ca thi và danh sách môn đăng ký thi cá nhân.</p>
+                
+                <Link 
+                  to="/lich-thi"
+                  className="w-full py-2.5 px-4 rounded-xl bg-[var(--brand-600)] hover:bg-[var(--brand-700)] !text-white hover:!text-white text-xs font-bold transition-colors text-center flex items-center justify-center gap-2"
+                >
+                  <Calendar className="w-4 h-4 shrink-0" />
+                  Tra cứu lịch thi ngay
+                </Link>
+              </div>
+
+              {/* Card 4: Trạng thái Premium & Liên hệ (Giống Warranty Widget) */}
+              <div className="p-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] hover:shadow-md transition-shadow relative overflow-hidden">
+                <h3 className="text-sm font-bold text-[var(--fg)] mb-4">
+                  Đăng ký tài khoản
+                </h3>
+                
+                <div className="flex items-start gap-4 mb-4">
+                  {/* Shield icon */}
+                  <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center border border-amber-200 shrink-0">
+                    <Icons.Shield className="w-6 h-6 text-amber-500" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-amber-600">Premium Active</div>
+                    <div className="text-[10px] text-[var(--muted)] mt-1">Đầy đủ quyền lợi học tập & tải tài liệu eHOU không giới hạn.</div>
+                  </div>
+                </div>
+
+                {/* Nút liên hệ và nâng cấp */}
+                <div className="w-full">
+                  <Link
+                    to="/pricing"
+                    className="py-2 px-3 rounded-lg border border-[var(--border)] hover:bg-[var(--bg-2)] text-[10px] font-bold text-[var(--fg)] text-center transition-colors block w-full"
+                  >
+                    Gói dịch vụ
+                  </Link>
+                </div>
+              </div>
+
+            </div>
+
           </div>
-        </div>
+        </section>
       )}
     </div>
   );
