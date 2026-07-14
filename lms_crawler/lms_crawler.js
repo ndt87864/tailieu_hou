@@ -5,6 +5,7 @@ const { supabaseAdmin, processHtmlImagesAndUpload, cleanQuestionText, uploadFile
 const { getHtmlWithSso, postHtmlWithSso, getCookieHeader } = require("./utils/sso");
 const { processQuizReview } = require("./utils/quiz-processor");
 const { extractMultipleChoice } = require("./utils/quiz-extractor");
+const { processAssignment } = require("./utils/assign-processor");
 const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, ".env") });
 const { clearCache } = require("./clear_redis_cache");
@@ -113,6 +114,26 @@ async function main() {
         searchKeywords = searchKeywords.slice(foundIdx);
       } else {
         console.log(`⚠️ Không tìm thấy tài liệu nào khớp với LMS_START_DOCUMENT_TITLE: "${startDocTitle}" trong danh sách tìm kiếm.`);
+      }
+    }
+
+    // Lọc danh sách từ khóa kết thúc ở tài liệu cấu hình trong env
+    const endDocTitle = (process.env.LMS_END_DOCUMENT_TITLE || "").trim();
+    if (endDocTitle && searchKeywords.length > 0) {
+      const cleanEnd = stripVietnameseDiacritics(endDocTitle).toLowerCase().replace(/[^a-z0-9]/g, "");
+      let foundIdx = -1;
+      for (let i = 0; i < searchKeywords.length; i++) {
+        const cleanKey = stripVietnameseDiacritics(searchKeywords[i].title).toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (cleanKey.includes(cleanEnd) || cleanEnd.includes(cleanKey)) {
+          foundIdx = i;
+          break;
+        }
+      }
+      if (foundIdx !== -1) {
+        console.log(`ℹ️ Kết thúc crawl tại tài liệu thứ ${foundIdx + 1}: "${searchKeywords[foundIdx].title}" theo LMS_END_DOCUMENT_TITLE từ env.`);
+        searchKeywords = searchKeywords.slice(0, foundIdx + 1);
+      } else {
+        console.log(`⚠️ Không tìm thấy tài liệu nào khớp với LMS_END_DOCUMENT_TITLE: "${endDocTitle}" trong danh sách tìm kiếm.`);
       }
     }
 
@@ -584,7 +605,7 @@ async function main() {
                 // Với nhãn Label, quét tất cả các thẻ A liên kết học liệu Moodle con bên trong
                 $secPage(act).find("a").each((i, el) => {
                   const href = $secPage(el).attr("href");
-                  if (href && (href.includes("mod/resource/view.php") || href.includes("mod/url/view.php") || href.includes("mod/quiz/view.php") || href.includes("mod/page/view.php") || href.includes("mod/scorm/view.php"))) {
+                  if (href && (href.includes("mod/resource/view.php") || href.includes("mod/url/view.php") || href.includes("mod/quiz/view.php") || href.includes("mod/page/view.php") || href.includes("mod/scorm/view.php") || href.includes("mod/assign/view.php"))) {
 
                     // Thử lấy tên hiển thị:
                     let name = $secPage(el).text().trim();
@@ -637,13 +658,18 @@ async function main() {
 
               let activityName = rawName;
 
+              const onlyEssays = process.env.LMS_ONLY_CRAWL_ESSAYS === "true";
+              if (onlyEssays && !href.includes("mod/assign/view.php")) {
+                continue;
+              }
+
               // Bỏ qua các hoạt động liên quan đến Vclass
               if (activityName.toLowerCase().includes("vclass")) {
                 continue;
               }
 
-              // Chỉ tải tài liệu ở môn khớp đầu tiên, các môn sau chỉ lấy câu hỏi trắc nghiệm bổ sung
-              if (cIdx > 0 && !href.includes("mod/quiz/view.php")) {
+              // Chỉ tải tài liệu ở môn khớp đầu tiên, các môn sau chỉ lấy câu hỏi trắc nghiệm bổ sung (và bài tự luận nếu đang ở chế độ chỉ tải tự luận)
+              if (cIdx > 0 && !href.includes("mod/quiz/view.php") && !(onlyEssays && href.includes("mod/assign/view.php"))) {
                 continue;
               }
 
@@ -1142,6 +1168,22 @@ async function main() {
                   console.log(`   ✅ Đã xử lý xong bài trắc nghiệm: "${activityName}"`);
                 } catch (err) {
                   console.log(`   ⚠️ Lỗi crawl trắc nghiệm "${activityName}": ${err.message}`);
+                }
+              }
+
+              else if (href.includes("mod/assign/view.php")) {
+                try {
+                  await processAssignment({
+                    assignUrl: href,
+                    dbCourse,
+                    sectionName,
+                    getHtmlWithSso,
+                    getCookieHeader,
+                    uploadFileToStorage,
+                    supabaseAdmin
+                  });
+                } catch (err) {
+                  console.log(`   ⚠️ Lỗi crawl bài tự luận "${activityName}": ${err.message}`);
                 }
               }
             }

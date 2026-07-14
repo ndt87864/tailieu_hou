@@ -68,7 +68,7 @@ docsRouter.get("/grouped", async (c) => {
   }
 });
 
-docsRouter.get("/grouped/lms", requireRole("management"), async (c) => {
+docsRouter.get("/grouped/lms", async (c) => {
   try {
     const userRole = (c.get("role") as UserRole | undefined);
     const categories = await docService.getGroupedDocumentsLMS(isPremium(userRole));
