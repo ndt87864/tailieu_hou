@@ -11,6 +11,7 @@ const axios = require("axios");
  */
 async function processAssignment({
   assignUrl,
+  activityName,
   dbCourse,
   sectionName,
   getHtmlWithSso,
@@ -120,9 +121,13 @@ async function processAssignment({
             console.log(`      📥 Phát hiện bài làm đạt điểm ${gradeText}. Tiến hành tải file: "${fileLink.text || "file"}"...`);
             const filePublicUrl = await uploadFileToStorage(fileLink.href, "essays", getCookieHeader);
 
+            // Xác định loại tự luận cụ thể
+            const essayType = getEssayType(activityName, fileLink.text);
+            const prefix = getEssayPrefix(essayType);
+
             let essayTitle = fileLink.text || `file_${Date.now()}`;
-            // Đảm bảo tiêu đề rõ ràng
-            const displayTitle = `[Tự luận] ${essayTitle} (${gradeText.replace(/\s+/g, "")})`;
+            // Đảm bảo tiêu đề rõ ràng và có tiền tố tương ứng
+            const displayTitle = `${prefix} ${essayTitle} (${gradeText.replace(/\s+/g, "")})`;
 
             // Kiểm tra xem tài nguyên này đã được lưu trước đó chưa
             const { data: existing } = await supabaseAdmin
@@ -137,10 +142,10 @@ async function processAssignment({
               continue;
             }
 
-            // Lưu vào crawler_resources
+            // Lưu vào crawler_resources với loại tự luận tương ứng
             await supabaseAdmin.from("crawler_resources").insert({
               course_id: dbCourse.id,
-              type: "essay",
+              type: essayType,
               title: displayTitle,
               content_url: filePublicUrl,
               week_name: sectionName
@@ -156,11 +161,63 @@ async function processAssignment({
     }
 
     console.log(`   ✅ Hoàn thành xử lý bài tự luận. Đã tải thành công ${processedCount} file.`);
+    return processedCount;
   } catch (err) {
     console.log(`   ⚠️ Lỗi xử lý bài tự luận: ${err.message}`);
+    return 0;
   }
 }
 
 module.exports = {
   processAssignment
 };
+
+/**
+ * Phân loại tự luận dựa trên tên hoạt động lms và tên file bài nộp
+ */
+function getEssayType(activityName, fileTitle) {
+  const name = ((activityName || "") + " " + (fileTitle || "")).toLowerCase();
+  
+  if (name.includes("nhật ký") || name.includes("nhat ky") || name.includes("nhật kí") || name.includes("nhat ki")) {
+    return "essay_journal";
+  }
+  if (name.includes("báo cáo kiến tập") || name.includes("bao cao kien tap")) {
+    return "essay_report_internship";
+  }
+  if (name.includes("báo cáo thực tập") || name.includes("bao cao thuc tap") || name.includes("báo cáo thực tế") || name.includes("bao cao thuc te")) {
+    return "essay_report_practice";
+  }
+  if (name.includes("khóa luận") || name.includes("khoa luan") || name.includes("chuyên đề tốt nghiệp") || name.includes("chuyen de tot nghiep") || name.includes("khoa luan tot nghiep") || name.includes("khóa luận tốt nghiệp")) {
+    return "essay_thesis";
+  }
+  if (name.includes("kiểm tra") || name.includes("kiem tra") || name.includes("thi ") || name.includes("giữa kỳ") || name.includes("cuối kỳ") || name.includes("giua ky") || name.includes("cuoi ky")) {
+    return "essay_exam";
+  }
+  if (name.includes("bài tập") || name.includes("bai tap") || name.includes("tự luận") || name.includes("tu luan")) {
+    return "essay_exercise";
+  }
+  
+  return "essay_other";
+}
+
+/**
+ * Lấy nhãn hiển thị (tiền tố) tương ứng cho từng loại tự luận
+ */
+function getEssayPrefix(essayType) {
+  switch (essayType) {
+    case "essay_journal":
+      return "[Nhật ký kiến tập]";
+    case "essay_report_internship":
+      return "[Báo cáo kiến tập]";
+    case "essay_report_practice":
+      return "[Báo cáo thực tập]";
+    case "essay_thesis":
+      return "[Khóa luận tốt nghiệp]";
+    case "essay_exam":
+      return "[Kiểm tra tự luận]";
+    case "essay_exercise":
+      return "[Bài tập tự luận]";
+    default:
+      return "[Tự luận]";
+  }
+}

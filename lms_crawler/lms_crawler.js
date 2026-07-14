@@ -9,6 +9,7 @@ const { processAssignment } = require("./utils/assign-processor");
 const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, ".env") });
 const { clearCache } = require("./clear_redis_cache");
+const { getSearchKeywordsFromExcel } = require("./utils/excel-reader");
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -47,40 +48,69 @@ async function main() {
     }
 
     let searchKeywords = [];
+    const envExcelPath = (process.env.LMS_EXCEL_PATH || "").trim();
     const envTitle = (process.env.LMS_DOCUMENT_TITLE || "").trim();
 
-    if (envTitle && envTitle.toLowerCase() !== "false") {
-      searchKeywords = envTitle.split(",").map(t => ({ id: null, title: t.trim() })).filter(x => x.title);
-      console.log(`ℹ️ Sử dụng danh sách từ khóa tìm kiếm môn học từ env:`, searchKeywords.map(x => x.title));
-    } else {
-      console.log("ℹ️ Đang tự động kết nối và lấy danh sách tài liệu từ database...");
+    if (envExcelPath) {
       try {
-        const limitEnv = process.env.LMS_DB_DOCUMENTS_LIMIT;
-        let limit = null;
-        if (limitEnv && limitEnv.trim().toLowerCase() !== "false") {
-          const parsedLimit = parseInt(limitEnv, 10);
-          if (!isNaN(parsedLimit) && parsedLimit > 0) {
-            limit = parsedLimit;
+        console.log(`ℹ️ Ưu tiên quét theo danh sách từ tệp Excel cấu hình trong env: ${envExcelPath}`);
+        searchKeywords = await getSearchKeywordsFromExcel(envExcelPath);
+        if (envTitle && envTitle.toLowerCase() !== "false") {
+          const filterTitles = envTitle.split(",").map(t => t.trim().toLowerCase()).filter(Boolean);
+          if (filterTitles.length > 0) {
+            console.log(`ℹ️ Đang lọc danh sách Excel theo LMS_DOCUMENT_TITLE:`, filterTitles);
+            searchKeywords = searchKeywords.filter(k => {
+              const titleLower = k.title.toLowerCase();
+              const docTitleLower = k.docTitle ? k.docTitle.toLowerCase() : "";
+              return filterTitles.some(filter => {
+                const cleanFilter = filter.replace(/\s+/g, "").replace(/[-–—]/g, "");
+                const cleanCourseTitle = titleLower.replace(/\s+/g, "").replace(/[-–—]/g, "");
+                const cleanDocTitle = docTitleLower.replace(/\s+/g, "").replace(/[-–—]/g, "");
+                return cleanCourseTitle.includes(cleanFilter) || cleanDocTitle.includes(cleanFilter);
+              });
+            });
+            console.log(`ℹ️ Sau khi lọc còn lại ${searchKeywords.length} môn học:`, searchKeywords.map(x => x.title));
           }
         }
-
-        let query = supabaseAdmin
-          .from("documents")
-          .select("id, title");
-        if (limit !== null) {
-          query = query.limit(limit);
-          console.log(`ℹ️ Giới hạn số lượng lấy từ DB: ${limit} môn học.`);
-        }
-
-        const { data: dbDocs, error: docFetchErr } = await query;
-        if (docFetchErr) {
-          console.error(`⚠️ Lỗi lấy danh sách tài liệu từ DB: ${docFetchErr.message}`);
-        } else if (dbDocs && dbDocs.length > 0) {
-          searchKeywords = dbDocs.map(d => ({ id: d.id, title: d.title.trim() })).filter(x => x.title);
-          console.log(`ℹ️ Lấy thành công từ database:`, searchKeywords.map(x => x.title));
-        }
       } catch (err) {
-        console.error("⚠️ Lỗi truy vấn database:", err.message);
+        console.error(`⚠️ Lỗi khi đọc danh sách môn học từ Excel:`, err.message);
+      }
+    }
+
+    if (searchKeywords.length === 0) {
+      if (envTitle && envTitle.toLowerCase() !== "false") {
+        searchKeywords = envTitle.split(",").map(t => ({ id: null, title: t.trim() })).filter(x => x.title);
+        console.log(`ℹ️ Sử dụng danh sách từ khóa tìm kiếm môn học từ env:`, searchKeywords.map(x => x.title));
+      } else {
+        console.log("ℹ️ Đang tự động kết nối và lấy danh sách tài liệu từ database...");
+        try {
+          const limitEnv = process.env.LMS_DB_DOCUMENTS_LIMIT;
+          let limit = null;
+          if (limitEnv && limitEnv.trim().toLowerCase() !== "false") {
+            const parsedLimit = parseInt(limitEnv, 10);
+            if (!isNaN(parsedLimit) && parsedLimit > 0) {
+              limit = parsedLimit;
+            }
+          }
+
+          let query = supabaseAdmin
+            .from("documents")
+            .select("id, title");
+          if (limit !== null) {
+            query = query.limit(limit);
+            console.log(`ℹ️ Giới hạn số lượng lấy từ DB: ${limit} môn học.`);
+          }
+
+          const { data: dbDocs, error: docFetchErr } = await query;
+          if (docFetchErr) {
+            console.error(`⚠️ Lỗi lấy danh sách tài liệu từ DB: ${docFetchErr.message}`);
+          } else if (dbDocs && dbDocs.length > 0) {
+            searchKeywords = dbDocs.map(d => ({ id: d.id, title: d.title.trim() })).filter(x => x.title);
+            console.log(`ℹ️ Lấy thành công từ database:`, searchKeywords.map(x => x.title));
+          }
+        } catch (err) {
+          console.error("⚠️ Lỗi truy vấn database:", err.message);
+        }
       }
     }
 
@@ -237,7 +267,8 @@ async function main() {
       let hasMorePages = true;
 
       while (hasMorePages && page < maxSearchPages) {
-        const searchUrl = `https://learning.ehou.edu.vn/course/search.php?search=${encodeURIComponent(keyword)}&page=${page}`;
+        const cleanSearchQuery = keyword.replace(/[-–—]/g, " ").replace(/\s+/g, " ").trim();
+        const searchUrl = `https://learning.ehou.edu.vn/course/search.php?search=${encodeURIComponent(cleanSearchQuery)}&page=${page}`;
         // console.log(`   🔎 Đang quét trang kết quả tìm kiếm [${page + 1}]...`);
 
         const searchRes = await getHtmlWithSso(searchUrl);
@@ -262,13 +293,55 @@ async function main() {
         let newCoursesCount = 0;
         for (let i = 0; i < foundInPage.length; i++) {
           const c = foundInPage[i];
-          const similarity = getCourseSimilarity(keyword, c.title);
+          let isMatched = false;
+          let similarity = 0;
 
-          const cleanKeyword = stripVietnameseDiacritics(keyword).toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
-          const cleanTitle = stripVietnameseDiacritics(c.title).toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
-          const isPart = cleanTitle.includes(cleanKeyword);
+          if (keywordObj.docTitle) {
+            const cleanDocTitle = stripVietnameseDiacritics(keywordObj.docTitle).toLowerCase().replace(/[^a-z0-9]/g, "");
+            const originalTenHocPhan = keyword.split("-")[0].trim();
+            const cleanTenHocPhan = stripVietnameseDiacritics(originalTenHocPhan).toLowerCase().replace(/[^a-z0-9]/g, "");
+            
+            const maMonFromKeyword = keyword.split("-").pop().trim();
+            const cleanMaMon = stripVietnameseDiacritics(maMonFromKeyword).toLowerCase().replace(/[^a-z0-9]/g, "");
+            
+            const cleanWebTitle = stripVietnameseDiacritics(c.title).toLowerCase().replace(/[^a-z0-9]/g, "");
+            
+            // Web title phải bắt đầu bằng Tên học phần gốc hoặc Tên học phần đã ghép ngành, và phải chứa đúng mã môn học
+            const startsWithTitle = cleanWebTitle.startsWith(cleanTenHocPhan) || cleanWebTitle.startsWith(cleanDocTitle);
+            const containsCode = cleanWebTitle.includes(cleanMaMon);
+            
+            isMatched = startsWithTitle && containsCode;
+            
+            // Nếu là tài liệu đặc biệt (tên đã ghép ngành), và web title chứa tên ngành khác thì không được khớp
+            if (isMatched && cleanDocTitle !== cleanTenHocPhan) {
+              const otherCategories = ["ke toan", "luat", "quan tri kinh doanh", "luat kinh te", "tai chinh ngan hang"]
+                .map(cat => stripVietnameseDiacritics(cat).toLowerCase().replace(/[^a-z0-9]/g, ""))
+                .filter(cat => !cleanDocTitle.includes(cat)); // Loại trừ ngành hiện tại của docTitle
+              
+              const containsOtherCat = otherCategories.some(otherCat => cleanWebTitle.includes(otherCat));
+              if (containsOtherCat) {
+                isMatched = false;
+              }
+            }
+            
+            // Tránh khớp các hậu tố môn học khác như .BTL, .Học phần phụ...
+            if (isMatched) {
+              const codeIndex = cleanWebTitle.indexOf(cleanMaMon);
+              const charAfterCode = cleanWebTitle.charAt(codeIndex + cleanMaMon.length);
+              if (charAfterCode && /[a-z]/i.test(charAfterCode)) {
+                isMatched = false;
+              }
+            }
+            
+            similarity = isMatched ? 1.0 : 0.0;
+          } else {
+            similarity = getCourseSimilarity(keyword, c.title);
+            const cleanKeyword = stripVietnameseDiacritics(keyword).toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+            const cleanTitle = stripVietnameseDiacritics(c.title).toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+            const isPart = cleanTitle.includes(cleanKeyword);
+            isMatched = similarity > 0.9 && isPart;
+          }
 
-          const isMatched = similarity > 0.9 && isPart;
           c.similarity = similarity;
 
           if (isMatched) {
@@ -315,7 +388,7 @@ async function main() {
       matchedCourses.sort((a, b) => b.similarity - a.similarity);
       rejectedCourses.sort((a, b) => b.similarity - a.similarity);
 
-      const finalMatchedCourses = matchedCourses.slice(0, maxCourses);
+      const finalMatchedCourses = matchedCourses.slice(0, 10);
 
       console.log(`\n   🎯 CÁC MÔN SẼ LẤY DATA (Chấp nhận - Tương đồng > 90% và chứa tên):`);
       if (finalMatchedCourses.length > 0) {
@@ -326,14 +399,14 @@ async function main() {
         console.log(`      (Không có môn học nào thỏa mãn)`);
       }
 
-      // console.log(`\n   ⏭️ CÁC MÔN SẼ BỎ QUA (Bị loại - Tương đồng <= 90%):`);
-      // if (rejectedCourses.length > 0) {
-      //   rejectedCourses.forEach((c, idx) => {
-      //     console.log(`      [${idx + 1}] ${c.title} (Độ tương đồng: ${Math.round(c.similarity * 100)}%)`);
-      //   });
-      // } else {
-      //   console.log(`      (Không có môn học nào bị loại)`);
-      // }
+       console.log(`\n   ⏭️ CÁC MÔN SẼ BỎ QUA (Bị loại - Tương đồng <= 90% hoặc không chứa tên):`);
+       if (rejectedCourses.length > 0) {
+         rejectedCourses.forEach((c, idx) => {
+           console.log(`      [${idx + 1}] ${c.title} (Độ tương đồng: ${Math.round(c.similarity * 100)}%)`);
+         });
+       } else {
+         console.log(`      (Không có môn học nào bị loại)`);
+       }
 
       if (finalMatchedCourses.length === 0) {
         console.log(`⚠️ Không có môn học nào đủ độ tương đồng với tài liệu: "${keyword}".`);
@@ -360,6 +433,7 @@ async function main() {
         targetCourses = finalMatchedCourses;
       }
 
+      let successfulCoursesCount = 0;
       for (let cIdx = 0; cIdx < targetCourses.length; cIdx++) {
         const currentCourse = targetCourses[cIdx];
         const courseLink = currentCourse.href;
@@ -569,6 +643,7 @@ async function main() {
         console.log(`📅 Tìm thấy ${sectionsToCrawl.length} phần học/tuần học cần tải.`);
 
         let fileCount = 0;
+        let essayFileCount = 0;
         let youtubeCount = 0;
         let quizCount = 0;
         let sectionCrawledCount = 0;
@@ -595,6 +670,10 @@ async function main() {
             console.log(`-------------------------------------------------`);
 
             const activities = $secPage(sec).find("li.activity");
+            console.log(`   [DEBUG] Week: "${sectionName}" | Found ${activities.length} activities`);
+            $secPage(sec).find("li.activity").each((idx, actEl) => {
+              console.log(`     - Activity [${idx+1}]: ID="${$secPage(actEl).attr("id")}" | Class="${$secPage(actEl).attr("class")}"`);
+            });
             const activityQueue = [];
 
             for (let a = 0; a < activities.length; a++) {
@@ -605,7 +684,7 @@ async function main() {
                 // Với nhãn Label, quét tất cả các thẻ A liên kết học liệu Moodle con bên trong
                 $secPage(act).find("a").each((i, el) => {
                   const href = $secPage(el).attr("href");
-                  if (href && (href.includes("mod/resource/view.php") || href.includes("mod/url/view.php") || href.includes("mod/quiz/view.php") || href.includes("mod/page/view.php") || href.includes("mod/scorm/view.php") || href.includes("mod/assign/view.php"))) {
+                  if (href && (href.includes("mod/resource/view.php") || href.includes("mod/url/view.php") || href.includes("mod/quiz/view.php") || href.includes("mod/page/view.php") || href.includes("mod/scorm/view.php") || href.includes("mod/assign/view.php") || href.includes("pluginfile.php") || /\.(pdf|docx|doc|xlsx|xls|pptx|ppt|zip|rar|txt)$/i.test(href.split('?')[0]))) {
 
                     // Thử lấy tên hiển thị:
                     let name = $secPage(el).text().trim();
@@ -631,6 +710,31 @@ async function main() {
                 }
               }
             }
+
+            // Quét các liên kết tài liệu đính kèm trực tiếp nằm ngoài li.activity (ví dụ trong phần tóm tắt .summary của tuần học)
+            $secPage(sec).find("a").each((_, el) => {
+              if ($secPage(el).closest("li.activity").length === 0) {
+                const href = $secPage(el).attr("href");
+                if (href) {
+                  const isPluginFile = href.includes("pluginfile.php");
+                  const hasDocExtension = /\.(pdf|docx|doc|xlsx|xls|pptx|ppt|zip|rar|txt)$/i.test(href.split('?')[0]);
+                  
+                  if (isPluginFile || hasDocExtension) {
+                    const name = $secPage(el).text().trim() || "Tài liệu đính kèm";
+                    activityQueue.push({
+                      href,
+                      name,
+                      act: null,
+                      originalLink: $secPage(el)
+                    });
+            console.log(`   [DEBUG] Week: "${sectionName}" | Total activityQueue size: ${activityQueue.length}`);
+            activityQueue.forEach((item, idx) => {
+              console.log(`     - QueueItem [${idx+1}]: Href="${item.href}" | Name="${item.name}"`);
+            });
+                  }
+                }
+              }
+            });
 
             for (const { href, name: subName, act, originalLink } of activityQueue) {
               // Tiêu đề của hoạt động
@@ -659,7 +763,8 @@ async function main() {
               let activityName = rawName;
 
               const onlyEssays = process.env.LMS_ONLY_CRAWL_ESSAYS === "true";
-              if (onlyEssays && !href.includes("mod/assign/view.php")) {
+              const isDirectFile = href.includes("pluginfile.php") || /\.(pdf|docx|doc|xlsx|xls|pptx|ppt|zip|rar|txt)$/i.test(href.split('?')[0]);
+              if (onlyEssays && !href.includes("mod/assign/view.php") && !isDirectFile) {
                 continue;
               }
 
@@ -673,7 +778,7 @@ async function main() {
                 continue;
               }
 
-              if (href.includes("mod/resource/view.php")) {
+              if (href.includes("mod/resource/view.php") || href.includes("pluginfile.php") || /\.(pdf|docx|doc|xlsx|xls|pptx|ppt|zip|rar|txt)$/i.test(href.split('?')[0])) {
                 try {
                   // 1. Bắt buộc lấy tên file thực tế từ header Content-Disposition của Moodle
                   let resolvedName = "";
@@ -1173,8 +1278,9 @@ async function main() {
 
               else if (href.includes("mod/assign/view.php")) {
                 try {
-                  await processAssignment({
+                  const downloaded = await processAssignment({
                     assignUrl: href,
+                    activityName,
                     dbCourse,
                     sectionName,
                     getHtmlWithSso,
@@ -1182,6 +1288,7 @@ async function main() {
                     uploadFileToStorage,
                     supabaseAdmin
                   });
+                  essayFileCount += (downloaded || 0);
                 } catch (err) {
                   console.log(`   ⚠️ Lỗi crawl bài tự luận "${activityName}": ${err.message}`);
                 }
@@ -1190,6 +1297,31 @@ async function main() {
             sectionCrawledCount++;
           }
         }
+
+        // Kiểm tra xem môn học này có tải được dữ liệu nào không
+          const totalDownloaded = fileCount + essayFileCount;
+          console.log(`\n📊 Kết quả crawl môn "${courseTitle}":`);
+          console.log(`   - File bài giảng: ${fileCount}`);
+          console.log(`   - File tự luận: ${essayFileCount}`);
+          console.log(`   - Trắc nghiệm: ${quizCount}`);
+          console.log(`   - Video YouTube: ${youtubeCount}`);
+
+          const onlyEssays = process.env.LMS_ONLY_CRAWL_ESSAYS === "true";
+          const hasData = onlyEssays ? (essayFileCount > 0) : (totalDownloaded > 0 || quizCount > 0);
+
+          if (hasData) {
+            successfulCoursesCount++;
+            console.log(`✅ Môn học "${courseTitle}" crawl thành công (tải được dữ liệu).`);
+            if (successfulCoursesCount >= maxCourses) {
+              console.log(`🎉 Đã đạt giới hạn tối đa ${maxCourses} môn học khớp thành công. Dừng tìm kiếm các môn tương đồng tiếp theo cho tài liệu này.`);
+              break;
+            }
+          } else {
+            console.log(`⚠️ Môn học "${courseTitle}" tải được 0 file/dữ liệu.`);
+            if (cIdx < targetCourses.length - 1) {
+              console.log(`🔄 Tiến hành chuyển sang crawl môn học tương đồng tiếp theo trong danh sách...`);
+            }
+          }
       }
     }
 
@@ -1302,6 +1434,11 @@ function getCourseSimilarity(searchKeyword, courseTitle) {
 
   const cleanTitle = (title) => {
     if (!title) return "";
+    // Nếu từ khóa tìm kiếm chứa dấu gạch ngang, giữ nguyên tiêu đề đầy đủ để so sánh chính xác
+    if (searchKeyword.includes("-") || searchKeyword.includes("–") || searchKeyword.includes("—")) {
+      return title.trim();
+    }
+    // Ngược lại, cắt bỏ phần sau dấu gạch ngang
     if (title.includes("-") || title.includes("–") || title.includes("—")) {
       return title.split(/[-–—]/)[0].trim();
     }
@@ -1311,12 +1448,12 @@ function getCourseSimilarity(searchKeyword, courseTitle) {
   const cleanSearch = stripVietnameseDiacritics(searchKeyword).toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
   const cleanCourse = stripVietnameseDiacritics(cleanTitle(courseTitle)).toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
 
+  const searchWords = cleanSearch.split(/\s+/).filter(Boolean);
+  const courseWords = cleanCourse.split(/\s+/).filter(Boolean);
+
   if (cleanCourse === cleanSearch) {
     return 1.0;
   }
-
-  const searchWords = cleanSearch.split(/\s+/).filter(Boolean);
-  const courseWords = cleanCourse.split(/\s+/).filter(Boolean);
 
   if (searchWords.length === 0) return 0;
 
