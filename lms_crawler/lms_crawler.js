@@ -5,7 +5,8 @@ const { supabaseAdmin, processHtmlImagesAndUpload, cleanQuestionText, uploadFile
 const { getHtmlWithSso, postHtmlWithSso, getCookieHeader } = require("./utils/sso");
 const { processQuizReview } = require("./utils/quiz-processor");
 const { extractMultipleChoice } = require("./utils/quiz-extractor");
-require("dotenv").config();
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, ".env") });
 const { clearCache } = require("./clear_redis_cache");
 
 const rl = readline.createInterface({
@@ -93,6 +94,26 @@ async function main() {
       console.log("❌ Không tìm thấy từ khóa hoặc môn học nào để tìm kiếm!");
       rl.close();
       return;
+    }
+
+    // Lọc danh sách từ khóa bắt đầu từ tài liệu cấu hình trong env
+    const startDocTitle = (process.env.LMS_START_DOCUMENT_TITLE || "").trim();
+    if (startDocTitle && searchKeywords.length > 0) {
+      const cleanStart = stripVietnameseDiacritics(startDocTitle).toLowerCase().replace(/[^a-z0-9]/g, "");
+      let foundIdx = -1;
+      for (let i = 0; i < searchKeywords.length; i++) {
+        const cleanKey = stripVietnameseDiacritics(searchKeywords[i].title).toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (cleanKey.includes(cleanStart) || cleanStart.includes(cleanKey)) {
+          foundIdx = i;
+          break;
+        }
+      }
+      if (foundIdx !== -1) {
+        console.log(`ℹ️ Bắt đầu crawl từ tài liệu thứ ${foundIdx + 1}: "${searchKeywords[foundIdx].title}" theo LMS_START_DOCUMENT_TITLE từ env.`);
+        searchKeywords = searchKeywords.slice(foundIdx);
+      } else {
+        console.log(`⚠️ Không tìm thấy tài liệu nào khớp với LMS_START_DOCUMENT_TITLE: "${startDocTitle}" trong danh sách tìm kiếm.`);
+      }
     }
 
     let isTestMode = true;
@@ -402,6 +423,16 @@ async function main() {
           }
           dbCourse = data;
           console.log("💾 Đã lưu thông tin môn học mới vào DB.");
+        }
+
+        // Lấy danh sách tất cả các course_id thuộc cùng tài liệu để kiểm tra trùng trên toàn tài liệu
+        let siblingCourseIds = [dbCourse.id];
+        const { data: siblingCourses } = await supabaseAdmin
+          .from("crawler_courses")
+          .select("id")
+          .eq("document_id", selectedDoc.id);
+        if (siblingCourses && siblingCourses.length > 0) {
+          siblingCourseIds = siblingCourses.map(c => c.id);
         }
 
         // Hàm chuẩn hóa title bằng cách loại bỏ các hậu tố loại hình Moodle Việt hóa/Anh hóa thừa ở cuối
@@ -1049,15 +1080,15 @@ async function main() {
                         const { data: existingQs } = await supabaseAdmin
                           .from("crawler_questions")
                           .select("id, answer")
-                          .eq("course_id", dbCourse.id)
+                          .in("course_id", siblingCourseIds)
                           .eq("question", qData.question);
                         
                         // Chuẩn hóa đáp án đang chuẩn bị chèn
-                        const cleanNewAnswer = qData.answer ? qData.answer.replace(/^[a-eA-E][\.\)\-\:]\s*/i, "").trim().toLowerCase() : "";
+                        const cleanNewAnswer = cleanAnswerPrefix(qData.answer).toLowerCase();
 
-                        // Tìm câu trùng có cùng câu hỏi và có cùng nội dung đáp án (sau khi chuẩn hóa nhãn A., B., C., D.)
+                        // Tìm câu trùng có cùng câu hỏi và có cùng nội dung đáp án
                         const existingQ = existingQs && existingQs.length > 0 ? existingQs.find(eq => {
-                          const cleanExistAnswer = eq.answer ? eq.answer.replace(/^[a-eA-E][\.\)\-\:]\s*/i, "").trim().toLowerCase() : "";
+                          const cleanExistAnswer = cleanAnswerPrefix(eq.answer).toLowerCase();
                           return cleanExistAnswer === cleanNewAnswer;
                         }) : null;
 
@@ -1073,7 +1104,7 @@ async function main() {
                               .from("crawler_questions")
                               .update({
                                 question: qData.question,
-                                answer: qData.answer,
+                                answer: cleanAnswerPrefix(qData.answer),
                                 url_answer: qData.url_answer
                               })
                               .eq("id", existingQ.id);
@@ -1082,7 +1113,7 @@ async function main() {
                             await supabaseAdmin
                               .from("crawler_questions")
                               .update({
-                                answer: qData.answer,
+                                answer: cleanAnswerPrefix(qData.answer),
                                 url_answer: qData.url_answer
                               })
                               .eq("id", existingQ.id);
@@ -1094,13 +1125,13 @@ async function main() {
                             week_name: sectionName,
                             question: qData.question,
                             choices: qData.choices,
-                            answer: qData.answer,
+                            answer: cleanAnswerPrefix(qData.answer),
                             url_question: qData.url_question,
                             url_answer: qData.url_answer,
                             url_choices: qData.url_choices,
                             order_index: i + 1
                           });
-                          console.log(`      ✅ Đã lưu câu hỏi mới [${i + 1}] (${qData.type}) (Đáp án: ${qData.answer}).`);
+                          console.log(`      ✅ Đã lưu câu hỏi mới [${i + 1}] (${qData.type}) (Đáp án: ${cleanAnswerPrefix(qData.answer)}).`);
                         }
                       }
                     } catch (revErr) {
@@ -1266,3 +1297,15 @@ function getCourseSimilarity(searchKeyword, courseTitle) {
 function isCourseMatched(searchKeyword, courseTitle) {
   return getCourseSimilarity(searchKeyword, courseTitle) >= 0.75;
 }
+
+function cleanAnswerPrefix(ans) {
+  if (!ans) return "";
+  const str = String(ans).trim();
+  // Khớp tiền tố dạng chữ cái kèm theo dấu chấm/ngoặc/gạch/hai chấm và có nội dung phía sau
+  const match = str.match(/^[a-zA-Z][\.\)\-\:\s]+\s*(.+)$/);
+  if (match && match[1] && match[1].trim() !== "") {
+    return match[1].trim();
+  }
+  return str;
+}
+

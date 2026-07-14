@@ -102,7 +102,7 @@ function cleanFillBlankQuestionText(text) {
     .replace(/^câu hỏi \d+\s*đúng/i, "")
     .replace(/^câu hỏi \d+\s*sai/i, "")
     .replace(/\[\s*[^\]]+\s*\]/g, "")
-    .replace(/^[a-zA-Z][\.\)\-:\/]\s+|^[0-9]{1,2}\s*[\.\)\-:\/]\s+/u, "")
+    .replace(/^[a-zA-Z]\s*[\.\)\-:\/]\s*|^[0-9]{1,2}\s*[\.\)\-:\/]\s*/u, "")
     .trim();
 }
 
@@ -123,7 +123,7 @@ function formatFillBlankAnswers(answers) {
 /**
  * Extract fill-in-the-blank sub-questions using hou_quiz approach
  */
-function extractFillBlankSubQuestions($review, qBlock, inputElements, parsedRightAnswers, tableContainer, shouldGroupTable) {
+function extractFillBlankSubQuestions($review, qBlock, inputElements, parsedRightAnswers, tableContainer, shouldGroupTable, cleanQuestionTextFn) {
   const subQuestions = [];
   const seenTexts = new Set();
   
@@ -134,7 +134,12 @@ function extractFillBlankSubQuestions($review, qBlock, inputElements, parsedRigh
     const clonedQText = qtextEl.clone();
     clonedQText.find("table, ul, ol, .outcome, .rightanswer, .feedback, .feedbackspan, .generalfeedback, .specificfeedback, .accesshide, .questioncorrectnessicon, .aftergapfeedback").remove();
     clonedQText.find('input[type="text"], input:not([type]), textarea, select').remove();
-    prefixInstructionText = cleanFillBlankQuestionText(clonedQText.text());
+    
+    if (typeof cleanQuestionTextFn === "function") {
+      prefixInstructionText = cleanQuestionTextFn($review, clonedQText);
+    } else {
+      prefixInstructionText = cleanFillBlankQuestionText(clonedQText.text());
+    }
   }
   
   // Group inputs by container
@@ -178,7 +183,30 @@ function extractFillBlankSubQuestions($review, qBlock, inputElements, parsedRigh
     
     const answers = containerInputs.map(({ idx, input }, localIdx) => {
       const fallbackValue = getInputValue($review, input);
-      const answer = getAnswerForInput(parsedRightAnswers, idx, fallbackValue);
+      const rawAnswer = getAnswerForInput(parsedRightAnswers, idx, fallbackValue);
+      
+      // Xử lý thông minh dấu mũi tên -> cho câu hỏi matching
+      let answer = rawAnswer;
+      let questionOverrideText = null;
+      if (rawAnswer && (rawAnswer.includes("->") || rawAnswer.includes("—>") || rawAnswer.includes("-->") || rawAnswer.toLowerCase().includes(" to "))) {
+        const parts = rawAnswer.split(/->|—>|-->|\s+to\s+/i);
+        if (parts.length === 2) {
+          const leftSide = parts[0].trim().replace(/^[a-zA-Z0-9]\s*[\.\)\-:\/]\s*/u, "").trim();
+          const rightSide = parts[1].trim();
+          
+          // So khớp thử phần bên trái với text hiện tại của câu hỏi
+          const cleanText = text.replace(/^[a-zA-Z0-9]\s*[\.\)\-:\/]\s*/u, "").replace(/\s*\.\.\.\s*$/, "").trim();
+          if (cleanText.toLowerCase().includes(leftSide.toLowerCase()) || leftSide.toLowerCase().includes(cleanText.toLowerCase())) {
+            answer = rightSide;
+            questionOverrideText = leftSide;
+          }
+        }
+      }
+      
+      if (questionOverrideText) {
+        text = questionOverrideText + " ...";
+      }
+
       return answer ? { index: parsedRightAnswers.length > 0 ? idx + 1 : localIdx + 1, answer } : null;
     }).filter(Boolean);
 

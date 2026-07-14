@@ -3,7 +3,13 @@ import { supabaseAdmin } from "../config/db.js";
 import { requireRole } from "../middlewares/role.js";
 import { cacheGetOrSet, cacheInvalidatePrefix } from "../utils/cache.js";
 
-const spreadsheetsRouter = new Hono();
+type Env = {
+  Variables: {
+    user: any;
+  };
+};
+
+const spreadsheetsRouter = new Hono<Env>();
 
 // Cho phép cả Admin và Management truy cập (Management level 90, Admin level 100)
 spreadsheetsRouter.use("*", requireRole("management"));

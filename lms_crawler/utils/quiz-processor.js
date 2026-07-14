@@ -81,7 +81,7 @@ async function processFillBlank($review, qBlock, inputElements, getCookieHeader)
   // Use quiz-parser for sub-question extraction
   const tableContainer = $review(qBlock).find("table");
   const shouldGroupTableValue = shouldGroupTable($review, tableContainer);
-  const subQuestions = extractFillBlankSubQuestions($review, qBlock, inputElements, parsedRightAnswers, tableContainer, shouldGroupTableValue);
+  const subQuestions = extractFillBlankSubQuestions($review, qBlock, inputElements, parsedRightAnswers, tableContainer, shouldGroupTableValue, cleanQuestionText);
 
   // Fallback if no sub-questions found
   if (subQuestions.length === 0 && parsedRightAnswers.length > 0) {
