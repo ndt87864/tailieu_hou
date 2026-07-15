@@ -22,6 +22,7 @@ import {
   RenameSheetModal,
   DeleteSheetModal,
   NewDocModal,
+  SelectVipSheetsModal,
 } from "./modals/SpreadsheetModals.js";
 import * as XLSX from "xlsx";
 
@@ -65,6 +66,9 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
   const [importOption, setImportOption] = useState<"new_doc" | "new_sheet" | "replace_current">("new_sheet");
   const [otherSheetsList, setOtherSheetsList] = useState<any[]>([]);
   const [loadingOtherSheets, setLoadingOtherSheets] = useState(false);
+  const [showVipSelectModal, setShowVipSelectModal] = useState(false);
+  const [vipTemplates, setVipTemplates] = useState<any[]>([]);
+  const [pendingDocName, setPendingDocName] = useState("");
   const [showFindReplace, setShowFindReplace] = useState(false);
   const [findText, setFindText] = useState("");
   const [replaceText, setReplaceText] = useState("");
@@ -117,6 +121,25 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
       setOtherSheetsList(res.data.data.filter((item: any) => item.id !== sheetId));
     } catch { toast.error("Không thể tải danh sách!"); }
     finally { setLoadingOtherSheets(false); }
+  };
+
+  const performCreateNewSpreadsheet = async (title: string, selectedVipTemplates: any[]) => {
+    try {
+      const payload: any = { title };
+      if (selectedVipTemplates.length > 0) {
+        payload.vipTemplateNames = selectedVipTemplates.map((t: any) => t.name);
+      } else {
+        payload.content = { sheets: [{ name: "Sheet1", cells: {}, rowCount: 500, colCount: 26, isVip: false }] };
+      }
+
+      const res = await apiClient.post("/api/v1/spreadsheets", payload);
+      toast.success(selectedVipTemplates.length > 0 ? "Tạo trang tính VIP thành công!" : "Tạo trang tính thành công!");
+      setNewDocModal({ show: false, title: "Tạo trang tính mới", defaultName: "Trang tính chưa có tên", action: () => {} });
+      setShowVipSelectModal(false);
+      window.location.href = `/admin/sheets/${res.data.data.id}`;
+    } catch (e: any) {
+      toast.error(e.message);
+    }
   };
 
   const parseExcelToSheets = (buf: ArrayBuffer): Sheet[] => {
@@ -230,17 +253,23 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
         onInsertFormula={state.insertFormula} onApplyStyle={state.handleToolbarStyleChange} onOpenHelp={() => setShowHelpModal(true)}
         onNewSpreadsheet={() => setNewDocModal({
           show: true, title: "Tạo trang tính mới", defaultName: "Trang tính chưa có tên", action: async (trimmed) => {
+            setPendingDocName(trimmed);
             try {
-              const confirmVip = await confirmModal({
-                title: "Loại trang tính",
-                message: "Bạn có muốn tạo trang tính VIP không?",
-                confirmText: "Có (VIP)",
-                cancelText: "Không (Thường)",
-                type: "info",
-              });
-              const res = await apiClient.post("/api/v1/spreadsheets", { title: trimmed, content: { sheets: [{ name: "Sheet1", cells: {}, rowCount: 500, colCount: 26, isVip: confirmVip }] } });
-              navigate(`/admin/sheets/${res.data.data.id}`);
-            } catch (e: any) { toast.error(e.message); }
+              const res = await apiClient.get("/api/v1/spreadsheets/vip-templates/list");
+              const templates = (res.data.data || []).map((t: any) => ({
+                ...t.content,
+                id: t.id
+              }));
+
+              if (templates.length > 0) {
+                setVipTemplates(templates);
+                setShowVipSelectModal(true);
+              } else {
+                await performCreateNewSpreadsheet(trimmed, []);
+              }
+            } catch (err: any) {
+              await performCreateNewSpreadsheet(trimmed, []);
+            }
           }
         })}
         onOpenSpreadsheet={handleOpenSpreadsheetModal}
@@ -343,6 +372,13 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
           colWidths={state.sheets[state.activeSheetIdx]?.colWidths} onUpdateRowHeight={state.handleUpdateRowHeight} onUpdateColWidth={state.handleUpdateColWidth}
           showGridlines={state.showGridlines} showFormulas={state.showFormulas} freezeRows={state.freezeRows} freezeCols={state.freezeCols}
           onCopy={state.copySelection} onPaste={() => state.pasteClipboard("all")} onCut={state.cutSelection}
+          onPasteSpecial={state.pasteClipboard}
+          onShiftCells={state.handleShiftCells}
+          onDeleteCellsAndShift={state.handleDeleteCellsAndShift}
+          hiddenRows={state.sheets[state.activeSheetIdx]?.hiddenRows}
+          onConvertToTable={state.handleConvertToTable}
+          onCreateFilter={state.handleCreateFilter}
+          onFilterByCellValue={state.handleFilterByCellValue}
         />
       </div>
 
@@ -419,6 +455,16 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
       <ExcelImportModal show={showImportModal} onClose={() => setShowImportModal(false)} importOption={importOption} setImportOption={setImportOption} onExecuteImport={handleExecuteImport} />
       <NewDocModal show={newDocModal.show} onClose={() => setNewDocModal({ ...newDocModal, show: false })} title={newDocModal.title} name={newDocModal.defaultName} setName={name => setNewDocModal({ ...newDocModal, defaultName: name })} onConfirm={() => { newDocModal.action(newDocModal.defaultName.trim()); setNewDocModal({ ...newDocModal, show: false }); }} />
       <PrintSettingsModal show={showPrintModal} onClose={() => setShowPrintModal(false)} title={state.title} sheets={state.sheets} activeSheetIdx={state.activeSheetIdx} />
+      <SelectVipSheetsModal
+        show={showVipSelectModal}
+        onClose={() => setShowVipSelectModal(false)}
+        templates={vipTemplates}
+        onConfirm={(selected) => performCreateNewSpreadsheet(pendingDocName, selected)}
+        onCancelCreation={() => {
+          setShowVipSelectModal(false);
+          setNewDocModal({ show: false, title: "Tạo trang tính mới", defaultName: "Trang tính chưa có tên", action: () => {} });
+        }}
+      />
       <input type="file" id="excel-open-file-input" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={handleExcelOpenChange} />
       <input type="file" id="excel-import-file-input" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={handleExcelImportChange} />
     </div>

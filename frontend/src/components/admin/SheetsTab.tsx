@@ -5,6 +5,7 @@ import apiClient from "../../services/client.js";
 import { toast } from "react-toastify";
 import { Plus, Trash2, FileSpreadsheet, Search, RefreshCw, X, Star } from "lucide-react";
 import { useConfirm } from "../../context/ConfirmContext.js";
+import { SelectVipSheetsModal } from "./modals/SpreadsheetModals.js";
 import "../../css/sheets.css";
 
 interface SheetItem {
@@ -32,6 +33,8 @@ export const SheetsTab: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newSheetTitle, setNewSheetTitle] = useState("Trang tính chưa có tên");
   const [isCreating, setIsCreating] = useState(false);
+  const [showVipSelectModal, setShowVipSelectModal] = useState(false);
+  const [vipTemplates, setVipTemplates] = useState<any[]>([]);
 
   const confirm = useConfirm();
 
@@ -63,37 +66,36 @@ export const SheetsTab: React.FC = () => {
       return;
     }
 
-    const confirmVip = await confirm({
-      title: "Loại trang tính",
-      message: "Bạn có muốn tạo trang tính VIP không?",
-      confirmText: "Có (VIP)",
-      cancelText: "Không (Thường)",
-      type: "info",
-    });
+    try {
+      const res = await apiClient.get("/api/v1/spreadsheets/vip-templates/list");
+      const templates = res.data.data || [];
 
+      if (templates.length > 0) {
+        setVipTemplates(templates);
+        setShowVipSelectModal(true);
+      } else {
+        await performCreateSheet([]);
+      }
+    } catch (err: any) {
+      await performCreateSheet([]);
+    }
+  };
+
+  const performCreateSheet = async (selectedVipTemplates: any[]) => {
+    const trimmedTitle = newSheetTitle.trim();
     setIsCreating(true);
     try {
-      let initialSheets: any[] = [{ name: "Sheet1", cells: {}, rowCount: 500, colCount: 26, isVip: confirmVip }];
-      if (confirmVip) {
-        const vipTemplateStr = localStorage.getItem("hou_vip_sheet_template");
-        if (vipTemplateStr) {
-          try {
-            const parsedVip = JSON.parse(vipTemplateStr);
-            if (parsedVip && parsedVip.name) {
-              initialSheets = [{ ...parsedVip, isVip: true }];
-            }
-          } catch (e) {
-            console.error("Lỗi đọc VIP sheet template:", e);
-          }
-        }
+      const payload: any = { title: trimmedTitle };
+      if (selectedVipTemplates.length > 0) {
+        payload.vipTemplateNames = selectedVipTemplates.map((t: any) => t.name);
+      } else {
+        payload.content = { sheets: [{ name: "Sheet1", cells: {}, rowCount: 500, colCount: 26, isVip: false }] };
       }
 
-      const res = await apiClient.post("/api/v1/spreadsheets", {
-        title: trimmedTitle,
-        content: { sheets: initialSheets }
-      });
-      toast.success(confirmVip ? "Tạo trang tính VIP thành công!" : "Tạo trang tính thành công!");
+      const res = await apiClient.post("/api/v1/spreadsheets", payload);
+      toast.success(selectedVipTemplates.length > 0 ? "Tạo trang tính VIP thành công!" : "Tạo trang tính thành công!");
       setShowCreateModal(false);
+      setShowVipSelectModal(false);
       // Chuyển hướng trực tiếp tới trang biên tập độc lập (full-screen)
       navigate(`/admin/sheets/${res.data.data.id}`);
     } catch (err: any) {
@@ -286,6 +288,17 @@ export const SheetsTab: React.FC = () => {
           </div>
         </div>
       )}
+
+      <SelectVipSheetsModal
+        show={showVipSelectModal}
+        onClose={() => setShowVipSelectModal(false)}
+        templates={vipTemplates}
+        onConfirm={performCreateSheet}
+        onCancelCreation={() => {
+          setShowVipSelectModal(false);
+          setShowCreateModal(false);
+        }}
+      />
     </div>
   );
 };

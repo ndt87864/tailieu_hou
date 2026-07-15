@@ -1,6 +1,7 @@
 // frontend/src/components/admin/TabContextMenu.tsx
 import React from "react";
 import { toast } from "react-toastify";
+import apiClient from "../../services/client.js";
 import { Sheet } from "../../hooks/useSpreadsheetState.js";
 
 interface TabContextMenuProps {
@@ -208,34 +209,46 @@ export const TabContextMenu: React.FC<TabContextMenuProps> = ({
           className="sheets-tab-menu-item"
           onClick={() => {
             const isCurrentVip = !!sheet.isVip;
+            let updatedSheets: Sheet[] = [];
             updateSheetsAndSaveHistory((prev) => {
-              return prev.map((s, i) => {
+              updatedSheets = prev.map((s, i) => {
                 if (i === targetIdx) return { ...s, isVip: !isCurrentVip };
-                return !isCurrentVip ? { ...s, isVip: false } : s;
+                return s;
               });
+              return updatedSheets;
             });
 
-            if (!isCurrentVip) {
-              const vipData = {
-                name: sheet.name,
-                cells: JSON.parse(JSON.stringify(sheet.cells || {})),
-                rowCount: sheet.rowCount || 500,
-                colCount: sheet.colCount || 26,
-                rowHeights: JSON.parse(JSON.stringify(sheet.rowHeights || {})),
-                colWidths: JSON.parse(JSON.stringify(sheet.colWidths || {})),
-                isProtected: false,
-                isHidden: false,
-                isVip: true,
-              };
-              localStorage.setItem("hou_vip_sheet_template", JSON.stringify(vipData));
-              toast.success(`Đã gán "${sheet.name}" làm Sheet VIP mẫu cho trang tính mới!`);
-            } else {
-              localStorage.removeItem("hou_vip_sheet_template");
-              toast.info(`Đã hủy gán Sheet VIP cho "${sheet.name}".`);
-            }
+            const performVipToggle = async () => {
+              try {
+                if (!isCurrentVip) {
+                  const vipData = {
+                    name: sheet.name,
+                    cells: sheet.cells || {},
+                    rowCount: sheet.rowCount || 500,
+                    colCount: sheet.colCount || 26,
+                    rowHeights: sheet.rowHeights || {},
+                    colWidths: sheet.colWidths || {},
+                    isProtected: false,
+                    isHidden: false,
+                    isVip: true,
+                  };
+                  await apiClient.post("/api/v1/spreadsheets/vip-templates", {
+                    name: sheet.name,
+                    content: vipData
+                  });
+                  toast.success(`Đã gán "${sheet.name}" làm Sheet VIP mẫu trong Database!`);
+                } else {
+                  await apiClient.delete(`/api/v1/spreadsheets/vip-templates/name/${encodeURIComponent(sheet.name)}`);
+                  toast.info(`Đã hủy gán Sheet VIP cho "${sheet.name}".`);
+                }
+              } catch (err: any) {
+                toast.error("Lỗi cập nhật mẫu VIP: " + err.message);
+              }
+            };
 
+            performVipToggle();
             onClose();
-            setTimeout(() => handleSave(), 100);
+            setTimeout(() => handleSave(updatedSheets), 100);
           }}
           style={{ display: "flex", width: "100%", padding: "8px 12px", border: "none", background: "none", fontSize: "13px", cursor: "pointer", color: "inherit", textAlign: "left" }}
         >

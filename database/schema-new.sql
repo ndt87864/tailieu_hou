@@ -314,3 +314,27 @@ CREATE INDEX IF NOT EXISTS idx_spreadsheets_created_at ON public.spreadsheets(cr
 CREATE EXTENSION IF NOT EXISTS pg_prewarm;
 SELECT pg_prewarm('public.student_infor');
 SELECT pg_prewarm('public.spreadsheets');
+
+-- 9. VIP SHEET TEMPLATES
+CREATE TABLE IF NOT EXISTS public.vip_sheet_templates (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL UNIQUE,
+  content jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE public.vip_sheet_templates ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "select_vip_sheet_templates" ON public.vip_sheet_templates;
+CREATE POLICY "select_vip_sheet_templates" ON public.vip_sheet_templates 
+  FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "all_vip_sheet_templates_management" ON public.vip_sheet_templates;
+CREATE POLICY "all_vip_sheet_templates_management" ON public.vip_sheet_templates 
+  FOR ALL USING (public.get_user_role(auth.uid()) IN ('admin', 'management'))
+  WITH CHECK (public.get_user_role(auth.uid()) IN ('admin', 'management'));
+
+CREATE INDEX IF NOT EXISTS idx_vip_sheet_templates_name ON public.vip_sheet_templates(name);
+CREATE INDEX IF NOT EXISTS idx_vip_sheet_templates_created_at ON public.vip_sheet_templates(created_at DESC);
+SELECT pg_prewarm('public.vip_sheet_templates');

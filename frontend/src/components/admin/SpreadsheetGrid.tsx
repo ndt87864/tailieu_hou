@@ -1,11 +1,13 @@
 // frontend/src/components/admin/SpreadsheetGrid.tsx
 import React, { useState, useEffect, useRef } from "react";
+import { toast } from "react-toastify";
 import { 
   evaluateFormula, numberToColLetter, parseCellAddress, colLetterToNumber 
 } from "../../utils/formulaEvaluator.js";
 import { GridCell } from "./GridCell.js";
 import { useGridResize } from "../../hooks/useGridResize.js";
 import { GridContextMenu } from "./GridContextMenu.js";
+import { LinkInsertModal, FilterModal } from "./modals/SpreadsheetModals.js";
 
 type CellData = {
   value: string;
@@ -49,6 +51,13 @@ interface SpreadsheetGridProps {
   onPaste: () => void;
   onCut: () => void;
   onRedo: () => void;
+  onPasteSpecial?: (option: "value" | "format") => void;
+  onShiftCells?: (direction: "down" | "right") => void;
+  onDeleteCellsAndShift?: (direction: "up" | "left") => void;
+  hiddenRows?: Record<number, boolean>;
+  onConvertToTable?: () => void;
+  onCreateFilter?: (colLetter: string, val: string) => void;
+  onFilterByCellValue?: () => void;
 }
 
 export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
@@ -79,12 +88,22 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   onCopy,
   onPaste,
   onCut,
+  onPasteSpecial,
+  onShiftCells,
+  onDeleteCellsAndShift,
+  hiddenRows,
+  onConvertToTable,
+  onCreateFilter,
+  onFilterByCellValue,
 }) => {
   const [editingCell, setEditingCell] = useState<string | null>(null);
   // Sử dụng useRef thay vì useState để lưu trạng thái nhấn chuột, tránh kích hoạt render lại toàn bộ Grid khi kéo chọn vùng
   const isMouseDownRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: "row" | "col"; index: number } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: "row" | "col" | "cell"; index: number } | null>(null);
+  const [showLinkModal, setShowLinkModal] = useState<{ address: string; defaultText: string } | null>(null);
+  const [showFilterModal, setShowFilterModal] = useState<{ colLetter: string } | null>(null);
+  const [hoveredLink, setHoveredLink] = useState<{ address: string; link: string; rect: any } | null>(null);
 
   // Resize hook
   const { startColResize, startRowResize } = useGridResize(
@@ -147,6 +166,16 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     setContextMenu({ x: e.clientX, y: e.clientY, type: "row", index: rowNum });
   };
 
+  const handleCellContextMenu = (address: string, colIdx: number, rowNum: number, e: React.MouseEvent) => {
+    e.preventDefault();
+    onSelectCell(address);
+    setContextMenu({ x: e.clientX, y: e.clientY, type: "cell", index: rowNum, colIndex: colIdx, address });
+  };
+
+  const handleClearCell = (address: string) => {
+    onUpdateCell(address, { value: "", formula: "" });
+  };
+
   const dragStartRef = useRef<{ col: number; row: number } | null>(null);
   const dragEndRef = useRef<string | null>(null);
 
@@ -174,7 +203,29 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     containerRef.current?.focus();
   }, [onSelectCell]);
 
-  const handleCellMouseEnter = React.useCallback((address: string, colIdx: number, rowNum: number) => {
+  const handleCellMouseEnter = React.useCallback((address: string, colIdx: number, rowNum: number, e: React.MouseEvent) => {
+    // 1. Kiểm tra hiển thị tooltip link khi hover
+    const cellData = cells[address];
+    if (cellData?.link) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const containerRect = containerRef.current?.getBoundingClientRect();
+      if (containerRect) {
+        setHoveredLink({
+          address,
+          link: cellData.link,
+          rect: {
+            left: rect.left - containerRect.left + (containerRef.current?.scrollLeft || 0),
+            top: rect.top - containerRect.top + (containerRef.current?.scrollTop || 0) + rect.height,
+            width: rect.width,
+            height: rect.height,
+          }
+        });
+      }
+    } else {
+      setHoveredLink(null);
+    }
+
+    // 2. Kéo chọn vùng
     if (isMouseDownRef.current && dragStartRef.current) {
       dragEndRef.current = address;
       const start = dragStartRef.current;
@@ -194,7 +245,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
         }
       });
     }
-  }, []);
+  }, [cells]);
 
   const handleContainerMouseMove = (e: React.MouseEvent) => {
     if (!isMouseDownRef.current || !containerRef.current) return;
@@ -327,6 +378,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     tableRows.push(<tr key="header-row" style={{ height: "25px" }}>{headerCols}</tr>);
 
     for (let r = 1; r <= renderedRowCount; r++) {
+      if (hiddenRows?.[r]) continue;
       const rowHeight = rowHeights?.[r] || 25;
 
       const isRowFrozen = r <= freezeRows;
@@ -390,7 +442,9 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
             key={address} address={address} row={r} col={c} displayValue={displayValue} cellData={cellData}
             isSelected={selectedCell === address} isEditing={editingCell === address} inRange={isCellInRange(address)}
             onCellMouseDown={handleCellMouseDown} onCellMouseEnter={handleCellMouseEnter}
-            onCellDoubleClick={handleCellDoubleClick} onCommit={(val, dir) => handleCommitEdit(address, val, dir)} onCancel={handleCancelEdit}
+            onCellDoubleClick={handleCellDoubleClick}
+            onCellContextMenu={handleCellContextMenu}
+            onCommit={(val, dir) => handleCommitEdit(address, val, dir)} onCancel={handleCancelEdit}
             style={cellStyle}
           />
         );
@@ -405,7 +459,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   return (
     <div 
       ref={containerRef} className="sheet-grid-container" tabIndex={0}
-      onMouseMove={handleContainerMouseMove} style={{ outline: "none", position: "relative" }}
+      onMouseMove={handleContainerMouseMove} onMouseLeave={() => setHoveredLink(null)} style={{ outline: "none", position: "relative" }}
     >
       <table className={`sheet-table ${showGridlines ? "" : "hide-gridlines"}`} style={{ width: `${totalTableWidth}px`, tableLayout: "fixed" }}>
         <tbody>{renderCells()}</tbody>
@@ -416,7 +470,67 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
         handleCut={onCut} handleCopy={onCopy} handlePaste={onPaste}
         onInsertRow={onInsertRow} onDeleteRow={onDeleteRow} onClearRow={onClearRow} rowHeights={rowHeights} onUpdateRowHeight={onUpdateRowHeight}
         onInsertCol={onInsertCol} onDeleteCol={onDeleteCol} onClearCol={onClearCol} colWidths={colWidths} onUpdateColWidth={onUpdateColWidth}
+        onClearCell={handleClearCell}
+        onTriggerGemini={(addr) => toast.info(`Đang gọi Gemini AI phân tích và điền dữ liệu cho cột chứa ô ${addr}...`)}
+        onShowCellHistory={(addr) => toast.info(`Lịch sử chỉnh sửa của ô ${addr} trống.`)}
+        onInsertLink={(addr) => {
+          setShowLinkModal({ address: addr, defaultText: cells[addr]?.value || "" });
+        }}
+        handlePasteSpecial={onPasteSpecial}
+        onShiftCells={onShiftCells}
+        onDeleteCellsAndShift={onDeleteCellsAndShift}
+        onConvertToTable={onConvertToTable}
+        onCreateFilter={() => {
+          if (selectedCell) {
+            const match = selectedCell.match(/^([A-Z]+)([0-9]+)$/);
+            if (match) {
+              setShowFilterModal({ colLetter: match[1] });
+            }
+          }
+        }}
+        onFilterByCellValue={onFilterByCellValue}
       />
+
+      <LinkInsertModal
+        show={!!showLinkModal}
+        onClose={() => setShowLinkModal(null)}
+        defaultText={showLinkModal?.defaultText || ""}
+        onConfirm={(text, url) => {
+          if (showLinkModal) {
+            onUpdateCell(showLinkModal.address, { value: text || url, link: url });
+            toast.success("Đã chèn liên kết!");
+          }
+        }}
+      />
+
+      <FilterModal
+        show={!!showFilterModal}
+        onClose={() => setShowFilterModal(null)}
+        colLetter={showFilterModal?.colLetter || ""}
+        onConfirm={(val) => {
+          if (showFilterModal && onCreateFilter) {
+            onCreateFilter(showFilterModal.colLetter, val);
+          }
+        }}
+      />
+
+      {hoveredLink && (
+        <div 
+          className="sheets-link-popover"
+          style={{
+            position: "absolute",
+            left: `${hoveredLink.rect.left}px`,
+            top: `${hoveredLink.rect.top + 4}px`,
+            zIndex: 1000,
+          }}
+          onMouseEnter={() => setHoveredLink(hoveredLink)}
+          onMouseLeave={() => setHoveredLink(null)}
+        >
+          <a href={hoveredLink.link} target="_blank" rel="noopener noreferrer">
+            {hoveredLink.link}
+          </a>
+        </div>
+      )}
     </div>
   );
 };

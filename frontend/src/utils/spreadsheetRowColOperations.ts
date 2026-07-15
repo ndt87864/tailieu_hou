@@ -249,3 +249,93 @@ export const updateColWidthInSheets = (prev: Sheet[], activeIdx: number, colLett
   newSheets[activeIdx] = targetSheet;
   return newSheets;
 };
+
+export const shiftCellsInSheets = (
+  prev: Sheet[],
+  activeIdx: number,
+  selectedCell: string,
+  direction: "down" | "right",
+  rowCount: number,
+  colCount: number
+): Sheet[] => {
+  const newSheets = [...prev];
+  const targetSheet = { ...newSheets[activeIdx] };
+  const newCells = { ...targetSheet.cells };
+  const parsed = parseCellAddress(selectedCell);
+  if (!parsed) return prev;
+  const { col: colLetter, row: rowNum } = parsed;
+  const colIdx = colLetterToNumber(colLetter);
+
+  if (direction === "down") {
+    for (let r = rowCount; r > rowNum; r--) {
+      const aboveAddr = `${colLetter}${r - 1}`;
+      const currentAddr = `${colLetter}${r}`;
+      if (newCells[aboveAddr]) {
+        newCells[currentAddr] = { ...newCells[aboveAddr] };
+      } else {
+        delete newCells[currentAddr];
+      }
+    }
+    newCells[`${colLetter}${rowNum}`] = { value: "", formula: "" };
+  } else {
+    for (let c = colCount - 1; c > colIdx; c--) {
+      const leftAddr = `${numberToColLetter(c - 1)}${rowNum}`;
+      const currentAddr = `${numberToColLetter(c)}${rowNum}`;
+      if (newCells[leftAddr]) {
+        newCells[currentAddr] = { ...newCells[leftAddr] };
+      } else {
+        delete newCells[currentAddr];
+      }
+    }
+    newCells[`${colLetter}${rowNum}`] = { value: "", formula: "" };
+  }
+
+  targetSheet.cells = newCells;
+  newSheets[activeIdx] = targetSheet;
+  return newSheets;
+};
+
+export const deleteCellsAndShiftInSheets = (
+  prev: Sheet[],
+  activeIdx: number,
+  selectedCell: string,
+  direction: "up" | "left",
+  rowCount: number,
+  colCount: number
+): Sheet[] => {
+  const newSheets = [...prev];
+  const targetSheet = { ...newSheets[activeIdx] };
+  const newCells = { ...targetSheet.cells };
+  const parsed = parseCellAddress(selectedCell);
+  if (!parsed) return prev;
+  const { col: colLetter, row: rowNum } = parsed;
+  const colIdx = colLetterToNumber(colLetter);
+
+  if (direction === "up") {
+    for (let r = rowNum; r < rowCount; r++) {
+      const belowAddr = `${colLetter}${r + 1}`;
+      const currentAddr = `${colLetter}${r}`;
+      if (newCells[belowAddr]) {
+        newCells[currentAddr] = { ...newCells[belowAddr] };
+      } else {
+        delete newCells[currentAddr];
+      }
+    }
+    delete newCells[`${colLetter}${rowCount}`];
+  } else {
+    for (let c = colIdx; c < colCount - 1; c++) {
+      const rightAddr = `${numberToColLetter(c + 1)}${rowNum}`;
+      const currentAddr = `${numberToColLetter(c)}${rowNum}`;
+      if (newCells[rightAddr]) {
+        newCells[currentAddr] = { ...newCells[rightAddr] };
+      } else {
+        delete newCells[currentAddr];
+      }
+    }
+    delete newCells[`${numberToColLetter(colCount - 1)}${rowNum}`];
+  }
+
+  targetSheet.cells = newCells;
+  newSheets[activeIdx] = targetSheet;
+  return newSheets;
+};

@@ -64,8 +64,9 @@ interface GridCellProps {
   isEditing: boolean;
   inRange: boolean;
   onCellMouseDown: (address: string, col: number, row: number, e: React.MouseEvent) => void;
-  onCellMouseEnter: (address: string, col: number, row: number) => void;
+  onCellMouseEnter: (address: string, col: number, row: number, e: React.MouseEvent) => void;
   onCellDoubleClick: (address: string) => void;
+  onCellContextMenu?: (address: string, col: number, row: number, e: React.MouseEvent) => void;
   onCommit: (newValue: string, moveDirection: "down" | "none") => void;
   onCancel: () => void;
   style?: React.CSSProperties;
@@ -83,19 +84,22 @@ export const GridCell: React.FC<GridCellProps> = React.memo(({
   onCellMouseDown,
   onCellMouseEnter,
   onCellDoubleClick,
+  onCellContextMenu,
   onCommit,
   onCancel,
   style,
 }) => {
+  const isLink = !!cellData?.link;
   const cellStyle: React.CSSProperties = {
     fontWeight: cellData?.bold ? "bold" : "normal",
     fontStyle: cellData?.italic ? "italic" : "normal",
-    textDecoration: cellData?.underline ? "underline" : "none",
-    color: cellData?.color || "inherit",
+    textDecoration: isLink ? "underline" : (cellData?.underline ? "underline" : "none"),
+    color: isLink ? "#1a73e8" : (cellData?.color || "inherit"),
     backgroundColor: cellData?.bg || "transparent",
     textAlign: cellData?.align || "left",
     fontFamily: cellData?.fontFamily || "inherit",
     fontSize: cellData?.fontSize || "inherit",
+    cursor: isLink ? "pointer" : "default",
     ...style,
   };
 
@@ -106,8 +110,9 @@ export const GridCell: React.FC<GridCellProps> = React.memo(({
       className={`sheet-cell ${isSelected ? "selected" : ""} ${inRange ? "in-range" : ""}`}
       style={cellStyle}
       onMouseDown={(e) => onCellMouseDown(address, col, row, e)}
-      onMouseEnter={() => onCellMouseEnter(address, col, row)}
+      onMouseEnter={(e) => onCellMouseEnter(address, col, row, e)}
       onDoubleClick={() => onCellDoubleClick(address)}
+      onContextMenu={(e) => onCellContextMenu && onCellContextMenu(address, col, row, e)}
     >
       {isEditing ? (
         <CellEditor

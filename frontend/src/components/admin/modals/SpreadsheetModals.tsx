@@ -1,5 +1,5 @@
-// frontend/src/components/admin/modals/SpreadsheetModals.tsx
 import React from "react";
+import { toast } from "react-toastify";
 import { X, Clock, FileSpreadsheet, ArrowRight } from "lucide-react";
 import { Sheet } from "../../../hooks/useSpreadsheetState.js";
 
@@ -314,6 +314,225 @@ export const NewDocModal: React.FC<NewDocModalProps> = ({ show, onClose, title, 
             className="btn-modal-confirm bg-emerald-500 hover:bg-emerald-600 text-white"
           >
             Xác nhận
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 8. SelectVipSheetsModal
+interface SelectVipSheetsModalProps {
+  show: boolean;
+  onClose: () => void;
+  templates: any[];
+  onConfirm: (selectedTemplates: any[]) => void;
+  onCancelCreation: () => void;
+}
+export const SelectVipSheetsModal: React.FC<SelectVipSheetsModalProps> = ({ show, onClose, templates, onConfirm, onCancelCreation }) => {
+  const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
+
+  React.useEffect(() => {
+    if (show && templates) {
+      setSelectedIds(templates.map(t => t.id || t.name));
+    }
+  }, [show, templates]);
+
+  if (!show) return null;
+
+  const handleToggle = (id: string) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const handleConfirm = () => {
+    const selected = templates.filter(t => selectedIds.includes(t.id || t.name));
+    onConfirm(selected);
+  };
+
+  const handleCreateNormal = () => {
+    onConfirm([]); // No VIP templates selected, means create normal empty sheet
+  };
+
+  return (
+    <div className="sheets-modal-overlay" onClick={onCancelCreation}>
+      <div className="sheets-modal-card" style={{ maxWidth: "450px" }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-between items-center border-b border-[var(--border)] pb-3 mb-2">
+          <h3 className="text-base font-bold">Tạo trang tính VIP?</h3>
+          <button onClick={onCancelCreation} className="text-gray-400 hover:text-gray-600">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="sheets-modal-body py-2">
+          {templates.length === 1 ? (
+            <p className="text-sm text-[var(--fg)] mb-3">
+              Bạn có muốn tạo trang tính mới kèm Sheet VIP <strong>"{templates[0].name}"</strong> không?
+            </p>
+          ) : (
+            <>
+              <p className="text-sm text-[var(--fg-muted)] mb-3">
+                Bạn có muốn tạo trang tính mới kèm các Sheet VIP mẫu không?
+              </p>
+              {templates.length > 0 ? (
+                <div className="vip-checkbox-list">
+                  {templates.map((t, idx) => {
+                    const id = t.id || t.name;
+                    const isChecked = selectedIds.includes(id);
+                    return (
+                      <label key={idx} className="vip-checkbox-item">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => handleToggle(id)}
+                        />
+                        <span>{t.name} (VIP)</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-amber-500">Chưa có Sheet VIP nào được gán làm mẫu.</p>
+              )}
+            </>
+          )}
+        </div>
+        <div className="sheets-modal-actions mt-4">
+          <button onClick={handleCreateNormal} className="btn-modal-cancel">Không (Tạo thường)</button>
+          <button
+            onClick={handleConfirm}
+            className="btn-modal-confirm bg-emerald-500 hover:bg-emerald-600 text-white"
+          >
+            Có (Tạo kèm VIP)
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 9. LinkInsertModal
+interface LinkInsertModalProps {
+  show: boolean;
+  onClose: () => void;
+  onConfirm: (text: string, url: string) => void;
+  defaultText?: string;
+}
+export const LinkInsertModal: React.FC<LinkInsertModalProps> = ({ show, onClose, onConfirm, defaultText = "" }) => {
+  const [text, setText] = React.useState(defaultText);
+  const [url, setUrl] = React.useState("");
+
+  React.useEffect(() => {
+    if (show) {
+      setText(defaultText);
+      setUrl("");
+    }
+  }, [show, defaultText]);
+
+  if (!show) return null;
+
+  return (
+    <div className="sheets-modal-overlay" onClick={onClose}>
+      <div className="sheets-modal-card" style={{ maxWidth: "400px" }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-between items-center border-b border-[var(--border)] pb-3 mb-2">
+          <h3 className="text-base font-bold">Chèn đường liên kết</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="sheets-modal-body py-2 space-y-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-[var(--fg-muted)]">Văn bản</label>
+            <input 
+              type="text" 
+              value={text} 
+              onChange={e => setText(e.target.value)} 
+              placeholder="Nhập văn bản hiển thị"
+              className="w-full p-2 border border-[var(--border)] rounded bg-[var(--bg-2)] text-[var(--fg)]"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-[var(--fg-muted)]">Đường liên kết (URL)</label>
+            <input 
+              type="text" 
+              value={url} 
+              onChange={e => setUrl(e.target.value)} 
+              placeholder="https://example.com"
+              className="w-full p-2 border border-[var(--border)] rounded bg-[var(--bg-2)] text-[var(--fg)]"
+            />
+          </div>
+        </div>
+        <div className="sheets-modal-actions mt-4">
+          <button onClick={onClose} className="btn-modal-cancel">Hủy</button>
+          <button 
+            onClick={() => {
+              if (!url.trim()) {
+                toast.warn("Đường liên kết không được để trống!");
+                return;
+              }
+              onConfirm(text.trim(), url.trim());
+              onClose();
+            }} 
+            className="btn-modal-confirm bg-emerald-500 hover:bg-emerald-600 text-white"
+          >
+            Áp dụng
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 10. FilterModal
+interface FilterModalProps {
+  show: boolean;
+  onClose: () => void;
+  onConfirm: (val: string) => void;
+  colLetter: string;
+}
+export const FilterModal: React.FC<FilterModalProps> = ({ show, onClose, onConfirm, colLetter }) => {
+  const [val, setVal] = React.useState("");
+
+  React.useEffect(() => {
+    if (show) {
+      setVal("");
+    }
+  }, [show]);
+
+  if (!show) return null;
+
+  return (
+    <div className="sheets-modal-overlay" onClick={onClose}>
+      <div className="sheets-modal-card" style={{ maxWidth: "400px" }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-between items-center border-b border-[var(--border)] pb-3 mb-2">
+          <h3 className="text-base font-bold">Tạo bộ lọc cột {colLetter}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="sheets-modal-body py-2 space-y-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-[var(--fg-muted)]">
+              Nhập giá trị lọc cho cột {colLetter} (Để trống để hiển thị lại toàn bộ dòng)
+            </label>
+            <input 
+              type="text" 
+              value={val} 
+              onChange={e => setVal(e.target.value)} 
+              placeholder="Nhập từ khóa tìm kiếm..."
+              className="w-full p-2 border border-[var(--border)] rounded bg-[var(--bg-2)] text-[var(--fg)]"
+              autoFocus
+            />
+          </div>
+        </div>
+        <div className="sheets-modal-actions mt-4">
+          <button onClick={onClose} className="btn-modal-cancel">Hủy</button>
+          <button 
+            onClick={() => {
+              onConfirm(val.trim());
+              onClose();
+            }} 
+            className="btn-modal-confirm bg-emerald-500 hover:bg-emerald-600 text-white"
+          >
+            Lọc
           </button>
         </div>
       </div>

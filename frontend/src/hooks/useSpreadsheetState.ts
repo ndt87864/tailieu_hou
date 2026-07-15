@@ -11,6 +11,8 @@ import {
   clearColumnInSheets,
   updateRowHeightInSheets,
   updateColWidthInSheets,
+  shiftCellsInSheets,
+  deleteCellsAndShiftInSheets,
 } from "../utils/spreadsheetRowColOperations.js";
 import {
   sortActiveSheetInSheets,
@@ -32,6 +34,7 @@ export type CellData = {
   align?: "left" | "center" | "right";
   fontFamily?: string;
   fontSize?: string;
+  link?: string;
 };
 
 export interface Sheet {
@@ -44,6 +47,7 @@ export interface Sheet {
   isProtected?: boolean;
   isHidden?: boolean;
   isVip?: boolean;
+  hiddenRows?: Record<number, boolean>;
 }
 
 export const useSpreadsheetState = (initialTitle: string, initialContent: any, onSave: (title: string, content: any) => Promise<void>) => {
@@ -388,6 +392,135 @@ export const useSpreadsheetState = (initialTitle: string, initialContent: any, o
     toast.success(`Đã chèn công thức ${funcName}!`);
   };
 
+  const handleShiftCells = (direction: "down" | "right") => {
+    if (!selectedCell) return;
+    updateSheetsAndSaveHistory((prev) => shiftCellsInSheets(prev, activeSheetIdx, selectedCell, direction, rowCount, colCount));
+    setTimeout(() => handleSave(), 100);
+  };
+
+  const handleDeleteCellsAndShift = (direction: "up" | "left") => {
+    if (!selectedCell) return;
+    updateSheetsAndSaveHistory((prev) => deleteCellsAndShiftInSheets(prev, activeSheetIdx, selectedCell, direction, rowCount, colCount));
+    setTimeout(() => handleSave(), 100);
+  };
+
+  const handleConvertToTable = () => {
+    let addresses = getSelectedAddresses();
+    if (addresses.length === 0 && selectedCell) {
+      addresses = [selectedCell];
+    }
+    if (addresses.length === 0) return;
+
+    const rowMap: Record<number, string[]> = {};
+    addresses.forEach((addr) => {
+      const match = addr.match(/^([A-Z]+)([0-9]+)$/);
+      if (match) {
+        const row = parseInt(match[2], 10);
+        if (!rowMap[row]) rowMap[row] = [];
+        rowMap[row].push(addr);
+      }
+    });
+
+    const sortedRows = Object.keys(rowMap).map(Number).sort((a, b) => a - b);
+    if (sortedRows.length === 0) return;
+
+    updateSheetsAndSaveHistory((prev) => {
+      const newSheets = [...prev];
+      const targetSheet = { ...newSheets[activeSheetIdx] };
+      
+      sortedRows.forEach((row, index) => {
+        const addrsInRow = rowMap[row];
+        const isHeader = index === 0;
+        addrsInRow.forEach((addr) => {
+          const currentCell = targetSheet.cells[addr] || { value: "", formula: "" };
+          if (isHeader) {
+            targetSheet.cells[addr] = {
+              ...currentCell,
+              bold: true,
+              color: "#ffffff",
+              bg: "#107c41",
+              align: "center",
+            };
+          } else {
+            const isOdd = index % 2 !== 0;
+            targetSheet.cells[addr] = {
+              ...currentCell,
+              bg: isOdd ? "#f8f9fa" : "#ffffff",
+            };
+          }
+        });
+      });
+
+      newSheets[activeSheetIdx] = targetSheet;
+      return newSheets;
+    });
+
+    setTimeout(() => handleSave(), 100);
+    toast.success("Đã định dạng vùng chọn thành định dạng Bảng!");
+  };
+
+  const handleCreateFilter = (colLetter: string, val: string) => {
+    updateSheetsAndSaveHistory((prev) => {
+      const newSheets = [...prev];
+      const targetSheet = { ...newSheets[activeSheetIdx] };
+      const hidden: Record<number, boolean> = {};
+      
+      if (val !== null && val.trim() !== "") {
+        const query = val.trim().toLowerCase();
+        const currentRowCount = targetSheet.rowCount || rowCount;
+        for (let r = 1; r <= currentRowCount; r++) {
+          const cellAddr = `${colLetter}${r}`;
+          const cellVal = (targetSheet.cells[cellAddr]?.value || "").toLowerCase();
+          if (!cellVal.includes(query)) {
+            hidden[r] = true;
+          }
+        }
+        toast.success(`Đã lọc cột ${colLetter} theo từ khóa: "${val}"`);
+      } else {
+        toast.success("Đã xóa bộ lọc.");
+      }
+      
+      targetSheet.hiddenRows = hidden;
+      newSheets[activeSheetIdx] = targetSheet;
+      return newSheets;
+    });
+    setTimeout(() => handleSave(), 100);
+  };
+
+  const handleFilterByCellValue = () => {
+    if (!selectedCell) return;
+    const match = selectedCell.match(/^([A-Z]+)([0-9]+)$/);
+    if (!match) return;
+    const colLetter = match[1];
+    const targetVal = (cells[selectedCell]?.value || "").trim();
+    if (!targetVal) {
+      toast.warn("Ô được chọn trống, không thể lọc theo giá trị!");
+      return;
+    }
+
+    updateSheetsAndSaveHistory((prev) => {
+      const newSheets = [...prev];
+      const targetSheet = { ...newSheets[activeSheetIdx] };
+      const hidden: Record<number, boolean> = {};
+      const query = targetVal.toLowerCase();
+      
+      const currentRowCount = targetSheet.rowCount || rowCount;
+      for (let r = 1; r <= currentRowCount; r++) {
+        const cellAddr = `${colLetter}${r}`;
+        const cellVal = (targetSheet.cells[cellAddr]?.value || "").toLowerCase();
+        if (cellVal !== query) {
+          hidden[r] = true;
+        }
+      }
+      
+      targetSheet.hiddenRows = hidden;
+      newSheets[activeSheetIdx] = targetSheet;
+      return newSheets;
+    });
+    setTimeout(() => handleSave(), 100);
+    toast.success(`Đã lọc cột ${colLetter} bằng giá trị: "${targetVal}"`);
+  };
+
   const handleSave = async (customSheets?: Sheet[], customStarred?: boolean) => {
     try {
       await onSave(title, {
@@ -470,5 +603,10 @@ export const useSpreadsheetState = (initialTitle: string, initialContent: any, o
     insertFormula,
     getSelectedAddresses,
     handleSave,
+    handleShiftCells,
+    handleDeleteCellsAndShift,
+    handleConvertToTable,
+    handleCreateFilter,
+    handleFilterByCellValue,
   };
 };

@@ -539,6 +539,37 @@
   gap: 10px;
   margin-top: 8px;
 }
+.vip-checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  max-height: 180px;
+  overflow-y: auto;
+  background-color: var(--bg-2);
+}
+
+.vip-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 14px !important;
+  color: var(--fg) !important;
+  user-select: none;
+  font-weight: 500 !important;
+  width: auto !important;
+}
+
+.vip-checkbox-item input[type="checkbox"] {
+  width: 16px !important;
+  height: 16px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  cursor: pointer;
+}
 
 .btn-modal-cancel {
   background-color: var(--bg-3);
@@ -1084,6 +1115,8 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 10000;
   min-width: 240px;
+  max-height: 400px;
+  overflow-y: auto;
   padding: 6px 0;
   font-family: var(--font-family, Inter, sans-serif);
 }
@@ -1571,6 +1604,34 @@
 /* Hide Gridlines option */
 .sheet-table.hide-gridlines td.sheet-cell {
   border-color: transparent !important;
+}
+
+/* Link Popover Style */
+.sheets-link-popover {
+  background-color: #ffffff;
+  border: 1px solid #dadce0;
+  box-shadow: 0 1px 3px rgba(60,64,67,0.3), 0 4px 8px 3px rgba(60,64,67,0.15);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.sheets-link-popover a {
+  color: #1a73e8;
+  text-decoration: none;
+  font-weight: 500;
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheets-link-popover a:hover {
+  text-decoration: underline;
 }
 
 
