@@ -449,31 +449,48 @@ async function main() {
           selectedDoc = dbDoc;
         }
 
-        // Fallback so khớp nếu chưa có selectedDoc (ví dụ: lấy từ env)
+        // Tái sử dụng document trong DB nếu trùng title (bất kể category, hoa thường, khoảng trắng)
         if (!selectedDoc) {
-          const { data: dbDocs } = await supabaseAdmin.from("documents").select("id, title");
-          const normLmsTitle = normalizeDetectedCourseTitle(courseTitle);
-          const titleParts = normLmsTitle.split("/").map(t => t.trim()).filter(Boolean);
-          const cleanWebTitles = titleParts.map(part => normalizeTextForMatching(part));
+          // Lấy từ khóa đang dùng để tìm kiếm (hoặc tên LMS) để so khớp
+          const targetTitle = keyword || courseTitle;
+          const cleanTarget = String(targetTitle).toLowerCase().replace(/\s+/g, "");
 
+          const { data: dbDocs } = await supabaseAdmin.from("documents").select("id, title");
           if (dbDocs && dbDocs.length > 0) {
             for (const doc of dbDocs) {
-              const cleanDocTitle = normalizeTextForMatching(doc.title);
-              const isMatched = cleanWebTitles.some(cleanWebTitle => isCourseTitleMatch(cleanWebTitle, cleanDocTitle));
-              if (isMatched) {
+              const cleanDocTitle = String(doc.title).toLowerCase().replace(/\s+/g, "");
+              if (cleanDocTitle === cleanTarget) {
                 selectedDoc = doc;
                 break;
               }
             }
           }
 
+          // Fallback so khớp mềm cũ nếu vẫn chưa tìm thấy
+          if (!selectedDoc) {
+            const normLmsTitle = normalizeDetectedCourseTitle(courseTitle);
+            const titleParts = normLmsTitle.split("/").map(t => t.trim()).filter(Boolean);
+            const cleanWebTitles = titleParts.map(part => normalizeTextForMatching(part));
+
+            if (dbDocs && dbDocs.length > 0) {
+              for (const doc of dbDocs) {
+                const cleanDocTitle = normalizeTextForMatching(doc.title);
+                const isMatched = cleanWebTitles.some(cleanWebTitle => isCourseTitleMatch(cleanWebTitle, cleanDocTitle));
+                if (isMatched) {
+                  selectedDoc = doc;
+                  break;
+                }
+              }
+            }
+          }
+
           if (selectedDoc) {
-            console.log(`💾 Sử dụng tài liệu đối chiếu hiện có trong DB: "${selectedDoc.title}" (Khớp với môn học trên LMS: "${courseTitle}")`);
+            console.log(`💾 Sử dụng tài liệu đối chiếu trùng khớp từ DB: "${selectedDoc.title}"`);
           } else {
-            console.log(`🆕 Không tìm thấy tài liệu nào khớp với "${courseTitle}" trong DB. Tiến hành tạo mới...`);
+            console.log(`🆕 Không tìm thấy tài liệu nào trùng khớp hoặc tương đương với "${targetTitle}" trong DB. Tiến hành tạo mới...`);
             const { data: newDoc, error: insErr } = await supabaseAdmin
               .from("documents")
-              .insert({ title: courseTitle })
+              .insert({ title: targetTitle })
               .select()
               .single();
             if (insErr) {
@@ -494,28 +511,44 @@ async function main() {
         console.log(`======================================================================`);
 
         let dbCourse = null;
-        const { data: existingCourses, error: findErr } = await supabaseAdmin
-          .from("crawler_courses")
-          .select("*")
-          .eq("moodle_course_id", moodleCourseId)
-          .limit(1);
-
-        if (!findErr && existingCourses && existingCourses.length > 0) {
-          dbCourse = existingCourses[0];
-          console.log("💾 Môn học đã tồn tại trong DB, sử dụng thông tin môn học hiện có.");
-        } else {
-          const { data, error: courseErr } = await supabaseAdmin.from("crawler_courses").insert({
-            document_id: selectedDoc.id,
-            moodle_course_id: moodleCourseId,
-            title: courseTitle,
-            url: courseLink
-          }).select().single();
-
-          if (courseErr || !data) {
-            throw new Error(`Không lưu được môn học vào DB: ${courseErr ? courseErr.message : ""}`);
+        // Kiểm tra xem crawler_courses title đã có ở db (không quan tâm document_id) -> dùng luôn
+        const cleanCourseTitle = String(courseTitle).toLowerCase().replace(/\s+/g, "");
+        const { data: allCourses } = await supabaseAdmin.from("crawler_courses").select("*");
+        if (allCourses && allCourses.length > 0) {
+          const matchedCourse = allCourses.find(c => {
+            const cleanDbCourseTitle = String(c.title).toLowerCase().replace(/\s+/g, "");
+            return cleanDbCourseTitle === cleanCourseTitle;
+          });
+          if (matchedCourse) {
+            dbCourse = matchedCourse;
+            console.log(`💾 Sử dụng môn học trùng khớp tiêu đề từ DB (crawler_courses): "${dbCourse.title}" (ID: ${dbCourse.id})`);
           }
-          dbCourse = data;
-          console.log("💾 Đã lưu thông tin môn học mới vào DB.");
+        }
+
+        if (!dbCourse) {
+          const { data: existingCourses, error: findErr } = await supabaseAdmin
+            .from("crawler_courses")
+            .select("*")
+            .eq("moodle_course_id", moodleCourseId)
+            .limit(1);
+
+          if (!findErr && existingCourses && existingCourses.length > 0) {
+            dbCourse = existingCourses[0];
+            console.log("💾 Môn học đã tồn tại trong DB, sử dụng thông tin môn học hiện có.");
+          } else {
+            const { data, error: courseErr } = await supabaseAdmin.from("crawler_courses").insert({
+              document_id: selectedDoc.id,
+              moodle_course_id: moodleCourseId,
+              title: courseTitle,
+              url: courseLink
+            }).select().single();
+
+            if (courseErr || !data) {
+              throw new Error(`Không lưu được môn học vào DB: ${courseErr ? courseErr.message : ""}`);
+            }
+            dbCourse = data;
+            console.log("💾 Đã lưu thông tin môn học mới vào DB.");
+          }
         }
 
         // Lấy danh sách tất cả các course_id thuộc cùng tài liệu để kiểm tra trùng trên toàn tài liệu
@@ -552,26 +585,39 @@ async function main() {
           return data && data.length > 0 ? data[0] : null;
         };
 
-        // Tìm record theo title + weekName, không lọc theo type
-        const findResourceAnyType = async (title, weekName) => {
+        // Tìm record theo title, không lọc theo type, không lọc theo course_id (Yêu cầu 3: "Nếu crawler_resources title đã có ở db (không quan tâm course_id) -> dùng luôn")
+        // Cho phép tìm kiếm kết hợp cả theo Link (content_url) nếu chế độ LMS_CRAWL_BY_DOCUMENT_AND_LINK được bật
+        const findResourceAnyType = async (title, weekName, resourceUrl = null) => {
           const cleaned = cleanTitle(title);
-          // Tìm thử với mọi hậu tố có thể có
-          const suffixes = ["Trang", "Tệp", "Liên kết", "File", "URL", "Quiz", "Page"];
-          const orConditions = [
-            `title.eq."${title}"`,
-            `title.eq."${cleaned}"`
-          ];
-          suffixes.forEach(s => {
-            orConditions.push(`title.eq."${cleaned} ${s}"`);
-          });
+          const cleanSearchTitle = String(cleaned).toLowerCase().replace(/\s+/g, "");
+          const originalSearchTitle = String(title).toLowerCase().replace(/\s+/g, "");
 
+          // Lấy tất cả resources để so sánh offline
           const { data } = await supabaseAdmin
             .from("crawler_resources")
-            .select("id, content_url, type, title")
-            .eq("course_id", dbCourse.id)
-            .eq("week_name", weekName)
-            .or(orConditions.join(","));
-          return data && data.length > 0 ? data[0] : null;
+            .select("id, content_url, type, title, course_id, week_name");
+          
+          if (data && data.length > 0) {
+            const crawlByDocAndLink = process.env.LMS_CRAWL_BY_DOCUMENT_AND_LINK === "true";
+            const match = data.find(r => {
+              // 1. So khớp bằng Link nếu được cấu hình
+              if (crawlByDocAndLink && resourceUrl && r.content_url && r.content_url !== "None") {
+                const cleanDbUrl = String(r.content_url).trim().toLowerCase();
+                const cleanSearchUrl = String(resourceUrl).trim().toLowerCase();
+                if (cleanDbUrl === cleanSearchUrl) {
+                  return true;
+                }
+              }
+              // 2. So khớp bằng Tiêu đề (Document)
+              const cleanDbTitle = String(cleanTitle(r.title)).toLowerCase().replace(/\s+/g, "");
+              const originalDbTitle = String(r.title).toLowerCase().replace(/\s+/g, "");
+              return cleanDbTitle === cleanSearchTitle || originalDbTitle === originalSearchTitle;
+            });
+            if (match) {
+              return match;
+            }
+          }
+          return null;
         };
 
         const isResourceExists = async (title, type, weekName) => {
@@ -820,13 +866,13 @@ async function main() {
                     activityName = resolvedName;
                   }
 
-                  // Bước 2: Kiểm tra record đã tồn tại chưa bằng tên file thực tế mới
-                  const existingRecord = await findResourceAnyType(activityName, sectionName);
+                  // Bước 2: Kiểm tra record đã tồn tại chưa bằng tên file thực tế mới (truyền thêm href để check link trùng)
+                  const existingRecord = await findResourceAnyType(activityName, sectionName, href);
 
                   // Đồng thời kiểm tra xem có record cũ nào dùng tên hiển thị cũ (ví dụ: "Wordlist" hay "Transcripts") không để cập nhật
                   const displayTitle = subName || rawName;
                   const existingOldDisplay = (displayTitle && displayTitle !== activityName)
-                    ? await findResourceAnyType(displayTitle, sectionName)
+                    ? await findResourceAnyType(displayTitle, sectionName, href)
                     : null;
 
                   if (existingRecord) {
@@ -922,7 +968,7 @@ async function main() {
                   const resourceType = isFile ? "file" : "link";
 
                   // Tìm không phân biệt type để bắt cả các record cũ có type sai
-                  const existingRecord = await findResourceAnyType(activityName, sectionName);
+                  const existingRecord = await findResourceAnyType(activityName, sectionName, finalUrl);
                   if (existingRecord) {
                     const needsUpdate = needsUrlUpdate(existingRecord.content_url, finalUrl);
                     const typeChanged = existingRecord.type !== resourceType;
@@ -1205,21 +1251,21 @@ async function main() {
                           continue;
                         }
 
-                        // Check if question already exists
-                        const { data: existingQs } = await supabaseAdmin
+                        // Check if question already exists (Yêu cầu 4: So sánh question và answer không quan tâm hoa thường, khoảng trắng, link ehou đầy đủ/rút gọn)
+                        // Lấy danh sách câu hỏi trong DB để tìm kiếm (do cần so khớp nâng cao, ta query toàn bộ các câu hỏi từ crawler_questions)
+                        // Để tối ưu, ta có thể query lọc sơ bộ theo question dài tương ứng hoặc lấy list từ DB về so khớp offline.
+                        const { data: dbAllQs } = await supabaseAdmin
                           .from("crawler_questions")
-                          .select("id, answer")
-                          .in("course_id", siblingCourseIds)
-                          .eq("question", qData.question);
-                        
-                        // Chuẩn hóa đáp án đang chuẩn bị chèn
-                        const cleanNewAnswer = cleanAnswerPrefix(qData.answer).toLowerCase();
+                          .select("id, question, answer");
 
-                        // Tìm câu trùng có cùng câu hỏi và có cùng nội dung đáp án
-                        const existingQ = existingQs && existingQs.length > 0 ? existingQs.find(eq => {
-                          const cleanExistAnswer = cleanAnswerPrefix(eq.answer).toLowerCase();
-                          return cleanExistAnswer === cleanNewAnswer;
-                        }) : null;
+                        let existingQ = null;
+                        if (dbAllQs && dbAllQs.length > 0) {
+                          existingQ = dbAllQs.find(eq => {
+                            const isQuestionMatched = compareQuizText(eq.question, qData.question);
+                            const isAnswerMatched = compareQuizText(eq.answer, qData.answer);
+                            return isQuestionMatched && isAnswerMatched;
+                          });
+                        }
 
                         if (existingQ && existingQ.answer && existingQ.answer.trim() !== "") {
                           //console.log(`      ⏭️ Câu hỏi [${i + 1}] đã tồn tại trong DB và đã có đáp án tương đồng. Bỏ qua.`);
@@ -1484,5 +1530,21 @@ function cleanAnswerPrefix(ans) {
     return match[1].trim();
   }
   return str;
+}
+
+function normalizeTextForQuizCompare(text) {
+  if (!text) return "";
+  let clean = String(text)
+    .toLowerCase()
+    .replace(/[\s\xa0\u00A0\u2000-\u200B\uFEFF\u202F]+/g, ""); // Xóa toàn bộ khoảng trắng
+  
+  // Rút gọn link ehou pluginfile.php thành tên file
+  // Ví dụ: https://learning.ehou.edu.vn/pluginfile.php/12345/mod_quiz/intro/logo.png -> logo.png
+  clean = clean.replace(/https?:\/\/learning\.ehou\.edu\.vn\/pluginfile\.php\/[^\s"']+\/([^\s"'\/]+\.(?:png|jpg|jpeg|gif|webp|svg))/gi, "$1");
+  return clean;
+}
+
+function compareQuizText(text1, text2) {
+  return normalizeTextForQuizCompare(text1) === normalizeTextForQuizCompare(text2);
 }
 

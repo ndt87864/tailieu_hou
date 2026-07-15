@@ -56,7 +56,16 @@ async function processAssignment({
 
     let processedCount = 0;
 
+    // Lấy giới hạn LMS_MAX_ESSAY_ATTEMPTS từ môi trường
+    const maxAttemptsEnv = parseInt(process.env.LMS_MAX_ESSAY_ATTEMPTS, 10);
+    const maxAttempts = !isNaN(maxAttemptsEnv) && maxAttemptsEnv > 0 ? maxAttemptsEnv : Infinity;
+
     for (let i = 0; i < rows.length; i++) {
+      if (processedCount >= maxAttempts) {
+        console.log(`   ℹ️ Đã đạt giới hạn LMS_MAX_ATTEMPTS (${maxAttempts}) cho các file tự luận. Dừng tải thêm.`);
+        break;
+      }
+
       const row = rows[i];
       
       // Cell 4 (index 4) chứa điểm số
@@ -117,6 +126,10 @@ async function processAssignment({
         }
 
         for (const fileLink of fileLinks) {
+          if (processedCount >= maxAttempts) {
+            console.log(`   ℹ️ Đã đạt giới hạn LMS_MAX_ATTEMPTS (${maxAttempts}) cho các file tự luận. Dừng tải thêm.`);
+            break;
+          }
           try {
             console.log(`      📥 Phát hiện bài làm đạt điểm ${gradeText}. Tiến hành tải file: "${fileLink.text || "file"}"...`);
             const filePublicUrl = await uploadFileToStorage(fileLink.href, "essays", getCookieHeader);
