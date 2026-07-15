@@ -56,7 +56,6 @@ export const SheetsTab: React.FC = () => {
     setNewSheetTitle("Trang tính chưa có tên");
     setShowCreateModal(true);
   };
-
   const submitCreateSheet = async () => {
     const trimmedTitle = newSheetTitle.trim();
     if (!trimmedTitle) {
@@ -64,18 +63,28 @@ export const SheetsTab: React.FC = () => {
       return;
     }
 
+    const confirmVip = await confirm({
+      title: "Loại trang tính",
+      message: "Bạn có muốn tạo trang tính VIP không?",
+      confirmText: "Có (VIP)",
+      cancelText: "Không (Thường)",
+      type: "info",
+    });
+
     setIsCreating(true);
     try {
-      let initialSheets: any[] = [{ name: "Sheet1", cells: {}, rowCount: 500, colCount: 26 }];
-      const vipTemplateStr = localStorage.getItem("hou_vip_sheet_template");
-      if (vipTemplateStr) {
-        try {
-          const parsedVip = JSON.parse(vipTemplateStr);
-          if (parsedVip && parsedVip.name) {
-            initialSheets = [parsedVip];
+      let initialSheets: any[] = [{ name: "Sheet1", cells: {}, rowCount: 500, colCount: 26, isVip: confirmVip }];
+      if (confirmVip) {
+        const vipTemplateStr = localStorage.getItem("hou_vip_sheet_template");
+        if (vipTemplateStr) {
+          try {
+            const parsedVip = JSON.parse(vipTemplateStr);
+            if (parsedVip && parsedVip.name) {
+              initialSheets = [{ ...parsedVip, isVip: true }];
+            }
+          } catch (e) {
+            console.error("Lỗi đọc VIP sheet template:", e);
           }
-        } catch (e) {
-          console.error("Lỗi đọc VIP sheet template:", e);
         }
       }
 
@@ -83,7 +92,7 @@ export const SheetsTab: React.FC = () => {
         title: trimmedTitle,
         content: { sheets: initialSheets }
       });
-      toast.success("Tạo trang tính thành công!");
+      toast.success(confirmVip ? "Tạo trang tính VIP thành công!" : "Tạo trang tính thành công!");
       setShowCreateModal(false);
       // Chuyển hướng trực tiếp tới trang biên tập độc lập (full-screen)
       navigate(`/admin/sheets/${res.data.data.id}`);
@@ -93,7 +102,6 @@ export const SheetsTab: React.FC = () => {
       setIsCreating(false);
     }
   };
-
   const handleDeleteSheet = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
 

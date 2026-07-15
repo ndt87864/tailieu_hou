@@ -231,7 +231,14 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
         onNewSpreadsheet={() => setNewDocModal({
           show: true, title: "Tạo trang tính mới", defaultName: "Trang tính chưa có tên", action: async (trimmed) => {
             try {
-              const res = await apiClient.post("/api/v1/spreadsheets", { title: trimmed, content: { sheets: [{ name: "Sheet1", cells: {}, rowCount: 500, colCount: 26 }] } });
+              const confirmVip = await confirmModal({
+                title: "Loại trang tính",
+                message: "Bạn có muốn tạo trang tính VIP không?",
+                confirmText: "Có (VIP)",
+                cancelText: "Không (Thường)",
+                type: "info",
+              });
+              const res = await apiClient.post("/api/v1/spreadsheets", { title: trimmed, content: { sheets: [{ name: "Sheet1", cells: {}, rowCount: 500, colCount: 26, isVip: confirmVip }] } });
               navigate(`/admin/sheets/${res.data.data.id}`);
             } catch (e: any) { toast.error(e.message); }
           }
