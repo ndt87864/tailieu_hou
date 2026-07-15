@@ -794,75 +794,47 @@ export const listCategories = async (
 
     // Nếu ở chế độ bài học (lms), chỉ lấy các categories có chứa bài giảng hoặc câu hỏi
     if (lms && categories.length > 0) {
-      const catIds = categories.map(c => c.id);
+      const checks = await Promise.all(
+        categories.map(async (cat) => {
+          const { data: docsData } = await supabaseAdmin
+            .from("documents")
+            .select("id")
+            .eq("category_id", cat.id)
+            .eq("active", true);
 
-      // 1. Lấy tất cả documents của các categories này kèm thông tin category_id
-      const { data: docsData } = await supabaseAdmin
-        .from("documents")
-        .select("id, category_id")
-        .in("category_id", catIds)
-        .eq("active", true);
+          const docs = docsData || [];
+          if (docs.length === 0) return { cat, hasContent: false };
 
-      const docs = docsData || [];
-      if (docs.length > 0) {
-        const docIds = docs.map(d => d.id);
+          const docIds = docs.map(d => d.id);
+          const { data: coursesData } = await supabaseAdmin
+            .from("crawler_courses")
+            .select("id")
+            .in("document_id", docIds);
 
-        // 2. Lấy toàn bộ crawler_courses của các documents này
-        const { data: coursesData } = await supabaseAdmin
-          .from("crawler_courses")
-          .select("id, document_id")
-          .in("document_id", docIds);
+          const courses = coursesData || [];
+          if (courses.length === 0) return { cat, hasContent: false };
 
-        const courses = coursesData || [];
-        if (courses.length > 0) {
           const courseIds = courses.map(c => c.id);
 
-          // 3. Đếm xem có resources nào thuộc các courseIds này không
-          const { data: resData } = await supabaseAdmin
-            .from("crawler_resources")
-            .select("course_id")
-            .in("course_id", courseIds)
-            .limit(1000); // Lấy giới hạn để kiểm tra sự tồn tại
+          const [{ count: resCount }, { count: qCount }] = await Promise.all([
+            supabaseAdmin
+              .from("crawler_resources")
+              .select("*", { count: "exact", head: true })
+              .in("course_id", courseIds),
+            supabaseAdmin
+              .from("crawler_questions")
+              .select("*", { count: "exact", head: true })
+              .in("course_id", courseIds)
+          ]);
 
-          // 4. Đếm xem có questions nào thuộc các courseIds này không
-          const { data: qData } = await supabaseAdmin
-            .from("crawler_questions")
-            .select("course_id")
-            .in("course_id", courseIds)
-            .limit(1000);
+          return {
+            cat,
+            hasContent: (resCount || 0) > 0 || (qCount || 0) > 0
+          };
+        })
+      );
 
-          const coursesWithContent = new Set<string>();
-          (resData || []).forEach(r => {
-            if (r.course_id) coursesWithContent.add(r.course_id);
-          });
-          (qData || []).forEach(q => {
-            if (q.course_id) coursesWithContent.add(q.course_id);
-          });
-
-          // Tìm các document_id có chứa các course có nội dung
-          const docsWithContent = new Set<string>();
-          courses.forEach(c => {
-            if (c.document_id && coursesWithContent.has(c.id)) {
-              docsWithContent.add(c.document_id);
-            }
-          });
-
-          // Tìm các category_id chứa các document có nội dung
-          const categoriesWithContent = new Set<string>();
-          docs.forEach(d => {
-            if (d.category_id && docsWithContent.has(d.id)) {
-              categoriesWithContent.add(d.category_id);
-            }
-          });
-
-          // Lọc lại danh sách categories
-          categories = categories.filter(c => categoriesWithContent.has(c.id));
-        } else {
-          categories = [];
-        }
-      } else {
-        categories = [];
-      }
+      categories = checks.filter(c => c.hasContent).map(c => c.cat);
     }
 
     return categories;
