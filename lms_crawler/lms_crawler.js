@@ -413,7 +413,6 @@ async function main() {
         continue;
       }
 
-      // Xác định document tương ứng cho các môn học khớp
       let selectedDoc = null;
       if (docId) {
         // Lấy thông tin mới nhất từ database
@@ -422,7 +421,7 @@ async function main() {
           .select("id, title")
           .eq("id", docId)
           .single();
-        selectedDoc = dbDoc || { id: docId, title: keyword };
+        selectedDoc = dbDoc;
       }
 
       let targetCourses = [];
@@ -439,7 +438,6 @@ async function main() {
         const courseLink = currentCourse.href;
         const courseTitle = currentCourse.title;
 
-        // Xác định document tương ứng cho môn học khớp
         let selectedDoc = null;
         if (docId) {
           // Lấy thông tin mới nhất từ database
@@ -448,7 +446,7 @@ async function main() {
             .select("id, title")
             .eq("id", docId)
             .single();
-          selectedDoc = dbDoc || { id: docId, title: keyword };
+          selectedDoc = dbDoc;
         }
 
         // Fallback so khớp nếu chưa có selectedDoc (ví dụ: lấy từ env)

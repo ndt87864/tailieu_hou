@@ -60,6 +60,7 @@ interface SpreadsheetMenubarProps {
   updateCommonFormula: (id: string, name: string, formula: string, description?: string) => Promise<boolean>;
   deleteCommonFormula: (id: string) => Promise<boolean>;
   applyCommonFormula: (formula: string) => void;
+  onAlignChange: (align: "left" | "center" | "right") => void;
 }
 
 export const SpreadsheetMenubar: React.FC<SpreadsheetMenubarProps> = ({

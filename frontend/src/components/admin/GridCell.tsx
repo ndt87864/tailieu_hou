@@ -12,6 +12,7 @@ export type CellData = {
   align?: "left" | "center" | "right";
   fontFamily?: string;
   fontSize?: string;
+  link?: string;
 };
 
 const parseDateString = (str: string): Date => {

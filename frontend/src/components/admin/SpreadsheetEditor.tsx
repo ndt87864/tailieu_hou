@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { X, Plus, Lock, ChevronDown, ChevronUp } from "lucide-react";
 import { SpreadsheetGrid } from "./SpreadsheetGrid.js";
-import { parseCellAddress, numberToColLetter } from "../../utils/formulaEvaluator.js";
+import { parseCellAddress, numberToColLetter, colLetterToNumber } from "../../utils/formulaEvaluator.js";
 import { toast } from "react-toastify";
 import { SpreadsheetHeader } from "./SpreadsheetHeader.js";
 import { SpreadsheetToolbar } from "./SpreadsheetToolbar.js";

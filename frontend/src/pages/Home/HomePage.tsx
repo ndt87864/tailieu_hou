@@ -434,14 +434,26 @@ const HomePage: React.FC = () => {
                   <div className="flex-1 w-full space-y-2">
                     <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
                       <span className="text-[var(--muted)] font-medium">Họ & Tên:</span>
-                      <span className="font-bold text-[var(--fg)] truncate">{useAuth().user?.name || useAuth().profile?.full_name || "Học viên HOU"}</span>
+                      <span className="font-bold text-[var(--fg)] truncate">{(useAuth().user as any)?.name || useAuth().profile?.full_name || "Học viên HOU"}</span>
                       
                       <span className="text-[var(--muted)] font-medium">Email:</span>
                       <span className="font-bold text-[var(--fg)] truncate">{useAuth().user?.email || "Chưa liên kết"}</span>
                       
                       <span className="text-[var(--muted)] font-medium">Quyền hạn:</span>
                       <span className="font-bold text-[var(--brand-600)]">
-                        {useAuth().role === "admin" ? "Quản trị viên" : useAuth().role === "management" ? "Quản lý" : "Học viên Premium"}
+                        {!useAuth().user || useAuth().role === "guest"
+                          ? "Khách vãng lai"
+                          : useAuth().role === "admin"
+                          ? "Quản trị viên"
+                          : useAuth().role === "management"
+                          ? "Quản lý"
+                          : useAuth().role === "free"
+                          ? "Học viên free"
+                          : useAuth().role === "plus"
+                          ? "Học viên Plus"
+                          : useAuth().role === "pro"
+                          ? "Học viên Pro"
+                          : "Học viên Ultra"}
                       </span>
                       
                       <span className="text-[var(--muted)] font-medium">Học chế:</span>

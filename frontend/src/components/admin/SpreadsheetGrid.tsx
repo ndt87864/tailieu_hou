@@ -22,6 +22,7 @@ type CellData = {
   align?: "left" | "center" | "right";
   fontFamily?: string;
   fontSize?: string;
+  link?: string;
 };
 
 interface SpreadsheetGridProps {
@@ -57,7 +58,7 @@ interface SpreadsheetGridProps {
   onDeleteCellsAndShift?: (direction: "up" | "left") => void;
   hiddenRows?: Record<number, boolean>;
   onConvertToTable?: () => void;
-  onCreateFilter?: (colLetter: string, val: string) => void;
+  onCreateFilter?: (colLetter: string, val: any) => void;
   onFilterByCellValue?: () => void;
   onTriggerLinkModal?: (address: string) => void;
   onTriggerFilterModal?: (colLetter: string) => void;
@@ -106,7 +107,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   const [editingCell, setEditingCell] = useState<string | null>(null);
   const isMouseDownRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: "row" | "col" | "cell"; index: number } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: "row" | "col" | "cell"; index: number; colIndex?: number; address?: string } | null>(null);
   const [hoveredLink, setHoveredLink] = useState<{ address: string; link: string; rect: any } | null>(null);
 
   // Resize hook

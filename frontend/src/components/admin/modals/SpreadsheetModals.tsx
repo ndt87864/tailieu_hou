@@ -483,6 +483,7 @@ export const LinkInsertModal: React.FC<LinkInsertModalProps> = ({ show, onClose,
 
 import { Search, ChevronDown, ChevronUp, Check, ArrowUpDown } from "lucide-react";
 import { ColumnFilter } from "../../../hooks/useSpreadsheetState.js";
+import { CellData } from "../GridCell.js";
 
 // 10. FilterModal
 interface FilterModalProps {

@@ -154,3 +154,9 @@ Trong thư mục `vps-deployment/` đã chuẩn bị sẵn cấu hình tối ưu
 *   Sử dụng **Nginx Reverse Proxy** (`nginx.conf`) để định tuyến SSL, gzip, cache và chuyển tiếp các port an toàn.
 *   File `docker-compose.vps.yml` định cấu hình chạy container Backend Hono và Redis độc lập để chịu tải cao.
 
+Khởi chạy bằng Docker Compose trên VPS:
+```bash
+docker compose -f vps-deployment/docker-compose.vps.yml up -d --build
+```
+
+

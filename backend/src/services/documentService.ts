@@ -62,7 +62,7 @@ export const listDocuments = async (
   search?: string,
   lms?: boolean
 ): Promise<Document[]> => {
-  const fetcher = async () => {
+  const fetcher = async (): Promise<Document[]> => {
     const selectStr = lms 
       ? "*, category:categories(title, logo, stt), crawler_courses:crawler_courses!inner(id)" 
       : "*, category:categories(title, logo, stt)";
@@ -76,7 +76,7 @@ export const listDocuments = async (
       // 1. Thử tìm kiếm chính xác trước (khớp 100% bằng ILIKE)
       let strictQuery = supabaseAdmin
         .from("documents")
-        .select(selectStr)
+        .select(selectStr as any)
         .eq("active", true)
         .not("category_id", "is", null)
         .ilike("title", `%${cleanSearch}%`)
@@ -91,13 +91,13 @@ export const listDocuments = async (
 
       const { data: strictData, error: strictError } = await strictQuery;
       if (!strictError && strictData && strictData.length > 0) {
-        return strictData;
+        return strictData as unknown as Document[];
       }
 
       // 2. Chấp nhận kết quả khớp thấp hơn (tối thiểu 90%) nếu không khớp 100%
       let allQuery = supabaseAdmin
         .from("documents")
-        .select(selectStr)
+        .select(selectStr as any)
         .eq("active", true)
         .not("category_id", "is", null);
 
@@ -113,7 +113,7 @@ export const listDocuments = async (
         return [];
       }
 
-      const matched = allData.map(doc => {
+      const matched = (allData as any[]).map(doc => {
         const score = getSimilarity(doc.title, cleanSearch);
         return { doc, score };
       })
@@ -126,7 +126,7 @@ export const listDocuments = async (
 
     let query = supabaseAdmin
       .from("documents")
-      .select(selectStr)
+      .select(selectStr as any)
       .eq("active", true)
       .not("category_id", "is", null)
       .order("created_at", { ascending: true });
@@ -144,7 +144,7 @@ export const listDocuments = async (
       console.error("Error listing documents:", error.message);
       return [];
     }
-    return data || [];
+    return (data as any) || [];
   };
 
   // Chỉ cache khi không có filter và không phải premium
@@ -833,12 +833,37 @@ export const listCategories = async (
       return [];
     }
 
-    let categories = data || [];
+    const categories = data || [];
+
+    let categoriesResult;
+
+    if (!lms) {
+      // Chỉ lấy số lượng tài liệu (total_count) cho mỗi category khi không phải chế độ bài học (lms)
+      categoriesResult = await Promise.all(
+        categories.map(async (cat) => {
+          let docQuery = supabaseAdmin
+            .from("documents")
+            .select("id", { count: "exact", head: true })
+            .eq("category_id", cat.id)
+            .eq("active", true);
+          if (!isPremiumUser) {
+            docQuery = docQuery.eq("premium", false);
+          }
+          const { count } = await docQuery;
+          return {
+            ...cat,
+            total_count: count || 0
+          };
+        })
+      );
+    } else {
+      categoriesResult = [...categories];
+    }
 
     // Nếu ở chế độ bài học (lms), chỉ lấy các categories có chứa bài giảng hoặc câu hỏi
-    if (lms && categories.length > 0) {
+    if (lms && categoriesResult.length > 0) {
       const checks = await Promise.all(
-        categories.map(async (cat) => {
+        categoriesResult.map(async (cat) => {
           const { data: docsData } = await supabaseAdmin
             .from("documents")
             .select("id")
@@ -877,10 +902,10 @@ export const listCategories = async (
         })
       );
 
-      categories = checks.filter(c => c.hasContent).map(c => c.cat);
+      categoriesResult = checks.filter(c => c.hasContent).map(c => c.cat);
     }
 
-    return categories;
+    return categoriesResult;
   };
 
   const cacheKey = `${CACHE_PREFIX}:categories:list:${isPremiumUser ? "premium" : "free"}:${lms ? "lms" : "normal"}`;
