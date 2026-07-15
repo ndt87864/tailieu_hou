@@ -3,7 +3,7 @@ import React from "react";
 import { 
   Search, Undo, Redo, Printer, Paintbrush, DollarSign, Percent, Clock, Calendar,
   Bold, Italic, Underline, Strikethrough, AlignLeft, AlignCenter, 
-  AlignRight, PaintBucket, Link2, BarChart2, Filter, Sigma, ChevronDown 
+  AlignRight, PaintBucket, Link2, Filter, Sigma, ChevronDown 
 } from "lucide-react";
 
 const fonts = [
@@ -352,9 +352,6 @@ export const SpreadsheetToolbar: React.FC<SpreadsheetToolbarProps> = ({
 
       <button className="btn-tool" title="Chèn liên kết" onClick={() => onInsertLink && onInsertLink()}>
         <Link2 className="w-4 h-4" />
-      </button>
-      <button className="btn-tool" title="Chèn biểu đồ">
-        <BarChart2 className="w-4 h-4" />
       </button>
       <button className="btn-tool" title="Tạo bộ lọc" onClick={() => onCreateFilter && onCreateFilter()}>
         <Filter className="w-4 h-4" />

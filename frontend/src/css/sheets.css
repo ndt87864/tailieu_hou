@@ -1239,6 +1239,20 @@
 
 /* Responsive adjustments for Tablet and Mobile Mode */
 
+@media (max-width: 1100px) {
+  .sheet-google-toolbar {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 6px 8px;
+    gap: 6px;
+    border-radius: 8px;
+  }
+  
+  .sheet-google-toolbar .toolbar-divider {
+    display: none;
+  }
+}
+
 @media (max-width: 1024px) {
   .sheet-google-header {
     padding: 8px 12px 4px 12px;
