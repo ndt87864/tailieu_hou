@@ -571,21 +571,37 @@ export const useSpreadsheetState = (initialTitle: string, initialContent: any, o
       addresses.push(selectedCell);
     }
 
+    // Xác định ô đầu tiên trong danh sách để làm mốc (baseline)
+    const sortedAddresses = [...addresses].sort((a, b) => {
+      const parsedA = parseCellAddress(a);
+      const parsedB = parseCellAddress(b);
+      if (!parsedA || !parsedB) return 0;
+      if (parsedA.row !== parsedB.row) return parsedA.row - parsedB.row;
+      return colLetterToNumber(parsedA.col) - colLetterToNumber(parsedB.col);
+    });
+
+    const firstAddr = sortedAddresses[0];
+    const firstParsed = parseCellAddress(firstAddr);
+
     updateSheetsAndSaveHistory((prev) => {
       const newSheets = [...prev];
       const targetSheet = { ...newSheets[activeSheetIdx] };
 
-      addresses.forEach((addr) => {
+      sortedAddresses.forEach((addr) => {
         let resolvedFormula = formulaString;
         if (selectedRange && formulaString.includes("A1:A5")) {
           resolvedFormula = formulaString.replace("A1:A5", `${selectedRange.start}:${selectedRange.end}`);
-        } else {
-          // Hỗ trợ tự động chuyển đổi dòng tương đối theo dòng hiện tại
+        } else if (firstParsed) {
           const cellParsed = parseCellAddress(addr);
           if (cellParsed) {
-            resolvedFormula = formulaString.replace(/([^$]|^)([A-Z]+)([1-9][0-9]*)/g, (match, prefix, colLetter, rowNumStr) => {
-              return `${prefix}${colLetter}${cellParsed.row}`;
-            });
+            const rowOffset = cellParsed.row - firstParsed.row;
+            if (rowOffset !== 0) {
+              resolvedFormula = formulaString.replace(/([^$]|^)([A-Z]+)([1-9][0-9]*)/g, (match, prefix, colLetter, rowNumStr) => {
+                const originalRow = parseInt(rowNumStr, 10);
+                const newRow = originalRow + rowOffset;
+                return `${prefix}${colLetter}${newRow}`;
+              });
+            }
           }
         }
 

@@ -511,6 +511,12 @@
   margin: 0;
 }
 
+.sheets-modal-card input::placeholder,
+.sheets-modal-card textarea::placeholder {
+  color: #7b8a99 !important;
+  opacity: 0.9 !important;
+}
+
 .sheets-modal-body {
   display: flex;
   flex-direction: column;

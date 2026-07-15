@@ -323,17 +323,30 @@ export function evaluateFormula(formula: string, cells: CellsMap, visited: Set<s
     if (funcMatch) {
       const funcName = funcMatch[1].toUpperCase();
       const rangeArg = funcMatch[2].trim();
-      const targetCells = rangeArg.includes(":") ? getCellRange(rangeArg) : [rangeArg];
+      
+      const args = rangeArg.split(",");
+      const values: number[] = [];
 
-      const values = targetCells.map((addr) => {
-        if (visited.has(addr)) return 0; // Tránh vòng lặp
-        const cell = cells[addr];
-        if (!cell) return 0;
-        
-        const nextVisited = new Set(visited).add(addr);
-        const evaluatedVal = evaluateFormula(cell.formula || cell.value, cells, nextVisited);
-        const num = parseFloat(evaluatedVal);
-        return isNaN(num) ? 0 : num;
+      args.forEach((arg) => {
+        const trimmedArg = arg.trim();
+        if (trimmedArg.includes(":")) {
+          const targetCells = getCellRange(trimmedArg);
+          targetCells.forEach((addr) => {
+            if (visited.has(addr)) return;
+            const cell = cells[addr];
+            if (!cell) return;
+            const nextVisited = new Set(visited).add(addr);
+            const evaluatedVal = evaluateFormula(cell.formula || cell.value, cells, nextVisited);
+            const num = parseFloat(evaluatedVal);
+            if (!isNaN(num)) values.push(num);
+          });
+        } else {
+          const evaluatedVal = evaluateFormula(trimmedArg.startsWith("=") ? trimmedArg : "=" + trimmedArg, cells, new Set(visited));
+          const num = parseFloat(evaluatedVal);
+          if (!isNaN(num)) {
+            values.push(num);
+          }
+        }
       });
 
       switch (funcName) {
@@ -346,12 +359,7 @@ export function evaluateFormula(formula: string, cells: CellsMap, visited: Set<s
         case "MAX":
           return values.length ? Math.max(...values).toString() : "0";
         case "COUNT":
-          return targetCells.filter((addr) => {
-            const cell = cells[addr];
-            if (!cell) return false;
-            const evaluatedVal = evaluateFormula(cell.formula || cell.value, cells, new Set(visited).add(addr));
-            return !isNaN(parseFloat(evaluatedVal)) && evaluatedVal.trim() !== "";
-          }).length.toString();
+          return values.length.toString();
         default:
           return "#ERROR!";
       }
