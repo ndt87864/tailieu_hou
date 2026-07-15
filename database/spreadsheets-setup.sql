@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS public.spreadsheets (
 -- Thêm Indexes để tối ưu hóa truy vấn
 CREATE INDEX IF NOT EXISTS idx_spreadsheets_created_by ON public.spreadsheets(created_by);
 CREATE INDEX IF NOT EXISTS idx_spreadsheets_updated_at ON public.spreadsheets(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_spreadsheets_title ON public.spreadsheets(title);
+CREATE INDEX IF NOT EXISTS idx_spreadsheets_created_at ON public.spreadsheets(created_at DESC);
 
 -- Bật RLS
 ALTER TABLE public.spreadsheets ENABLE ROW LEVEL SECURITY;

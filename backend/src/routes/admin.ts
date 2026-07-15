@@ -552,30 +552,40 @@ adminRouter.get("/students", async (c) => {
     const majorCode = c.req.query("majorCode") || "";
     const offset = (page - 1) * limit;
 
-    let query = supabaseAdmin
-      .from("student_infor")
-      .select("*", { count: "exact" });
+    const cacheKey = `students:list:${search}:${page}:${limit}:${course}:${subject}:${majorCode}`;
 
-    if (search.trim()) {
-      query = query.or(`studentId.ilike.%${search}%,fullName.ilike.%${search}%,username.ilike.%${search}%,subject.ilike.%${search}%`);
-    }
+    const responseData = await cacheGetOrSet(
+      cacheKey,
+      async () => {
+        let query = supabaseAdmin
+          .from("student_infor")
+          .select("*", { count: "exact" });
 
-    if (course.trim()) {
-      query = query.eq("course", course.trim());
-    }
-    if (subject.trim()) {
-      query = query.ilike("subject", `%${subject.trim()}%`);
-    }
-    if (majorCode.trim()) {
-      query = query.eq("majorCode", majorCode.trim());
-    }
+        if (search.trim()) {
+          query = query.or(`studentId.ilike.%${search}%,fullName.ilike.%${search}%,username.ilike.%${search}%,subject.ilike.%${search}%`);
+        }
 
-    const { data: students, count, error } = await query
-      .order("created_at", { ascending: false })
-      .range(offset, offset + limit - 1);
+        if (course.trim()) {
+          query = query.eq("course", course.trim());
+        }
+        if (subject.trim()) {
+          query = query.ilike("subject", `%${subject.trim()}%`);
+        }
+        if (majorCode.trim()) {
+          query = query.eq("majorCode", majorCode.trim());
+        }
 
-    if (error) throw error;
-    return c.json({ students: students || [], total: count || 0, page, limit });
+        const { data: students, count, error } = await query
+          .order("created_at", { ascending: false })
+          .range(offset, offset + limit - 1);
+
+        if (error) throw error;
+        return { students: students || [], total: count || 0 };
+      },
+      30_000 // Cache 30 giây
+    );
+
+    return c.json({ students: responseData.students, total: responseData.total, page, limit });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
@@ -593,6 +603,7 @@ adminRouter.post("/students/bulk-delete", async (c) => {
       .in("id", ids);
 
     if (error) throw error;
+    await cacheInvalidatePrefix("students:");
     return c.json({ success: true, message: `Deleted ${ids.length} students` });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
@@ -612,6 +623,7 @@ adminRouter.post("/students/bulk-update", async (c) => {
       .select();
 
     if (error) throw error;
+    await cacheInvalidatePrefix("students:");
     return c.json({ success: true, count: data?.length || 0 });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
@@ -688,6 +700,7 @@ adminRouter.post("/students/update-by-match", async (c) => {
         .select();
 
       if (updateError) throw updateError;
+      await cacheInvalidatePrefix("students:");
       return c.json({ success: true, count: updatedData?.length || 0 });
     } else {
       const toUpdateIds = matches
@@ -705,6 +718,7 @@ adminRouter.post("/students/update-by-match", async (c) => {
         .select();
 
       if (updateError) throw updateError;
+      await cacheInvalidatePrefix("students:");
       return c.json({ success: true, count: updatedData?.length || 0 });
     }
   } catch (error: any) {
@@ -722,6 +736,7 @@ adminRouter.post("/students", async (c) => {
       .single();
 
     if (error) throw error;
+    await cacheInvalidatePrefix("students:");
     return c.json({ student: data }, 201);
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
@@ -743,6 +758,7 @@ adminRouter.post("/students/import", async (c) => {
       .select();
 
     if (error) throw error;
+    await cacheInvalidatePrefix("students:");
     return c.json({ success: true, count: data?.length || 0 });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
@@ -761,6 +777,7 @@ adminRouter.put("/students/:id", async (c) => {
       .single();
 
     if (error) throw error;
+    await cacheInvalidatePrefix("students:");
     return c.json({ student: data });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
@@ -779,6 +796,7 @@ adminRouter.patch("/students/:id", async (c) => {
       .single();
 
     if (error) throw error;
+    await cacheInvalidatePrefix("students:");
     return c.json({ student: data });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
@@ -789,6 +807,7 @@ adminRouter.delete("/students/:id", async (c) => {
   const id = c.req.param("id");
   const { error } = await supabaseAdmin.from("student_infor").delete().eq("id", id);
   if (error) return c.json({ error: error.message }, 400);
+  await cacheInvalidatePrefix("students:");
   return c.json({ success: true, message: "Student record deleted" });
 });
 

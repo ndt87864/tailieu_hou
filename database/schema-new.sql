@@ -297,4 +297,20 @@ CREATE TRIGGER registration_queue_set_updated_at BEFORE UPDATE ON public.registr
 
 ALTER TABLE questions ADD COLUMN url_choices TEXT DEFAULT NULL;
 
+-- Tối ưu hóa hiệu năng truy vấn cho bảng student_infor
+CREATE INDEX IF NOT EXISTS idx_student_infor_studentId ON public.student_infor("studentId");
+CREATE INDEX IF NOT EXISTS idx_student_infor_fullName ON public.student_infor("fullName");
+CREATE INDEX IF NOT EXISTS idx_student_infor_username ON public.student_infor("username");
+CREATE INDEX IF NOT EXISTS idx_student_infor_subject ON public.student_infor(subject);
+CREATE INDEX IF NOT EXISTS idx_student_infor_course ON public.student_infor(course);
+CREATE INDEX IF NOT EXISTS idx_student_infor_majorCode ON public.student_infor("majorCode");
+CREATE INDEX IF NOT EXISTS idx_student_infor_created_at ON public.student_infor(created_at DESC);
 
+-- Tối ưu hóa hiệu năng truy vấn cho bảng spreadsheets
+CREATE INDEX IF NOT EXISTS idx_spreadsheets_title ON public.spreadsheets(title);
+CREATE INDEX IF NOT EXISTS idx_spreadsheets_created_at ON public.spreadsheets(created_at DESC);
+
+-- Sử dụng extension pg_prewarm để tải trước (prewarm) dữ liệu và index vào RAM (Buffer Cache) của PostgreSQL
+CREATE EXTENSION IF NOT EXISTS pg_prewarm;
+SELECT pg_prewarm('public.student_infor');
+SELECT pg_prewarm('public.spreadsheets');

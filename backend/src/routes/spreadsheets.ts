@@ -27,7 +27,7 @@ spreadsheetsRouter.get("/", async (c) => {
       async () => {
         const { data: sheets, error } = await supabaseAdmin
           .from("spreadsheets")
-          .select("id, title, created_at, updated_at, created_by, content")
+          .select("id, title, created_at, updated_at, created_by")
           .order("updated_at", { ascending: false });
 
         if (error) {
