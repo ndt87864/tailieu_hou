@@ -642,13 +642,9 @@ export const getCategoryById = async (
     if (catData.premium && !isPremiumUser) return null;
 
     // 2. Lấy danh sách documents của category này
-    const selectStr = lms 
-      ? "id, title, description, category_id, slug, created_at, updated_at, active, premium, crawler_courses:crawler_courses!inner(id)" 
-      : "id, title, description, category_id, slug, created_at, updated_at, active, premium";
-
     let docQuery = supabaseAdmin
       .from("documents")
-      .select(selectStr)
+      .select("id, title, description, category_id, slug, created_at, updated_at, active, premium")
       .eq("category_id", id)
       .eq("active", true)
       .order("created_at", { ascending: true });
@@ -663,36 +659,109 @@ export const getCategoryById = async (
       return null;
     }
 
-    // Nếu không phải lms, ta lấy mapping crawler_courses cho từng document để nhất quán
-    let docsWithCourses = docsData || [];
-    if (!lms && docsWithCourses.length > 0) {
-      const docIds = docsWithCourses.map(d => d.id);
-      const { data: coursesData } = await supabaseAdmin
-        .from("crawler_courses")
-        .select("id, document_id")
-        .in("document_id", docIds);
+    let documents = docsData || [];
 
-      const coursesByDoc = new Map<string, any[]>();
-      (coursesData || []).forEach((c: any) => {
-        if (c.document_id) {
-          if (!coursesByDoc.has(c.document_id)) {
-            coursesByDoc.set(c.document_id, []);
+    if (documents.length > 0) {
+      const docIds = documents.map(d => d.id);
+
+      if (lms) {
+        // Mode bài làm (lms = true)
+        // 1. Lấy toàn bộ crawler_courses của các documents này
+        const { data: coursesData } = await supabaseAdmin
+          .from("crawler_courses")
+          .select("id, document_id")
+          .in("document_id", docIds);
+
+        const courses = coursesData || [];
+        const courseIdsByDocMap = new Map<string, string[]>();
+        courses.forEach(c => {
+          if (c.document_id) {
+            if (!courseIdsByDocMap.has(c.document_id)) {
+              courseIdsByDocMap.set(c.document_id, []);
+            }
+            courseIdsByDocMap.get(c.document_id)!.push(c.id);
           }
-          coursesByDoc.get(c.document_id)!.push({ id: c.id });
-        }
-      });
+        });
 
-      docsWithCourses = docsWithCourses.map(d => ({
-        ...d,
-        crawler_courses: coursesByDoc.get(d.id) || []
-      }));
+        // Đếm resources và questions theo từng document một cách an toàn và tối ưu
+        const counts = await Promise.all(
+          documents.map(async (d) => {
+            const docCourseIds = courseIdsByDocMap.get(d.id) || [];
+            if (docCourseIds.length === 0) {
+              return { docId: d.id, resources_count: 0, questions_count: 0 };
+            }
+
+            // Đếm crawler_resources cho document này
+            const { count: resCount } = await supabaseAdmin
+              .from("crawler_resources")
+              .select("*", { count: "exact", head: true })
+              .in("course_id", docCourseIds);
+
+            // Đếm crawler_questions cho document này
+            const { count: qCount } = await supabaseAdmin
+              .from("crawler_questions")
+              .select("*", { count: "exact", head: true })
+              .in("course_id", docCourseIds);
+
+            return {
+              docId: d.id,
+              resources_count: resCount || 0,
+              questions_count: qCount || 0
+            };
+          })
+        );
+
+        const resourceCountMap = new Map<string, number>();
+        const questionCountMap = new Map<string, number>();
+        counts.forEach(c => {
+          resourceCountMap.set(c.docId, c.resources_count);
+          questionCountMap.set(c.docId, c.questions_count);
+        });
+
+        // 4. Map kết quả counts và lọc bỏ những document có cả 2 count = 0
+        documents = documents
+          .map(d => ({
+            ...d,
+            courses_count: (courseIdsByDocMap.get(d.id) || []).length,
+            resources_count: resourceCountMap.get(d.id) || 0,
+            questions_count: questionCountMap.get(d.id) || 0
+          }))
+          .filter(d => d.resources_count > 0 || d.questions_count > 0);
+      } else {
+        // Mode câu hỏi (lms = false)
+        // Chỉ cần đếm count questions từ bảng "questions" cho mỗi document
+        const counts = await Promise.all(
+          docIds.map(async (docId) => {
+            const { count } = await supabaseAdmin
+              .from("questions")
+              .select("*", { count: "exact", head: true })
+              .eq("document_id", docId);
+            return { docId, count: count || 0 };
+          })
+        );
+
+        const questionCountMap = new Map<string, number>();
+        counts.forEach(c => {
+          questionCountMap.set(c.docId, c.count);
+        });
+
+        // Map kết quả counts và chỉ giữ lại những document có câu hỏi (questions_count > 0)
+        documents = documents
+          .map(d => ({
+            ...d,
+            courses_count: 0,
+            resources_count: 0,
+            questions_count: questionCountMap.get(d.id) || 0
+          }))
+          .filter(d => d.questions_count > 0);
+      }
     }
 
     return {
       id: catData.id,
       title: catData.title,
       logo: catData.logo,
-      documents: docsWithCourses
+      documents
     };
   };
 
@@ -720,7 +789,83 @@ export const listCategories = async (
       console.error("Error listing categories:", error.message);
       return [];
     }
-    return data || [];
+
+    let categories = data || [];
+
+    // Nếu ở chế độ bài học (lms), chỉ lấy các categories có chứa bài giảng hoặc câu hỏi
+    if (lms && categories.length > 0) {
+      const catIds = categories.map(c => c.id);
+
+      // 1. Lấy tất cả documents của các categories này kèm thông tin category_id
+      const { data: docsData } = await supabaseAdmin
+        .from("documents")
+        .select("id, category_id")
+        .in("category_id", catIds)
+        .eq("active", true);
+
+      const docs = docsData || [];
+      if (docs.length > 0) {
+        const docIds = docs.map(d => d.id);
+
+        // 2. Lấy toàn bộ crawler_courses của các documents này
+        const { data: coursesData } = await supabaseAdmin
+          .from("crawler_courses")
+          .select("id, document_id")
+          .in("document_id", docIds);
+
+        const courses = coursesData || [];
+        if (courses.length > 0) {
+          const courseIds = courses.map(c => c.id);
+
+          // 3. Đếm xem có resources nào thuộc các courseIds này không
+          const { data: resData } = await supabaseAdmin
+            .from("crawler_resources")
+            .select("course_id")
+            .in("course_id", courseIds)
+            .limit(1000); // Lấy giới hạn để kiểm tra sự tồn tại
+
+          // 4. Đếm xem có questions nào thuộc các courseIds này không
+          const { data: qData } = await supabaseAdmin
+            .from("crawler_questions")
+            .select("course_id")
+            .in("course_id", courseIds)
+            .limit(1000);
+
+          const coursesWithContent = new Set<string>();
+          (resData || []).forEach(r => {
+            if (r.course_id) coursesWithContent.add(r.course_id);
+          });
+          (qData || []).forEach(q => {
+            if (q.course_id) coursesWithContent.add(q.course_id);
+          });
+
+          // Tìm các document_id có chứa các course có nội dung
+          const docsWithContent = new Set<string>();
+          courses.forEach(c => {
+            if (c.document_id && coursesWithContent.has(c.id)) {
+              docsWithContent.add(c.document_id);
+            }
+          });
+
+          // Tìm các category_id chứa các document có nội dung
+          const categoriesWithContent = new Set<string>();
+          docs.forEach(d => {
+            if (d.category_id && docsWithContent.has(d.id)) {
+              categoriesWithContent.add(d.category_id);
+            }
+          });
+
+          // Lọc lại danh sách categories
+          categories = categories.filter(c => categoriesWithContent.has(c.id));
+        } else {
+          categories = [];
+        }
+      } else {
+        categories = [];
+      }
+    }
+
+    return categories;
   };
 
   const cacheKey = `${CACHE_PREFIX}:categories:list:${isPremiumUser ? "premium" : "free"}:${lms ? "lms" : "normal"}`;

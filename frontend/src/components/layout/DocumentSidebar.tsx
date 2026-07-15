@@ -33,18 +33,13 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
   const location = useLocation();
   const [sidebarCategories, setSidebarCategories] = useState<SidebarCategory[]>([]);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(() => {
-    const stored = localStorage.getItem("sidebar-collapsed");
-    if (stored !== null) return stored === "true";
-    return window.innerWidth < 1024;
-  });
+  const [isCollapsed, setIsCollapsed] = useState(true); // Luôn mặc định là true (thu gọn)
   const [isHovered, setIsHovered] = useState(false);
   const [tempDisableHover, setTempDisableHover] = useState(false);
 
   const toggleCollapse = () => {
     setIsCollapsed((prev) => {
       const next = !prev;
-      localStorage.setItem("sidebar-collapsed", String(next));
       if (next) {
         setTempDisableHover(true);
       }
@@ -74,9 +69,30 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
     return () => window.removeEventListener("open-doc-sidebar", handleOpenSidebar);
   }, []);
 
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent | TouchEvent) => {
+      // Tìm phần tử sidebar
+      const sidebarEl = document.querySelector(".doc-brand-header");
+      if (sidebarEl && !sidebarEl.contains(e.target as Node)) {
+        setIsHovered(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("touchstart", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("touchstart", handleOutsideClick);
+    };
+  }, []);
+
   const [currentCategoryId, setCurrentCategoryId] = useState<string | null>(null);
 
   useEffect(() => {
+    // Reset sidebar về dạng thu gọn khi chuyển trang (ví dụ thoát về home)
+    setIsCollapsed(true);
+    setIsHovered(false);
+
     const matchCat = location.pathname.match(/\/categories\/([^/]+)/);
     if (matchCat) {
       setCurrentCategoryId(matchCat[1]);
@@ -187,13 +203,19 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
       {/* Unified Desktop Sidebar with Hover Expand (Lenovo Vantage Style) */}
       <div 
         onMouseEnter={() => {
-          if (!tempDisableHover && window.matchMedia("(hover: hover)").matches) {
+          if (!tempDisableHover) {
             setIsHovered(true);
           }
         }}
         onMouseLeave={() => {
           setIsHovered(false);
           setTempDisableHover(false);
+        }}
+        onTouchStart={(e) => {
+          // Trên tablet/thiết bị cảm ứng, chạm vào sidebar sẽ tự động mở ra
+          if (!tempDisableHover) {
+            setIsHovered(true);
+          }
         }}
         className={`hidden md:flex flex-col border-r border-white/10 fixed top-0 bottom-0 left-0 z-[60] transition-all duration-300 doc-brand-header ${
           isCollapsed 
@@ -208,28 +230,18 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
           <div className="flex items-center justify-between border-b border-white/10 mb-4 pb-2 h-10 overflow-hidden">
             <Link 
               to="/"
-              className={`flex items-center gap-2.5 font-bold text-base text-white hover:opacity-80 transition-opacity ${
-                !isCollapsed || isHovered ? "opacity-100" : "opacity-0 w-0 pointer-events-none"
+              className={`flex items-center gap-2.5 font-bold text-base text-white hover:opacity-80 transition-all duration-300 w-full ${
+                isCollapsed && !isHovered ? "justify-center" : "px-1"
               }`}
+              title="Về trang chủ"
             >
-              <GraduationCap className="w-5 h-5 text-white" />
-              <span className="truncate">Tài liệu HOU</span>
-            </Link>
-            
-            {/* Nút Toggle cứng (Cố định ở bên phải khi mở rộng, hoặc nằm giữa khi thu gọn) */}
-            <button
-              onClick={toggleCollapse}
-              className={`p-1.5 rounded-lg text-white/75 hover:text-white hover:bg-[rgba(255,255,255,0.08)] transition-all ${
-                isCollapsed && !isHovered ? "mx-auto" : ""
-              }`}
-              title={isCollapsed ? "Mở rộng sidebar" : "Thu nhỏ sidebar"}
-            >
-              {isCollapsed ? (
-                isHovered ? <ChevronLeft className="w-4 h-4" /> : <Icons.Menu className="w-4 h-4" />
-              ) : (
-                <ChevronLeft className="w-4 h-4" />
+              <GraduationCap className="w-6 h-6 text-white shrink-0" />
+              {(!isCollapsed || isHovered) && (
+                <span className="truncate transition-opacity duration-300 opacity-100">
+                  Tài liệu HOU
+                </span>
               )}
-            </button>
+            </Link>
           </div>
         </div>
 

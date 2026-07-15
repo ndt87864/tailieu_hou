@@ -14,6 +14,9 @@ interface Document {
   description: string;
   premium?: boolean;
   active?: boolean;
+  courses_count?: number;
+  resources_count?: number;
+  questions_count?: number;
 }
 
 interface CategoryInfo {
@@ -142,39 +145,73 @@ const CategoryPage: React.FC = () => {
 
         {/* Documents Bento Grid */}
         {filteredDocs.length === 0 ? (
-          <div className="text-center py-12 border border-dashed border-[var(--border)] rounded-2xl bg-[var(--surface-2)]">
-            <Icons.FolderOpen className="w-12 h-12 mx-auto text-[var(--muted)] mb-2" />
-            <p className="text-sm doc-text-muted">Chưa có tài liệu nào trong danh mục này.</p>
+          <div className="text-center py-16 border border-dashed border-[var(--border)] rounded-3xl bg-[var(--surface-2)]/50 backdrop-blur-sm space-y-4">
+            <div className="w-16 h-16 rounded-full bg-[var(--bg-2)] flex items-center justify-center mx-auto shadow-inner">
+              <Icons.FolderOpen className="w-8 h-8 text-[var(--muted)]" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-semibold doc-text-fg">Danh mục đang trống</p>
+              <p className="text-xs doc-text-muted">Chưa có tài liệu nào được xuất bản trong danh mục này.</p>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredDocs.map((doc) => {
+            {filteredDocs.map((doc, idx) => {
               return (
                 <Link
                   key={doc.id}
                   to={`/documents/${doc.id}`}
-                  className="flex flex-col p-5 rounded-2xl border border-[var(--border)] bg-[var(--surface)] hover:border-[var(--brand-600)] hover:shadow-md transition-all duration-300 group relative"
+                  className="flex flex-col p-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] hover:border-[var(--brand-600)] hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group relative overflow-hidden doc-card-animated"
+                  style={{ animationDelay: `${idx * 60}ms` }}
                 >
-                  <div className="flex items-start justify-between gap-2 mb-3">
-                    <div className="w-10 h-10 rounded-lg bg-[var(--bg-2)] flex items-center justify-center group-hover:bg-[var(--brand-50)] transition-colors">
-                      <Icons.FileText className="w-5 h-5 text-[var(--brand-600)]" />
+                  {/* Subtle Background Glow on Hover */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-[var(--brand-600)]/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+
+                  <div className="flex items-start justify-between gap-4 mb-4 relative z-10">
+                    <div className="w-11 h-11 rounded-xl bg-[var(--bg-2)] flex items-center justify-center group-hover:bg-[var(--brand-600)] group-hover:text-white transition-all duration-300 shadow-sm shrink-0">
+                      <Icons.FileText className="w-5.5 h-5.5 text-[var(--brand-600)] group-hover:text-white transition-colors duration-300" />
                     </div>
                     {doc.premium && (
-                      <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                        <Icons.Crown className="w-3 h-3" />
+                      <span className="flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-bold bg-gradient-to-r from-amber-500/10 to-orange-500/10 text-amber-600 border border-amber-500/20 shadow-sm backdrop-blur-sm">
+                        <Icons.Crown className="w-3 h-3 text-amber-500 fill-amber-500" />
                         Premium
                       </span>
                     )}
                   </div>
-                  <h3 className="font-semibold text-sm doc-text-fg group-hover:text-[var(--brand-600)] transition-colors line-clamp-2">
-                    {doc.title}
-                  </h3>
-                  <p className="text-xs doc-text-muted mt-2 line-clamp-3 flex-1">
-                    {doc.description || "Chưa có mô tả chi tiết cho môn học này."}
-                  </p>
-                  <div className="mt-4 pt-3 border-t border-[var(--border-soft)] flex items-center justify-between text-xs text-[var(--brand-600)] font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span>Xem tài liệu</span>
-                    <Icons.ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
+
+                  <div className="flex-1 space-y-2 relative z-10">
+                    <h3 className="font-bold text-sm md:text-base doc-text-fg group-hover:text-[var(--brand-600)] transition-colors duration-300 line-clamp-2 leading-snug">
+                      {doc.title}
+                    </h3>
+                    <p className="text-xs doc-text-muted line-clamp-3 leading-relaxed">
+                      {doc.description || "Chưa có mô tả chi tiết cho môn học này."}
+                    </p>
+                  </div>
+
+                  {/* Metadata Indicators Section */}
+                  {(lessonMode || (typeof doc.questions_count === "number" && doc.questions_count > 0)) && (
+                    <div className="mt-5 pt-3.5 border-t border-[var(--border-soft)] flex flex-wrap items-center gap-2 relative z-10">
+                      {lessonMode && typeof doc.resources_count === "number" && doc.resources_count > 0 && (
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-[var(--bg-2)] text-[var(--brand-700)] border border-[var(--border-soft)] shadow-sm">
+                          <Icons.FileDown className="w-3.5 h-3.5 text-[var(--brand-600)]" />
+                          <span>{doc.resources_count} bài giảng</span>
+                        </div>
+                      )}
+                      {typeof doc.questions_count === "number" && doc.questions_count > 0 && (
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-[var(--bg-2)] text-[var(--brand-700)] border border-[var(--border-soft)] shadow-sm">
+                          <Icons.HelpCircle className="w-3.5 h-3.5 text-[var(--brand-600)]" />
+                          <span>{doc.questions_count} câu hỏi</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Elegant Call to Action footer */}
+                  <div className="mt-5 pt-3 border-t border-[var(--border-soft)] flex items-center justify-between text-xs text-[var(--brand-600)] font-bold relative z-10">
+                    <span className="group-hover:translate-x-0.5 transition-transform duration-300">Làm bài ngay</span>
+                    <div className="w-6 h-6 rounded-full bg-[var(--bg-2)] group-hover:bg-[var(--brand-600)] flex items-center justify-center transition-colors duration-300">
+                      <Icons.ArrowRight className="w-3.5 h-3.5 text-[var(--brand-600)] group-hover:text-white transform group-hover:translate-x-0.5 transition-all duration-300" />
+                    </div>
                   </div>
                 </Link>
               );
