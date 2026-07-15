@@ -437,4 +437,12 @@ div[class*="fixed"] .card {
   padding-bottom: 1.3rem !important;
 }
 
+/* Optimize performance during window resize */
+body.is-resizing * {
+  transition: none !important;
+  animation: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
 

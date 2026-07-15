@@ -493,9 +493,21 @@ const Layout: React.FC = () => {
     window.addEventListener("open-settings", handleOpenSettings);
     window.addEventListener("open-profile", handleOpenProfile);
 
+    let resizeTimer: number;
+    const handleResize = () => {
+      document.body.classList.add("is-resizing");
+      clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(() => {
+        document.body.classList.remove("is-resizing");
+      }, 150);
+    };
+    window.addEventListener("resize", handleResize, { passive: true });
+
     return () => {
       window.removeEventListener("open-settings", handleOpenSettings);
       window.removeEventListener("open-profile", handleOpenProfile);
+      window.removeEventListener("resize", handleResize);
+      clearTimeout(resizeTimer);
     };
   }, []);
 
