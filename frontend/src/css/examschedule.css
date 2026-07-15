@@ -1,8 +1,8 @@
 .lt-container {
   --theme-primary: var(--accent);
   --theme-primary-rgb: var(--brand-rgb);
-  --theme-light: var(--brand-300);
-  --theme-light-rgb: var(--brand-300);
+  --theme-light: #38bdf8;
+  --theme-light-rgb: 56, 189, 248;
   --theme-dark: var(--brand-800);
   --theme-dark-rgb: var(--brand-800);
   
@@ -150,7 +150,7 @@
 /* Search Button */
 .lt-search-btn {
   border-radius: 20px;
-  background: linear-gradient(135deg, var(--theme-light) 0%, var(--theme-primary) 100%);
+  background: linear-gradient(135deg, var(--theme-dark) 0%, var(--theme-primary) 50%, var(--theme-light) 100%);
   color: white;
   box-shadow: 0 8px 25px -5px rgba(var(--theme-primary-rgb), 0.5);
   border: 1px solid rgba(255, 255, 255, 0.2);
@@ -269,7 +269,7 @@
   justify-content: space-between;
   min-height: 210px;
   color: white;
-  background: linear-gradient(150deg, rgba(var(--theme-dark-rgb), 0.94) 0%, rgba(var(--theme-primary-rgb), 0.9) 100%);
+  background: linear-gradient(150deg, var(--theme-dark) 0%, var(--theme-primary) 50%, var(--theme-light) 100%);
   box-shadow: 0 10px 28px rgba(var(--theme-primary-rgb), 0.35);
   border: 1px solid rgba(255, 255, 255, 0.25);
 }
@@ -616,7 +616,7 @@
   align-items: center;
   justify-content: center;
   color: white;
-  background: linear-gradient(140deg, rgba(var(--theme-light-rgb), 0.95) 0%, rgba(var(--theme-primary-rgb), 0.9) 100%);
+  background: linear-gradient(140deg, var(--theme-dark) 0%, var(--theme-primary) 50%, var(--theme-light) 100%);
 }
 
 .lt-mobile-status-chip {

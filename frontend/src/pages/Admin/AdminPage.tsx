@@ -187,7 +187,7 @@ const AdminPage: React.FC = () => {
         { id: "calendar", label: "Lịch",         icon: <Calendar className="w-4 h-4" />, desc: "Lịch nhắc nhở và sự kiện hệ thống" },
         { id: "footer",   label: "Footer",       icon: <Compass className="w-4 h-4" />, desc: "Thông tin chân trang và chính sách" },
         { id: "contacts", label: "Liên hệ",      icon: <Mail className="w-4 h-4" />, desc: "Hộp thư tiếp nhận góp ý, phản hồi của người dùng" },
-        { id: "sheets",   label: "Trang tính",    icon: <FileSpreadsheet className="w-4 h-4" />, desc: "Đồng bộ trang tính Google Sheets" },
+        { id: "sheets",   label: "Trang tính",    icon: <FileSpreadsheet className="w-4 h-4" />, desc: "Quản lí trang tính" },
       ],
     },
   ];

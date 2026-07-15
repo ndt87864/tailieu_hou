@@ -674,49 +674,77 @@ export const getCategoryById = async (
 
         const courses = coursesData || [];
         const courseIdsByDocMap = new Map<string, string[]>();
+        const allCourseIds: string[] = [];
         courses.forEach(c => {
           if (c.document_id) {
             if (!courseIdsByDocMap.has(c.document_id)) {
               courseIdsByDocMap.set(c.document_id, []);
             }
             courseIdsByDocMap.get(c.document_id)!.push(c.id);
+            allCourseIds.push(c.id);
           }
         });
 
-        // Đếm resources và questions theo từng document một cách an toàn và tối ưu
-        const counts = await Promise.all(
-          documents.map(async (d) => {
-            const docCourseIds = courseIdsByDocMap.get(d.id) || [];
-            if (docCourseIds.length === 0) {
-              return { docId: d.id, resources_count: 0, questions_count: 0 };
-            }
-
-            // Đếm crawler_resources cho document này
-            const { count: resCount } = await supabaseAdmin
-              .from("crawler_resources")
-              .select("*", { count: "exact", head: true })
-              .in("course_id", docCourseIds);
-
-            // Đếm crawler_questions cho document này
-            const { count: qCount } = await supabaseAdmin
-              .from("crawler_questions")
-              .select("*", { count: "exact", head: true })
-              .in("course_id", docCourseIds);
-
-            return {
-              docId: d.id,
-              resources_count: resCount || 0,
-              questions_count: qCount || 0
-            };
-          })
-        );
-
         const resourceCountMap = new Map<string, number>();
         const questionCountMap = new Map<string, number>();
-        counts.forEach(c => {
-          resourceCountMap.set(c.docId, c.resources_count);
-          questionCountMap.set(c.docId, c.questions_count);
-        });
+
+        // Thực hiện đếm gộp qua RPC nếu có danh sách course
+        if (allCourseIds.length > 0) {
+          try {
+            const { data: rpcCounts, error: rpcError } = await supabaseAdmin.rpc(
+              "count_lms_resources_and_questions",
+              { course_ids: allCourseIds }
+            );
+
+            if (rpcError) throw rpcError;
+
+            // Map counts từ rpc: { course_id, res_cnt, q_cnt }
+            const resCountByCourse = new Map<string, number>();
+            const qCountByCourse = new Map<string, number>();
+            
+            (rpcCounts || []).forEach((row: any) => {
+              resCountByCourse.set(row.course_id, Number(row.res_cnt) || 0);
+              qCountByCourse.set(row.course_id, Number(row.q_cnt) || 0);
+            });
+
+            // Tổng hợp lại theo từng document
+            documents.forEach(d => {
+              const docCourseIds = courseIdsByDocMap.get(d.id) || [];
+              let totalRes = 0;
+              let totalQ = 0;
+              docCourseIds.forEach(cid => {
+                totalRes += resCountByCourse.get(cid) || 0;
+                totalQ += qCountByCourse.get(cid) || 0;
+              });
+              resourceCountMap.set(d.id, totalRes);
+              questionCountMap.set(d.id, totalQ);
+            });
+          } catch (err) {
+            console.warn("RPC count_lms_resources_and_questions failed, falling back to parallel query:", err);
+            // Fallback nếu chưa chạy DDL
+            const counts = await Promise.all(
+              documents.map(async (d) => {
+                const docCourseIds = courseIdsByDocMap.get(d.id) || [];
+                if (docCourseIds.length === 0) {
+                  return { docId: d.id, resources_count: 0, questions_count: 0 };
+                }
+                const [resCount, qCount] = await Promise.all([
+                  supabaseAdmin.from("crawler_resources").select("*", { count: "exact", head: true }).in("course_id", docCourseIds),
+                  supabaseAdmin.from("crawler_questions").select("*", { count: "exact", head: true }).in("course_id", docCourseIds)
+                ]);
+                return {
+                  docId: d.id,
+                  resources_count: resCount.count || 0,
+                  questions_count: qCount.count || 0
+                };
+              })
+            );
+            counts.forEach(c => {
+              resourceCountMap.set(c.docId, c.resources_count);
+              questionCountMap.set(c.docId, c.questions_count);
+            });
+          }
+        }
 
         // 4. Map kết quả counts và lọc bỏ những document có cả 2 count = 0
         documents = documents
@@ -729,21 +757,36 @@ export const getCategoryById = async (
           .filter(d => d.resources_count > 0 || d.questions_count > 0);
       } else {
         // Mode câu hỏi (lms = false)
-        // Chỉ cần đếm count questions từ bảng "questions" cho mỗi document
-        const counts = await Promise.all(
-          docIds.map(async (docId) => {
-            const { count } = await supabaseAdmin
-              .from("questions")
-              .select("*", { count: "exact", head: true })
-              .eq("document_id", docId);
-            return { docId, count: count || 0 };
-          })
-        );
-
         const questionCountMap = new Map<string, number>();
-        counts.forEach(c => {
-          questionCountMap.set(c.docId, c.count);
-        });
+
+        try {
+          // Gọi RPC đếm gộp số câu hỏi theo danh sách docIds
+          const { data: rpcCounts, error: rpcError } = await supabaseAdmin.rpc(
+            "count_questions_by_docs",
+            { doc_ids: docIds }
+          );
+
+          if (rpcError) throw rpcError;
+
+          (rpcCounts || []).forEach((row: any) => {
+            questionCountMap.set(row.doc_id, Number(row.cnt) || 0);
+          });
+        } catch (err) {
+          console.warn("RPC count_questions_by_docs failed, falling back to parallel query:", err);
+          // Fallback nếu chưa chạy DDL
+          const counts = await Promise.all(
+            docIds.map(async (docId) => {
+              const { count } = await supabaseAdmin
+                .from("questions")
+                .select("*", { count: "exact", head: true })
+                .eq("document_id", docId);
+              return { docId, count: count || 0 };
+            })
+          );
+          counts.forEach(c => {
+            questionCountMap.set(c.docId, c.count);
+          });
+        }
 
         // Map kết quả counts và chỉ giữ lại những document có câu hỏi (questions_count > 0)
         documents = documents

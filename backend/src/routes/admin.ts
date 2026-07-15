@@ -16,23 +16,35 @@ adminRouter.get("/stats", async (c) => {
     const stats = await cacheGetOrSet(
       "admin:stats",
       async () => {
-        // Chạy song song: users + 4 count queries cùng 1 lúc
+        // Chạy song song: count queries cùng 1 lúc bằng head: true
         const [
-          usersResult,
+          totalUsersRes,
+          adminRes,
+          managementRes,
+          ultraRes,
+          proRes,
+          plusRes,
+          freeRes,
           catResult,
           docResult,
           qResult,
           stdResult,
         ] = await Promise.all([
-          supabaseAdmin.from("profiles").select("role"),
+          supabaseAdmin.from("profiles").select("*", { count: "exact", head: true }),
+          supabaseAdmin.from("profiles").select("*", { count: "exact", head: true }).eq("role", "admin"),
+          supabaseAdmin.from("profiles").select("*", { count: "exact", head: true }).eq("role", "management"),
+          supabaseAdmin.from("profiles").select("*", { count: "exact", head: true }).eq("role", "ultra"),
+          supabaseAdmin.from("profiles").select("*", { count: "exact", head: true }).eq("role", "pro"),
+          supabaseAdmin.from("profiles").select("*", { count: "exact", head: true }).eq("role", "plus"),
+          supabaseAdmin.from("profiles").select("*", { count: "exact", head: true }).eq("role", "free"),
           supabaseAdmin.from("categories").select("*", { count: "exact", head: true }),
           supabaseAdmin.from("documents").select("*", { count: "exact", head: true }),
           supabaseAdmin.from("questions").select("*", { count: "exact", head: true }),
           supabaseAdmin.from("student_infor").select("*", { count: "exact", head: true }),
         ]);
 
-        if (usersResult.error) {
-          console.warn("Could not fetch profiles for stats:", usersResult.error.message);
+        if (totalUsersRes.error) {
+          console.warn("Could not fetch profiles count for stats:", totalUsersRes.error.message);
         }
         if (catResult.error) {
           console.warn("Could not fetch category counts for stats:", catResult.error.message);
@@ -47,24 +59,16 @@ adminRouter.get("/stats", async (c) => {
           console.warn("Could not fetch student counts for stats:", stdResult.error.message);
         }
 
-        let totalUsers = usersResult.error ? 0 : usersResult.data?.length || 0;
-        let freeCount = 0, plusCount = 0, proCount = 0;
-        let ultraCount = 0, managementCount = 0, adminCount = 0;
-
-        if (!usersResult.error && usersResult.data) {
-          usersResult.data.forEach((u) => {
-            if (u.role === "admin") adminCount++;
-            else if (u.role === "management") managementCount++;
-            else if (u.role === "ultra") ultraCount++;
-            else if (u.role === "pro") proCount++;
-            else if (u.role === "plus") plusCount++;
-            else freeCount++;
-          });
-        }
-
         return {
-          totalUsers,
-          roles: { free: freeCount, plus: plusCount, pro: proCount, ultra: ultraCount, management: managementCount, admin: adminCount },
+          totalUsers: totalUsersRes.count || 0,
+          roles: {
+            free: freeRes.count || 0,
+            plus: plusRes.count || 0,
+            pro: proRes.count || 0,
+            ultra: ultraRes.count || 0,
+            management: managementRes.count || 0,
+            admin: adminRes.count || 0,
+          },
           totalCategories: catResult.error ? 0 : catResult.count || 0,
           totalDocuments: docResult.error ? 0 : docResult.count || 0,
           totalQuestions: qResult.error ? 0 : qResult.count || 0,
