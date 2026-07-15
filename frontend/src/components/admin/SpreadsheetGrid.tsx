@@ -58,6 +58,8 @@ interface SpreadsheetGridProps {
   onConvertToTable?: () => void;
   onCreateFilter?: (colLetter: string, val: string) => void;
   onFilterByCellValue?: () => void;
+  onTriggerLinkModal?: (address: string) => void;
+  onTriggerFilterModal?: (colLetter: string) => void;
 }
 
 export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
@@ -95,14 +97,13 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   onConvertToTable,
   onCreateFilter,
   onFilterByCellValue,
+  onTriggerLinkModal,
+  onTriggerFilterModal,
 }) => {
   const [editingCell, setEditingCell] = useState<string | null>(null);
-  // Sử dụng useRef thay vì useState để lưu trạng thái nhấn chuột, tránh kích hoạt render lại toàn bộ Grid khi kéo chọn vùng
   const isMouseDownRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: "row" | "col" | "cell"; index: number } | null>(null);
-  const [showLinkModal, setShowLinkModal] = useState<{ address: string; defaultText: string } | null>(null);
-  const [showFilterModal, setShowFilterModal] = useState<{ colLetter: string } | null>(null);
   const [hoveredLink, setHoveredLink] = useState<{ address: string; link: string; rect: any } | null>(null);
 
   // Resize hook
@@ -474,7 +475,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
         onTriggerGemini={(addr) => toast.info(`Đang gọi Gemini AI phân tích và điền dữ liệu cho cột chứa ô ${addr}...`)}
         onShowCellHistory={(addr) => toast.info(`Lịch sử chỉnh sửa của ô ${addr} trống.`)}
         onInsertLink={(addr) => {
-          setShowLinkModal({ address: addr, defaultText: cells[addr]?.value || "" });
+          if (onTriggerLinkModal) onTriggerLinkModal(addr);
         }}
         handlePasteSpecial={onPasteSpecial}
         onShiftCells={onShiftCells}
@@ -483,35 +484,12 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
         onCreateFilter={() => {
           if (selectedCell) {
             const match = selectedCell.match(/^([A-Z]+)([0-9]+)$/);
-            if (match) {
-              setShowFilterModal({ colLetter: match[1] });
+            if (match && onTriggerFilterModal) {
+              onTriggerFilterModal(match[1]);
             }
           }
         }}
         onFilterByCellValue={onFilterByCellValue}
-      />
-
-      <LinkInsertModal
-        show={!!showLinkModal}
-        onClose={() => setShowLinkModal(null)}
-        defaultText={showLinkModal?.defaultText || ""}
-        onConfirm={(text, url) => {
-          if (showLinkModal) {
-            onUpdateCell(showLinkModal.address, { value: text || url, link: url });
-            toast.success("Đã chèn liên kết!");
-          }
-        }}
-      />
-
-      <FilterModal
-        show={!!showFilterModal}
-        onClose={() => setShowFilterModal(null)}
-        colLetter={showFilterModal?.colLetter || ""}
-        onConfirm={(val) => {
-          if (showFilterModal && onCreateFilter) {
-            onCreateFilter(showFilterModal.colLetter, val);
-          }
-        }}
       />
 
       {hoveredLink && (

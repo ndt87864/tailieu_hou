@@ -1,7 +1,7 @@
 // frontend/src/components/admin/SpreadsheetToolbar.tsx
 import React from "react";
 import { 
-  Search, Undo, Redo, Printer, Paintbrush, DollarSign, Percent, 
+  Search, Undo, Redo, Printer, Paintbrush, DollarSign, Percent, Clock, Calendar,
   Bold, Italic, Underline, Strikethrough, AlignLeft, AlignCenter, 
   AlignRight, PaintBucket, Link2, BarChart2, Filter, Sigma, ChevronDown 
 } from "lucide-react";
@@ -49,9 +49,39 @@ interface SpreadsheetToolbarProps {
   handleToolbarStyleChange: (style: "bold" | "italic" | "underline" | "strikethrough") => void;
   handleAlignChange: (align: "left" | "center" | "right") => void;
   handleColorChange: (key: "color" | "bg", value: string) => void;
-  onFormatSelection: (formatType: "currency" | "percent" | "decimal-inc" | "decimal-dec") => void;
+  onFormatSelection: (formatType: "currency" | "percent" | "decimal-inc" | "decimal-dec" | "time" | "date") => void;
   onInsertFormula: (func: string) => void;
+  onInsertLink?: () => void;
+  onCreateFilter?: () => void;
 }
+
+const rgbToHex = (colorStr: string): string => {
+  if (!colorStr) return "";
+  if (colorStr.startsWith("#")) {
+    if (colorStr.length === 4) {
+      return "#" + colorStr[1] + colorStr[1] + colorStr[2] + colorStr[2] + colorStr[3] + colorStr[3];
+    }
+    return colorStr;
+  }
+  const match = colorStr.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*(\d+(?:\.\d+)?))?\)$/);
+  if (match) {
+    const r = parseInt(match[1], 10);
+    const g = parseInt(match[2], 10);
+    const b = parseInt(match[3], 10);
+    return "#" + [r, g, b].map(x => {
+      const hex = x.toString(16);
+      return hex.length === 1 ? "0" + hex : hex;
+    }).join("");
+  }
+  return colorStr;
+};
+
+const ensureHexColor = (colorStr: string | undefined, fallback: string): string => {
+  if (!colorStr || colorStr === "transparent") return fallback;
+  const hex = rgbToHex(colorStr);
+  if (hex.startsWith("#") && hex.length === 7) return hex;
+  return fallback;
+};
 
 export const SpreadsheetToolbar: React.FC<SpreadsheetToolbarProps> = ({
   activeCell,
@@ -69,6 +99,8 @@ export const SpreadsheetToolbar: React.FC<SpreadsheetToolbarProps> = ({
   handleColorChange,
   onFormatSelection,
   onInsertFormula,
+  onInsertLink,
+  onCreateFilter,
 }) => {
   const [showFontDropdown, setShowFontDropdown] = React.useState(false);
   const [showSizeDropdown, setShowSizeDropdown] = React.useState(false);
@@ -127,6 +159,12 @@ export const SpreadsheetToolbar: React.FC<SpreadsheetToolbarProps> = ({
       </button>
       <button onClick={() => onFormatSelection("percent")} className="btn-tool" title="Định dạng phần trăm (%)">
         <Percent className="w-4 h-4" />
+      </button>
+      <button onClick={() => onFormatSelection("time")} className="btn-tool" title="Định dạng thời gian (Giờ:Phút:Giây)">
+        <Clock className="w-4 h-4" />
+      </button>
+      <button onClick={() => onFormatSelection("date")} className="btn-tool" title="Định dạng ngày tháng (Ngày/Tháng/Năm)">
+        <Calendar className="w-4 h-4" />
       </button>
       <button onClick={() => onFormatSelection("decimal-dec")} className="btn-tool" title="Giảm số chữ số thập phân">
         <span className="text-[10px] font-bold">.00→.0</span>
@@ -271,7 +309,7 @@ export const SpreadsheetToolbar: React.FC<SpreadsheetToolbarProps> = ({
         <input
           type="color"
           className="tool-color-input"
-          value={activeCell?.color || "#000000"}
+          value={ensureHexColor(activeCell?.color, "#000000")}
           onChange={(e) => handleColorChange("color", e.target.value)}
         />
       </div>
@@ -281,7 +319,7 @@ export const SpreadsheetToolbar: React.FC<SpreadsheetToolbarProps> = ({
         <input
           type="color"
           className="tool-color-input"
-          value={activeCell?.bg || "#ffffff"}
+          value={ensureHexColor(activeCell?.bg, "#ffffff")}
           onChange={(e) => handleColorChange("bg", e.target.value)}
         />
       </div>
@@ -312,13 +350,13 @@ export const SpreadsheetToolbar: React.FC<SpreadsheetToolbarProps> = ({
 
       <div className="toolbar-divider"></div>
 
-      <button className="btn-tool" title="Chèn liên kết">
+      <button className="btn-tool" title="Chèn liên kết" onClick={() => onInsertLink && onInsertLink()}>
         <Link2 className="w-4 h-4" />
       </button>
       <button className="btn-tool" title="Chèn biểu đồ">
         <BarChart2 className="w-4 h-4" />
       </button>
-      <button className="btn-tool" title="Tạo bộ lọc">
+      <button className="btn-tool" title="Tạo bộ lọc" onClick={() => onCreateFilter && onCreateFilter()}>
         <Filter className="w-4 h-4" />
       </button>
       

@@ -56,6 +56,91 @@ spreadsheetsRouter.get("/", async (c) => {
   }
 });
 
+// 9. Lấy danh sách công thức chung
+spreadsheetsRouter.get("/formulas", async (c) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("spreadsheet_formulas")
+      .select("*")
+      .order("name", { ascending: true });
+
+    if (error) {
+      return c.json({ error: error.message }, 400);
+    }
+    return c.json({ data });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// 10. Thêm công thức chung mới
+spreadsheetsRouter.post("/formulas", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { name, formula, description } = body;
+    if (!name || !formula) {
+      return c.json({ error: "Missing name or formula" }, 400);
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from("spreadsheet_formulas")
+      .insert({ name, formula, description })
+      .select()
+      .single();
+
+    if (error) {
+      return c.json({ error: error.message }, 400);
+    }
+    return c.json({ data });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// 11. Cập nhật công thức chung
+spreadsheetsRouter.put("/formulas/:id", async (c) => {
+  const id = c.req.param("id");
+  try {
+    const body = await c.req.json();
+    const { name, formula, description } = body;
+    if (!name || !formula) {
+      return c.json({ error: "Missing name or formula" }, 400);
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from("spreadsheet_formulas")
+      .update({ name, formula, description, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) {
+      return c.json({ error: error.message }, 400);
+    }
+    return c.json({ data });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// 12. Xóa công thức chung
+spreadsheetsRouter.delete("/formulas/:id", async (c) => {
+  const id = c.req.param("id");
+  try {
+    const { error } = await supabaseAdmin
+      .from("spreadsheet_formulas")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      return c.json({ error: error.message }, 400);
+    }
+    return c.json({ success: true });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 // 2. Lấy chi tiết trang tính (Có Caching)
 spreadsheetsRouter.get("/:id", async (c) => {
   const id = c.req.param("id");
@@ -248,5 +333,7 @@ spreadsheetsRouter.delete("/vip-templates/name/:name", async (c) => {
     return c.json({ error: error.message }, 500);
   }
 });
+
+
 
 export default spreadsheetsRouter;

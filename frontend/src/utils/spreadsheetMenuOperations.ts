@@ -109,7 +109,7 @@ export const formatSelectionInSheets = (
   sheets: Sheet[],
   activeSheetIdx: number,
   addresses: string[],
-  type: "currency" | "percent" | "decimal-inc" | "decimal-dec"
+  type: "currency" | "percent" | "decimal-inc" | "decimal-dec" | "time" | "date"
 ): Sheet[] => {
   const newSheets = [...sheets];
   const targetSheet = { ...newSheets[activeSheetIdx] };
@@ -117,13 +117,59 @@ export const formatSelectionInSheets = (
     const cell = targetSheet.cells[addr] || { value: "", formula: "" };
     let val = cell.value || "";
     if (!cell.formula) {
-      const clean = val.replace(/[^0-9.-]/g, "");
-      const num = parseFloat(clean);
-      if (!isNaN(num)) {
-        if (type === "currency") val = `$${num.toLocaleString()}`;
-        else if (type === "percent") val = `${num}%`;
-        else if (type === "decimal-inc") val = num.toFixed(2);
-        else if (type === "decimal-dec") val = Math.round(num).toString();
+      const isDateStr = /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(val.trim());
+      const isTimeStr = /^\d{1,2}:\d{1,2}(:\d{1,2})?$/.test(val.trim());
+
+      if (type === "time") {
+        if (isTimeStr) {
+          // Giữ nguyên
+        } else if (isDateStr) {
+          const parts = val.split("/");
+          const day = parseInt(parts[0], 10);
+          const month = parseInt(parts[1], 10) - 1;
+          const year = parseInt(parts[2], 10);
+          const dateObj = new Date(year, month, day);
+          val = !isNaN(dateObj.getTime()) ? dateObj.toTimeString().split(' ')[0] : val;
+        } else {
+          const clean = val.replace(/[^0-9.-]/g, "");
+          const num = parseFloat(clean);
+          if (!isNaN(num)) {
+            const hours = Math.floor(num) % 24;
+            const mins = Math.round((num - Math.floor(num)) * 60) % 60;
+            val = `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:00`;
+          } else {
+            val = new Date().toTimeString().split(' ')[0];
+          }
+        }
+      } else if (type === "date") {
+        const parseToDateStr = (dateObj: Date) => {
+          const dd = String(dateObj.getDate()).padStart(2, '0');
+          const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+          return `${dd}/${mm}/${dateObj.getFullYear()}`;
+        };
+
+        if (isDateStr) {
+          // Giữ nguyên
+        } else {
+          const clean = val.replace(/[^0-9.-]/g, "");
+          const num = parseFloat(clean);
+          if (!isNaN(num)) {
+            const dateObj = new Date(num > 1000000000000 ? num : num * 1000);
+            val = parseToDateStr(dateObj);
+          } else {
+            const parsed = Date.parse(val);
+            val = parseToDateStr(!isNaN(parsed) ? new Date(parsed) : new Date());
+          }
+        }
+      } else {
+        const clean = val.replace(/[^0-9.-]/g, "");
+        const num = parseFloat(clean);
+        if (!isNaN(num)) {
+          if (type === "currency") val = `$${num.toLocaleString()}`;
+          else if (type === "percent") val = `${num}%`;
+          else if (type === "decimal-inc") val = num.toFixed(2);
+          else if (type === "decimal-dec") val = Math.round(num).toString();
+        }
       }
     }
     targetSheet.cells[addr] = { ...cell, value: val };

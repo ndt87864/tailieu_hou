@@ -69,10 +69,15 @@ interface SpreadsheetHeaderProps {
   onDeleteRow: (row: number) => void;
   onDeleteCol: (colLetter: string) => void;
   onClearValues: () => void;
-  onFormatSelection: (type: "currency" | "percent" | "decimal-inc" | "decimal-dec") => void;
+  onFormatSelection: (type: "currency" | "percent" | "decimal-inc" | "decimal-dec" | "time" | "date") => void;
   onAlignChange: (align: "left" | "center" | "right") => void;
   onRemoveDuplicates: () => void;
   onClearFormatting: () => void;
+  commonFormulas: any[];
+  addCommonFormula: (name: string, formula: string, description?: string) => Promise<boolean>;
+  updateCommonFormula: (id: string, name: string, formula: string, description?: string) => Promise<boolean>;
+  deleteCommonFormula: (id: string) => Promise<boolean>;
+  applyCommonFormula: (formula: string) => void;
 }
 
 export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
@@ -128,6 +133,11 @@ export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
   onAlignChange,
   onRemoveDuplicates,
   onClearFormatting,
+  commonFormulas,
+  addCommonFormula,
+  updateCommonFormula,
+  deleteCommonFormula,
+  applyCommonFormula,
 }) => {
   const { user, profile, role, logout } = useAuth();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -365,6 +375,11 @@ export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
         onAlignChange={onAlignChange}
         onRemoveDuplicates={onRemoveDuplicates}
         onClearFormatting={onClearFormatting}
+        commonFormulas={commonFormulas}
+        addCommonFormula={addCommonFormula}
+        updateCommonFormula={updateCommonFormula}
+        deleteCommonFormula={deleteCommonFormula}
+        applyCommonFormula={applyCommonFormula}
       />
 
       {/* Modals for settings and profile */}

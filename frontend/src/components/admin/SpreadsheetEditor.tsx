@@ -23,6 +23,8 @@ import {
   DeleteSheetModal,
   NewDocModal,
   SelectVipSheetsModal,
+  LinkInsertModal,
+  FilterModal,
 } from "./modals/SpreadsheetModals.js";
 import * as XLSX from "xlsx";
 
@@ -73,6 +75,8 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
   const [findText, setFindText] = useState("");
   const [replaceText, setReplaceText] = useState("");
   const [tabContextMenu, setTabContextMenu] = useState<{ idx: number; x: number; y: number } | null>(null);
+  const [showLinkModal, setShowLinkModal] = useState<{ address: string; defaultText: string } | null>(null);
+  const [showFilterModal, setShowFilterModal] = useState<{ colLetter: string } | null>(null);
 
   const visibleSheetsCount = state.sheets.filter((s) => !s.isHidden).length;
 
@@ -326,6 +330,11 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
         onAlignChange={state.handleAlignChange}
         onRemoveDuplicates={state.removeDuplicates}
         onClearFormatting={state.clearFormatting}
+        commonFormulas={state.commonFormulas}
+        addCommonFormula={state.addCommonFormula}
+        updateCommonFormula={state.updateCommonFormula}
+        deleteCommonFormula={state.deleteCommonFormula}
+        applyCommonFormula={state.applyCommonFormula}
       />
 
       <SpreadsheetToolbar
@@ -336,6 +345,23 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
         handleFontChange={state.handleFontChange} handleToolbarStyleChange={state.handleToolbarStyleChange}
         handleAlignChange={state.handleAlignChange} handleColorChange={(key, value) => state.handleColorChange(key === "color" ? "text" : "bg", value)}
         onFormatSelection={state.formatSelection} onInsertFormula={state.insertFormula}
+        onInsertLink={() => {
+          if (state.selectedCell) {
+            setShowLinkModal({ address: state.selectedCell, defaultText: state.cells[state.selectedCell]?.value || "" });
+          } else {
+            toast.warn("Vui lòng chọn một ô trước khi chèn liên kết!");
+          }
+        }}
+        onCreateFilter={() => {
+          if (state.selectedCell) {
+            const match = state.selectedCell.match(/^([A-Z]+)([0-9]+)$/);
+            if (match) {
+              setShowFilterModal({ colLetter: match[1] });
+            }
+          } else {
+            toast.warn("Vui lòng chọn một ô trước khi tạo bộ lọc!");
+          }
+        }}
       />
 
       {showFindReplace && (
@@ -379,6 +405,8 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
           onConvertToTable={state.handleConvertToTable}
           onCreateFilter={state.handleCreateFilter}
           onFilterByCellValue={state.handleFilterByCellValue}
+          onTriggerLinkModal={(addr) => setShowLinkModal({ address: addr, defaultText: state.cells[addr]?.value || "" })}
+          onTriggerFilterModal={(colLetter) => setShowFilterModal({ colLetter })}
         />
       </div>
 
@@ -467,6 +495,29 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
       />
       <input type="file" id="excel-open-file-input" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={handleExcelOpenChange} />
       <input type="file" id="excel-import-file-input" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={handleExcelImportChange} />
+
+      <LinkInsertModal
+        show={!!showLinkModal}
+        onClose={() => setShowLinkModal(null)}
+        defaultText={showLinkModal?.defaultText || ""}
+        onConfirm={(text, url) => {
+          if (showLinkModal) {
+            state.handleUpdateCell(showLinkModal.address, { value: text || url, link: url });
+            toast.success("Đã chèn liên kết!");
+          }
+        }}
+      />
+
+      <FilterModal
+        show={!!showFilterModal}
+        onClose={() => setShowFilterModal(null)}
+        colLetter={showFilterModal?.colLetter || ""}
+        onConfirm={(val) => {
+          if (showFilterModal) {
+            state.handleCreateFilter(showFilterModal.colLetter, val);
+          }
+        }}
+      />
     </div>
   );
 };

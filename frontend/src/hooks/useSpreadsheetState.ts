@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { getCellRange as getCellRangeUtil, parseCellAddress, colLetterToNumber, numberToColLetter } from "../utils/formulaEvaluator.js";
+import apiClient from "../services/client.js";
 import {
   insertRowInSheets,
   insertColumnInSheets,
@@ -143,16 +144,13 @@ export const useSpreadsheetState = (initialTitle: string, initialContent: any, o
       toast.info("Không có hành động nào để hoàn tác!");
       return;
     }
-    setHistory((prev) => {
-      const copy = [...prev];
-      const previous = copy.pop();
-      if (previous) {
-        setRedoList((r) => [...r, { sheets: sheets.map((s) => ({ ...s, cells: { ...s.cells } })) }]);
-        updateSheetsAndSaveHistory(previous.sheets, true);
-        toast.success("Đã hoàn tác!");
-      }
-      return copy;
-    });
+    const previous = history[history.length - 1];
+    if (previous) {
+      setRedoList((r) => [...r, { sheets: sheets.map((s) => ({ ...s, cells: { ...s.cells } })) }]);
+      updateSheetsAndSaveHistory(previous.sheets, true);
+      setHistory((prev) => prev.slice(0, -1));
+      toast.success("Đã hoàn tác!");
+    }
   };
 
   const handleRedo = () => {
@@ -160,16 +158,13 @@ export const useSpreadsheetState = (initialTitle: string, initialContent: any, o
       toast.info("Không có hành động nào để làm lại!");
       return;
     }
-    setRedoList((prev) => {
-      const copy = [...prev];
-      const nextState = copy.pop();
-      if (nextState) {
-        setHistory((h) => [...h, { timestamp: new Date().toLocaleTimeString("vi-VN"), sheets: sheets.map((s) => ({ ...s, cells: { ...s.cells } })) }]);
-        updateSheetsAndSaveHistory(nextState.sheets, true);
-        toast.success("Đã làm lại!");
-      }
-      return copy;
-    });
+    const nextState = redoList[redoList.length - 1];
+    if (nextState) {
+      setHistory((h) => [...h, { timestamp: new Date().toLocaleTimeString("vi-VN"), sheets: sheets.map((s) => ({ ...s, cells: { ...s.cells } })) }]);
+      updateSheetsAndSaveHistory(nextState.sheets, true);
+      setRedoList((prev) => prev.slice(0, -1));
+      toast.success("Đã làm lại!");
+    }
   };
 
   const handleUpdateCell = (address: string, updatedProps: Partial<CellData>) => {
@@ -374,7 +369,7 @@ export const useSpreadsheetState = (initialTitle: string, initialContent: any, o
   const handleUpdateRowHeight = (row: number, h: number) => updateSheetsAndSaveHistory((prev) => updateRowHeightInSheets(prev, activeSheetIdx, row, h), true);
   const handleUpdateColWidth = (col: string, w: number) => updateSheetsAndSaveHistory((prev) => updateColWidthInSheets(prev, activeSheetIdx, col, w), true);
 
-  const formatSelection = (type: "currency" | "percent" | "decimal-inc" | "decimal-dec") => {
+  const formatSelection = (type: "currency" | "percent" | "decimal-inc" | "decimal-dec" | "time" | "date") => {
     const addresses = getSelectedAddresses();
     if (addresses.length === 0) return;
     updateSheetsAndSaveHistory((prev) => formatSelectionInSheets(prev, activeSheetIdx, addresses, type));
@@ -532,6 +527,132 @@ export const useSpreadsheetState = (initialTitle: string, initialContent: any, o
     }
   };
 
+  const [commonFormulas, setCommonFormulas] = useState<Array<{ id: string; name: string; formula: string; description?: string }>>([]);
+
+  const fetchCommonFormulas = async () => {
+    try {
+      const res = await apiClient.get("/api/v1/spreadsheets/formulas");
+      if (res.data?.data) {
+        setCommonFormulas(res.data.data);
+      }
+    } catch (err) {
+      console.error("Error fetching common formulas:", err);
+    }
+  };
+
+  const addCommonFormula = async (name: string, formula: string, description?: string) => {
+    try {
+      const res = await apiClient.post("/api/v1/spreadsheets/formulas", {
+        name,
+        formula,
+        description,
+      });
+      if (res.data?.error) {
+        toast.error("Lỗi khi thêm công thức: " + res.data.error);
+        return false;
+      }
+      toast.success("Đã thêm công thức mẫu thành công!");
+      fetchCommonFormulas();
+      return true;
+    } catch (err: any) {
+      const errMsg = err.response?.data?.error || "Không thể kết nối đến máy chủ!";
+      toast.error("Lỗi khi thêm công thức: " + errMsg);
+      return false;
+    }
+  };
+
+  const applyCommonFormula = (formulaString: string) => {
+    const addresses = getSelectedAddresses();
+    if (addresses.length === 0) {
+      if (!selectedCell) {
+        toast.warn("Vui lòng chọn một ô hoặc vùng dữ liệu trước khi áp dụng công thức!");
+        return;
+      }
+      addresses.push(selectedCell);
+    }
+
+    updateSheetsAndSaveHistory((prev) => {
+      const newSheets = [...prev];
+      const targetSheet = { ...newSheets[activeSheetIdx] };
+
+      addresses.forEach((addr) => {
+        let resolvedFormula = formulaString;
+        if (selectedRange && formulaString.includes("A1:A5")) {
+          resolvedFormula = formulaString.replace("A1:A5", `${selectedRange.start}:${selectedRange.end}`);
+        } else {
+          // Hỗ trợ tự động chuyển đổi dòng tương đối theo dòng hiện tại
+          const cellParsed = parseCellAddress(addr);
+          if (cellParsed) {
+            resolvedFormula = formulaString.replace(/([^$]|^)([A-Z]+)([1-9][0-9]*)/g, (match, prefix, colLetter, rowNumStr) => {
+              return `${prefix}${colLetter}${cellParsed.row}`;
+            });
+          }
+        }
+
+        targetSheet.cells[addr] = {
+          ...(targetSheet.cells[addr] || { value: "" }),
+          value: "",
+          formula: resolvedFormula,
+        };
+      });
+
+      newSheets[activeSheetIdx] = targetSheet;
+      return newSheets;
+    });
+
+    if (selectedCell) {
+      let resolvedFormula = formulaString;
+      if (selectedRange && formulaString.includes("A1:A5")) {
+        resolvedFormula = formulaString.replace("A1:A5", `${selectedRange.start}:${selectedRange.end}`);
+      }
+      setFormulaValue(resolvedFormula);
+    }
+
+    toast.success(`Đã áp dụng công thức cho ${addresses.length} ô tính!`);
+  };
+
+  const updateCommonFormula = async (id: string, name: string, formula: string, description?: string) => {
+    try {
+      const res = await apiClient.put(`/api/v1/spreadsheets/formulas/${id}`, {
+        name,
+        formula,
+        description,
+      });
+      if (res.data?.error) {
+        toast.error("Lỗi khi cập nhật công thức: " + res.data.error);
+        return false;
+      }
+      toast.success("Đã cập nhật công thức mẫu thành công!");
+      fetchCommonFormulas();
+      return true;
+    } catch (err: any) {
+      const errMsg = err.response?.data?.error || "Không thể kết nối đến máy chủ!";
+      toast.error("Lỗi khi cập nhật công thức: " + errMsg);
+      return false;
+    }
+  };
+
+  const deleteCommonFormula = async (id: string) => {
+    try {
+      const res = await apiClient.delete(`/api/v1/spreadsheets/formulas/${id}`);
+      if (res.data?.error) {
+        toast.error("Lỗi khi xóa công thức: " + res.data.error);
+        return false;
+      }
+      toast.success("Đã xóa công thức mẫu thành công!");
+      fetchCommonFormulas();
+      return true;
+    } catch (err: any) {
+      const errMsg = err.response?.data?.error || "Không thể kết nối đến máy chủ!";
+      toast.error("Lỗi khi xóa công thức: " + errMsg);
+      return false;
+    }
+  };
+
+  useEffect(() => {
+    fetchCommonFormulas();
+  }, []);
+
   return {
     title,
     setTitle,
@@ -608,5 +729,11 @@ export const useSpreadsheetState = (initialTitle: string, initialContent: any, o
     handleConvertToTable,
     handleCreateFilter,
     handleFilterByCellValue,
+    commonFormulas,
+    addCommonFormula,
+    updateCommonFormula,
+    deleteCommonFormula,
+    applyCommonFormula,
+    fetchCommonFormulas,
   };
 };

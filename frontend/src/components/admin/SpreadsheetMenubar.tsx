@@ -1,4 +1,5 @@
-import { ChevronRight, Check } from "lucide-react";
+import React, { useState } from "react";
+import { ChevronRight, Check, Edit2, Trash2 } from "lucide-react";
 import { parseCellAddress, colLetterToNumber } from "../../utils/formulaEvaluator.js";
 
 interface SpreadsheetMenubarProps {
@@ -51,10 +52,14 @@ interface SpreadsheetMenubarProps {
   onDeleteRow: (row: number) => void;
   onDeleteCol: (colLetter: string) => void;
   onClearValues: () => void;
-  onFormatSelection: (type: "currency" | "percent" | "decimal-inc" | "decimal-dec") => void;
-  onAlignChange: (align: "left" | "center" | "right") => void;
+  onFormatSelection: (type: "currency" | "percent" | "decimal-inc" | "decimal-dec" | "time" | "date") => void;
   onRemoveDuplicates: () => void;
   onClearFormatting: () => void;
+  commonFormulas: Array<{ id: string; name: string; formula: string; description?: string }>;
+  addCommonFormula: (name: string, formula: string, description?: string) => Promise<boolean>;
+  updateCommonFormula: (id: string, name: string, formula: string, description?: string) => Promise<boolean>;
+  deleteCommonFormula: (id: string) => Promise<boolean>;
+  applyCommonFormula: (formula: string) => void;
 }
 
 export const SpreadsheetMenubar: React.FC<SpreadsheetMenubarProps> = ({
@@ -104,7 +109,38 @@ export const SpreadsheetMenubar: React.FC<SpreadsheetMenubarProps> = ({
   onAlignChange,
   onRemoveDuplicates,
   onClearFormatting,
+  commonFormulas,
+  addCommonFormula,
+  updateCommonFormula,
+  deleteCommonFormula,
+  applyCommonFormula,
 }) => {
+  const [showAddFormulaModal, setShowAddFormulaModal] = useState(false);
+  const [editingFormula, setEditingFormula] = useState<any | null>(null);
+  const [newFormulaName, setNewFormulaName] = useState("");
+  const [newFormulaContent, setNewFormulaContent] = useState("");
+  const [newFormulaDesc, setNewFormulaDesc] = useState("");
+
+  const handleAddFormulaSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newFormulaName || !newFormulaContent) return;
+    
+    let success = false;
+    if (editingFormula) {
+      success = await updateCommonFormula(editingFormula.id, newFormulaName, newFormulaContent, newFormulaDesc);
+    } else {
+      success = await addCommonFormula(newFormulaName, newFormulaContent, newFormulaDesc);
+    }
+
+    if (success) {
+      setNewFormulaName("");
+      setNewFormulaContent("");
+      setNewFormulaDesc("");
+      setEditingFormula(null);
+      setShowAddFormulaModal(false);
+    }
+  };
+
   const selectedCellParsed = selectedCell ? parseCellAddress(selectedCell) : null;
   const currentRow = selectedCellParsed ? selectedCellParsed.row : 1;
   const currentColLetter = selectedCellParsed ? selectedCellParsed.col : "A";
@@ -392,6 +428,8 @@ export const SpreadsheetMenubar: React.FC<SpreadsheetMenubarProps> = ({
               <button onClick={() => { onFormatSelection("decimal-dec"); setActiveMenu(null); }} className="dropdown-action-btn w-full text-left">Số thường</button>
               <button onClick={() => { onFormatSelection("percent"); setActiveMenu(null); }} className="dropdown-action-btn w-full text-left">Phần trăm</button>
               <button onClick={() => { onFormatSelection("currency"); setActiveMenu(null); }} className="dropdown-action-btn w-full text-left">Tiền tệ</button>
+              <button onClick={() => { onFormatSelection("time"); setActiveMenu(null); }} className="dropdown-action-btn w-full text-left">Thời gian</button>
+              <button onClick={() => { onFormatSelection("date"); setActiveMenu(null); }} className="dropdown-action-btn w-full text-left">Ngày tháng</button>
               <button onClick={() => { onFormatSelection("decimal-inc"); setActiveMenu(null); }} className="dropdown-action-btn w-full text-left">Số thập phân</button>
             </div>
           </div>
@@ -458,7 +496,144 @@ export const SpreadsheetMenubar: React.FC<SpreadsheetMenubarProps> = ({
         </div>
       </div>
 
+      <div 
+        className={`menu-item-dropdown ${activeMenu === "formulas" ? "active" : ""}`}
+        onClick={() => setActiveMenu(activeMenu === "formulas" ? null : "formulas")}
+        onMouseEnter={() => { if (activeMenu) setActiveMenu("formulas"); }}
+      >
+        Công thức mẫu
+        <div className="menu-dropdown-content min-w-[320px]" onClick={() => setActiveMenu(null)}>
+          <div className="max-h-[300px] overflow-y-auto">
+            {commonFormulas.length === 0 ? (
+              <div className="px-4 py-2 text-xs text-gray-500 italic">Chưa có công thức nào</div>
+            ) : (
+              commonFormulas.map((form) => (
+                <div key={form.id} className="dropdown-action-btn w-full flex items-center justify-between py-1.5 px-3 hover:bg-[var(--bg-3)] group/item" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    onClick={() => { applyCommonFormula(form.formula); setActiveMenu(null); }}
+                    className="flex flex-col items-start gap-0.5 flex-1 text-left"
+                  >
+                    <span className="font-medium text-sm text-[var(--fg)]">{form.name}</span>
+                    <code className="text-xs text-[var(--accent)] font-mono">{form.formula}</code>
+                    {form.description && (
+                      <span className="text-[10px] text-gray-400 line-clamp-1">{form.description}</span>
+                    )}
+                  </button>
+                  <div className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingFormula(form);
+                        setNewFormulaName(form.name);
+                        setNewFormulaContent(form.formula);
+                        setNewFormulaDesc(form.description || "");
+                        setShowAddFormulaModal(true);
+                        setActiveMenu(null);
+                      }}
+                      className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 hover:text-[var(--accent)]"
+                      title="Sửa công thức"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (confirm(`Bạn có chắc chắn muốn xóa công thức "${form.name}"?`)) {
+                          await deleteCommonFormula(form.id);
+                        }
+                      }}
+                      className="p-1 hover:bg-red-100 dark:hover:bg-red-950 rounded text-gray-500 hover:text-red-500"
+                      title="Xóa công thức"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          <div className="menu-dropdown-divider"></div>
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              setEditingFormula(null);
+              setNewFormulaName("");
+              setNewFormulaContent("");
+              setNewFormulaDesc("");
+              setShowAddFormulaModal(true);
+              setActiveMenu(null);
+            }}
+            className="dropdown-action-btn w-full text-left text-[var(--accent)] font-medium text-center justify-center py-2"
+          >
+            + Thêm công thức mới...
+          </button>
+        </div>
+      </div>
+
       <div className="menu-item-dropdown" onClick={() => { onOpenHelp(); setActiveMenu(null); }}>Trợ giúp</div>
+
+      {showAddFormulaModal && (
+        <div className="sheets-modal-overlay z-[10002]" onClick={() => { setShowAddFormulaModal(false); setEditingFormula(null); }}>
+          <div className="sheets-modal-card" style={{ maxWidth: "400px" }} onClick={(e) => e.stopPropagation()}>
+            <div className="sheets-modal-header">
+              <h3 className="text-base font-semibold text-[var(--fg)]">
+                {editingFormula ? "Sửa công thức mẫu" : "Thêm công thức mới"}
+              </h3>
+            </div>
+            <form onSubmit={handleAddFormulaSubmit} className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-[var(--fg)]">Tên công thức:</label>
+                <input 
+                  type="text" 
+                  value={newFormulaName}
+                  onChange={e => setNewFormulaName(e.target.value)}
+                  className="w-full p-2 border border-[var(--border)] rounded-xl bg-[var(--bg-2)] text-[var(--fg)] text-sm outline-none focus:border-[var(--accent)]"
+                  placeholder="Ví dụ: Tính tổng doanh thu"
+                  required
+                />
+              </div>
+              
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-[var(--fg)]">Công thức:</label>
+                <input 
+                  type="text" 
+                  value={newFormulaContent}
+                  onChange={e => setNewFormulaContent(e.target.value)}
+                  className="w-full p-2 border border-[var(--border)] rounded-xl bg-[var(--bg-2)] text-[var(--fg)] text-sm font-mono outline-none focus:border-[var(--accent)]"
+                  placeholder="Ví dụ: =SUM(A1:A5)"
+                  required
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-[var(--fg)]">Mô tả ngắn (Không bắt buộc):</label>
+                <textarea 
+                  value={newFormulaDesc}
+                  onChange={e => setNewFormulaDesc(e.target.value)}
+                  className="w-full p-2 border border-[var(--border)] rounded-xl bg-[var(--bg-2)] text-[var(--fg)] text-sm outline-none focus:border-[var(--accent)] resize-none h-16"
+                  placeholder="Ví dụ: Dùng để tính tổng toàn bộ cột doanh thu"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 mt-2">
+                <button 
+                  type="button" 
+                  onClick={() => { setShowAddFormulaModal(false); setEditingFormula(null); }}
+                  className="px-4 py-2 text-xs font-medium text-gray-500 hover:bg-gray-100 rounded-xl"
+                >
+                  Hủy bỏ
+                </button>
+                <button 
+                  type="submit"
+                  className="px-4 py-2 text-xs font-medium bg-[var(--accent)] text-white hover:opacity-90 rounded-xl"
+                >
+                  Lưu công thức
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

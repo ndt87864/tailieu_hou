@@ -450,6 +450,12 @@
   z-index: 2;
 }
 
+.sheet-cell.editing {
+  overflow: visible !important;
+  position: relative !important;
+  z-index: 1000 !important;
+}
+
 .cell-editor {
   width: 100%;
   height: 100%;
@@ -1631,6 +1637,106 @@
 }
 
 .sheets-link-popover a:hover {
+  text-decoration: underline;
+}
+
+/* Datepicker Dropdown Style */
+.sheets-datepicker-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: #ffffff;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  padding: 12px;
+  z-index: 10001;
+  min-width: 250px;
+  font-family: inherit;
+}
+
+.datepicker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-weight: 500;
+  font-size: 13px;
+  color: #3c4043;
+}
+
+.datepicker-nav button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 8px;
+  font-size: 14px;
+  color: #5f6368;
+}
+
+.datepicker-nav button:hover {
+  background-color: #f1f3f4;
+  border-radius: 4px;
+}
+
+.datepicker-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 11px;
+  color: #70757a;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.datepicker-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 12px;
+}
+
+.datepicker-day {
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 50%;
+  color: #3c4043;
+  user-select: none;
+}
+
+.datepicker-day:hover:not(.empty) {
+  background-color: #f1f3f4;
+}
+
+.datepicker-day.selected {
+  background-color: #1a73e8 !important;
+  color: #ffffff !important;
+  font-weight: bold;
+}
+
+.datepicker-day.empty {
+  cursor: default;
+}
+
+.datepicker-footer {
+  margin-top: 8px;
+  border-top: 1px solid #dadce0;
+  padding-top: 6px;
+}
+
+.datepicker-footer button {
+  background: none;
+  border: none;
+  color: #1a73e8;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.datepicker-footer button:hover {
   text-decoration: underline;
 }
 
