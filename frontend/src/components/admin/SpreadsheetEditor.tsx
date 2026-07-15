@@ -1,6 +1,6 @@
 // frontend/src/components/admin/SpreadsheetEditor.tsx
 import React, { useState } from "react";
-import { X, Plus, Lock } from "lucide-react";
+import { X, Plus, Lock, ChevronDown, ChevronUp } from "lucide-react";
 import { SpreadsheetGrid } from "./SpreadsheetGrid.js";
 import { parseCellAddress, numberToColLetter } from "../../utils/formulaEvaluator.js";
 import { toast } from "react-toastify";
@@ -74,6 +74,12 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
   const [showFindReplace, setShowFindReplace] = useState(false);
   const [findText, setFindText] = useState("");
   const [replaceText, setReplaceText] = useState("");
+  const [findMode, setFindMode] = useState<"find" | "replace">("find");
+  const [searchScope, setSearchScope] = useState<"sheet" | "workbook">("sheet");
+  const [showHeader, setShowHeader] = useState(true);
+  const [matchCase, setMatchCase] = useState(false);
+  const [searchResults, setSearchResults] = useState<Array<{ sheetIdx: number; address: string; value: string }>>([]);
+  const [currentResultIdx, setCurrentResultIdx] = useState<number>(-1);
   const [tabContextMenu, setTabContextMenu] = useState<{ idx: number; x: number; y: number } | null>(null);
   const [showLinkModal, setShowLinkModal] = useState<{ address: string; defaultText: string } | null>(null);
   const [showFilterModal, setShowFilterModal] = useState<{ colLetter: string } | null>(null);
@@ -191,24 +197,214 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
     }
   };
 
-  const handleFind = () => {
-    if (!findText) return;
-    const addr = Object.keys(state.cells).find(a => (state.cells[a]?.value || state.cells[a]?.formula || "").toLowerCase().includes(findText.toLowerCase()));
-    if (addr) {
-      state.setSelectedCell(addr);
-      state.setSelectedRange({ start: addr, end: addr });
-      document.querySelector(`.sheet-cell.selected`)?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
-    } else { alert("Không tìm thấy kết quả!"); }
+  // Scan cells to find matching text
+  React.useEffect(() => {
+    if (!findText) {
+      setSearchResults([]);
+      setCurrentResultIdx(-1);
+      return;
+    }
+
+    const results: Array<{ sheetIdx: number; address: string; value: string }> = [];
+    const textToFind = matchCase ? findText : findText.toLowerCase();
+
+    const scanSheet = (sIdx: number) => {
+      const targetSheet = state.sheets[sIdx];
+      if (!targetSheet) return;
+      Object.entries(targetSheet.cells).forEach(([addr, cell]) => {
+        const val = cell?.value || cell?.formula || "";
+        const cellText = matchCase ? val : val.toLowerCase();
+        if (cellText.includes(textToFind)) {
+          results.push({ sheetIdx: sIdx, address: addr, value: val });
+        }
+      });
+    };
+
+    if (searchScope === "sheet") {
+      scanSheet(state.activeSheetIdx);
+    } else {
+      for (let i = 0; i < state.sheets.length; i++) {
+        if (!state.sheets[i].isHidden) {
+          scanSheet(i);
+        }
+      }
+    }
+
+    // Sort matching results logically
+    results.sort((a, b) => {
+      if (a.sheetIdx !== b.sheetIdx) return a.sheetIdx - b.sheetIdx;
+      const aAddr = parseCellAddress(a.address);
+      const bAddr = parseCellAddress(b.address);
+      if (!aAddr || !bAddr) return 0;
+      if (aAddr.row !== bAddr.row) return aAddr.row - bAddr.row;
+      const colA = colLetterToNumber(aAddr.col);
+      const colB = colLetterToNumber(bAddr.col);
+      return colA - colB;
+    });
+
+    setSearchResults(results);
+
+    if (results.length > 0) {
+      const currentSelected = state.selectedCell;
+      const foundIdx = results.findIndex(r => r.sheetIdx === state.activeSheetIdx && r.address === currentSelected);
+      if (foundIdx !== -1) {
+        setCurrentResultIdx(foundIdx);
+      } else {
+        setCurrentResultIdx(0);
+      }
+    } else {
+      setCurrentResultIdx(-1);
+    }
+  }, [findText, searchScope, matchCase, state.activeSheetIdx, state.sheets]);
+
+  // Global Keyboard Shortcuts for Find and Replace
+  React.useEffect(() => {
+    const handleEditorKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        const key = e.key.toLowerCase();
+        if (key === "f" && e.shiftKey) {
+          e.preventDefault();
+          e.stopPropagation();
+          setShowHeader(prev => !prev);
+        } else if (key === "f") {
+          e.preventDefault();
+          e.stopPropagation();
+          setShowFindReplace(true);
+          setFindMode("find");
+          setTimeout(() => {
+            const input = document.querySelector(".find-replace-input") as HTMLInputElement;
+            if (input) {
+              input.focus();
+              input.select();
+            }
+          }, 50);
+        } else if (key === "h") {
+          e.preventDefault();
+          e.stopPropagation();
+          setShowFindReplace(true);
+          setFindMode("replace");
+          setTimeout(() => {
+            const input = document.querySelector(".find-replace-input") as HTMLInputElement;
+            if (input) {
+              input.focus();
+              input.select();
+            }
+          }, 50);
+        }
+      } else if (e.key === "Escape") {
+        if (showFindReplace) {
+          e.preventDefault();
+          setShowFindReplace(false);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleEditorKeyDown, true);
+    return () => window.removeEventListener("keydown", handleEditorKeyDown, true);
+  }, [showFindReplace, showHeader]);
+
+  const navigateToResult = (idx: number) => {
+    if (idx < 0 || idx >= searchResults.length) return;
+    const match = searchResults[idx];
+    setCurrentResultIdx(idx);
+
+    if (state.activeSheetIdx !== match.sheetIdx) {
+      state.setActiveSheetIdx(match.sheetIdx);
+    }
+    state.setSelectedCell(match.address);
+    state.setSelectedRange({ start: match.address, end: match.address });
+
+    setTimeout(() => {
+      const cellEl = document.querySelector(`.sheet-cell[data-address="${match.address}"]`);
+      if (cellEl) {
+        cellEl.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+      }
+    }, 50);
+  };
+
+  const handleFindNext = () => {
+    if (searchResults.length === 0) {
+      toast.info("Không tìm thấy kết quả phù hợp!");
+      return;
+    }
+    const nextIdx = (currentResultIdx + 1) % searchResults.length;
+    navigateToResult(nextIdx);
+  };
+
+  const handleFindPrev = () => {
+    if (searchResults.length === 0) {
+      toast.info("Không tìm thấy kết quả phù hợp!");
+      return;
+    }
+    const prevIdx = (currentResultIdx - 1 + searchResults.length) % searchResults.length;
+    navigateToResult(prevIdx);
   };
 
   const handleReplace = () => {
-    if (!state.selectedCell || !findText) return;
-    const cell = state.cells[state.selectedCell];
-    const val = cell?.value || cell?.formula || "";
-    if (val.toLowerCase().includes(findText.toLowerCase())) {
-      const newVal = val.replace(new RegExp(findText, "gi"), replaceText);
-      state.handleUpdateCell(state.selectedCell, { value: newVal.startsWith("=") ? "" : newVal, formula: newVal.startsWith("=") ? newVal : "" });
+    if (searchResults.length === 0 || currentResultIdx === -1) {
+      toast.info("Không có kết quả nào để thay thế!");
+      return;
     }
+    const match = searchResults[currentResultIdx];
+    const targetSheet = state.sheets[match.sheetIdx];
+    if (!targetSheet) return;
+    const cell = targetSheet.cells[match.address];
+    const val = cell?.value || cell?.formula || "";
+
+    const regex = new RegExp(findText.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), matchCase ? "g" : "gi");
+    const newVal = val.replace(regex, replaceText);
+
+    state.updateSheetsAndSaveHistory((prev) => {
+      const newSheets = [...prev];
+      const sheetCopy = { ...newSheets[match.sheetIdx] };
+      const currentCell = sheetCopy.cells[match.address] || { value: "", formula: "" };
+      sheetCopy.cells = {
+        ...sheetCopy.cells,
+        [match.address]: {
+          ...currentCell,
+          value: newVal.startsWith("=") ? "" : newVal,
+          formula: newVal.startsWith("=") ? newVal : ""
+        }
+      };
+      newSheets[match.sheetIdx] = sheetCopy;
+      return newSheets;
+    });
+
+    toast.success(`Đã thay thế tại ô ${match.address}`);
+    setTimeout(() => {
+      handleFindNext();
+    }, 100);
+  };
+
+  const handleReplaceAll = () => {
+    if (searchResults.length === 0) {
+      toast.info("Không tìm thấy kết quả nào để thay thế!");
+      return;
+    }
+
+    state.updateSheetsAndSaveHistory((prev) => {
+      const newSheets = [...prev];
+      const regex = new RegExp(findText.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), matchCase ? "g" : "gi");
+      let count = 0;
+
+      searchResults.forEach(match => {
+        const sheetCopy = newSheets[match.sheetIdx];
+        if (!sheetCopy) return;
+        const cell = sheetCopy.cells[match.address];
+        const val = cell?.value || cell?.formula || "";
+        const newVal = val.replace(regex, replaceText);
+
+        sheetCopy.cells[match.address] = {
+          ...cell,
+          value: newVal.startsWith("=") ? "" : newVal,
+          formula: newVal.startsWith("=") ? newVal : ""
+        };
+        count++;
+      });
+
+      toast.success(`Đã thay thế thành công ${count} kết quả.`);
+      return newSheets;
+    });
   };
 
   const activeCellStyle = (() => {
@@ -233,7 +429,7 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
 
   return (
     <div className="sheet-editor-container">
-      <SpreadsheetHeader
+      {showHeader && <SpreadsheetHeader
         title={state.title} setTitle={state.setTitle} isStarred={state.isStarred}
         setIsStarred={(star) => { state.setIsStarred(star); state.updateSheetsAndSaveHistory(p => p); }}
         isSaving={isSaving} onBack={onBack} onSave={() => state.updateSheetsAndSaveHistory(p => p)}
@@ -335,7 +531,7 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
         updateCommonFormula={state.updateCommonFormula}
         deleteCommonFormula={state.deleteCommonFormula}
         applyCommonFormula={state.applyCommonFormula}
-      />
+      />}
 
       <SpreadsheetToolbar
         activeCell={activeCellStyle} zoomLevel={state.zoomLevel} setZoomLevel={state.setZoomLevel}
@@ -366,12 +562,135 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
 
       {showFindReplace && (
         <div className="find-replace-panel">
-          <div className="find-replace-title"><span>Tìm kiếm & Thay thế</span><button onClick={() => setShowFindReplace(false)}><X className="w-4 h-4" /></button></div>
-          <input type="text" className="find-replace-input" placeholder="Tìm..." value={findText} onChange={e => setFindText(e.target.value)} />
-          <input type="text" className="find-replace-input" placeholder="Thay thế..." value={replaceText} onChange={e => setReplaceText(e.target.value)} />
-          <div className="find-replace-actions">
-            <button onClick={handleFind} className="btn-find-action secondary">Tìm</button>
-            <button onClick={handleReplace} className="btn-find-action primary">Thay thế</button>
+          <div className="find-replace-title">
+            <div className="flex gap-2">
+              <button 
+                className={`text-xs pb-1 font-semibold border-b-2 transition-colors ${findMode === "find" ? "border-[var(--accent)] text-[var(--accent)]" : "border-transparent text-gray-400"}`}
+                onClick={() => setFindMode("find")}
+              >
+                Tìm kiếm
+              </button>
+              <button 
+                className={`text-xs pb-1 font-semibold border-b-2 transition-colors ${findMode === "replace" ? "border-[var(--accent)] text-[var(--accent)]" : "border-transparent text-gray-400"}`}
+                onClick={() => setFindMode("replace")}
+              >
+                Thay thế
+              </button>
+            </div>
+            <button onClick={() => setShowFindReplace(false)} className="text-gray-400 hover:text-gray-200">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          
+          <div className="flex flex-col gap-2 mt-1">
+            <div className="relative flex items-center">
+              <input 
+                type="text" 
+                className="find-replace-input w-full pr-16" 
+                placeholder="Tìm..." 
+                value={findText} 
+                onChange={e => setFindText(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (e.shiftKey) {
+                      handleFindPrev();
+                    } else {
+                      handleFindNext();
+                    }
+                  }
+                }}
+              />
+              <span className="absolute right-2 text-[10px] text-gray-400 pointer-events-none select-none">
+                {searchResults.length > 0 ? `${currentResultIdx + 1}/${searchResults.length}` : "0/0"}
+              </span>
+            </div>
+
+            {findMode === "replace" && (
+              <input 
+                type="text" 
+                className="find-replace-input" 
+                placeholder="Thay thế bằng..." 
+                value={replaceText} 
+                onChange={e => setReplaceText(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleReplace();
+                  }
+                }}
+              />
+            )}
+
+            <div className="flex items-center justify-between text-[11px] text-gray-400 mt-1 select-none">
+              <div className="flex items-center gap-1">
+                <input 
+                  type="checkbox" 
+                  id="find-match-case" 
+                  checked={matchCase} 
+                  onChange={e => setMatchCase(e.target.checked)} 
+                  className="rounded border-gray-600 bg-gray-700 text-[var(--accent)] focus:ring-0 w-3 h-3 cursor-pointer"
+                />
+                <label htmlFor="find-match-case" className="cursor-pointer">Khớp hoa/thường</label>
+              </div>
+
+              <select 
+                value={searchScope} 
+                onChange={e => setSearchScope(e.target.value as "sheet" | "workbook")}
+                className="bg-[var(--bg-3)] border border-[var(--border)] text-gray-300 rounded px-1 py-0.5 text-[11px] outline-none cursor-pointer"
+              >
+                <option value="sheet">Trang này</option>
+                <option value="workbook">Toàn bộ</option>
+              </select>
+            </div>
+
+            <div className="find-replace-actions mt-2 pt-2 border-t border-[var(--border)]">
+              <div className="flex gap-1 mr-auto">
+                <button 
+                  onClick={handleFindPrev} 
+                  className="btn-find-action secondary p-1" 
+                  title="Kết quả trước"
+                  disabled={searchResults.length === 0}
+                >
+                  <ChevronUp className="w-3.5 h-3.5" />
+                </button>
+                <button 
+                  onClick={handleFindNext} 
+                  className="btn-find-action secondary p-1" 
+                  title="Kết quả tiếp theo"
+                  disabled={searchResults.length === 0}
+                >
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {findMode === "replace" ? (
+                <>
+                  <button 
+                    onClick={handleReplace} 
+                    className="btn-find-action secondary"
+                    disabled={searchResults.length === 0}
+                  >
+                    Thay thế
+                  </button>
+                  <button 
+                    onClick={handleReplaceAll} 
+                    className="btn-find-action primary"
+                    disabled={searchResults.length === 0}
+                  >
+                    Tất cả
+                  </button>
+                </>
+              ) : (
+                <button 
+                  onClick={handleFindNext} 
+                  className="btn-find-action primary"
+                  disabled={searchResults.length === 0}
+                >
+                  Tìm tiếp
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
