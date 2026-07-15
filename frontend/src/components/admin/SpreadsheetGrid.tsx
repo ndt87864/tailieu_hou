@@ -8,6 +8,7 @@ import { GridCell } from "./GridCell.js";
 import { useGridResize } from "../../hooks/useGridResize.js";
 import { GridContextMenu } from "./GridContextMenu.js";
 import { LinkInsertModal, FilterModal } from "./modals/SpreadsheetModals.js";
+import { Filter } from "lucide-react";
 
 type CellData = {
   value: string;
@@ -60,6 +61,7 @@ interface SpreadsheetGridProps {
   onFilterByCellValue?: () => void;
   onTriggerLinkModal?: (address: string) => void;
   onTriggerFilterModal?: (colLetter: string) => void;
+  filters?: Record<string, any>;
 }
 
 export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
@@ -99,6 +101,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   onFilterByCellValue,
   onTriggerLinkModal,
   onTriggerFilterModal,
+  filters,
 }) => {
   const [editingCell, setEditingCell] = useState<string | null>(null);
   const isMouseDownRef = useRef(false);
@@ -365,13 +368,26 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
         colHeaderStyle.left = `${stickyLeft}px`;
       }
 
+      const hasFilter = !!filters?.[colLetter];
       headerCols.push(
         <th 
-          key={colLetter} className="th-col"
+          key={colLetter} className={`th-col ${hasFilter ? "has-active-filter" : ""}`}
           style={colHeaderStyle}
           onClick={() => handleColHeaderClick(c)} onContextMenu={(e) => handleColHeaderContextMenu(e, c)}
         >
-          {colLetter}
+          <div className="th-col-content">
+            <span className="col-letter">{colLetter}</span>
+            <button 
+              className={`col-filter-btn ${hasFilter ? "active" : ""}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onTriggerFilterModal) onTriggerFilterModal(colLetter);
+              }}
+              title={`Lọc cột ${colLetter}`}
+            >
+              <Filter className="w-3 h-3" />
+            </button>
+          </div>
           <span className="col-resize-handle" onMouseDown={(e) => startColResize(e, colLetter)} />
         </th>
       );

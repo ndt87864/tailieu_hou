@@ -38,6 +38,14 @@ export type CellData = {
   link?: string;
 };
 
+export interface ColumnFilter {
+  sort?: "asc" | "desc";
+  conditionType?: string;
+  conditionValue?: string;
+  conditionValue2?: string;
+  selectedValues?: string[];
+}
+
 export interface Sheet {
   name: string;
   cells: Record<string, CellData>;
@@ -49,6 +57,7 @@ export interface Sheet {
   isHidden?: boolean;
   isVip?: boolean;
   hiddenRows?: Record<number, boolean>;
+  filters?: Record<string, ColumnFilter>;
 }
 
 export const useSpreadsheetState = (initialTitle: string, initialContent: any, onSave: (title: string, content: any) => Promise<void>) => {
@@ -85,9 +94,11 @@ export const useSpreadsheetState = (initialTitle: string, initialContent: any, o
         isProtected: s.isProtected || false,
         isHidden: s.isHidden || false,
         isVip: s.isVip || false,
+        hiddenRows: s.hiddenRows || {},
+        filters: s.filters || {},
       }));
     }
-    return [{ name: "Sheet1", cells: initialContent?.cells || {}, rowCount: 500, colCount: 26, rowHeights: {}, colWidths: {}, isProtected: false, isHidden: false, isVip: false }];
+    return [{ name: "Sheet1", cells: initialContent?.cells || {}, rowCount: 500, colCount: 26, rowHeights: {}, colWidths: {}, isProtected: false, isHidden: false, isVip: false, hiddenRows: {}, filters: {} }];
   });
 
   const [history, setHistory] = useState<Array<{ timestamp: string; sheets: Sheet[] }>>([]);
@@ -454,28 +465,140 @@ export const useSpreadsheetState = (initialTitle: string, initialContent: any, o
     toast.success("Đã định dạng vùng chọn thành định dạng Bảng!");
   };
 
-  const handleCreateFilter = (colLetter: string, val: string) => {
+  const applyFilters = (sheet: Sheet) => {
+    const hidden: Record<number, boolean> = {};
+    const filters = sheet.filters || {};
+    const currentRowCount = sheet.rowCount || rowCount;
+
+    const parseFlexibleDate = (str: string): number => {
+      if (!str) return NaN;
+      const parts = str.split('/');
+      if (parts.length === 3) {
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const year = parseInt(parts[2], 10);
+        return new Date(year, month, day).getTime();
+      }
+      return new Date(str).getTime();
+    };
+
+    for (let r = 2; r <= currentRowCount; r++) {
+      let shouldHide = false;
+      for (const [colLetter, filter] of Object.entries(filters)) {
+        const cellAddr = `${colLetter}${r}`;
+        const cellVal = (sheet.cells[cellAddr]?.value || "").trim();
+        const cellValLower = cellVal.toLowerCase();
+
+        if (filter.conditionType && filter.conditionType !== "none") {
+          const condVal = (filter.conditionValue || "").trim();
+          const condVal2 = (filter.conditionValue2 || "").trim();
+          const condValLower = condVal.toLowerCase();
+
+          switch (filter.conditionType) {
+            case "empty":
+              if (cellVal !== "") shouldHide = true;
+              break;
+            case "not_empty":
+              if (cellVal === "") shouldHide = true;
+              break;
+            case "contains":
+              if (!cellValLower.includes(condValLower)) shouldHide = true;
+              break;
+            case "not_contains":
+              if (cellValLower.includes(condValLower)) shouldHide = true;
+              break;
+            case "starts":
+              if (!cellValLower.startsWith(condValLower)) shouldHide = true;
+              break;
+            case "ends":
+              if (!cellValLower.endsWith(condValLower)) shouldHide = true;
+              break;
+            case "exact":
+              if (cellValLower !== condValLower) shouldHide = true;
+              break;
+            case "date_is": {
+              const d1 = parseFlexibleDate(cellVal);
+              const d2 = parseFlexibleDate(condVal);
+              if (isNaN(d1) || isNaN(d2) || d1 !== d2) shouldHide = true;
+              break;
+            }
+            case "date_before": {
+              const d1 = parseFlexibleDate(cellVal);
+              const d2 = parseFlexibleDate(condVal);
+              if (isNaN(d1) || isNaN(d2) || d1 >= d2) shouldHide = true;
+              break;
+            }
+            case "date_after": {
+              const d1 = parseFlexibleDate(cellVal);
+              const d2 = parseFlexibleDate(condVal);
+              if (isNaN(d1) || isNaN(d2) || d1 <= d2) shouldHide = true;
+              break;
+            }
+            case "greater_than":
+              if (parseFloat(cellVal) <= parseFloat(condVal) || isNaN(parseFloat(cellVal))) shouldHide = true;
+              break;
+            case "greater_than_or_equal":
+              if (parseFloat(cellVal) < parseFloat(condVal) || isNaN(parseFloat(cellVal))) shouldHide = true;
+              break;
+            case "less_than":
+              if (parseFloat(cellVal) >= parseFloat(condVal) || isNaN(parseFloat(cellVal))) shouldHide = true;
+              break;
+            case "less_than_or_equal":
+              if (parseFloat(cellVal) > parseFloat(condVal) || isNaN(parseFloat(cellVal))) shouldHide = true;
+              break;
+            case "equal":
+              if (parseFloat(cellVal) !== parseFloat(condVal) && cellValLower !== condValLower) shouldHide = true;
+              break;
+            case "not_equal":
+              if (parseFloat(cellVal) === parseFloat(condVal) || cellValLower === condValLower) shouldHide = true;
+              break;
+            case "between": {
+              const num = parseFloat(cellVal);
+              const min = parseFloat(condVal);
+              const max = parseFloat(condVal2);
+              if (isNaN(num) || isNaN(min) || isNaN(max) || num < min || num > max) shouldHide = true;
+              break;
+            }
+            case "not_between": {
+              const num = parseFloat(cellVal);
+              const min = parseFloat(condVal);
+              const max = parseFloat(condVal2);
+              if (!isNaN(num) && !isNaN(min) && !isNaN(max) && num >= min && num <= max) shouldHide = true;
+              break;
+            }
+          }
+        }
+
+        if (filter.selectedValues && Array.isArray(filter.selectedValues)) {
+          if (!filter.selectedValues.includes(cellVal)) {
+            shouldHide = true;
+          }
+        }
+
+        if (shouldHide) break;
+      }
+      if (shouldHide) {
+        hidden[r] = true;
+      }
+    }
+
+    sheet.hiddenRows = hidden;
+  };
+
+  const handleCreateFilter = (colLetter: string, filterConfig: ColumnFilter | null) => {
     updateSheetsAndSaveHistory((prev) => {
       const newSheets = [...prev];
       const targetSheet = { ...newSheets[activeSheetIdx] };
-      const hidden: Record<number, boolean> = {};
-      
-      if (val !== null && val.trim() !== "") {
-        const query = val.trim().toLowerCase();
-        const currentRowCount = targetSheet.rowCount || rowCount;
-        for (let r = 1; r <= currentRowCount; r++) {
-          const cellAddr = `${colLetter}${r}`;
-          const cellVal = (targetSheet.cells[cellAddr]?.value || "").toLowerCase();
-          if (!cellVal.includes(query)) {
-            hidden[r] = true;
-          }
-        }
-        toast.success(`Đã lọc cột ${colLetter} theo từ khóa: "${val}"`);
+      const currentFilters = { ...targetSheet.filters };
+
+      if (filterConfig === null) {
+        delete currentFilters[colLetter];
       } else {
-        toast.success("Đã xóa bộ lọc.");
+        currentFilters[colLetter] = filterConfig;
       }
-      
-      targetSheet.hiddenRows = hidden;
+
+      targetSheet.filters = currentFilters;
+      applyFilters(targetSheet);
       newSheets[activeSheetIdx] = targetSheet;
       return newSheets;
     });
@@ -493,27 +616,10 @@ export const useSpreadsheetState = (initialTitle: string, initialContent: any, o
       return;
     }
 
-    updateSheetsAndSaveHistory((prev) => {
-      const newSheets = [...prev];
-      const targetSheet = { ...newSheets[activeSheetIdx] };
-      const hidden: Record<number, boolean> = {};
-      const query = targetVal.toLowerCase();
-      
-      const currentRowCount = targetSheet.rowCount || rowCount;
-      for (let r = 1; r <= currentRowCount; r++) {
-        const cellAddr = `${colLetter}${r}`;
-        const cellVal = (targetSheet.cells[cellAddr]?.value || "").toLowerCase();
-        if (cellVal !== query) {
-          hidden[r] = true;
-        }
-      }
-      
-      targetSheet.hiddenRows = hidden;
-      newSheets[activeSheetIdx] = targetSheet;
-      return newSheets;
+    handleCreateFilter(colLetter, {
+      conditionType: "none",
+      selectedValues: [targetVal]
     });
-    setTimeout(() => handleSave(), 100);
-    toast.success(`Đã lọc cột ${colLetter} bằng giá trị: "${targetVal}"`);
   };
 
   const handleSave = async (customSheets?: Sheet[], customStarred?: boolean) => {

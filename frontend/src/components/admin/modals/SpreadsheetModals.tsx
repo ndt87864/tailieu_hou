@@ -481,58 +481,286 @@ export const LinkInsertModal: React.FC<LinkInsertModalProps> = ({ show, onClose,
   );
 };
 
+import { Search, ChevronDown, ChevronUp, Check, ArrowUpDown } from "lucide-react";
+import { ColumnFilter } from "../../../hooks/useSpreadsheetState.js";
+
 // 10. FilterModal
 interface FilterModalProps {
   show: boolean;
   onClose: () => void;
-  onConfirm: (val: string) => void;
   colLetter: string;
+  cells: Record<string, CellData>;
+  rowCount: number;
+  currentFilter?: ColumnFilter;
+  onConfirm: (filter: ColumnFilter | null) => void;
+  onSort: (dir: "asc" | "desc") => void;
 }
-export const FilterModal: React.FC<FilterModalProps> = ({ show, onClose, onConfirm, colLetter }) => {
-  const [val, setVal] = React.useState("");
+export const FilterModal: React.FC<FilterModalProps> = ({ 
+  show, 
+  onClose, 
+  colLetter,
+  cells,
+  rowCount,
+  currentFilter,
+  onConfirm,
+  onSort
+}) => {
+  const [conditionType, setConditionType] = React.useState("none");
+  const [conditionValue, setConditionValue] = React.useState("");
+  const [conditionValue2, setConditionValue2] = React.useState("");
+  const [selectedValues, setSelectedValues] = React.useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [showConditions, setShowConditions] = React.useState(false);
+  const [showValues, setShowValues] = React.useState(true);
+  
+  const [isConditionSelectOpen, setIsConditionSelectOpen] = React.useState(false);
+  const conditionSelectRef = React.useRef<HTMLDivElement>(null);
+
+  const conditions = [
+    { value: "none", label: "Không có" },
+    { value: "empty", label: "Trống" },
+    { value: "not_empty", label: "Không trống" },
+    { value: "contains", label: "Văn bản bao gồm" },
+    { value: "not_contains", label: "Văn bản không bao gồm" },
+    { value: "starts", label: "Văn bản bắt đầu bằng" },
+    { value: "ends", label: "Văn bản kết thúc bằng" },
+    { value: "exact", label: "Văn bản chính xác" },
+    { value: "date_is", label: "Ngày là" },
+    { value: "date_before", label: "Ngày trước" },
+    { value: "date_after", label: "Ngày sau" },
+    { value: "greater_than", label: "Lớn hơn" },
+    { value: "greater_than_or_equal", label: "Lớn hơn hoặc bằng" },
+    { value: "less_than", label: "Nhỏ hơn" },
+    { value: "less_than_or_equal", label: "Nhỏ hơn hoặc bằng" },
+    { value: "equal", label: "Bằng" },
+    { value: "not_equal", label: "Không bằng" },
+    { value: "between", label: "Ở giữa" },
+    { value: "not_between", label: "Nằm ngoài khoảng" },
+  ];
+
+  React.useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (conditionSelectRef.current && !conditionSelectRef.current.contains(e.target as Node)) {
+        setIsConditionSelectOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
+
+  // Extract all unique values from this column (from row 2 onwards)
+  const uniqueValues = React.useMemo(() => {
+    const vals = new Set<string>();
+    for (let r = 2; r <= rowCount; r++) {
+      const v = (cells[`${colLetter}${r}`]?.value || "").trim();
+      vals.add(v);
+    }
+    return Array.from(vals).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+  }, [cells, colLetter, rowCount]);
 
   React.useEffect(() => {
     if (show) {
-      setVal("");
+      setConditionType(currentFilter?.conditionType || "none");
+      setConditionValue(currentFilter?.conditionValue || "");
+      setConditionValue2(currentFilter?.conditionValue2 || "");
+      setSelectedValues(currentFilter?.selectedValues || uniqueValues);
+      setSearchQuery("");
+      setShowConditions(!!(currentFilter?.conditionType && currentFilter.conditionType !== "none"));
+      setIsConditionSelectOpen(false);
     }
-  }, [show]);
+  }, [show, currentFilter, uniqueValues]);
 
   if (!show) return null;
 
+  const handleToggleValue = (val: string) => {
+    setSelectedValues(prev => 
+      prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]
+    );
+  };
+
+  const handleSelectAll = () => {
+    setSelectedValues(uniqueValues);
+  };
+
+  const handleClearAll = () => {
+    setSelectedValues([]);
+  };
+
+  const filteredUniqueValues = uniqueValues.filter(v => 
+    v.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleApply = () => {
+    const hasCondition = conditionType !== "none";
+    const hasValueFilter = selectedValues.length !== uniqueValues.length;
+
+    if (!hasCondition && !hasValueFilter) {
+      // Clear filter
+      onConfirm(null);
+    } else {
+      onConfirm({
+        conditionType,
+        conditionValue,
+        conditionValue2,
+        selectedValues
+      });
+    }
+    onClose();
+  };
+
   return (
     <div className="sheets-modal-overlay" onClick={onClose}>
-      <div className="sheets-modal-card" style={{ maxWidth: "400px" }} onClick={(e) => e.stopPropagation()}>
+      <div className="sheets-modal-card sheets-filter-modal" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center border-b border-[var(--border)] pb-3 mb-2">
-          <h3 className="text-base font-bold">Tạo bộ lọc cột {colLetter}</h3>
+          <h3 className="text-base font-bold flex items-center gap-2">
+            <ArrowUpDown className="w-4 h-4 text-emerald-500" />
+            Bộ lọc cột {colLetter}
+          </h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="sheets-modal-body py-2 space-y-3">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-[var(--fg-muted)]">
-              Nhập giá trị lọc cho cột {colLetter} (Để trống để hiển thị lại toàn bộ dòng)
-            </label>
-            <input 
-              type="text" 
-              value={val} 
-              onChange={e => setVal(e.target.value)} 
-              placeholder="Nhập từ khóa tìm kiếm..."
-              className="w-full p-2 border border-[var(--border)] rounded bg-[var(--bg-2)] text-[var(--fg)]"
-              autoFocus
-            />
+
+        <div className="sheets-modal-body sheets-filter-modal-body">
+          {/* 1. Sorting Section */}
+          <div className="filter-sort-section">
+            <button className="filter-sort-btn" onClick={() => { onSort("asc"); onClose(); }}>
+              Sắp xếp A đến Z
+            </button>
+            <button className="filter-sort-btn" onClick={() => { onSort("desc"); onClose(); }}>
+              Sắp xếp Z đến A
+            </button>
+          </div>
+
+          <div className="border-t border-[var(--border)] my-2" />
+
+          {/* 2. Filter by Condition */}
+          <div className="filter-accordion-section">
+            <button 
+              className="filter-accordion-header"
+              onClick={() => setShowConditions(!showConditions)}
+            >
+              <span>Lọc theo điều kiện</span>
+              {showConditions ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+            
+            {showConditions && (
+              <div className="filter-accordion-content" ref={conditionSelectRef}>
+                <div className="custom-filter-select-wrapper">
+                  <div 
+                    className="custom-filter-select-trigger"
+                    onClick={() => setIsConditionSelectOpen(!isConditionSelectOpen)}
+                  >
+                    <span>{conditions.find(c => c.value === conditionType)?.label || "Không có"}</span>
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                  </div>
+                  
+                  {isConditionSelectOpen && (
+                    <div className="custom-filter-select-options">
+                      {conditions.map((cond) => (
+                        <div 
+                          key={cond.value}
+                          className={`custom-filter-select-option ${conditionType === cond.value ? "selected" : ""}`}
+                          onClick={() => {
+                            setConditionType(cond.value);
+                            setIsConditionSelectOpen(false);
+                          }}
+                        >
+                          {cond.label}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {conditionType !== "none" && conditionType !== "empty" && conditionType !== "not_empty" && (
+                  <div className="filter-condition-inputs mt-2">
+                    <input 
+                      type="text"
+                      className="filter-input-text"
+                      value={conditionValue}
+                      onChange={(e) => setConditionValue(e.target.value)}
+                      placeholder={
+                        conditionType.startsWith("date") ? "dd/mm/yyyy hoặc yyyy-mm-dd" :
+                        conditionType === "between" || conditionType === "not_between" ? "Giá trị đầu" : "Nhập giá trị lọc..."
+                      }
+                    />
+                    {(conditionType === "between" || conditionType === "not_between") && (
+                      <input 
+                        type="text"
+                        className="filter-input-text mt-2"
+                        value={conditionValue2}
+                        onChange={(e) => setConditionValue2(e.target.value)}
+                        placeholder="Giá trị cuối"
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="border-t border-[var(--border)] my-2" />
+
+          {/* 3. Filter by Value */}
+          <div className="filter-accordion-section">
+            <button 
+              className="filter-accordion-header"
+              onClick={() => setShowValues(!showValues)}
+            >
+              <span>Lọc theo giá trị</span>
+              {showValues ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+
+            {showValues && (
+              <div className="filter-accordion-content">
+                <div className="flex justify-between items-center text-xs text-blue-500 mb-2">
+                  <button className="hover:underline" onClick={handleSelectAll}>Chọn tất cả</button>
+                  <button className="hover:underline" onClick={handleClearAll}>Xóa</button>
+                </div>
+
+                <div className="filter-search-wrapper mb-2">
+                  <Search className="w-3.5 h-3.5 filter-search-icon" />
+                  <input 
+                    type="text"
+                    className="filter-search-input"
+                    placeholder="Tìm kiếm giá trị..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+
+                <div className="filter-checkbox-list">
+                  {filteredUniqueValues.length === 0 ? (
+                    <div className="text-xs text-gray-500 py-4 text-center">Không tìm thấy giá trị</div>
+                  ) : (
+                    filteredUniqueValues.map((val, idx) => {
+                      const isChecked = selectedValues.includes(val);
+                      return (
+                        <label key={idx} className="filter-checkbox-item">
+                          <input 
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => handleToggleValue(val)}
+                          />
+                          <span className="truncate">{val === "" ? "(Trống)" : val}</span>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
-        <div className="sheets-modal-actions mt-4">
+
+        <div className="sheets-modal-actions mt-4 border-t border-[var(--border)] pt-3">
           <button onClick={onClose} className="btn-modal-cancel">Hủy</button>
           <button 
-            onClick={() => {
-              onConfirm(val.trim());
-              onClose();
-            }} 
+            onClick={handleApply}
             className="btn-modal-confirm bg-emerald-500 hover:bg-emerald-600 text-white"
           >
-            Lọc
+            OK
           </button>
         </div>
       </div>

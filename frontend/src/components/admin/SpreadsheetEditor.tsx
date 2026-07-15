@@ -726,6 +726,7 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
           onFilterByCellValue={state.handleFilterByCellValue}
           onTriggerLinkModal={(addr) => setShowLinkModal({ address: addr, defaultText: state.cells[addr]?.value || "" })}
           onTriggerFilterModal={(colLetter) => setShowFilterModal({ colLetter })}
+          filters={state.sheets[state.activeSheetIdx]?.filters}
         />
       </div>
 
@@ -831,9 +832,17 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
         show={!!showFilterModal}
         onClose={() => setShowFilterModal(null)}
         colLetter={showFilterModal?.colLetter || ""}
-        onConfirm={(val) => {
+        cells={state.cells}
+        rowCount={state.rowCount}
+        currentFilter={showFilterModal ? state.sheets[state.activeSheetIdx]?.filters?.[showFilterModal.colLetter] : undefined}
+        onConfirm={(filterConfig) => {
           if (showFilterModal) {
-            state.handleCreateFilter(showFilterModal.colLetter, val);
+            state.handleCreateFilter(showFilterModal.colLetter, filterConfig);
+          }
+        }}
+        onSort={(dir) => {
+          if (showFilterModal) {
+            state.sortActiveSheet(showFilterModal.colLetter, dir);
           }
         }}
       />
