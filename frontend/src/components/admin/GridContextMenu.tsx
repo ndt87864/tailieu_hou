@@ -104,23 +104,6 @@ export const GridContextMenu: React.FC<GridContextMenuProps> = ({
 
       <div className="sheets-context-menu-divider" />
 
-      {/* Nút Gemini AI */}
-      <button 
-        className="sheets-context-menu-item" 
-        onClick={() => {
-          if (onTriggerGemini && contextMenu.address) onTriggerGemini(contextMenu.address);
-          onClose();
-        }}
-      >
-        <span className="sheets-context-menu-item-left">
-          <Sparkles className="w-3.5 h-3.5 text-blue-500" />
-          Điền thông tin vào cột bằng Gemini
-        </span>
-        <span className="badge-new ml-auto text-[10px] bg-blue-600 text-white px-1.5 py-0.5 rounded font-bold">Mới</span>
-      </button>
-
-      <div className="sheets-context-menu-divider" />
-
       {contextMenu.type === "row" ? (
         <>
           <button 
@@ -417,18 +400,6 @@ export const GridContextMenu: React.FC<GridContextMenuProps> = ({
 
           <div className="sheets-context-menu-divider" />
 
-          <button 
-            className="sheets-context-menu-item" 
-            onClick={() => {
-              if (onShowCellHistory && contextMenu.address) onShowCellHistory(contextMenu.address);
-              onClose();
-            }}
-          >
-            <span className="sheets-context-menu-item-left">
-              <History className="w-3.5 h-3.5 text-gray-400" />
-              Hiển thị lịch sử chỉnh sửa
-            </span>
-          </button>
           <button 
             className="sheets-context-menu-item" 
             onClick={() => {
