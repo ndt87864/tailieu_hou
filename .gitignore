@@ -285,3 +285,18 @@ OmniRoute/homolog-report/
 
 /OmniRoute/.github
 /OmniRoute/@omniroute
+/OmniRoute/bin
+/OmniRoute/changelog.d
+/OmniRoute/config
+/OmniRoute/docs
+/OmniRoute/electron
+/OmniRoute/examples
+/OmniRoute/contrib
+/OmniRoute/open-sse
+/OmniRoute/public
+/OmniRoute/scripts
+/OmniRoute/src/i18n
+/OmniRoute/src/lib
+/OmniRoute/src
+/OmniRoute/tests
+/OmniRoute/skills
