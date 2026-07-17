@@ -12,6 +12,7 @@ import blackForestLabs from "./blackForestLabs.js";
 import runwayml from "./runwayml.js";
 import cloudflareAi from "./cloudflareAi.js";
 import antigravity from "./antigravity.js";
+import luna from "./luna.js";
 
 const ADAPTERS = {
   openai: createOpenAIAdapter("openai"),
@@ -27,6 +28,7 @@ const ADAPTERS = {
   huggingface,
   nanobanana,
   antigravity,
+  luna,
   "fal-ai": falAi,
   "stability-ai": stabilityAi,
   "black-forest-labs": blackForestLabs,

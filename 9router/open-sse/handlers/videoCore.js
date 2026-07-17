@@ -73,6 +73,87 @@ function combineSignals(signal, timeoutMs) {
  * @param {function} [options.onCredentialsRefreshed]
  * @returns {Promise<{ success: boolean, response: Response, status?: number, error?: string }>}
  */
+import { getExecutor } from "../executors/index.js";
+import { randomUUID } from "node:crypto";
+
+const LUNA_VIDEO_JOBS = new Map();
+
+async function handleLunaVideo({ action, requestId, rawBody, credentials, log }) {
+  if (requestId) {
+    const job = LUNA_VIDEO_JOBS.get(requestId);
+    if (!job) {
+      return createErrorResult(HTTP_STATUS.NOT_FOUND, `Video job '${requestId}' not found`);
+    }
+    return {
+      success: true,
+      response: new Response(JSON.stringify({ id: requestId, status: job.status, video: job.video, error: job.error }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      }),
+    };
+  }
+
+  let prompt = "";
+  try {
+    const bodyText = rawBody ? rawBody.toString() : "{}";
+    const body = JSON.parse(bodyText);
+    prompt = body.prompt || "";
+  } catch {}
+
+  if (!prompt) {
+    return createErrorResult(HTTP_STATUS.BAD_REQUEST, "Missing prompt for video generation");
+  }
+
+  const jobId = randomUUID();
+  LUNA_VIDEO_JOBS.set(jobId, { status: "processing", video: null, error: null });
+
+  (async () => {
+    try {
+      const executor = getExecutor("luna");
+      if (!executor) throw new Error("Luna executor not found");
+      const chatBody = {
+        messages: [{ role: "user", content: `Please generate a video based on this description: ${prompt}` }],
+        stream: false,
+      };
+      const result = await executor.execute({
+        model: "qwen3.7-plus",
+        body: chatBody,
+        stream: false,
+        credentials,
+        log,
+      });
+
+      if (!result.response.ok) {
+        throw new Error(`Luna HTTP error: ${result.response.status}`);
+      }
+
+      const data = await result.response.json();
+      const content = data.choices?.[0]?.message?.content || "";
+      const match = content.match(/!\[.*?\]\((https?:\/\/[^\s\)]+)\)/i) || 
+                    content.match(/(https?:\/\/[^\s]+?\.(?:mp4|webm|avi|mov))/i) ||
+                    content.match(/(https?:\/\/[^\s\)]+)/i);
+      const videoUrl = match ? match[1] : null;
+
+      if (!videoUrl) {
+        throw new Error(`Qwen did not return a generated video link. Response: ${content}`);
+      }
+
+      LUNA_VIDEO_JOBS.set(jobId, { status: "completed", video: { url: videoUrl } });
+    } catch (err) {
+      log?.error?.("VIDEO", `Luna video job ${jobId} failed: ${err.message}`);
+      LUNA_VIDEO_JOBS.set(jobId, { status: "failed", error: err.message });
+    }
+  })();
+
+  return {
+    success: true,
+    response: new Response(JSON.stringify({ id: jobId, status: "processing" }), {
+      status: 200,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+    }),
+  };
+}
+
 export async function handleVideoProxyCore({
   provider,
   action = null,
@@ -86,6 +167,10 @@ export async function handleVideoProxyCore({
   log,
   onCredentialsRefreshed,
 }) {
+  if (provider === "luna") {
+    return await handleLunaVideo({ action, requestId, rawBody, credentials, log });
+  }
+
   const config = getVideoConfig(provider);
   if (!config) {
     return createErrorResult(HTTP_STATUS.BAD_REQUEST, `Provider '${provider}' does not support video generation`);

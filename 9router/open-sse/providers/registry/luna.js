@@ -13,6 +13,12 @@ export default {
     },
   },
   category: "oauth",
+  serviceKinds: ["llm", "image", "video", "webSearch", "imageToText"],
+  imageConfig: { baseUrl: "https://chat.qwen.ai/api/v2/chat/completions" },
+  videoConfig: { baseUrl: "https://chat.qwen.ai/api/v2/chat/completions" },
+  searchViaChat: {
+    defaultModel: "qwen3.7-plus"
+  },
   transport: {
     baseUrl: "https://portal.qwen.ai/v1/chat/completions",
   },
