@@ -2,16 +2,29 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Button, Badge } from "@/shared/components";
+import { gsap } from "gsap";
+import { useGSAP } from "@gsap/react";
+gsap.registerPlugin(useGSAP);
 import { cn } from "@/shared/utils/cn";
 import { supabase } from "@/lib/supabaseClient";
+import { getRestrictedReportAssistantSubjects, isRestrictedReportAssistantSubject } from "@/lib/userResourceMapping";
 import useUserStore from "@/store/userStore";
 import { marked } from "marked";
 import katex from "katex";
 import "katex/dist/katex.min.css";
+import { LOGO_HOU_BASE64 } from "./logo-hou";
+import { useRouter } from "next/navigation";
+
 
 // ─── Constants & Key Storage Helpers ──────────────────────────────────────────
 const FALLBACK_SYSTEM_PROMPT = "";
-const ASSISTANT_ONLY_FALLBACK_PROMPT = `Bạn là một trợ lý AI thân thiện. Hãy trả lời bằng tiếng Việt tự nhiên, rõ ràng và dễ hiểu. Nếu người dùng không yêu cầu tạo báo cáo, hãy trò chuyện như một trợ lý bình thường, giúp giải đáp thắc mắc và hướng dẫn từng bước.`;
+function getAssistantOnlyFallbackPrompt(username) {
+  const displayName = String(username || "người dùng").trim() || "người dùng";
+  return `Bạn là một trợ lý AI thân thiện. Hãy trả lời bằng tiếng Việt tự nhiên, rõ ràng và dễ hiểu. Nếu người dùng không yêu cầu tạo báo cáo, hãy trò chuyện như một trợ lý bình thường, giúp giải đáp thắc mắc và hướng dẫn từng bước.
+- Khi giao tiếp, hãy xưng danh, xưng hô phù hợp với vai trò của trợ lý đang phục vụ tài khoản đó.
+- Nếu người dùng hỏi về dnah tính của họ hoặc tương tự, hãy trả lời theo tên tài khoản đang đăng nhập là "${displayName}".
+- Không tự nhận là người khác, không đổi danh xưng sang model/provider khác.`;
+}
 const DEFAULT_TEMPERATURE = 0.7;
 const REPORT_MAX_TOKENS = 4096;
 const CHAT_MAX_TOKENS = 2048;
@@ -21,10 +34,15 @@ const MAX_STAGE_CONTEXT_CHARS = 6000;
 const REPORT_KNOWLEDGE_GLOBAL_USER = "global";
 const REPORT_OUTLINE_CONTENT_USER = `report_assistant_outlines_${REPORT_KNOWLEDGE_GLOBAL_USER}`;
 const REPORT_TEMPLATE_CONTENT_USER = `report_assistant_templates_${REPORT_KNOWLEDGE_GLOBAL_USER}`;
+const RESTRICTED_REPORT_ASSISTANT_SUBJECTS = getRestrictedReportAssistantSubjects();
 const MAX_GLOBAL_OUTLINE_KNOWLEDGE_CHARS = 14000;
 const MAX_SAMPLE_KNOWLEDGE_CHARS = 18000;
 const SAMPLE_CHUNK_CHARS = 1800;
 const SAMPLE_TOP_K = 8;
+const KNOWLEDGE_CACHE_PREFIX = "report-assistant.knowledge-content.";
+const KNOWLEDGE_SESSION_OWNER_KEY = "report-assistant.knowledge-content.sessionOwner";
+const REPORT_ASSISTANT_LUNA_MODEL_PREFIX = "ln/";
+const REPORT_ASSISTANT_ARENA_MODEL_PREFIX = "ar/";
 const A4_PAGE_WIDTH = "8.27in";
 const A4_PAGE_HEIGHT = "11.69in";
 const A4_MARGIN_TOP = "2.5cm";
@@ -102,6 +120,7 @@ const getSK = (username) => {
     assistantOnlyMode: `${prefix}.assistantOnlyMode`,
     enabledModels: `${prefix}.enabledModels`,
     knownModels: `${prefix}.knownModels`,
+    knowledgeSubject: `${prefix}.knowledgeSubject`,
   };
 };
 
@@ -139,24 +158,185 @@ async function parsePdfText(file) {
         for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
           const page = await pdf.getPage(pageNum);
           const textContent = await page.getTextContent();
-          const pageLines = [];
-          let lastY = null;
-          let currentLine = "";
 
-          for (const item of textContent.items) {
-            if (item.str === undefined) continue;
-            const y = item.transform ? item.transform[5] : null;
-            if (lastY !== null && Math.abs(y - lastY) > 2) {
-              if (currentLine.trim()) pageLines.push(currentLine.trim());
-              currentLine = item.str;
-            } else {
-              currentLine +=
-                (currentLine && !currentLine.endsWith(" ") ? " " : "") +
-                item.str;
+          const items = (textContent.items || []).filter(
+            (it) => it && typeof it.str === "string" && it.transform
+          );
+
+          let pageLines = [];
+          if (items.length > 0) {
+            // Find boundaries to detect 2-column layout
+            const xCoords = items.map((it) => it.transform[4]);
+            const minX = Math.min(...xCoords);
+            const maxX = Math.max(...xCoords);
+            const width = maxX - minX;
+
+            let isTwoColumn = false;
+            let midX = minX + width / 2;
+
+            if (width > 200) {
+              const numSlices = 20;
+              const sliceWidth = width / numSlices;
+              const sliceCounts = new Array(numSlices).fill(0);
+
+              for (const item of items) {
+                const x = item.transform[4];
+                const sliceIdx = Math.floor((x - minX) / sliceWidth);
+                if (sliceIdx >= 0 && sliceIdx < numSlices) {
+                  sliceCounts[sliceIdx]++;
+                }
+              }
+
+              let leftCount = 0;
+              for (let i = 2; i <= 7; i++) leftCount += sliceCounts[i];
+
+              let rightCount = 0;
+              for (let i = 12; i <= 17; i++) rightCount += sliceCounts[i];
+
+              let midCount = 0;
+              for (let i = 8; i <= 11; i++) midCount += sliceCounts[i];
+
+              if (leftCount > 5 && rightCount > 5 && midCount < (leftCount + rightCount) * 0.15) {
+                isTwoColumn = true;
+                midX = minX + 10 * sliceWidth;
+              }
             }
-            lastY = y;
+
+            const processGroup = (groupItems) => {
+              const sorted = [...groupItems].sort((a, b) => b.transform[5] - a.transform[5]);
+              const lines = [];
+              let currentLine = [];
+              let lastY = null;
+
+              for (const item of sorted) {
+                const y = item.transform[5];
+                if (lastY === null) {
+                  currentLine.push(item);
+                  lastY = y;
+                } else if (Math.abs(y - lastY) <= 8) {
+                  currentLine.push(item);
+                } else {
+                  currentLine.sort((a, b) => a.transform[4] - b.transform[4]);
+                  lines.push(currentLine);
+                  currentLine = [item];
+                  lastY = y;
+                }
+              }
+              if (currentLine.length > 0) {
+                currentLine.sort((a, b) => a.transform[4] - b.transform[4]);
+                lines.push(currentLine);
+              }
+
+              const groupLines = [];
+              for (const line of lines) {
+                let lineStr = "";
+                for (const it of line) {
+                  if (lineStr && !lineStr.endsWith(" ") && !it.str.startsWith(" ")) {
+                    lineStr += " ";
+                  }
+                  lineStr += it.str;
+                }
+                if (lineStr.trim()) groupLines.push(lineStr.trim());
+              }
+              return groupLines;
+            };
+
+            if (isTwoColumn) {
+              const sortedItems = [...items].sort((a, b) => b.transform[5] - a.transform[5]);
+              const linesGrouped = [];
+              let currentLine = [];
+              let lastLineY = null;
+              for (const item of sortedItems) {
+                const y = item.transform[5];
+                if (lastLineY === null) {
+                  currentLine.push(item);
+                  lastLineY = y;
+                } else if (Math.abs(y - lastLineY) <= 8) {
+                  currentLine.push(item);
+                } else {
+                  linesGrouped.push(currentLine);
+                  currentLine = [item];
+                  lastLineY = y;
+                }
+              }
+              if (currentLine.length > 0) {
+                linesGrouped.push(currentLine);
+              }
+
+              const classifiedLines = linesGrouped.map((lineItems) => {
+                lineItems.sort((a, b) => a.transform[4] - b.transform[4]);
+                if (lineItems.length <= 1) {
+                  return { type: "single", items: lineItems };
+                }
+                const midLeft = midX - 15;
+                const midRight = midX + 15;
+                let hasOverlap = false;
+                for (const it of lineItems) {
+                  const itemLeft = it.transform[4];
+                  const itemRight = itemLeft + (it.width || 0);
+                  if (itemLeft < midRight && itemRight > midLeft) {
+                    hasOverlap = true;
+                    break;
+                  }
+                }
+                if (hasOverlap) {
+                  return { type: "single", items: lineItems };
+                }
+                const leftItems = lineItems.filter((it) => it.transform[4] < midX);
+                const rightItems = lineItems.filter((it) => it.transform[4] >= midX);
+                if (leftItems.length > 0 && rightItems.length > 0) {
+                  const rightMostLeft = leftItems[leftItems.length - 1];
+                  const leftMostRight = rightItems[0];
+                  const gap = leftMostRight.transform[4] - (rightMostLeft.transform[4] + (rightMostLeft.width || 0));
+                  if (gap >= 20) {
+                    return { type: "two", items: lineItems };
+                  }
+                }
+                return { type: "two", items: lineItems };
+              });
+
+              const zones = [];
+              let currentZone = null;
+              for (const line of classifiedLines) {
+                if (!currentZone) {
+                  currentZone = { type: line.type, lines: [line.items] };
+                } else if (currentZone.type === line.type) {
+                  currentZone.lines.push(line.items);
+                } else {
+                  zones.push(currentZone);
+                  currentZone = { type: line.type, lines: [line.items] };
+                }
+              }
+              if (currentZone) {
+                zones.push(currentZone);
+              }
+
+              const finalLines = [];
+              for (const zone of zones) {
+                if (zone.type === "single") {
+                  for (const lineItems of zone.lines) {
+                    let lineStr = "";
+                    for (const it of lineItems) {
+                      if (lineStr && !lineStr.endsWith(" ") && !it.str.startsWith(" ")) {
+                        lineStr += " ";
+                      }
+                      lineStr += it.str;
+                    }
+                    if (lineStr.trim()) finalLines.push(lineStr.trim());
+                  }
+                } else {
+                  const allZoneItems = zone.lines.flat();
+                  const leftItems = allZoneItems.filter((it) => it.transform[4] < midX);
+                  const rightItems = allZoneItems.filter((it) => it.transform[4] >= midX);
+                  finalLines.push(...processGroup(leftItems));
+                  finalLines.push(...processGroup(rightItems));
+                }
+              }
+              pageLines = finalLines;
+            } else {
+              pageLines = processGroup(items);
+            }
           }
-          if (currentLine.trim()) pageLines.push(currentLine.trim());
 
           fullText += `[Trang ${pageNum}]\n`;
           for (const line of pageLines) {
@@ -215,6 +395,164 @@ function safeParse(val, fallback) {
     return JSON.parse(val);
   } catch {
     return fallback;
+  }
+}
+
+function isReportAssistantLunaModel(modelId) {
+  return String(modelId || "").startsWith(REPORT_ASSISTANT_LUNA_MODEL_PREFIX);
+}
+
+function isReportAssistantArenaModel(modelId) {
+  return String(modelId || "").startsWith(REPORT_ASSISTANT_ARENA_MODEL_PREFIX);
+}
+
+function hasAgentResultCards(messages) {
+  return (Array.isArray(messages) ? messages : []).some(
+    (message) => message?.kind === "agent_result_cards",
+  );
+}
+
+function shouldAutoRestoreReportSession(session) {
+  if (!session) return false;
+  const modelId = String(session.modelId || "");
+  if (!modelId.startsWith(REPORT_ASSISTANT_LUNA_MODEL_PREFIX) && !modelId.startsWith(REPORT_ASSISTANT_ARENA_MODEL_PREFIX)) {
+    return false;
+  }
+  return !hasAgentResultCards(session.messages);
+}
+
+function isAgentFinishedState(state) {
+  if (!state) return false;
+  if (state.current_step === "COMPLETED" || state.current_step === "CANCELLED") {
+    return true;
+  }
+
+  const progress = Array.isArray(state.sections_progress) ? state.sections_progress : [];
+  if (progress.length === 0) return false;
+
+  return !progress.some(
+    (section) => section?.status === "todo" || section?.status === "drafting",
+  );
+}
+
+function getReportAssistantLunaModels(models) {
+  if (!Array.isArray(models)) return [];
+  return models.filter((model) => isReportAssistantLunaModel(model?.id));
+}
+
+function getReportAssistantArenaModels(models) {
+  if (!Array.isArray(models)) return [];
+  return models.filter((model) => isReportAssistantArenaModel(model?.id));
+}
+
+function getReportAssistantChatModels(models) {
+  if (!Array.isArray(models)) return [];
+  const lunaModels = getReportAssistantLunaModels(models);
+  if (lunaModels.length > 0) {
+    return lunaModels;
+  }
+
+  const arenaModels = getReportAssistantArenaModels(models);
+  if (arenaModels.length > 0) {
+    return arenaModels;
+  }
+
+  // Fallback only when Luna/Arena are not available at all.
+  return models.filter((model) => {
+    const modelId = String(model?.id || "");
+    return modelId && !isReportAssistantLunaModel(modelId) && !isReportAssistantArenaModel(modelId);
+  });
+}
+
+function getReportWorkflowDefaultModelId(models) {
+  if (!Array.isArray(models) || models.length === 0) return "";
+  return models[0]?.id || "";
+}
+
+function getKnowledgeCacheKey(username, subject = "", filename = "") {
+  const normalizedSubject = subject ? encodeURIComponent(subject) : "__all__";
+  const normalizedFilename = filename ? encodeURIComponent(filename) : "";
+  return `${KNOWLEDGE_CACHE_PREFIX}${username}.${normalizedSubject}${normalizedFilename ? `.${normalizedFilename}` : ""}`;
+}
+
+function clearAllKnowledgeContentCaches() {
+  if (typeof window === "undefined") return;
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const key = localStorage.key(i);
+    if (key?.startsWith(KNOWLEDGE_CACHE_PREFIX)) {
+      localStorage.removeItem(key);
+    }
+  }
+}
+
+function ensureKnowledgeCacheSessionOwner(username) {
+  if (typeof window === "undefined" || !username) return;
+  const currentOwner = localStorage.getItem(KNOWLEDGE_SESSION_OWNER_KEY);
+  if (currentOwner && currentOwner !== username) {
+    clearAllKnowledgeContentCaches();
+  }
+  localStorage.setItem(KNOWLEDGE_SESSION_OWNER_KEY, username);
+}
+
+function readKnowledgeContentCache(username, subject = "", filename = "") {
+  if (typeof window === "undefined" || !username) return null;
+  const cached = safeParse(localStorage.getItem(getKnowledgeCacheKey(username, subject, filename)), null);
+  if (!cached || !Array.isArray(cached.data)) return null;
+  return cached.data;
+}
+
+function writeKnowledgeContentCache(username, subject = "", filename = "", rows) {
+  if (typeof window === "undefined" || !username || !Array.isArray(rows)) return;
+  try {
+    localStorage.setItem(
+      getKnowledgeCacheKey(username, subject, filename),
+      JSON.stringify({ cachedAt: Date.now(), subject, filename, data: rows }),
+    );
+  } catch {
+    localStorage.removeItem(getKnowledgeCacheKey(username, subject, filename));
+  }
+}
+
+async function fetchKnowledgeContentCached(username, options = {}) {
+  const { subject = "", filename = "", force = false } = options;
+  if (!username) return [];
+
+  const cached = !force ? readKnowledgeContentCache(username, subject, filename) : null;
+  if (cached) {
+    return cached;
+  }
+
+  const params = new URLSearchParams({
+    username,
+    includeContent: "1",
+  });
+  if (subject) params.set("subject", subject);
+  if (filename) params.set("filename", filename);
+
+  const res = await fetch(`/api/knowledge-content?${params.toString()}`);
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    throw new Error(`knowledge-content ${res.status}: ${errText.slice(0, 180)}`);
+  }
+  const data = await res.json();
+  const rows = Array.isArray(data?.data) ? data.data : [];
+  writeKnowledgeContentCache(username, subject, filename, rows);
+  return rows;
+}
+
+function clearKnowledgeContentCache(username, subject = "", filename = "") {
+  if (typeof window !== "undefined" && username) {
+    if (subject || filename) {
+      localStorage.removeItem(getKnowledgeCacheKey(username, subject, filename));
+      localStorage.removeItem(getKnowledgeCacheKey(username));
+      return;
+    }
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(`${KNOWLEDGE_CACHE_PREFIX}${username}.`)) {
+        localStorage.removeItem(key);
+      }
+    }
   }
 }
 
@@ -551,18 +889,17 @@ function reportProgressMessage(step, detail, partial = "") {
     : "";
   return `✨ **[${step}] ${detail}**${preview}`;
 }
-
 function normalizeMajorHeadingLine(line) {
   return normalizeForMatch(
     textValue(line)
       .trim()
       .replace(/^#{1,6}\s*/, "")
-      .replace(/^\d+(?:\.\d+)*\s*/, ""),
+      .replace(/^\d+(?:\.\d+)*\s*/, "")
+      .replace(/^(?:[ivxlcdm]+|[IVXLCDM]+)\.?\s*/i, ""),
   )
     .replace(/\s+/g, " ")
     .trim();
 }
-
 function isListItemLine(line) {
   const trimmed = textValue(line).trim();
   return /^[-*•]\s+/.test(trimmed) || /^\d+[.)]\s+/.test(trimmed);
@@ -570,11 +907,33 @@ function isListItemLine(line) {
 
 function isMajorSectionHeadingLine(line) {
   if (isListItemLine(line)) return false;
+
+  const trimmed = textValue(line).trim();
+  if (trimmed.length > 150) return false;
+
+  const lower = trimmed.toLowerCase();
+  if (
+    lower.includes("đóng vai trò") ||
+    lower.includes("là kết quả") ||
+    lower.includes("chương này") ||
+    lower.includes("tác giả") ||
+    lower.includes("được chia thành") ||
+    lower.includes("chúng ta") ||
+    lower.includes("nghiên cứu này") ||
+    lower.includes("xin cam đoan") ||
+    lower.includes("cam đoan rằng") ||
+    (trimmed.endsWith(".") && !/\d+\.$/.test(trimmed) && !/chương\s+\d+\.$/i.test(trimmed))
+  ) {
+    return false;
+  }
+
   const normalized = normalizeMajorHeadingLine(line);
   if (!normalized) return false;
   return (
     /^loi mo dau\b/.test(normalized) ||
     /^mo dau\b/.test(normalized) ||
+    /^phan mo dau\b/.test(normalized) ||
+    /^phan noi dung\b/.test(normalized) ||
     /^chuong\s+([0-9ivxlcdm]+)\b/.test(normalized) ||
     /^chuong\s*(?:mot|hai|ba|bon|nam|sau|bay|tam|chin|muoi)\b/.test(
       normalized,
@@ -583,7 +942,9 @@ function isMajorSectionHeadingLine(line) {
     /^ket luan\b/.test(normalized) ||
     /^tai lieu tham khao\b/.test(normalized) ||
     /^danh muc tai lieu tham khao\b/.test(normalized) ||
-    /^muc luc\b/.test(normalized)
+    /^muc luc\b/.test(normalized) ||
+    /^nhan xet kien tap\b/.test(normalized) ||
+    /^xac nhan cua can bo huong dan\b/.test(normalized)
   );
 }
 
@@ -614,6 +975,10 @@ function canonicalizeMajorHeading(line) {
   if (
     /^loi mo dau\b/.test(normalized) ||
     /^mo dau\b/.test(normalized) ||
+    /^phan mo dau\b/.test(normalized) ||
+    /^phan noi dung\b/.test(normalized) ||
+    /^nhan xet kien tap\b/.test(normalized) ||
+    /^xac nhan cua can bo huong dan\b/.test(normalized) ||
     /^chuong\s+([0-9ivxlcdm]+)\b/.test(normalized) ||
     /^chuong\s*(?:mot|hai|ba|bon|nam|sau|bay|tam|chin|muoi)\b/.test(normalized) ||
     /^chapter\s+\d+\b/.test(normalized)
@@ -630,6 +995,35 @@ function normalizeMajorHeadingLevels(content) {
       const trimmed = line.trim();
       if (!trimmed || trimmed.toUpperCase() === "[PAGE_BREAK]") return line;
       return isMajorSectionHeadingLine(trimmed) ? canonicalizeMajorHeading(trimmed) : line;
+    })
+    .join("\n")
+    .trim();
+}
+
+function normalizeNumberedHeadingLevels(content) {
+  return textValue(content)
+    .split(/\r?\n/)
+    .map((line) => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.toUpperCase() === "[PAGE_BREAK]") return line;
+
+      // Extract raw text by stripping leading hashes, bold, and italic markers
+      let cleanText = trimmed.replace(/^(###*|#+)\s+/, "");
+      cleanText = cleanText.replace(/^\*\*|\*\*$/g, "");
+      cleanText = cleanText.replace(/^\*|\*$/g, "");
+      cleanText = cleanText.trim();
+
+      // Check if the cleaned text starts with a numbered pattern (e.g., 1.1 or 1.1.1)
+      const numberMatch = cleanText.match(/^(\d+(?:\.\d+)+)\.?\s+(.*)$/);
+      if (!numberMatch) return line;
+
+      const numberPart = numberMatch[1];
+      const titlePart = numberMatch[2].replace(/^\*\*|\*\*$/g, "").replace(/^\*|\*$/g, "").trim();
+      const dotCount = numberPart.split(".").length; // e.g. "1.1" -> 2 dots/parts, "1.1.1" -> 3
+
+      const targetLevel = Math.min(6, Math.max(2, dotCount));
+      const targetHashes = "#".repeat(targetLevel);
+      return `${targetHashes} ${numberPart}. ${titlePart}`.trim();
     })
     .join("\n")
     .trim();
@@ -778,10 +1172,13 @@ function injectSectionPageBreaks(content) {
         continue;
       }
 
-      const last = textValue(out[out.length - 1])
-        .trim()
-        .toUpperCase();
-      if (out.length > 0 && last !== "[PAGE_BREAK]") {
+      // Find the last *meaningful* (non-blank) line in out to correctly detect existing PAGE_BREAKs
+      const lastMeaningful = out
+        .slice()
+        .reverse()
+        .map((l) => textValue(l).trim().toUpperCase())
+        .find((l) => l !== "") || "";
+      if (out.length > 0 && lastMeaningful !== "[PAGE_BREAK]") {
         out.push("[PAGE_BREAK]");
       }
 
@@ -896,20 +1293,638 @@ function removePageBreaksAfterHeadingOnly(content) {
     .trim();
 }
 
-function prepareReportContent(content) {
-  return ensurePageBreakBeforeReferences(
+function extractMetadataFromContent(content, title = "") {
+  const result = {
+    studentName: "..................................................",
+    studentId: "..................................................",
+    class: "..................................................",
+    advisor: "..................................................",
+    advisorRole: "Cán bộ hướng dẫn",
+    company: "..................................................",
+    reportTitle: "BÁO CÁO THỰC TẬP",
+    year: "2026",
+    dob: "..................................................",
+    major: "..................................................",
+    internshipDuration: "..................................................",
+    courseId: "..................................................",
+  };
+
+  let rawTitle = "";
+  if (title) {
+    rawTitle = title.replace(/^(?:Báo cáo tạm dừng|Merged|Copy|Bản nháp|Bản xem trước)\s*-\s*/i, "").trim();
+  }
+  if (!rawTitle) {
+    const headingMatch = content.match(/^\s*#\s+(.+)$/m);
+    if (headingMatch) {
+      rawTitle = headingMatch[1].trim();
+    }
+  }
+
+  const normalizedText = String(content + " " + title).toLowerCase();
+  if (normalizedText.includes("ba49") || normalizedText.includes("b49") || normalizedText.includes("kiến tập thực tế") || normalizedText.includes("kiến tập")) {
+    result.reportTitle = "BÁO CÁO KIẾN TẬP THỰC TẾ";
+  } else if (normalizedText.includes("định hướng nghề nghiệp") || normalizedText.includes("career orientation") || normalizedText.includes("sl06") || normalizedText.includes("sl07") || normalizedText.includes("el67")) {
+    result.reportTitle = "BÁO CÁO THỰC TẬP ĐỊNH HƯỚNG NGHỀ NGHIỆP 2";
+  } else if (rawTitle) {
+    result.reportTitle = rawTitle.toUpperCase();
+  } else {
+    result.reportTitle = "BÁO CÁO KHÓA LUẬN TỐT NGHIỆP";
+  }
+
+  const lines = content.split(/\r?\n/);
+  for (const line of lines) {
+    const cleanLine = line.replace(/[#*`_\-\[\]()]/g, "").trim();
+
+    // Student Name
+    if (result.studentName.includes("...")) {
+      const match = cleanLine.match(/^(?:Họ\s+tên\s+)?sinh\s+viên(?:\s+thực\s+hiện)?:\s*(.+)$/i);
+      if (match) result.studentName = match[1].trim();
+    }
+    // Student ID
+    if (result.studentId.includes("...")) {
+      const match = cleanLine.match(/^(?:Mã\s+số\s+sinh\s+viên|MSSV):\s*(.+)$/i);
+      if (match) result.studentId = match[1].trim();
+    }
+    // Class
+    if (result.class.includes("...")) {
+      const match = cleanLine.match(/^Lớp:\s*(.+)$/i);
+      if (match) result.class = match[1].trim();
+    }
+    // Advisor
+    if (result.advisor.includes("...")) {
+      const match = cleanLine.match(/^(?:Giảng\s+viên\s+hướng\s+dẫn|Cán\s+bộ\s+hướng\s+dẫn|GVHD):\s*(.+)$/i);
+      if (match) result.advisor = match[1].trim();
+    }
+    // Advisor Role
+    if (result.advisorRole === "Cán bộ hướng dẫn") {
+      const match = cleanLine.match(/^Chức\s+vụ:\s*(.+)$/i);
+      if (match) result.advisorRole = match[1].trim();
+    }
+    // Company
+    if (result.company.includes("...")) {
+      // Use original line to parse so we can easily remove parentheses content
+      const origMatch = line.match(/^(?:Tại\s+đơn\s+vị|Tên\s+công\s+ty|Đơn\s+vị\s+kiến\s+tập|Đơn\s+vị\s+thực\s+tập|Cơ\s+quan\s+thực\s+tập):\s*(.+)$/i);
+      if (origMatch) {
+        let rawCompany = origMatch[1].replace(/[#*`_\-\[\]]/g, "").trim();
+        // Remove parenthesis contents (e.g. English name)
+        rawCompany = rawCompany.replace(/\s*[([].*?[\])]\s*/g, " ").replace(/\s+/g, " ").trim();
+        result.company = rawCompany;
+      }
+    }
+    // Ngày sinh
+    if (result.dob.includes("...")) {
+      const match = cleanLine.match(/^(?:Ngày\s+sinh):\s*(.+)$/i);
+      if (match) result.dob = match[1].trim();
+    }
+    // Ngành đào tạo
+    if (result.major.includes("...")) {
+      const match = cleanLine.match(/^(?:Ngành\s+đào\s+tạo|Ngành):\s*(.+)$/i);
+      if (match) result.major = match[1].trim();
+    }
+    // Thời gian thực tập
+    if (result.internshipDuration.includes("...")) {
+      const match = cleanLine.match(/^(?:Thời\s+gian\s+thực\s+tập|Thời\s+gian\s+thực\s+hiện|Thời\s+gian):\s*(.+)$/i);
+      if (match) result.internshipDuration = match[1].trim();
+    }
+    // Mã course học
+    if (result.courseId.includes("...")) {
+      const match = cleanLine.match(/^(?:Mã\s+course\s+học|Mã\s+course|Mã\s+khóa\s+học):\s*(.+)$/i);
+      if (match) result.courseId = match[1].trim();
+    }
+    // Year
+    const yearMatch = cleanLine.match(/năm\s+(202[4-9])/i);
+    if (yearMatch) {
+      result.year = yearMatch[1].trim();
+    }
+  }
+
+  return result;
+}
+
+function injectCoverPage(content, title = "") {
+  const meta = extractMetadataFromContent(content, title);
+  const isBa49 = meta.reportTitle.toUpperCase().includes("KIẾN TẬP") ||
+    title.toLowerCase().includes("ba49") ||
+    title.toLowerCase().includes("b49") ||
+    content.toLowerCase().includes("ba49") ||
+    content.toLowerCase().includes("b49");
+
+  if (content.includes("TRƯỜNG ĐẠI HỌC MỞ HÀ NỘI") || content.includes("logo-hou.png") || content.includes("[LOGO_HOU]")) {
+    if (isBa49) {
+      if (content.includes("TRUNG TÂM ĐÀO TẠO TRỰC TUYẾN") || !content.includes("VIỆN ĐÀO TẠO VÀ PHÁT TRIỂN HỌC TẬP SUỐT ĐỜI")) {
+        const parts = content.split("[PAGE_BREAK]");
+        const remainingPart = parts.slice(1).join("[PAGE_BREAK]");
+        const coverHtml = `
+<div class="cover-page-container" style="display: flex; flex-direction: column; align-items: center; text-align: center; font-family: 'Times New Roman', Times, serif; min-height: 240mm; box-sizing: border-box; justify-content: space-between; padding: 1.5cm 1cm 1cm 1cm; position: relative;">
+  
+  <div style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+    <div style="font-size: 14pt; font-weight: bold; text-transform: uppercase; line-height: 1.3; margin-bottom: 5px; text-align: center;">
+      TRƯỜNG ĐẠI HỌC MỞ HÀ NỘI
+    </div>
+    <div style="font-size: 13pt; font-weight: bold; text-transform: uppercase; line-height: 1.3; text-align: center; text-decoration: underline;">
+      VIỆN ĐÀO TẠO VÀ PHÁT TRIỂN HỌC TẬP SUỐT ĐỜI
+    </div>
+  </div>
+
+  <div style="margin: 1.5cm 0; display: flex; justify-content: center; align-items: center; width: 100%;">
+    [LOGO_HOU]
+  </div>
+
+  <div style="width: 100%; display: flex; flex-direction: column; align-items: center; margin-bottom: 1.5cm;">
+    <div style="font-size: 18pt; font-weight: bold; text-transform: uppercase; line-height: 1.4; max-width: 90%; text-align: center; margin-bottom: 10px;">
+      ${meta.reportTitle}
+    </div>
+    <div style="font-size: 14pt; font-weight: bold; text-align: center; max-width: 90%;">
+      Tại đơn vị: ${meta.company}
+    </div>
+  </div>
+
+  <table style="width: 85%; margin: 0 auto 2.5cm auto; border-collapse: collapse; border: none; font-size: 13pt; line-height: 2.0; text-align: left;">
+    <tr><td style="width: 35%; padding: 8px; font-weight: bold;">Họ và tên sinh viên:</td><td style="width: 65%; padding: 8px;">${meta.studentName}</td></tr>
+    <tr><td style="padding: 8px; font-weight: bold;">Lớp:</td><td style="padding: 8px;">${meta.class}</td></tr>
+    <tr><td style="padding: 8px; font-weight: bold;">Ngày sinh:</td><td style="padding: 8px;">${meta.dob}</td></tr>
+  </table>
+
+  <div style="width: 100%; text-align: center; font-size: 13pt; font-weight: bold; text-transform: uppercase; margin-top: auto;">
+    NĂM ${meta.year}
+  </div>
+
+</div>
+
+[PAGE_BREAK]
+`;
+        return coverHtml.trim() + "\n\n" + remainingPart.trim();
+      }
+    }
+    return content;
+  }
+  const isCareerOrientation = meta.reportTitle.toUpperCase().includes("ĐỊNH HƯỚNG NGHỀ NGHIỆP") ||
+    title.toLowerCase().includes("định hướng nghề nghiệp") ||
+    content.toLowerCase().includes("định hướng nghề nghiệp");
+
+  let coverHtml = "";
+
+  if (isBa49) {
+    coverHtml = `
+<div class="cover-page-container" style="display: flex; flex-direction: column; align-items: center; text-align: center; font-family: 'Times New Roman', Times, serif; min-height: 240mm; box-sizing: border-box; justify-content: space-between; padding: 1.5cm 1cm 1cm 1cm; position: relative;">
+  
+  <div style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+    <div style="font-size: 14pt; font-weight: bold; text-transform: uppercase; line-height: 1.3; margin-bottom: 5px; text-align: center;">
+      TRƯỜNG ĐẠI HỌC MỞ HÀ NỘI
+    </div>
+    <div style="font-size: 13pt; font-weight: bold; text-transform: uppercase; line-height: 1.3; text-align: center; text-decoration: underline;">
+      VIỆN ĐÀO TẠO VÀ PHÁT TRIỂN HỌC TẬP SUỐT ĐỜI
+    </div>
+  </div>
+
+  <div style="margin: 1.5cm 0; display: flex; justify-content: center; align-items: center; width: 100%;">
+    [LOGO_HOU]
+  </div>
+
+  <div style="width: 100%; display: flex; flex-direction: column; align-items: center; margin-bottom: 1.5cm;">
+    <div style="font-size: 24pt; font-weight: bold; text-transform: uppercase; line-height: 1.4; max-width: 90%; text-align: center; margin-bottom: 10px;">
+      ${meta.reportTitle}
+    </div>
+    <div style="font-size: 14pt; text-align: center; max-width: 90%;">
+      Tại đơn vị: ${meta.company}
+    </div>
+  </div>
+
+  <table style="width: 85%; margin: 0 auto 2.5cm auto; border-collapse: collapse; border: none; font-size: 13pt; line-height: 2.0; text-align: left;">
+    <tr><td style="width: 35%; padding: 8px; font-weight: bold;">Họ và tên sinh viên:</td><td style="width: 65%; padding: 8px;">${meta.studentName}</td></tr>
+    <tr><td style="padding: 8px; font-weight: bold;">Lớp:</td><td style="padding: 8px;">${meta.class}</td></tr>
+    <tr><td style="padding: 8px; font-weight: bold;">Ngày sinh:</td><td style="padding: 8px;">${meta.dob}</td></tr>
+  </table>
+
+  <div style="width: 100%; text-align: center; font-size: 13pt; font-weight: bold; text-transform: uppercase; margin-top: auto;">
+    NĂM ${meta.year}
+  </div>
+
+</div>
+
+[PAGE_BREAK]
+`;
+  } else if (isCareerOrientation) {
+    let subTitle = "THỰC TẬP ĐỊNH HƯỚNG NGHỀ NGHIỆP 2";
+    if (meta.reportTitle.toUpperCase().includes("ĐỊNH HƯỚNG NGHỀ NGHIỆP")) {
+      subTitle = meta.reportTitle.toUpperCase()
+        .replace(/^BÁO CÁO\s+/i, "")
+        .replace(/^HỌC PHẦN\s+/i, "");
+    }
+    coverHtml = `
+<div class="cover-page-container" style="display: flex; flex-direction: column; align-items: center; text-align: center; font-family: 'Times New Roman', Times, serif; min-height: 240mm; box-sizing: border-box; justify-content: space-between; padding: 1.5cm 1cm 1cm 1cm; position: relative;">
+  
+  <div style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+    <div style="font-size: 14pt; font-weight: bold; text-transform: uppercase; line-height: 1.3; margin-bottom: 5px; text-align: center;">
+      TRƯỜNG ĐẠI HỌC MỞ HÀ NỘI
+    </div>
+    <div style="font-size: 13pt; font-weight: bold; text-transform: uppercase; line-height: 1.3; text-align: center;">
+      VIỆN ĐT & PT HỌC TẬP SUỐT ĐỜI
+    </div>
+    <div style="width: 120px; height: 1px; background-color: #000; margin: 8px auto 0 auto;"></div>
+  </div>
+
+  <div style="margin: 1.5cm 0; display: flex; justify-content: center; align-items: center; width: 100%;">
+    [LOGO_HOU]
+  </div>
+
+  <div style="width: 100%; display: flex; flex-direction: column; align-items: center; margin-bottom: 1.5cm;">
+    <div style="font-size: 16pt; font-weight: bold; text-transform: uppercase; line-height: 1.4; max-width: 90%; text-align: center; margin-bottom: 5px;">
+      BÁO CÁO THỰC TẬP
+    </div>
+    <div style="font-size: 16pt; font-weight: bold; text-transform: uppercase; line-height: 1.4; max-width: 90%; text-align: center; margin-bottom: 5px;">
+      HỌC PHẦN
+    </div>
+    <div style="font-size: 16pt; font-weight: bold; text-transform: uppercase; line-height: 1.4; max-width: 90%; text-align: center; margin-bottom: 10px;">
+      ${subTitle}
+    </div>
+  </div>
+
+  <div style="width: 85%; margin: 0 auto 2.5cm 15%; text-align: left; font-size: 13pt; line-height: 2.0; display: flex; flex-direction: column; align-items: flex-start;">
+    <div style="text-indent: 0; text-align: left; margin: 4px 0;"><strong style="display: inline-block; width: 220px;">Cán bộ hướng dẫn:</strong> ${meta.advisor}</div>
+    <div style="text-indent: 0; text-align: left; margin: 4px 0;"><strong style="display: inline-block; width: 220px;">Sinh viên thực hiện:</strong> ${meta.studentName}</div>
+    <div style="text-indent: 0; text-align: left; margin: 4px 0;"><strong style="display: inline-block; width: 220px;">Ngày sinh:</strong> ${meta.dob}</div>
+    <div style="text-indent: 0; text-align: left; margin: 4px 0;"><strong style="display: inline-block; width: 220px;">Lớp:</strong> ${meta.class}</div>
+    <div style="text-indent: 0; text-align: left; margin: 4px 0;"><strong style="display: inline-block; width: 220px;">Ngành đào tạo:</strong> ${meta.major}</div>
+    <div style="text-indent: 0; text-align: left; margin: 4px 0;"><strong style="display: inline-block; width: 220px;">Thời gian thực tập:</strong> ${meta.internshipDuration}</div>
+    <div style="text-indent: 0; text-align: left; margin: 4px 0;"><strong style="display: inline-block; width: 220px;">Mã course học:</strong> ${meta.courseId}</div>
+  </div>
+
+  <div style="width: 100%; text-align: center; font-size: 13pt; font-weight: bold; text-transform: uppercase; margin-top: auto;">
+    NĂM ${meta.year}
+  </div>
+
+</div>
+
+[PAGE_BREAK]
+`;
+  } else {
+    coverHtml = `
+<div class="cover-page-container" style="display: flex; flex-direction: column; align-items: center; text-align: center; font-family: 'Times New Roman', Times, serif; min-height: 240mm; box-sizing: border-box; justify-content: space-between; padding: 1.5cm 1cm 1cm 1cm; position: relative;">
+  
+  <div style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+    <div style="font-size: 14pt; font-weight: bold; text-transform: uppercase; line-height: 1.3; margin-bottom: 5px; text-align: center;">
+      TRƯỜNG ĐẠI HỌC MỞ HÀ NỘI
+    </div>
+    <div style="font-size: 13pt; font-weight: bold; text-transform: uppercase; line-height: 1.3; text-align: center;">
+      TRUNG TÂM ĐÀO TẠO TRỰC TUYẾN
+    </div>
+    <div style="width: 120px; height: 1px; background-color: #000; margin: 8px auto 0 auto;"></div>
+  </div>
+
+  <div style="margin: 2cm 0; display: flex; justify-content: center; align-items: center; width: 100%;">
+    [LOGO_HOU]
+  </div>
+
+  <div style="width: 100%; display: flex; flex-direction: column; align-items: center; margin-bottom: 2cm;">
+    <div style="font-size: 18pt; font-weight: bold; text-transform: uppercase; line-height: 1.4; max-width: 90%; text-align: center; margin-bottom: 10px;">
+      ${meta.reportTitle}
+    </div>
+    <div style="font-size: 14pt; font-weight: bold; font-style: italic; text-align: center; max-width: 90%;">
+      Tại đơn vị: ${meta.company}
+    </div>
+  </div>
+
+  <div style="width: 85%; margin: 0 auto 3cm 15%; text-align: left; font-size: 13pt; line-height: 2.0; display: flex; flex-direction: column; align-items: flex-start;">
+    <div style="text-indent: 0; text-align: left; margin: 4px 0;"><strong style="display: inline-block; width: 220px;">Họ tên cán bộ hướng dẫn:</strong> ${meta.advisor}</div>
+    <div style="text-indent: 0; text-align: left; margin: 4px 0;"><strong style="display: inline-block; width: 220px;">Chức vụ:</strong> ${meta.advisorRole}</div>
+    <div style="text-indent: 0; text-align: left; margin: 4px 0;"><strong style="display: inline-block; width: 220px;">Họ tên sinh viên:</strong> ${meta.studentName}</div>
+    <div style="text-indent: 0; text-align: left; margin: 4px 0;"><strong style="display: inline-block; width: 220px;">Lớp:</strong> ${meta.class}</div>
+  </div>
+
+  <div style="width: 100%; text-align: center; font-size: 13pt; font-weight: bold; text-transform: uppercase; margin-top: auto;">
+    HÀ NỘI, NĂM ${meta.year}
+  </div>
+
+</div>
+
+[PAGE_BREAK]
+`;
+  }
+
+  const hasAbbreviation = /\b(?:DANH MỤC TỪ VIẾT TẮT|DANH MUC TU VIET TAT|TU VIET TAT|TỪ VIẾT TẮT)\b/i.test(content);
+  let finalContent = content;
+  if (!hasAbbreviation) {
+    const abbreviationTable = [
+      "<center>",
+      "",
+      "## DANH MỤC TỪ VIẾT TẮT",
+      "",
+      "</center>",
+      "",
+      "| Từ viết tắt | Chữ viết đầy đủ (Tiếng Việt) | Chữ viết đầy đủ (Tiếng Anh) |",
+      "|---|---|---|",
+      ...Array.from({ length: 20 }, () => "| &nbsp; | &nbsp; | &nbsp; |"),
+      "",
+      "[PAGE_BREAK]",
+      ""
+    ].join("\n");
+    finalContent = abbreviationTable + content;
+  }
+
+  return coverHtml.trim() + "\n\n" + finalContent;
+}
+
+function stripTrailingProseAfterSignature(content, title = "") {
+  if (!content) return "";
+  const lines = textValue(content).split(/\r?\n/);
+  const cleanLines = [];
+  let seen43Signature = false;
+  let stopKeeping = false;
+  let in43 = /4\.3\b/i.test(title) || /d[áâ]nh\s+gi[áa]|danh\s+gia/i.test(title);
+
+  for (let line of lines) {
+    const trimmed = line.trim();
+
+    // Check if we entered section 4.3 in the content text
+    if (/^\s*(?:#{1,6}\s*)?4\.3\b/i.test(trimmed) || /d[áâ]nh\s+gi[áa]|danh\s+gia/i.test(trimmed)) {
+      in43 = true;
+    }
+
+    // Look for the signature table in 4.3 directly
+    if (in43 && trimmed.startsWith("|") && /c[áâ]n\s+b[ộo]\s+h[ưúu]ớng\s+dẫn|c[áâ]n\s+b[ộo]\s+huong\s+dan/i.test(trimmed)) {
+      seen43Signature = true;
+    }
+
+    // If we've seen the signature block, we stop keeping lines as soon as the table ends
+    if (seen43Signature) {
+      if (!trimmed.startsWith("|") && trimmed !== "") {
+        // If we hit a new major section heading, we can resume keeping lines
+        if (trimmed.startsWith("#")) {
+          seen43Signature = false;
+          stopKeeping = false;
+          in43 = false;
+        } else {
+          stopKeeping = true;
+        }
+      }
+    }
+
+    if (!stopKeeping) {
+      cleanLines.push(line);
+    }
+  }
+  return cleanLines.join("\n");
+}
+
+function shouldExcludeReferences(title = "", content = "") {
+  const normalizedText = String((title || "") + " " + (content || "")).toLowerCase();
+  return (
+    normalizedText.includes("ba49") ||
+    normalizedText.includes("b49") ||
+    normalizedText.includes("kiến tập") ||
+    normalizedText.includes("định hướng nghề nghiệp") ||
+    normalizedText.includes("career orientation") ||
+    normalizedText.includes("sl06") ||
+    normalizedText.includes("sl07") ||
+    normalizedText.includes("el67")
+  );
+}
+
+function generateEvaluationForm(meta) {
+  const majorText = meta.major && !meta.major.includes("...") ? meta.major : "Quản trị kinh doanh";
+  const courseText = meta.courseId && !meta.courseId.includes("...") ? meta.courseId : "Trung tâm Đào tạo trực tuyến - Trường Đại học Mở Hà Nội";
+  const durationText = meta.internshipDuration && !meta.internshipDuration.includes("...") ? meta.internshipDuration : "Từ ngày 01 tháng 06 năm 2026 đến ngày 30 tháng 06 năm 2026";
+  const yearText = "2026";
+
+  return `[PAGE_BREAK]
+
+<center>
+
+**CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM**
+**Độc lập - Tự do - Hạnh phúc**
+**---------------***---------------**
+
+</center>
+
+<center>
+
+## NHẬN XÉT KIẾN TẬP
+
+</center>
+
+Họ và tên sinh viên: ${meta.studentName}
+Ngày sinh: ${meta.dob}
+Lớp: ${meta.class}
+Ngành đào tạo: ${majorText}
+Đơn vị đào tạo: ${courseText}
+Kiến tập tại: ${meta.company}
+Địa chỉ: ............................................................................
+Người hướng dẫn kiến tập: ${meta.advisor}
+Chức vụ: ${meta.advisorRole}
+SĐT: ........................................
+Thời gian kiến tập: ${durationText}
+
+**1-Các nội dung kiến tập:**
+......................................................................................................................................................
+......................................................................................................................................................
+......................................................................................................................................................
+
+**2-Tinh thần, thái độ, ý thức kiến tập:**
+......................................................................................................................................................
+......................................................................................................................................................
+......................................................................................................................................................
+
+| | |
+| :--- | :--- |
+| | ......, ngày    tháng   năm ${yearText} |
+| **Cán bộ hướng dẫn Kiến tập** | **Xác nhận của đơn vị kiến tập** |
+| *(Kí tên và ghi rõ họ tên)* | *(Kí tên, đóng dấu và ghi rõ họ tên)* |
+`;
+}
+
+function getReportTitleWithDownloadCounter() {
+  if (typeof window === "undefined") return "Báo cáo hoàn chỉnh";
+  try {
+    const now = new Date();
+    const dateKey = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, '0') + "-" + String(now.getDate()).padStart(2, '0');
+    const countKey = `report_download_count_${dateKey}`;
+    let count = parseInt(localStorage.getItem(countKey) || "0", 10);
+    if (count === 0) {
+      count = 1;
+      localStorage.setItem(countKey, "1");
+    }
+    const dd = String(now.getDate()).padStart(2, '0');
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const yyyy = now.getFullYear();
+    return `bc_${count}_${dd}_${mm}_${yyyy}`;
+  } catch (e) {
+    const now = new Date();
+    return `bc_1_${String(now.getDate()).padStart(2, '0')}_${String(now.getMonth() + 1).padStart(2, '0')}_${now.getFullYear()}`;
+  }
+}
+
+function prepareReportContent(content, title = "", isDocx = false) {
+  if (!content) return "";
+  let cleanedContent = stripTrailingProseAfterSignature(content, title);
+  cleanedContent = cleanedContent.replace(/\|\s*([^|]*?xác\s+nhận\s+của\s+cơ\s+quan[^|]*?)\s*\|/gi, "| **XÁC NHẬN CỦA CƠ QUAN**<br>*(Kí tên và đóng dấu)* |");
+
+  if (shouldExcludeReferences(title, content)) {
+    cleanedContent = cleanedContent.replace(/\[PAGE_BREAK\]\s*(?:#+\s*(?:danh\s+mục\s+)?tài\s+liệu\s+tham\s+khảo[\s\S]*)$/i, "");
+    cleanedContent = cleanedContent.replace(/(?:#+\s*(?:danh\s+mục\s+)?tài\s+liệu\s+tham\s+khảo[\s\S]*)$/i, "");
+  }
+
+  const isBa49 = title.toLowerCase().includes("ba49") ||
+    title.toLowerCase().includes("b49") ||
+    title.toLowerCase().includes("kiến tập") ||
+    content.toLowerCase().includes("ba49") ||
+    content.toLowerCase().includes("b49") ||
+    content.toLowerCase().includes("kiến tập");
+
+  // Remove lines that literally say "no text", "[no text]", etc. or contain only non-alphanumeric formatting symbols, or are completely empty
+  cleanedContent = cleanedContent
+    .split(/\r?\n/)
+    .filter((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return !isDocx; // Keep empty lines only if NOT docx!
+
+      // Keep markdown table lines (starts and ends with '|')
+      if (trimmed.startsWith("|") && trimmed.endsWith("|")) return true;
+
+      // Keep markdown code blocks (starts with ```)
+      if (trimmed.startsWith("```")) return true;
+
+      // If it is a valid horizontal rule, keep it
+      if (/^[-*_]{3,}$/.test(trimmed)) return true;
+
+      const cleanLine = trimmed
+        .replace(/^[-*+•#\s|]+|[-*+•\s|]+$/g, "")
+        .replace(/[\[\]()]/g, "")
+        .trim();
+
+      // Check if the cleaned line has any alphanumeric characters (Vietnamese included)
+      const hasAlphanumeric = /[a-zA-Z0-9\u00C0-\u1EF9]/u.test(cleanLine);
+      if (!hasAlphanumeric) {
+        return false; // Remove line with no alphanumeric content (e.g. lone '|', '-', etc.)
+      }
+
+      const lower = cleanLine.toLowerCase();
+      return lower !== "no text" &&
+        lower !== "no_text" &&
+        lower !== "notext" &&
+        lower !== "no content" &&
+        lower !== "no_content" &&
+        lower !== "nocontent";
+    })
+    .map((line) => {
+      const trimmed = line.trim();
+
+      // Strip bold markers inside Heading 3 (###) to keep it strictly italic
+      if (trimmed.startsWith("###")) {
+        return line.replace(/\*\*/g, "");
+      }
+
+      // Check for table captions (e.g., "Bảng 1.1:...", "Bảng 1:...") -> Bold
+      if (/^\s*(?:Bảng|BẢNG)\s+\d+(?:\.\d+)*[:.-]?\s+\S/i.test(trimmed)) {
+        const cleanText = trimmed.replace(/^\*\*|\*\*$/g, "").trim();
+        return `**${cleanText}**`;
+      }
+
+      // Check for image/chart captions (e.g., "Hình 1.1:...", "Hình 1:...", "Sơ đồ 1.1:...", "Biểu đồ 1.1:...") -> Italic
+      if (/^\s*(?:Hình|HÌNH|Sơ đồ|SƠ ĐỒ|Biểu đồ|BIỂU ĐỒ)\s+\d+(?:\.\d+)*[:.-]?\s+\S/i.test(trimmed)) {
+        const cleanText = trimmed.replace(/^\*|\*$/g, "").replace(/^\*\*|\*\*$/g, "").trim();
+        return `*${cleanText}*`;
+      }
+
+      // Normalize paragraph indentation: convert combinations of tabs and spaces to a single tab
+      const isHeader = trimmed.startsWith("#");
+      const isList = /^(?:[-*•+]|\d+[.)])\s/.test(trimmed);
+      const isTable = trimmed.startsWith("|");
+      const isCode = trimmed.startsWith("```");
+      const isPageBreak = trimmed.toUpperCase() === "[PAGE_BREAK]";
+      const isHtml = trimmed.startsWith("<");
+
+      if (isHtml) {
+        return trimmed;
+      }
+
+      if (!isHeader && !isList && !isTable && !isCode && !isPageBreak && !isHtml && trimmed) {
+        if (/^[\t ]+/.test(line)) {
+          return line.replace(/^[\t ]+/, "\t");
+        }
+      }
+
+      return line;
+    })
+    .join("\n");
+
+  if (isBa49 && !cleanedContent.includes("NHẬN XÉT KIẾN TẬP")) {
+    const meta = extractMetadataFromContent(content, title);
+    cleanedContent = cleanedContent.trim() + "\n" + generateEvaluationForm(meta);
+  }
+
+  const contentWithCover = injectCoverPage(cleanedContent, title);
+  let finalContent = ensurePageBreakBeforeReferences(
     ensurePageBreakBeforeConclusion(
       removePageBreaksAfterHeadingOnly(
-        normalizeMajorHeadingLevels(
-          mergeDuplicateReferenceSections(
-            stripDuplicateAdjacentDisplayLines(
-              stripStandaloneSeparatorLines(stripSupabaseReportLinks(content)),
+        normalizeNumberedHeadingLevels(
+          normalizeMajorHeadingLevels(
+            mergeDuplicateReferenceSections(
+              stripDuplicateAdjacentDisplayLines(
+                stripStandaloneSeparatorLines(stripSupabaseReportLinks(contentWithCover)),
+              ),
             ),
           ),
         ),
       ),
     ),
   );
+
+  if (isDocx) {
+    return finalContent.replace(/\n+/g, "\n");
+  }
+
+  finalContent = finalContent.replace(/\n{2,}/g, "\n\n");
+
+  // Dynamically restore/insert a blank line before and after tables
+  const lines = finalContent.split("\n");
+  const processedLines = [];
+  for (let i = 0; i < lines.length; i++) {
+    const current = lines[i];
+    const prev = lines[i - 1];
+
+    if (current.trim().startsWith("|") && current.trim().endsWith("|")) {
+      if (prev !== undefined && !(prev.trim().startsWith("|") && prev.trim().endsWith("|")) && prev.trim() !== "") {
+        processedLines.push("");
+      }
+    }
+
+    processedLines.push(current);
+
+    const next = lines[i + 1];
+    if (current.trim().startsWith("|") && current.trim().endsWith("|")) {
+      if (next !== undefined && !(next.trim().startsWith("|") && next.trim().endsWith("|")) && next.trim() !== "") {
+        processedLines.push("");
+      }
+    }
+  }
+  return processedLines.join("\n");
+}
+
+function isB49OpeningSection(section) {
+  const reportContext = section?.reportContext || null;
+  if (!reportContext?.internshipReport && !reportContext?.careerOrientationReport) return false;
+  const normalizedTitle = normalizeForMatch(String(section?.title || ""));
+  return /^\s*(?:loi mo dau|phan mo dau|mo dau|i phan mo dau)\b/.test(normalizedTitle);
+}
+
+// Only internship B49 opening sections need preamble stripping;
+// career orientation "I. PHẦN MỞ ĐẦU" has real content (1.1, 1.2, 1.3 subsections).
+function isB49InternshipOpeningSection(section) {
+  const reportContext = section?.reportContext || null;
+  if (!reportContext?.internshipReport) return false;
+  const normalizedTitle = normalizeForMatch(String(section?.title || ""));
+  return /^\s*(?:loi mo dau|phan mo dau|mo dau|i phan mo dau)\b/.test(normalizedTitle);
+}
+
+function stripB49OpeningPreamble(content) {
+  const lines = textValue(content).split(/\r?\n/);
+  const firstSubsectionIdx = lines.findIndex((line) =>
+    /^\s*(?:#{1,6}\s*)?\d+(?:\.\d+)+\.?\s+\S/.test(line.trim()),
+  );
+
+  if (firstSubsectionIdx < 0) return "";
+  return lines.slice(firstSubsectionIdx).join("\n").trim();
 }
 
 function isHeadingOnlyReportBlock(block) {
@@ -991,10 +2006,10 @@ function paginateReportContent(content, charsPerPage = 5000) {
   return pages.length > 0 ? pages : [""];
 }
 
-function prepareReportContentForDocx(content) {
+function prepareReportContentForDocx(content, title = "") {
   // Inject page breaks before major sections (chapters) for DOCX export
   const withPageBreaks = injectSectionPageBreaks(content);
-  return prepareReportContent(withPageBreaks);
+  return prepareReportContent(withPageBreaks, title, true);
 }
 
 function normalizeMarkdownTables(content) {
@@ -1053,6 +2068,167 @@ function readTextFile(file) {
     reader.onerror = () => resolve(null);
     reader.readAsText(file);
   });
+}
+
+const ATTACHMENT_TEXT_EXT_RE =
+  /\.(txt|json|csv|md|js|ts|tsx|jsx|py|html|css|yaml|yml|xml|sh|log|ini|toml|env)$/i;
+
+function isImageAttachment(file) {
+  return String(file?.type || "").startsWith("image/");
+}
+
+function isPdfAttachment(file) {
+  return (
+    /\.pdf$/i.test(String(file?.name || "")) ||
+    String(file?.type || "").toLowerCase() === "application/pdf"
+  );
+}
+
+function isDocxAttachment(file) {
+  return (
+    /\.docx$/i.test(String(file?.name || "")) ||
+    String(file?.type || "").toLowerCase() ===
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  );
+}
+
+function isTextAttachment(file) {
+  return (
+    String(file?.type || "").startsWith("text/") ||
+    ATTACHMENT_TEXT_EXT_RE.test(String(file?.name || ""))
+  );
+}
+
+async function fileFromAttachmentMeta(file) {
+  if (file?.file instanceof File || file?.file instanceof Blob) {
+    return file.file;
+  }
+
+  if (!file?.url) return null;
+  const response = await fetch(file.url);
+  if (!response.ok) {
+    throw new Error(`Không thể tải nội dung tệp (${response.status})`);
+  }
+
+  const blob = await response.blob();
+  return new File([blob], file.name || "attachment", {
+    type: file.type || blob.type || "",
+  });
+}
+
+async function extractAttachmentContent(file) {
+  if (!file || isImageAttachment(file)) {
+    return { content: "", pageCount: 0 };
+  }
+
+  const sourceFile = await fileFromAttachmentMeta(file);
+  if (!sourceFile) {
+    return { content: "", pageCount: 0 };
+  }
+
+  if (isPdfAttachment(file) || String(sourceFile.type || "").includes("pdf")) {
+    const result = await parsePdfText(sourceFile);
+    return { content: result.text || "", pageCount: result.pageCount || 0 };
+  }
+
+  if (isDocxAttachment(file)) {
+    const result = await parseDocxText(sourceFile);
+    return { content: result.text || "", pageCount: result.pageCount || 0 };
+  }
+
+  if (isTextAttachment(file) || String(sourceFile.type || "").startsWith("text/")) {
+    if (typeof sourceFile.text === "function") {
+      return { content: (await sourceFile.text()) || "", pageCount: 1 };
+    }
+    const content = await readTextFile(sourceFile);
+    return { content: content || "", pageCount: 1 };
+  }
+
+  return { content: "", pageCount: 0 };
+}
+
+async function buildSerializedAttachments(files) {
+  const list = Array.isArray(files) ? files : [];
+  const serialized = await Promise.all(
+    list.map(async (file) => {
+      const base = {
+        name: file.name,
+        type: file.type,
+        size: file.size,
+      };
+
+      if (isImageAttachment(file)) {
+        return file.url ? { ...base, url: file.url } : base;
+      }
+
+      try {
+        const extracted = await extractAttachmentContent(file);
+        return {
+          ...base,
+          content: extracted.content || "",
+          pageCount: extracted.pageCount || 0,
+        };
+      } catch (err) {
+        console.error("Error extracting attachment content:", file.name, err);
+        return base;
+      }
+    }),
+  );
+
+  return serialized;
+}
+
+async function buildContentWithAttachments(baseText, files) {
+  const list = Array.isArray(files) ? files : [];
+  const imageFiles = list.filter(isImageAttachment);
+  const nonImageFiles = list.filter((file) => !isImageAttachment(file));
+
+  let finalContent = String(baseText || "");
+
+  if (imageFiles.length > 1) {
+    const multiImageInstruction = `[HƯỚNG DẪN ĐỌC NHIỀU ẢNH: Bạn đang nhận được ${imageFiles.length} ảnh. Hãy:
+1. ĐỌC toàn bộ nội dung từ tất cả ${imageFiles.length} ảnh trước khi trả lời.
+2. Xác định các câu hỏi riêng lẻ: mỗi câu được đánh số (câu 1, câu 2...) hoặc phân tách bằng ký hiệu.
+3. Ghép lại các câu bị cắt nửa giữa 2 ảnh: nếu một câu bắt đầu ở ảnh này và tiếp tục sang ảnh khác, hãy ghép chúng lại thành một câu hoàn chỉnh trước khi giải.
+4. Sắp xếp đúng thứ tự: theo số câu tăng dần (câu 1, câu 2, câu 3...) bất kể câu nằm ở ảnh nào.
+5. Trả lời từng câu đầy đủ, không bỏ sót câu nào.]
+
+`;
+    finalContent = `${multiImageInstruction}${finalContent ? `\n${finalContent}` : ""}`;
+  }
+
+  if (nonImageFiles.length > 0) {
+    finalContent += "\n\n--- TÀI LIỆU ĐÍNH KÈM ---";
+    for (const file of nonImageFiles) {
+      let content = String(file?.content || "").trim();
+      if (!content) {
+        try {
+          const extracted = await extractAttachmentContent(file);
+          content = String(extracted.content || "").trim();
+        } catch (err) {
+          console.error("Error re-extracting attachment content:", file?.name, err);
+        }
+      }
+
+      finalContent += `\n[${file?.name || "attachment"}]`;
+      if (content) {
+        finalContent += `\n${content}`;
+      }
+    }
+    finalContent += "\n------------------------";
+  }
+
+  if (imageFiles.length === 0) {
+    return finalContent;
+  }
+
+  const parts = [{ type: "text", text: finalContent }];
+  for (const img of imageFiles) {
+    if (img?.url) {
+      parts.push({ type: "image_url", image_url: { url: img.url } });
+    }
+  }
+  return parts;
 }
 
 function removeVietnameseTones(str) {
@@ -1123,19 +2299,30 @@ function printReportDoc(title, htmlContent) {
     "color: #000;" +
     "}" +
     "h1 { text-align: center; text-transform: uppercase; font-size: 1.75em; margin-bottom: 1.2em; }" +
-    "h2 { font-size: 1.4em; margin-top: 1.2em; }" +
-    "h3 { font-size: 1.2em; margin-top: 1em; }" +
+    "h2, h3, h4 { font-size: 13pt; line-height: 1.5; margin-top: 1.2em; margin-bottom: 0.6em; }" +
+    "h2, h4 { font-weight: bold; }" +
+    "h3 { font-weight: normal; font-style: italic; }" +
     ".report-view > p { text-align: justify; text-indent: 1.25cm; margin: 0.8em 0; }" +
     ".report-view > p:has(> strong:first-child) { text-indent: 0; }" +
     "li p { text-indent: 0; margin: 0; }" +
-    "table { width: 100%; border-collapse: collapse; margin: 1.2em 0; }" +
-    "th, td { border: 1px solid #000; padding: 8px 12px; }" +
+    "table:not(.borderless) { width: 100%; border-collapse: collapse; margin: 1.2em 0; }" +
+    "table:not(.borderless) th, table:not(.borderless) td { border: 1px solid #000; padding: 8px 12px; }" +
+    "table.borderless { width: 100%; border-collapse: collapse; margin: 1.2em 0; border: none; }" +
+    "table.borderless th, table.borderless td { border: none; padding: 8px 12px; background: transparent !important; background-color: transparent !important; }" +
+    "table.borderless th { background: transparent !important; background-color: transparent !important; }" +
     "th { font-weight: bold; background-color: #f2f2f2; }" +
     "</style>" +
     "</head>" +
     "<body>" +
     '<div class="report-view">' +
-    htmlContent +
+    htmlContent.replace(/<table>/g, (match, offset, string) => {
+      const tableEnd = htmlContent.indexOf("</table>", offset);
+      const tableContent = htmlContent.slice(offset, tableEnd);
+      if (isSignatureTable(tableContent)) {
+        return '<table class="borderless">';
+      }
+      return '<table>';
+    }) +
     "</div>" +
     "</body>" +
     "</html>",
@@ -1165,7 +2352,6 @@ function escXml(s) {
     .replace(/>/g, "&gt;");
 }
 
-// Convert inline markdown to OOXML runs (bold, italic, bold-italic)
 function toRuns(text) {
   if (!text) return "";
   // Split on ***bold-italic***, **bold**, *italic*
@@ -1201,25 +2387,66 @@ function preprocessForDocx(content) {
       })
       .join("\n"),
   );
-  // <br> / <br/> → blank line
-  text = text.replace(/<br\s*\/?>/gi, "\n");
+  // Replace <br> / <br/> with newline, except when they are within table rows.
+  // To do this simply, we replace <br> with a temporary token if they are inside `|` lines,
+  // then do the normal replace, then restore them inside cell strings before table split.
+  text = text.split("\n").map(line => {
+    if (line.trim().startsWith("|")) {
+      return line.replace(/<br\s*\/?>/gi, "DOCXCELLBREAKTOKEN");
+    }
+    return line.replace(/<br\s*\/?>/gi, "\n");
+  }).join("\n");
+
   // <hr> is removed so DOCX matches preview/copy output
   text = text.replace(/<hr\s*\/?>/gi, "\n");
   // strip all remaining HTML tags
   text = text.replace(/<(?:\/?[a-zA-Z][a-zA-Z0-9]*)\b[^>]*>/g, "");
   // collapse 3+ blank lines to 2
   text = text.replace(/\n{3,}/g, "\n\n");
+  // Remove blank lines immediately before or after [PAGE_BREAK] to prevent empty pages in Word
+  text = text.replace(/\n+(?=\s*\[PAGE_BREAK\])/gi, "\n");
+  text = text.replace(/(?<=\[PAGE_BREAK\])\s*\n+/gi, "\n");
+  // Collapse consecutive [PAGE_BREAK] markers (possibly separated by whitespace/newlines) into one
+  text = text.replace(/(\[PAGE_BREAK\](\s*\n)*\s*)+\[PAGE_BREAK\]/gi, "[PAGE_BREAK]");
   return text;
 }
 
+// Returns true ONLY for real signature/approval tables (BA49 NHAN XET KIEN TAP sign-off block).
+// Must contain BOTH a role keyword AND a sign-action keyword to avoid false positives on data tables.
+function isSignatureTable(tableTextContent) {
+  const raw = String(tableTextContent || "").toLowerCase();
+  // Normalize Vietnamese diacritics for robust matching
+  const norm = raw
+    .replace(/[\u00e0\u00e1\u1ea1\u1ea3\u00e3\u00e2\u1ea7\u1ea5\u1ead\u1ea9\u1eab\u0103\u1eb1\u1eaf\u1eb7\u1eb3\u1eb5]/g, "a")
+    .replace(/[\u00e8\u00e9\u1eb9\u1ebb\u1ebd\u00ea\u1ec1\u1ebf\u1ec7\u1ec3\u1ec5]/g, "e")
+    .replace(/[\u00ec\u00ed\u1ecb\u1ec9\u0129]/g, "i")
+    .replace(/[\u00f2\u00f3\u1ecd\u1ecf\u00f5\u00f4\u1ed3\u1ed1\u1ed9\u1ed5\u1ed7\u01a1\u1edd\u1edb\u1ee3\u1edf\u1ee1]/g, "o")
+    .replace(/[\u00f9\u00fa\u1ee5\u1ee7\u0169\u01b0\u1eeb\u1ee9\u1ef1\u1eed\u1eef]/g, "u")
+    .replace(/[\u1ef3\u00fd\u1ef5\u1ef7\u1ef9]/g, "y")
+    .replace(/\u0111/g, "d");
+  // Must have a sign action (kí tên / ký tên / chữ ký / đóng dấu / kí và ghi rõ họ tên / ký và ghi rõ họ tên)
+  const hasSignAction = /(?:ky|ki)\s+ten|dong\s+dau|chu\s+(?:ky|ki)|ki\s+va\s+ghi\s+ro|ky\s+va\s+ghi\s+ro/.test(norm);
+  // Must have an authority/role keyword (xác nhận, cán bộ hướng dẫn, cbhd, cơ quan, vv.)
+  const hasAuthRole = /xac\s+nhan|can\s+bo\s+huong\s+dan|nguoi\s+huong\s+dan|don\s+vi\s+kien\s+tap|cbhd|nguoi\s+xac\s+nhan|co\s+quan|giang\s+vien|can\s+bo|chuc\s+vu|co\s+quan\s+thuc\s+tap/.test(norm);
+  return hasSignAction && hasAuthRole;
+}
 // Render collected table rows as a proper OOXML <w:tbl> element
 function tableRowsToOoxml(rows) {
   if (!rows.length) return "";
   const colCount = Math.max(...rows.map((r) => r.length), 1);
-  const colWidth = Math.floor(8640 / colCount);
-  const bdr = `w:val="single" w:sz="4" w:space="0" w:color="000000"`;
+  const colWidth = Math.floor(9071 / colCount);
+
+  // Use isSignatureTable() which requires BOTH a sign action AND authority role keyword
+  const isBorderless = isSignatureTable(rows.flat().join(" "));
+
+  const bdrVal = isBorderless ? "nil" : "single";
+  const bdrColor = isBorderless ? "auto" : "000000";
+  const bdrSz = isBorderless ? "0" : "4";
+  const bdr = `w:val="${bdrVal}" w:sz="${bdrSz}" w:space="0" w:color="${bdrColor}"`;
+
   let xml = `<w:tbl><w:tblPr>
-    <w:tblW w:w="0" w:type="auto"/>
+    <w:tblW w:w="9071" w:type="dxa"/>
+    <w:jc w:val="center"/>
     <w:tblBorders>
       <w:top ${bdr}/><w:left ${bdr}/><w:bottom ${bdr}/>
       <w:right ${bdr}/><w:insideH ${bdr}/><w:insideV ${bdr}/>
@@ -1233,13 +2460,22 @@ function tableRowsToOoxml(rows) {
     const isHeader = rowIdx === 0;
     xml += `<w:tr>`;
     for (let c = 0; c < colCount; c++) {
-      const cellText = row[c] || "";
-      xml += `<w:tc><w:tcPr><w:tcW w:w="${colWidth}" w:type="dxa"/>${isHeader ? '<w:shd w:val="clear" w:color="auto" w:fill="E8E8E8"/>' : ""
-        }</w:tcPr><w:p><w:pPr><w:spacing w:after="0" w:line="276" w:lineRule="auto"/>${isHeader ? '<w:jc w:val="center"/>' : ""
-        }</w:pPr>${isHeader
-          ? `<w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">${escXml(cellText.replace(/\*\*/g, ""))}</w:t></w:r>`
-          : toRuns(cellText)
-        }</w:p></w:tc>`;
+      let cellText = row[c] || "";
+      // Restore cell breaks and split into paragraphs
+      cellText = cellText.replace(/DOCXCELLBREAKTOKEN/g, "\n");
+      const cellParagraphs = cellText.split("\n").map(p => p.trim());
+
+      xml += `<w:tc><w:tcPr><w:tcW w:w="${colWidth}" w:type="dxa"/>${(isHeader && !isBorderless) ? '<w:shd w:val="clear" w:color="auto" w:fill="E8E8E8"/>' : ""}</w:tcPr>`;
+
+      cellParagraphs.forEach(paraText => {
+        const alignCenter = isHeader || isBorderless;
+        xml += `<w:p><w:pPr><w:spacing w:after="0" w:line="276" w:lineRule="auto"/>${alignCenter ? '<w:jc w:val="center"/>' : ""}</w:pPr>${isHeader
+          ? `<w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">${escXml(paraText.replace(/\*\*/g, ""))}</w:t></w:r>`
+          : toRuns(paraText)
+          }</w:p>`;
+      });
+
+      xml += `</w:tc>`;
     }
     xml += `</w:tr>`;
   });
@@ -1247,32 +2483,267 @@ function tableRowsToOoxml(rows) {
   return xml;
 }
 
+// Generate structured OOXML for the cover page (from raw text lines or stripped HTML)
+function generateCoverPageOoxmlFromLines(coverPart, logoActuallyExists = false) {
+  let text = coverPart;
+
+  // Mark logo token
+  text = text.replace(/\[LOGO_HOU\]/gi, "LOGOTOKENHOU");
+  text = text.replace(/<img[^>]*logo-hou\.png[^>]*>/gi, "LOGOTOKENHOU");
+  text = text.replace(/logo-hou\.png/gi, "LOGOTOKENHOU");
+
+  // Strip all other HTML tags
+  text = text.replace(/<(?:\/?[a-zA-Z][a-zA-Z0-9]*)\b[^>]*>/g, "");
+
+  // Strip markdown formatting symbols
+  text = text.replace(/[*#_`~]/g, "");
+
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
+  let xml = "";
+
+  const topLines = [];
+  let hasLogo = false;
+  const titleLines = [];
+  const detailLines = [];
+  const bottomLines = [];
+
+  let state = "top";
+
+  for (let idx = 0; idx < lines.length; idx++) {
+    const line = lines[idx];
+
+    if (line.includes("LOGOTOKENHOU")) {
+      hasLogo = true;
+      state = "title";
+      continue;
+    }
+
+    const isDetailKeyword = /^(?:cán\s+bộ\s+hướng\s+dẫn|sinh\s+viên\s+thực\s+hiện|ngày\s+sinh|lớp|ngành\s+đào\s+tạo|thời\s+gian\s+thực\s+tập|mã\s+course\s+học|giảng\s+viên\s+hướng\s+dẫn|chức\s+vụ|mã\s+số\s+sinh\s+viên|mssv|họ\s+tên\s+sinh\s+viên|họ\s+tên\s+cán\s+bộ\s+hướng\s+dẫn)(?:\s|:|$)/i.test(line);
+    const hasSeparator = line.includes(":") || line.includes("..");
+    const isTitleOrHeader = /^(?:báo\s+cáo|học\s+phần|trường\s+đại\s+học|viện\s+đt|trung\s+tâm\s+đào\s+tạo|tại\s+đơn\s+vị)(?:\s|:|$)/i.test(line);
+
+    if ((isDetailKeyword || hasSeparator) && !isTitleOrHeader) {
+      if (state !== "top") {
+        state = "details";
+      }
+    }
+
+    if (idx >= lines.length - 2 && (/hà\s+nội/i.test(line) || /năm\s+202/i.test(line) || /^\d{4}$/.test(line))) {
+      state = "bottom";
+    }
+
+    if (state === "top") {
+      topLines.push(line);
+    } else if (state === "title") {
+      titleLines.push(line);
+    } else if (state === "details") {
+      detailLines.push(line);
+    } else if (state === "bottom") {
+      bottomLines.push(line);
+    }
+  }
+
+  const isBa49 = text.includes("BÁO CÁO KIẾN TẬP THỰC TẾ") || text.includes("VIỆN ĐÀO TẠO VÀ PHÁT TRIỂN HỌC TẬP SUỐT ĐỜI");
+
+  // 1. Top header (centered, bold, 14pt/13pt)
+  topLines.forEach((line, index) => {
+    const sz = index === 0 ? "28" : "26";
+    const underlineElement = (isBa49 && index === 1) ? '<w:u w:val="single"/>' : '';
+    xml += `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="120" w:after="60"/></w:pPr><w:r><w:rPr><w:b/>${underlineElement}<w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/></w:rPr><w:t>${escXml(line)}</w:t></w:r></w:p>`;
+  });
+
+  // Line separator under top header
+  if (!isBa49) {
+    xml += `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="60" w:after="800"/></w:pPr><w:r><w:rPr><w:sz w:val="20"/></w:rPr><w:t>___________</w:t></w:r></w:p>`;
+  } else {
+    xml += `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="60" w:after="400"/></w:pPr></w:p>`;
+  }
+
+  // 2. Logo HOU
+  if (logoActuallyExists && hasLogo) {
+    xml += `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="240" w:after="800"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/wordprocessingml/2006/wordprocessingDrawing"><wp:extent cx="1560000" cy="1800000"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="99" name="Logo"/><wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="99" name="logo.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rId3" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1560000" cy="1800000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
+  } else {
+    // If no logo, add vertical spacing to maintain cover page proportions
+    xml += `<w:p><w:pPr><w:spacing w:before="1200" w:after="1200"/></w:pPr></w:p>`;
+  }
+
+  // 3. Title block (centered, bold, larger size)
+  titleLines.forEach((line, index) => {
+    const isMainTitle = /báo\s+cáo/i.test(line);
+    const sz = isMainTitle ? "36" : "28";
+    const before = index === 0 ? "240" : "120";
+    xml += `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="${before}" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/></w:rPr><w:t>${escXml(line)}</w:t></w:r></w:p>`;
+  });
+
+  // Spacing before details
+  xml += `<w:p><w:pPr><w:spacing w:before="600" w:after="0"/></w:pPr></w:p>`;
+
+  // 4. Details block
+  if (isBa49 && detailLines.length > 0) {
+    const bdr = `w:val="single" w:sz="4" w:space="0" w:color="FFFFFF"`;
+    xml += `<w:tbl>
+      <w:tblPr>
+        <w:tblW w:w="7344" w:type="dxa"/>
+        <w:jc w:val="center"/>
+        <w:tblBorders>
+          <w:top ${bdr}/><w:left ${bdr}/><w:bottom ${bdr}/>
+          <w:right ${bdr}/><w:insideH ${bdr}/><w:insideV ${bdr}/>
+        </w:tblBorders>
+        <w:tblCellMar>
+          <w:top w:w="120" w:type="dxa"/><w:left w:w="160" w:type="dxa"/>
+          <w:bottom w:w="120" w:type="dxa"/><w:right w:w="160" w:type="dxa"/>
+        </w:tblCellMar>
+      </w:tblPr>`;
+
+    detailLines.forEach(line => {
+      const colonIdx = line.indexOf(":");
+      let key = line;
+      let val = "";
+      if (colonIdx > 0) {
+        key = line.slice(0, colonIdx + 1);
+        val = line.slice(colonIdx + 1).trim();
+      }
+      xml += `<w:tr>
+        <w:tc>
+          <w:tcPr>
+            <w:tcW w:w="2570" w:type="dxa"/>
+          </w:tcPr>
+          <w:p><w:pPr><w:spacing w:after="0" w:line="276" w:lineRule="auto"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">${escXml(key)}</w:t></w:r></w:p>
+        </w:tc>
+        <w:tc>
+          <w:tcPr>
+            <w:tcW w:w="4774" w:type="dxa"/>
+          </w:tcPr>
+          <w:p><w:pPr><w:spacing w:after="0" w:line="276" w:lineRule="auto"/></w:pPr><w:r><w:rPr><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">${escXml(val)}</w:t></w:r></w:p>
+        </w:tc>
+      </w:tr>`;
+    });
+    xml += `</w:tbl>`;
+  } else {
+    const infoStyle = `<w:pPr><w:ind w:left="1440"/><w:spacing w:before="120" w:after="120" w:line="360" w:lineRule="auto"/></w:pPr>`;
+    detailLines.forEach(line => {
+      const colonIdx = line.indexOf(":");
+      if (colonIdx > 0) {
+        const key = line.slice(0, colonIdx + 1);
+        const val = line.slice(colonIdx + 1);
+        xml += `<w:p>${infoStyle}<w:r><w:rPr><w:b/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">${escXml(key)} </w:t></w:r><w:r><w:rPr><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">${escXml(val)}</w:t></w:r></w:p>`;
+      } else {
+        xml += `<w:p>${infoStyle}<w:r><w:rPr><w:b/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">${escXml(line)}</w:t></w:r></w:p>`;
+      }
+    });
+  }
+
+  // 5. Bottom block (centered, bold, year and place)
+  const cleanBottomText = bottomLines.join(", ").replace(/HÀ\s+NỘI,\s*/gi, "").trim();
+  let spacingXml = "";
+  if (isBa49) {
+    for (let p = 0; p < 7; p++) {
+      spacingXml += `<w:p><w:pPr><w:spacing w:before="240" w:after="240"/></w:pPr></w:p>`;
+    }
+  }
+  const bottomBeforeSpacing = isBa49 ? "240" : "3800";
+  xml += spacingXml;
+  xml += `<w:p>
+    <w:pPr>
+      <w:jc w:val="center"/>
+      <w:spacing w:before="${bottomBeforeSpacing}" w:after="0"/>
+      <w:sectPr>
+        <w:pgSz w:w="11906" w:h="16838"/>
+        <w:pgMar w:top="1417" w:right="1134" w:bottom="1417" w:left="1701"/>
+        <w:pgBorders w:offsetFrom="page">
+          <w:top w:val="double" w:sz="12" w:space="24" w:color="000000"/>
+          <w:left w:val="double" w:sz="12" w:space="24" w:color="000000"/>
+          <w:bottom w:val="double" w:sz="12" w:space="24" w:color="000000"/>
+          <w:right w:val="double" w:sz="12" w:space="24" w:color="000000"/>
+        </w:pgBorders>
+      </w:sectPr>
+    </w:pPr>
+    <w:r>
+      <w:rPr>
+        <w:b/>
+        <w:sz w:val="26"/>
+        <w:szCs w:val="26"/>
+      </w:rPr>
+      <w:t xml:space="preserve">${escXml(cleanBottomText ? cleanBottomText : "NĂM 2026")}</w:t>
+    </w:r>
+  </w:p>`;
+
+  return xml;
+}
+
 // Convert markdown text to OOXML paragraph list (full-featured)
-function mdToOoxml(rawContent) {
+function mdToOoxml(rawContent, title = "", logoActuallyExists = false) {
+  const isCoverPage = rawContent.includes("cover-page-container") ||
+    (rawContent.includes("TRƯỜNG ĐẠI HỌC MỞ HÀ NỘI") && rawContent.indexOf("TRƯỜNG ĐẠI HỌC MỞ HÀ NỘI") < 1000);
+
+  const isBa49 = title.toLowerCase().includes("ba49") ||
+    title.toLowerCase().includes("b49") ||
+    title.toLowerCase().includes("kiến tập") ||
+    rawContent.toLowerCase().includes("ba49") ||
+    rawContent.toLowerCase().includes("b49") ||
+    rawContent.toLowerCase().includes("kiến tập");
+
+  if (isCoverPage) {
+    const parts = rawContent.split("[PAGE_BREAK]");
+    const coverPart = parts[0];
+    const remainingPart = parts.slice(1).join("[PAGE_BREAK]");
+
+    const coverOoxml = generateCoverPageOoxmlFromLines(coverPart, logoActuallyExists);
+    const remainingOoxml = mdToOoxml(remainingPart, title, logoActuallyExists);
+
+    return coverOoxml + "\n" + remainingOoxml;
+  }
+
   const content = preprocessForDocx(rawContent);
   const lines = content.split("\n");
   const ps = [];
   let i = 0;
   while (i < lines.length) {
     const t = lines[i].trim();
+    if (t === "[LOGO_HOU]") {
+      if (logoActuallyExists) {
+        ps.push(
+          `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="240" w:after="240"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/wordprocessingml/2006/wordprocessingDrawing"><wp:extent cx="1560000" cy="1800000"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="99" name="Logo"/><wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="99" name="logo.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rId3" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1560000" cy="1800000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`
+        );
+      } else {
+        ps.push(`<w:p><w:pPr><w:spacing w:before="240" w:after="240"/></w:pPr></w:p>`);
+      }
+      i++;
+      continue;
+    }
     // Empty line
     if (!t) {
       ps.push(`<w:p><w:pPr><w:spacing w:after="0"/></w:pPr></w:p>`);
       i++;
       continue;
     }
-    // Page break
+    // Page break — skip blank lines AND duplicate PAGE_BREAKs after to avoid empty pages
     if (t.includes("[PAGE_BREAK]")) {
       ps.push(`<w:p><w:r><w:br w:type="page"/></w:r></w:p>`);
       i++;
+      // Consume trailing blank lines and any extra [PAGE_BREAK] tokens after this one
+      while (i < lines.length && (
+        !lines[i].trim() ||
+        lines[i].trim().toUpperCase() === "[PAGE_BREAK]"
+      )) i++;
       continue;
     }
     // Centered line (from <center>...</center>)
     if (t.startsWith(DOCX_CENTER)) {
-      const ct = t.slice(DOCX_CENTER.length);
-      ps.push(
-        `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="120" w:line="360" w:lineRule="auto"/></w:pPr>${toRuns(ct)}</w:p>`,
-      );
+      const ct = t.slice(DOCX_CENTER.length).trim();
+      const hm = ct.match(/^(#{1,6})\s+(.+)/);
+      if (hm) {
+        const lvl = Math.min(hm[1].length, 3);
+        const style = ["Heading1", "Heading2", "Heading3"][lvl - 1];
+        ps.push(
+          `<w:p><w:pPr><w:pStyle w:val="${style}"/><w:jc w:val="center"/><w:keepNext/></w:pPr>${toRuns(hm[2])}</w:p>`,
+        );
+      } else {
+        ps.push(
+          `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="120" w:line="360" w:lineRule="auto"/></w:pPr>${toRuns(ct)}</w:p>`,
+        );
+      }
       i++;
       continue;
     }
@@ -1294,8 +2765,10 @@ function mdToOoxml(rawContent) {
     }
     const boldOnly = t.match(/^\*\*(.+?)\*\*:?\s*$/);
     if (boldOnly) {
+      const isTableCaption = /^(?:Bảng|BẢNG)\s+\d+/i.test(boldOnly[1]);
       ps.push(
-        `<w:p><w:pPr><w:jc w:val="left"/><w:spacing w:before="120" w:after="80" w:line="360" w:lineRule="auto"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">${escXml(boldOnly[1])}</w:t></w:r></w:p>`,
+        `<w:p><w:pPr><w:jc w:val="left"/><w:spacing w:before="120" w:after="80" w:line="360" w:lineRule="auto"/></w:pPr>${isTableCaption ? "<w:r><w:tab/></w:r>" : ""
+        }<w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">${escXml(boldOnly[1])}</w:t></w:r></w:p>`,
       );
       i++;
       continue;
@@ -1335,14 +2808,14 @@ function mdToOoxml(rawContent) {
     const ol = t.match(/^(\d+)[.):]\s+(.+)/);
     if (ol) {
       ps.push(
-        `<w:p><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="2"/></w:numPr><w:spacing w:after="0"/></w:pPr>${toRuns(ol[2])}</w:p>`,
+        `<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:before="60" w:after="60" w:line="276" w:lineRule="auto"/></w:pPr>${toRuns(ol[1] + ". " + ol[2])}</w:p>`,
       );
       i++;
       continue;
     }
-    // Normal paragraph — justify + first-line indent + 1.5 line spacing
+    // Normal paragraph — justify + tab character + 1.5 line spacing
     ps.push(
-      `<w:p><w:pPr><w:jc w:val="both"/><w:ind w:firstLine="720"/><w:spacing w:before="0" w:after="160" w:line="360" w:lineRule="auto"/></w:pPr>${toRuns(t)}</w:p>`,
+      `<w:p><w:pPr><w:jc w:val="both"/><w:spacing w:before="0" w:after="160" w:line="360" w:lineRule="auto"/></w:pPr><w:r><w:tab/></w:r>${toRuns(t)}</w:p>`,
     );
     i++;
   }
@@ -1350,8 +2823,8 @@ function mdToOoxml(rawContent) {
 }
 
 // Copy report content as rich HTML (for paste into Word/Google Docs with formatting)
-async function copyReportRichText(rawContent) {
-  const preparedContent = prepareReportContent(rawContent);
+async function copyReportRichText(rawContent, title = "") {
+  const preparedContent = prepareReportContent(rawContent, title);
   // Strip HTML tags for clean plain text version
   const plainText = preparedContent
     .replace(/\[PAGE_BREAK\]/g, "\n\n")
@@ -1377,13 +2850,24 @@ async function copyReportRichText(rawContent) {
     body > p{text-align:justify;text-indent:1.25cm;margin:0.6em 0;}
     body > p:has(> strong:first-child){text-indent:0;}
     li p{text-indent:0;margin:0;}
-    table{border-collapse:collapse;width:100%;margin:1em 0;}
-    th,td{border:1px solid #000;padding:6px 10px;font-size:14px;}
+    table:not(.borderless){border-collapse:collapse;width:100%;margin:1em 0;}
+    table:not(.borderless) th, table:not(.borderless) td{border:1px solid #000;padding:6px 10px;font-size:14px;}
+    table.borderless{border-collapse:collapse;width:100%;margin:1em 0;border:none;}
+    table.borderless th, table.borderless td{border:none;padding:6px 10px;font-size:14px;background:transparent !important;background-color:transparent !important;}
+    table.borderless th{background:transparent !important;background-color:transparent !important;}
     th{background:#f2f2f2;font-weight:bold;text-align:center;}
     hr{border:none;border-top:1px solid #000;margin:1em 0;}
     ul{padding-left:2em;margin:0.5em 0;}ol{padding-left:2em;margin:0.5em 0;}
     em{font-style:italic;}strong{font-weight:bold;}
-  </style></head><body>${formattedHtml}</body></html>`;
+  </style></head><body>${formattedHtml.replace(/<table>/g, (match, offset, string) => {
+    // Check if the table markdown block contains signature/borderless keywords
+    const tableEnd = formattedHtml.indexOf("</table>", offset);
+    const tableContent = formattedHtml.slice(offset, tableEnd);
+    if (isSignatureTable(tableContent)) {
+      return '<table class="borderless">';
+    }
+    return '<table>';
+  })}</body></html>`;
   try {
     await navigator.clipboard.write([
       new ClipboardItem({
@@ -1417,6 +2901,7 @@ async function dlDocx(content, filename) {
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
   <Default Extension="xml"  ContentType="application/xml"/>
+  <Default Extension="png"  ContentType="image/png"/>
   <Override PartName="/word/document.xml"  ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
   <Override PartName="/word/styles.xml"    ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
   <Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>
@@ -1434,24 +2919,29 @@ async function dlDocx(content, filename) {
 
     const word = zip.folder("word");
 
+    const docxContent = prepareReportContentForDocx(content, filename);
+
     // word/_rels/document.xml.rels
-    word.folder("_rels").file(
-      "document.xml.rels",
-      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    let relsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="${PKGREL}">
   <Relationship Id="rId1" Type="${OFFREL}/styles"    Target="styles.xml"/>
   <Relationship Id="rId2" Type="${OFFREL}/numbering" Target="numbering.xml"/>
-</Relationships>`,
-    );
+</Relationships>`;
+
+    word.folder("_rels").file("document.xml.rels", relsXml);
 
     // word/document.xml
-    const docxContent = prepareReportContentForDocx(content);
+    const R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+    const WP = "http://schemas.openxmlformats.org/wordprocessingml/2006/wordprocessingDrawing";
+    const A = "http://schemas.openxmlformats.org/drawingml/2006/main";
+    const PIC = "http://schemas.openxmlformats.org/drawingml/2006/picture";
+
     word.file(
       "document.xml",
       `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="${W}">
+<w:document xmlns:w="${W}" xmlns:r="${R}" xmlns:wp="${WP}" xmlns:a="${A}" xmlns:pic="${PIC}">
   <w:body>
-${mdToOoxml(docxContent)}
+${mdToOoxml(docxContent, filename, false)}
     <w:sectPr>
       <w:pgSz w:w="11906" w:h="16838"/>
       <w:pgMar w:top="1417" w:right="1134" w:bottom="1417" w:left="1701"/>
@@ -1474,11 +2964,11 @@ ${mdToOoxml(docxContent)}
     <w:pPr><w:jc w:val="center"/><w:spacing w:before="240" w:after="120"/></w:pPr>
     <w:rPr><w:b/><w:sz w:val="36"/><w:szCs w:val="36"/></w:rPr></w:style>
   <w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/>
-    <w:pPr><w:spacing w:before="200" w:after="100"/></w:pPr>
-    <w:rPr><w:b/><w:sz w:val="30"/><w:szCs w:val="30"/></w:rPr></w:style>
+    <w:pPr><w:spacing w:before="200" w:after="100" w:line="360" w:lineRule="auto"/></w:pPr>
+    <w:rPr><w:b/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr></w:style>
   <w:style w:type="paragraph" w:styleId="Heading3"><w:name w:val="heading 3"/>
-    <w:pPr><w:spacing w:before="160" w:after="80"/></w:pPr>
-    <w:rPr><w:b/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr></w:style>
+    <w:pPr><w:spacing w:before="160" w:after="80" w:line="360" w:lineRule="auto"/></w:pPr>
+    <w:rPr><w:i/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr></w:style>
 </w:styles>`,
     );
 
@@ -1512,6 +3002,17 @@ ${mdToOoxml(docxContent)}
     });
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+
+    try {
+      const now = new Date();
+      const dateKey = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, '0') + "-" + String(now.getDate()).padStart(2, '0');
+      const countKey = `report_download_count_${dateKey}`;
+      const currentCount = parseInt(localStorage.getItem(countKey) || "1", 10);
+      localStorage.setItem(countKey, String(currentCount + 1));
+    } catch (e) {
+      console.error("Failed to increment download count:", e);
+    }
+
     return true;
   } catch (err) {
     console.error("docx generation failed:", err);
@@ -1522,6 +3023,18 @@ ${mdToOoxml(docxContent)}
 // ─── Markdown and Math helper ───
 function renderMarkdownAndMath(text) {
   if (typeof text !== "string") return "";
+
+  text = text.replace(/\[LOGO_HOU\]/g, '<div style="display:flex;justify-content:center;align-items:center;width:100%;margin:1.5cm 0;"><img src="/logo-hou.png" style="width:110px;height:auto;" alt="HOU Logo" /></div>');
+
+  // Pre-render <center>...</center> so marked doesn't ignore markdown inside it
+  text = text.replace(/<center>([\s\S]*?)<\/center>/gi, (match, p1) => {
+    try {
+      const innerHtml = marked.parse(p1.trim(), { gfm: true, breaks: true });
+      return `<div style="text-align: center;">${innerHtml}</div>`;
+    } catch (err) {
+      return `<div style="text-align: center;">${p1}</div>`;
+    }
+  });
 
   const mathBlocks = [];
   text = normalizeMarkdownTables(text);
@@ -1600,11 +3113,24 @@ function renderMarkdownAndMath(text) {
     }
   }
 
+  // 7. Mark borderless tables (signature tables)
+  html = html.replace(/<table>/g, (match, offset, string) => {
+    const tableEnd = html.indexOf("</table>", offset);
+    const tableContent = html.slice(offset, tableEnd);
+    if (isSignatureTable(tableContent)) {
+      return '<table class="borderless">';
+    }
+    return '<table>';
+  });
+
+  // 8. Add indentation to table captions (starting with "Bảng" or "BẢNG")
+  html = html.replace(/<p><strong>((?:Bảng|BẢNG)\s+\d+[^<]*)<\/strong><\/p>/gi, '<p style="text-indent: 1.25cm !important;"><strong>$1</strong></p>');
+
   return html;
 }
 
 function handlePrintReport(title, content) {
-  const htmlContent = renderMarkdownAndMath(prepareReportContent(content));
+  const htmlContent = renderMarkdownAndMath(prepareReportContent(content, title));
   printReportDoc(title, htmlContent);
 }
 
@@ -1719,14 +3245,9 @@ function MessageFilesGrid({ files }) {
                 file.name,
               );
             const icon = isText ? "description" : "draft";
-            return (
-              <a
-                key={idx}
-                href={file.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2.5 px-3 py-2 rounded-[8px] border border-border bg-surface-2 text-text-main hover:bg-surface-3 transition-colors text-[12px] font-medium"
-              >
+            const hasUrl = !!file.url;
+            const content = (
+              <>
                 <span className="material-symbols-outlined text-[16px] text-text-muted">
                   {icon}
                 </span>
@@ -1737,8 +3258,35 @@ function MessageFilesGrid({ files }) {
                   ({formatBytes(file.size)})
                 </span>
                 <span className="material-symbols-outlined text-[14px] text-text-subtle">
-                  download
+                  {hasUrl ? "download" : "lock"}
                 </span>
+              </>
+            );
+
+            if (!hasUrl) {
+              return (
+                <div
+                  key={idx}
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-[8px] border border-border bg-surface-2 text-text-main text-[12px] font-medium"
+                  title={
+                    file.content
+                      ? "Nội dung đã được trích xuất và không kèm URL."
+                      : "Tệp đính kèm không hiển thị URL công khai."
+                  }
+                >
+                  {content}
+                </div>
+              );
+            }
+            return (
+              <a
+                key={idx}
+                href={file.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2.5 px-3 py-2 rounded-[8px] border border-border bg-surface-2 text-text-main hover:bg-surface-3 transition-colors text-[12px] font-medium"
+              >
+                {content}
               </a>
             );
           })}
@@ -1822,10 +3370,10 @@ function PreviewCard({
           <span className="material-symbols-outlined text-[22px]">{icon}</span>
         </div>
         <div className="min-w-0">
-          <h4 className="text-sm font-semibold text-text-main truncate">
+          <h4 className="text-sm font-semibold text-neutral-900 truncate">
             {title}
           </h4>
-          <p className="text-[11px] text-text-subtle mt-0.5">{dateLabel}</p>
+          <p className="text-[11px] text-neutral-500 mt-0.5">{dateLabel}</p>
         </div>
       </div>
       <button
@@ -1871,6 +3419,7 @@ function AgentResultCards({ cards = [], onOpenAgentRun, onOpenReport }) {
                 onOpenReport?.({
                   title: card.report?.title || card.title,
                   content: card.report?.content || "",
+                  sections_progress: card.report?.sections_progress || [],
                 });
               }
             }}
@@ -2606,6 +4155,7 @@ function KnowledgeManager({
   loadTemplates,
   username,
   isSupabaseConfigured,
+  isRestrictedUser,
 }) {
   const [selectedSubjectForUpload, setSelectedSubjectForUpload] = useState("");
   const [newSubjectName, setNewSubjectName] = useState("");
@@ -2615,20 +4165,25 @@ function KnowledgeManager({
   const [localError, setLocalError] = useState("");
 
   const allSubjects = useMemo(() => {
+    if (isRestrictedUser) return [...RESTRICTED_REPORT_ASSISTANT_SUBJECTS];
     const set = new Set([
       ...(subjectsOutlines || []),
       ...(subjectsTemplates || []),
     ]);
     return Array.from(set).sort();
-  }, [subjectsOutlines, subjectsTemplates]);
+  }, [subjectsOutlines, subjectsTemplates, isRestrictedUser]);
 
   useEffect(() => {
+    if (isRestrictedUser && selectedSubjectForUpload === "__new__") {
+      setSelectedSubjectForUpload(RESTRICTED_REPORT_ASSISTANT_SUBJECTS[0] || "");
+      return;
+    }
     if (allSubjects.length > 0 && !selectedSubjectForUpload) {
       setSelectedSubjectForUpload(allSubjects[0]);
     } else if (allSubjects.length === 0) {
       setSelectedSubjectForUpload("__new__");
     }
-  }, [allSubjects, selectedSubjectForUpload]);
+  }, [allSubjects, selectedSubjectForUpload, isRestrictedUser]);
 
   const handleUpload = async (e) => {
     e.preventDefault();
@@ -2757,6 +4312,12 @@ function KnowledgeManager({
                 file_url: fileUrl,
               }),
             });
+            clearKnowledgeContentCache(
+              docType === "outlines"
+                ? REPORT_OUTLINE_CONTENT_USER
+                : REPORT_TEMPLATE_CONTENT_USER,
+              cleanSubject,
+            );
           } catch (saveErr) {
             console.warn("Không thể lưu nội dung tài liệu:", saveErr.message);
           }
@@ -2811,6 +4372,13 @@ function KnowledgeManager({
         await fetch(
           `/api/knowledge-content?username=${encodeURIComponent(fileType === "outlines" ? REPORT_OUTLINE_CONTENT_USER : REPORT_TEMPLATE_CONTENT_USER)}&subject=${encodeURIComponent(cleanSubject)}&filename=${encodeURIComponent(cleanFileName)}`,
           { method: "DELETE" },
+        );
+        clearKnowledgeContentCache(
+          fileType === "outlines"
+            ? REPORT_OUTLINE_CONTENT_USER
+            : REPORT_TEMPLATE_CONTENT_USER,
+          cleanSubject,
+          cleanFileName,
         );
       } catch (delErr) {
         console.warn("Không thể xoá nội dung tài liệu:", delErr.message);
@@ -2869,12 +4437,14 @@ function KnowledgeManager({
                   {s}
                 </option>
               ))}
-              <option value="__new__">+ Thêm chủ đề mới...</option>
+              {!isRestrictedUser && (
+                <option value="__new__">+ Thêm chủ đề mới...</option>
+              )}
             </select>
           </div>
 
           {/* New Subject Input */}
-          {selectedSubjectForUpload === "__new__" && (
+          {selectedSubjectForUpload === "__new__" && !isRestrictedUser && (
             <div>
               <label className="block text-[11px] font-semibold text-text-muted uppercase tracking-wider mb-1">
                 Tên chủ đề mới
@@ -2895,7 +4465,7 @@ function KnowledgeManager({
           {/* Document Type Selector */}
           <div
             className={
-              selectedSubjectForUpload === "__new__"
+              selectedSubjectForUpload === "__new__" && !isRestrictedUser
                 ? "col-span-1"
                 : "col-span-2"
             }
@@ -3056,6 +4626,7 @@ function SettingsModal({
   loadTemplates,
   isSupabaseConfigured,
   username,
+  isRestrictedUser,
 }) {
   const [activeTab, setActiveTab] = useState("general");
   const [search, setSearch] = useState("");
@@ -3344,6 +4915,7 @@ function SettingsModal({
               loadTemplates={loadTemplates}
               username={username}
               isSupabaseConfigured={isSupabaseConfigured}
+              isRestrictedUser={isRestrictedUser}
             />
           )}
         </div>
@@ -3361,7 +4933,11 @@ function SettingsModal({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function ReportAssistantPageClient({ initialPrompt }) {
+export default function ReportAssistantPageClient({ initialPrompt, initialChatId }) {
+  const router = useRouter();
+  const agentPanelRef = useRef(null);
+  const previewPanelRef = useRef(null);
+
   const [hydrated, setHydrated] = useState(false);
   const [username, setUsername] = useState(() => {
     if (typeof window !== "undefined") {
@@ -3382,6 +4958,8 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
   const [temperature, setTemperature] = useState(DEFAULT_TEMPERATURE);
   const [assistantOnlyMode, setAssistantOnlyMode] = useState(true);
   const [enabledModelIds, setEnabledModelIds] = useState(new Set());
+  const [reportModels, setReportModels] = useState([]);
+  const [reportModelsLoading, setReportModelsLoading] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedOutline, setSelectedOutline] = useState(null);
   const [selectedReport, setSelectedReport] = useState(null);
@@ -3407,31 +4985,38 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
   const [agentLoading, setAgentLoading] = useState(false);
   const [agentModeEnabled, setAgentModeEnabled] = useState(true);
   const [pendingReportRequest, setPendingReportRequest] = useState(null);
+  const [selectedReportModelId, setSelectedReportModelId] = useState("");
+  const [reportWorkflowModelId, setReportWorkflowModelId] = useState("");
   const [agentErrorDialog, setAgentErrorDialog] = useState(null);
   const agentCancelRequestedRef = useRef(false);
   const agentQueueingRef = useRef(false);
+  const reportModelsLoadAttemptedRef = useRef(false);
   const [selectedKnowledgeSubject, setSelectedKnowledgeSubject] =
     useState("none");
 
   const [sessions, setSessions] = useState([]);
-  const [activeSessionId, setActiveSessionId] = useState("");
+  const [activeSessionId, setActiveSessionId] = useState(initialChatId || "");
   const [activeModelId, setActiveModelId] = useState("");
   const [draft, setDraft] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [streamingId, setStreamingId] = useState("");
+  const [mobileHistoryOpen, setMobileHistoryOpen] = useState(false);
   const [webSearchEnabled, setWebSearchEnabled] = useState(true);
   const [searchStatus, setSearchStatus] = useState("");
 
   const handleSubjectChange = useCallback(
     (subjValue) => {
-      setSelectedKnowledgeSubject(subjValue);
+      const nextSubject = isRestrictedUser && subjValue !== "none" && !isRestrictedReportAssistantSubject(subjValue)
+        ? "none"
+        : subjValue;
+      setSelectedKnowledgeSubject(nextSubject);
       if (activeSessionId) {
         setSessions((prev) =>
           prev.map((s) =>
             s.id === activeSessionId
               ? {
                 ...s,
-                subject: subjValue,
+                subject: nextSubject,
                 updatedAt: new Date().toISOString(),
               }
               : s,
@@ -3439,7 +5024,7 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
         );
       }
     },
-    [activeSessionId],
+    [activeSessionId, isRestrictedUser],
   );
 
   const [modelDropOpen, setModelDropOpen] = useState(false);
@@ -3463,62 +5048,184 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
   const [loadingTemplates, setLoadingTemplates] = useState(false);
 
   const allSubjects = useMemo(() => {
+    if (isRestrictedUser) return [...RESTRICTED_REPORT_ASSISTANT_SUBJECTS];
     const set = new Set([
       ...Object.keys(filesOutlines || {}),
       ...Object.keys(filesTemplates || {}),
     ]);
     return Array.from(set).sort();
-  }, [filesOutlines, filesTemplates]);
+  }, [filesOutlines, filesTemplates, isRestrictedUser]);
 
+  // Background Migration to Turso DB for legacy reports
+  const migratedSessionsRef = useRef(new Set());
   useEffect(() => {
-    agentCancelRequestedRef.current = false;
-    setAgentState(null);
-    setAgentActive(false);
-    if (activeSessionId) {
-      setAgentLoading(true);
-      fetch("/api/report-assistant/agent", {
+    if (!activeSessionId || !username) return;
+    if (migratedSessionsRef.current.has(activeSessionId)) return;
+
+    const session = sessions.find(s => s.id === activeSessionId);
+    if (!session) return;
+
+    let sectionsToMigrate = [];
+
+    // 1. Check if it's the really old format (embedded in messages)
+    if (session.messages) {
+      for (const msg of session.messages) {
+        if (!msg.content) continue;
+        let text = msg.content;
+        let reportMatch;
+        let index = 0;
+        while ((reportMatch = text.match(/\[START_REPORT\]([\s\S]*?)\[END_REPORT\]/))) {
+          const content = reportMatch[1].trim();
+          const titleMatch = content.match(/^(?:#|##)\s+(.+)$/m);
+          const title = titleMatch ? titleMatch[1].trim().replace(/\*|_/g, "") : "Báo cáo Kiến tập";
+          sectionsToMigrate.push({
+            id: `legacy_msg_${msg.id}_${index++}`,
+            title,
+            content,
+            status: "completed"
+          });
+          text = text.replace(/\[START_REPORT\][\s\S]*?\[END_REPORT\]/, "").trim();
+        }
+      }
+    }
+
+    // 2. Check if it's the intermediate format (in session.agentState)
+    if (sectionsToMigrate.length === 0 && session.agentState?.sections_progress && session.agentState.sections_progress.length > 0) {
+      const hasContent = session.agentState.sections_progress.some(s => s.content && s.content.trim().length > 0);
+      if (hasContent) {
+        sectionsToMigrate = session.agentState.sections_progress;
+      }
+    }
+
+    if (sectionsToMigrate.length > 0) {
+      migratedSessionsRef.current.add(activeSessionId);
+      fetch("/api/report-assistant/report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "status",
-          chatId: activeSessionId,
-        }),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.ok && data.state) {
-            setAgentState(data.state);
-            setAgentActive(data.state.current_step !== "COMPLETED");
-            const stateSubject =
-              data.state?.outline?.[0]?.reportContext?.outlineSource ||
-              data.state?.sections_progress?.[0]?.reportContext?.outlineSource ||
-              "";
-            if (stateSubject) {
-              setSelectedKnowledgeSubject(stateSubject);
-              setSessions((prev) =>
-                prev.map((session) =>
-                  session.id === activeSessionId && !session.subject
-                    ? { ...session, subject: stateSubject }
-                    : session,
-                ),
-              );
-            }
-          }
+          chat_id: activeSessionId,
+          username: username || "default_user",
+          sections: sectionsToMigrate
         })
-        .catch((err) => console.error(err))
-        .finally(() => setAgentLoading(false));
+      }).catch(() => {});
+    } else {
+      // If no data to migrate, mark it so we don't keep parsing
+      migratedSessionsRef.current.add(activeSessionId);
     }
-  }, [activeSessionId]);
+  }, [activeSessionId, sessions, username]);
+
+  useEffect(() => {
+    agentCancelRequestedRef.current = false;
+    if (!activeSessionId) return;
+
+    const currentSession = sessions.find((session) => session.id === activeSessionId) || null;
+    if (!currentSession) {
+      setAgentState(null);
+      setAgentActive(false);
+      return;
+    }
+
+    const isReportSession =
+      String(currentSession.modelId || "").startsWith(REPORT_ASSISTANT_LUNA_MODEL_PREFIX) ||
+      String(currentSession.modelId || "").startsWith(REPORT_ASSISTANT_ARENA_MODEL_PREFIX) ||
+      hasAgentResultCards(currentSession.messages);
+
+    if (!isReportSession) {
+      setAgentState(null);
+      setAgentActive(false);
+      return;
+    }
+
+    if (shouldAutoRestoreReportSession(currentSession)) {
+      let cancelled = false;
+      (async () => {
+        try {
+          const res = await fetch("/api/report-assistant/agent", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "status",
+              chatId: activeSessionId,
+            }),
+          });
+
+          if (!res.ok || cancelled) return;
+          const data = await res.json().catch(() => null);
+          if (!data?.ok || !data.state || cancelled) return;
+
+          setAgentState(data.state);
+          setAgentActive(!isAgentFinishedState(data.state));
+
+          const stateSubject =
+            data.state?.outline?.[0]?.reportContext?.outlineSource ||
+            data.state?.sections_progress?.[0]?.reportContext?.outlineSource ||
+            "";
+          if (stateSubject) {
+            setSelectedKnowledgeSubject(stateSubject);
+            setSessions((prev) =>
+              prev.map((session) =>
+                session.id === activeSessionId && !session.subject
+                  ? { ...session, subject: stateSubject }
+                  : session,
+              ),
+            );
+          }
+        } catch (err) {
+          if (!cancelled) {
+            console.error("Failed to auto-restore report assistant agent state:", err);
+          }
+        }
+      })();
+
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, [activeSessionId, sessions]);
+
+  useEffect(() => {
+    if (!agentState) return;
+    if (!isAgentFinishedState(agentState)) return;
+
+    agentQueueingRef.current = false;
+    agentCancelRequestedRef.current = false;
+    setAgentLoading(false);
+  }, [agentState]);
 
   // Sync selectedKnowledgeSubject from active session
   useEffect(() => {
     if (!activeSessionId) {
-      setSelectedKnowledgeSubject("none");
+      // Do not force reset if activeSessionId is empty, so user can select subject for a new chat
       return;
     }
     const currentSession = sessions.find((s) => s.id === activeSessionId);
-    setSelectedKnowledgeSubject(currentSession?.subject || "none");
-  }, [activeSessionId, sessions]);
+    if (!currentSession) {
+      // If the session is not yet in sessions state, do not overwrite the current selection
+      return;
+    }
+    const sessionSubject = currentSession?.subject;
+    if (isRestrictedUser && sessionSubject && sessionSubject !== "none" && !isRestrictedReportAssistantSubject(sessionSubject)) {
+      setSelectedKnowledgeSubject("none");
+      setSessions((prev) =>
+        prev.map((session) =>
+          session.id === activeSessionId
+            ? { ...session, subject: "none", updatedAt: new Date().toISOString() }
+            : session,
+        ),
+      );
+      return;
+    }
+    // If session has an explicit subject, use it; otherwise keep the user's persisted choice
+    if (sessionSubject && sessionSubject !== "none") {
+      setSelectedKnowledgeSubject(sessionSubject);
+    } else if (!sessionSubject) {
+      // Session was created before subject-persistence; don't override the persisted choice
+      return;
+    } else {
+      // sessionSubject === "none" explicitly set by user for this session
+      setSelectedKnowledgeSubject("none");
+    }
+  }, [activeSessionId, sessions, isRestrictedUser]);
 
   const isSupabaseConfigured = useMemo(() => {
     return !!(
@@ -3536,14 +5243,41 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
       );
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
-      setSubjectsOutlines(data.subjects || []);
-      setFilesOutlines(data.filesBySubject || {});
+      const subjects = Array.isArray(data.subjects) ? data.subjects : [];
+      const filesBySubject = data.filesBySubject || {};
+      if (isRestrictedUser) {
+        const allowed = {};
+        for (const subj of RESTRICTED_REPORT_ASSISTANT_SUBJECTS) {
+          allowed[subj] = Array.isArray(filesBySubject[subj]) ? filesBySubject[subj] : [];
+        }
+        setSubjectsOutlines([...RESTRICTED_REPORT_ASSISTANT_SUBJECTS]);
+        setFilesOutlines(allowed);
+      } else {
+        setSubjectsOutlines(subjects);
+        setFilesOutlines(filesBySubject);
+      }
     } catch (err) {
       console.error("Failed to load outlines:", err);
     } finally {
       setLoadingOutlines(false);
     }
-  }, [isSupabaseConfigured]);
+  }, [isSupabaseConfigured, isRestrictedUser]);
+
+  const loadReportModels = useCallback(async () => {
+    if (reportModelsLoading || reportModelsLoadAttemptedRef.current) return;
+    reportModelsLoadAttemptedRef.current = true;
+    setReportModelsLoading(true);
+    try {
+      const res = await fetch("/api/v1/models", { cache: "no-store" });
+      const data = await res.json().catch(() => ({}));
+      const rawModels = Array.isArray(data?.data) ? data.data : [];
+      setReportModels(getReportAssistantLunaModels(rawModels));
+    } catch (err) {
+      console.error("Failed to load report models:", err);
+    } finally {
+      setReportModelsLoading(false);
+    }
+  }, [reportModelsLoading]);
 
   const loadTemplates = useCallback(async () => {
     if (!isSupabaseConfigured) return;
@@ -3554,22 +5288,33 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
       );
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
-      setSubjectsTemplates(data.subjects || []);
-      setFilesTemplates(data.filesBySubject || {});
+      const subjects = Array.isArray(data.subjects) ? data.subjects : [];
+      const filesBySubject = data.filesBySubject || {};
+      if (isRestrictedUser) {
+        const allowed = {};
+        for (const subj of RESTRICTED_REPORT_ASSISTANT_SUBJECTS) {
+          allowed[subj] = Array.isArray(filesBySubject[subj]) ? filesBySubject[subj] : [];
+        }
+        setSubjectsTemplates([...RESTRICTED_REPORT_ASSISTANT_SUBJECTS]);
+        setFilesTemplates(allowed);
+      } else {
+        setSubjectsTemplates(subjects);
+        setFilesTemplates(filesBySubject);
+      }
     } catch (err) {
       console.error("Failed to load templates:", err);
     } finally {
       setLoadingTemplates(false);
     }
-  }, [isSupabaseConfigured]);
+  }, [isSupabaseConfigured, isRestrictedUser]);
 
   // Load knowledge once hydrated and supabase configured
   useEffect(() => {
-    if (hydrated && isSupabaseConfigured) {
+    if (hydrated && usernameLoaded && isSupabaseConfigured) {
       loadOutlines();
       loadTemplates();
     }
-  }, [hydrated, isSupabaseConfigured, loadOutlines, loadTemplates]);
+  }, [hydrated, usernameLoaded, isSupabaseConfigured, loadOutlines, loadTemplates]);
 
   // ── Inject CSS ──
   useEffect(() => {
@@ -3639,16 +5384,31 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
         text-align: center !important;
         text-indent: 0 !important;
       }
-      .report-view h1, .report-view h2, .report-view h3, .report-view h4 {
+      .report-view h1 {
         font-family: "Times New Roman", Times, serif !important;
         font-weight: bold !important;
         color: var(--color-text-main) !important;
         margin: 1.2em 0 0.6em !important;
         text-indent: 0 !important;
+        font-size: 1.75em !important;
+        text-align: center !important;
+        text-transform: uppercase !important;
       }
-      .report-view h1 { font-size: 1.75em !important; text-align: center !important; text-transform: uppercase !important; }
-      .report-view h2 { font-size: 1.4em !important; }
-      .report-view h3 { font-size: 1.2em !important; }
+      .report-view h2, .report-view h3, .report-view h4 {
+        font-family: "Times New Roman", Times, serif !important;
+        font-size: 13pt !important;
+        line-height: 1.5 !important;
+        color: var(--color-text-main) !important;
+        margin: 1.2em 0 0.6em !important;
+        text-indent: 0 !important;
+      }
+      .report-view h2, .report-view h4 {
+        font-weight: bold !important;
+      }
+      .report-view h3 {
+        font-weight: normal !important;
+        font-style: italic !important;
+      }
       .report-view ul {
         list-style-type: disc !important;
         padding-left: 2em !important;
@@ -3705,6 +5465,18 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
         font-weight: bold !important;
         text-align: center !important;
       }
+      .report-view table.borderless {
+        border: none !important;
+      }
+      .report-view table.borderless th, .report-view table.borderless td {
+        border: none !important;
+        background: transparent !important;
+        background-color: transparent !important;
+      }
+      .report-view table.borderless th {
+        background: transparent !important;
+        background-color: transparent !important;
+      }
     `;
   }, []);
 
@@ -3742,7 +5514,23 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
                 username,
                 data.sessions,
               );
-              localStorage.setItem(uSK.sessions, JSON.stringify(data.sessions));
+              try {
+                localStorage.setItem(uSK.sessions, JSON.stringify(data.sessions));
+              } catch (err) {
+                if (data.sessions.length > 5) {
+                  try {
+                    localStorage.setItem(uSK.sessions, JSON.stringify(data.sessions.slice(0, 5)));
+                  } catch (e) {}
+                }
+              }
+              // Set active session based on DB data if initialChatId is missing
+              if (!initialChatId) {
+                setActiveSessionId((prev) => {
+                  const targetSession = (prev && data.sessions.some(s => s.id === prev)) ? prev : data.sessions[0].id;
+                  setTimeout(() => router.replace(`/dashboard/report-assistant/${targetSession}`), 0);
+                  return targetSession;
+                });
+              }
             }
           }
         })
@@ -3750,9 +5538,20 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
           console.warn("Failed to fetch database chat history:", e),
         );
 
-      const rawActiveSession =
-        localStorage.getItem(uSK.activeSession) ??
-        localStorage.getItem("report-assistant.activeSession");
+      let rawActiveSession = initialChatId;
+      if (!rawActiveSession) {
+        // Mở mặc định chat_id mới nhất từ localStorage
+        if (loadedSessions && loadedSessions.length > 0) {
+          rawActiveSession = loadedSessions[0].id;
+        } else {
+          rawActiveSession =
+            localStorage.getItem(uSK.activeSession) ??
+            localStorage.getItem("report-assistant.activeSession");
+        }
+        if (rawActiveSession) {
+          setTimeout(() => router.replace(`/dashboard/report-assistant/${rawActiveSession}`), 0);
+        }
+      }
       setActiveSessionId(rawActiveSession || "");
 
       const rawSystemPrompt =
@@ -3766,6 +5565,12 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
         localStorage.getItem("report-assistant.temperature");
       setTemperature(parseFloat(rawTemperature) || DEFAULT_TEMPERATURE);
 
+      // Restore selected knowledge subject from localStorage
+      const savedSubject = localStorage.getItem(uSK.knowledgeSubject);
+      if (savedSubject && savedSubject !== "none") {
+        setSelectedKnowledgeSubject(savedSubject);
+      }
+
       setAssistantOnlyMode(true);
     } catch { }
   }, [hydrated, usernameLoaded, username]);
@@ -3773,9 +5578,25 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
   // ── Persist ──
   useEffect(() => {
     if (!hydrated || !usernameLoaded) return;
+    const uSK = getSK(username);
+    
+    // Save sessions with quota handling
     try {
-      const uSK = getSK(username);
       localStorage.setItem(uSK.sessions, JSON.stringify(sessions));
+    } catch (err) {
+      console.warn("Storage quota exceeded, pruning old sessions...");
+      try {
+        // If quota exceeded, keep only the latest 5 sessions
+        if (sessions.length > 5) {
+          const pruned = sessions.slice(0, 5);
+          localStorage.setItem(uSK.sessions, JSON.stringify(pruned));
+        }
+      } catch (e) {
+        console.error("Failed to save even after pruning", e);
+      }
+    }
+
+    try {
       localStorage.setItem(uSK.activeSession, activeSessionId);
       localStorage.setItem(uSK.activeModel, activeModelId);
       localStorage.setItem(uSK.systemPrompt, systemPrompt);
@@ -3804,6 +5625,25 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
     fullModelsLoaded,
   ]);
 
+  // ── Persist selectedKnowledgeSubject separately ──
+  useEffect(() => {
+    if (!hydrated || !usernameLoaded) return;
+    try {
+      const uSK = getSK(username);
+      localStorage.setItem(uSK.knowledgeSubject, selectedKnowledgeSubject || "none");
+    } catch { }
+  }, [hydrated, usernameLoaded, username, selectedKnowledgeSubject]);
+
+  // ── Sync URL ──
+  useEffect(() => {
+    if (!hydrated) return;
+    if (activeSessionId) {
+      window.history.replaceState(null, '', `/dashboard/report-assistant/${activeSessionId}`);
+    } else {
+      window.history.replaceState(null, '', `/dashboard/report-assistant`);
+    }
+  }, [activeSessionId, hydrated]);
+
   useEffect(() => {
     if (!hydrated || !usernameLoaded) return;
     if (hasStreamingMessage(sessions)) return;
@@ -3816,7 +5656,8 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
     }
 
     historySyncTimerRef.current = setTimeout(() => {
-      const payload = { username, sessions };
+      // Chỉ gửi 5 session mới nhất lên DB để tránh quá tải Payload Limit (gây lỗi 413)
+      const payload = { username, sessions: sessions.slice(0, 5) };
       fetch("/api/report-assistant/history", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -3868,15 +5709,21 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
     );
   }, []);
 
-  const loadFullModels = useCallback(async () => {
+  const loadFullModels = useCallback(async (uName = username) => {
     if (fullModelsLoaded) return;
     setLoadingModels(true);
     setLoadError("");
     try {
-      const res = await fetch("/api/v1/models", { cache: "no-store" });
-      const data = await res.json().catch(() => ({}));
-      const models = Array.isArray(data?.data) ? data.data : [];
-      applyFullModelList(models, username);
+      const [modelsRes] = await Promise.all([
+        fetch("/api/v1/models", { cache: "no-store" }),
+      ]);
+      const data = await modelsRes.json().catch(() => ({}));
+      const rawModels = Array.isArray(data?.data) ? data.data : [];
+      const lunaModels = getReportAssistantLunaModels(rawModels);
+      const chatModels = getReportAssistantChatModels(rawModels);
+      setReportModels(lunaModels);
+      reportModelsLoadAttemptedRef.current = true;
+      applyFullModelList(chatModels, uName);
       setFullModelsLoaded(true);
     } catch (err) {
       setLoadError(textValue(err?.message) || "Failed to load models.");
@@ -3901,15 +5748,13 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
       setLoadingModels(true);
       setLoadError("");
       try {
-        const [modelsRes, keysRes, authData, promptRes] = await Promise.all([
-          fetch("/api/v1/models/default", { cache: "no-store" }),
+        const [keysRes, authData, promptRes] = await Promise.all([
           fetch("/api/keys", { cache: "no-store" }),
           fetchUser(),
           fetch("/api/report-assistant/harness-prompt", {
             cache: "no-store",
           }).catch(() => null),
         ]);
-        const modelsData = await modelsRes.json().catch(() => ({}));
         const keysData = await keysRes.json().catch(() => ({}));
         if (promptRes && promptRes.ok) {
           const promptData = await promptRes.json().catch(() => ({}));
@@ -3917,8 +5762,6 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
             setDefaultSystemPrompt(promptData.prompt);
           }
         }
-        const defaultModel = modelsData?.model || null;
-        const models = defaultModel?.id ? [defaultModel] : [];
         const key = Array.isArray(keysData?.keys)
           ? keysData.keys.find((k) => k.isActive !== false)?.key || ""
           : "";
@@ -3928,17 +5771,15 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
         // Check if this is a restricted user
         const normalized = uName.trim().toLowerCase()
           .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        const restrictedUsers = ["trang", "thu", "thuy", "nga"];
+        const restrictedUsers = ["trang", "thu", "thuy", "nga", "mai"];
         setIsRestrictedUser(restrictedUsers.includes(normalized));
 
         if (typeof window !== "undefined") {
+          ensureKnowledgeCacheSessionOwner(uName);
           localStorage.setItem("report-assistant.activeUsername", uName);
         }
-        setAllModels(models);
         setApiKey(key);
-
-        setEnabledModelIds(new Set(models.map((m) => m.id)));
-        if (models.length > 0) setActiveModelId(models[0].id);
+        void loadFullModels(uName);
       } catch (err) {
         setLoadError(textValue(err?.message) || "Failed to load models.");
       } finally {
@@ -3992,6 +5833,44 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
     [enabledModels, activeModelId],
   );
 
+  const loadAgentStatus = useCallback(async (chatId = activeSessionId, forceActive = false) => {
+    if (!chatId) return null;
+    agentCancelRequestedRef.current = false;
+    setAgentLoading(true);
+    try {
+      const res = await fetch("/api/report-assistant/agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "status",
+          chatId,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Không thể tải trạng thái quy trình báo cáo.");
+      }
+
+      const data = await res.json().catch(() => null);
+      if (data?.ok && data.state) {
+        setAgentState(data.state);
+        setAgentActive(forceActive ? true : !isAgentFinishedState(data.state));
+        return data.state;
+      }
+
+      setAgentState(null);
+      setAgentActive(false);
+      return null;
+    } catch (err) {
+      console.error("Failed to load report assistant agent state:", err);
+      setAgentState(null);
+      setAgentActive(false);
+      return null;
+    } finally {
+      setAgentLoading(false);
+    }
+  }, [activeSessionId]);
+
   const combinedFilesBySubject = useMemo(() => {
     const combined = {};
     for (const [subj, files] of Object.entries(filesOutlines || {})) {
@@ -4015,12 +5894,29 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
     !attachedFiles.some((f) => f.status === "uploading");
   const messages = currentSession?.messages || [];
   const activeDoc = selectedReport || selectedOutline;
+  const [isRenderingPreview, setIsRenderingPreview] = useState(false);
+
+  useEffect(() => {
+    if (activeDoc) {
+      setIsRenderingPreview(false);
+      const timer = setTimeout(() => {
+        setIsRenderingPreview(true);
+      }, 400); // Wait for the slide-in animation to complete
+      return () => clearTimeout(timer);
+    } else {
+      setIsRenderingPreview(false);
+    }
+  }, [activeDoc?.id || activeDoc?.title || activeDoc?.name]);
+
   const activeDocType = selectedReport
     ? "report"
     : selectedOutline
       ? "outline"
       : null;
-  const activeDocTitle = activeDoc?.title || activeDoc?.name || "Preview";
+  let activeDocTitle = activeDoc?.title || activeDoc?.name || "Preview";
+  if (activeDocTitle.includes("Báo cáo hoàn chỉnh")) {
+    activeDocTitle = getReportTitleWithDownloadCounter();
+  }
   const activeDocFileName = `${activeDocTitle.replace(/[\\/:*?"<>|]/g, "_")}.docx`;
 
   // ── Session helpers ──
@@ -4181,20 +6077,52 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
   // ── AI Agent Handlers ──
   const buildAgentReportContent = useCallback((state) => {
     const sections = state?.sections_progress || [];
+    const hasInternshipReport = sections.some((section) => section?.reportContext?.internshipReport);
+    const hasCareerReport = sections.some((section) => section?.reportContext?.careerOrientationReport);
     const reportBody = sections
-      .filter((section) => String(section?.content || "").trim())
+      .filter((section) => String(section?.content || "").trim() || isB49InternshipOpeningSection(section))
       .map((section) => {
-        const content = String(section.content || "").trim();
+        const rawContent = String(section.content || "").trim();
+        // Only strip preamble for internship B49 opening sections (dummy heading, real content at 1.1/1.2...).
+        // Career orientation "I. PHẦN MỞ ĐẦU" has actual content and must NOT be stripped.
+        const content = isB49InternshipOpeningSection(section)
+          ? stripB49OpeningPreamble(rawContent)
+          : rawContent;
         const firstLine =
           content
             .split(/\r?\n/)
             .map((line) => line.trim())
             .find(Boolean) || "";
-        const sameTitle =
-          normalizeDisplayLineForDedup(firstLine) &&
-          normalizeDisplayLineForDedup(firstLine) ===
-          normalizeDisplayLineForDedup(section.title);
-        return sameTitle ? content : `# ${section.title}\n\n${content}`;
+        const fNorm = normalizeDisplayLineForDedup(firstLine);
+        const sNorm = normalizeDisplayLineForDedup(section.title);
+        let sameTitle = false;
+        if (fNorm) {
+          if (fNorm === sNorm) {
+            sameTitle = true;
+          } else if (fNorm.length >= 4 && sNorm.includes(fNorm)) {
+            sameTitle = true;
+          } else if (sNorm.length >= 4 && fNorm.includes(sNorm)) {
+            sameTitle = true;
+          } else if (sNorm.includes("ket luan") && fNorm.includes("ket luan")) {
+            sameTitle = true;
+          } else if (sNorm.includes("tai lieu tham khao") && fNorm.includes("tai lieu tham khao")) {
+            sameTitle = true;
+          } else if (sNorm.includes("mo dau") && fNorm.includes("mo dau")) {
+            sameTitle = true;
+          } else if (sNorm.includes("loi mo dau") && fNorm.includes("loi mo dau")) {
+            sameTitle = true;
+          }
+        }
+        if (sameTitle) {
+          const lines = content.split(/\r?\n/);
+          const firstNonEmptyIdx = lines.findIndex(l => l.trim());
+          if (firstNonEmptyIdx >= 0 && !lines[firstNonEmptyIdx].trim().startsWith("#")) {
+            lines[firstNonEmptyIdx] = `# ${lines[firstNonEmptyIdx].trim()}`;
+            return lines.join("\n");
+          }
+          return content;
+        }
+        return `# ${section.title}\n\n${content}`;
       })
       .join("\n\n[PAGE_BREAK]\n\n");
 
@@ -4212,7 +6140,18 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
       }
     }
 
-    if (!webSources.length) return prepareReportContent(reportBody);
+    let finalBody = reportBody;
+    if (hasInternshipReport && !/^\s*#\s*l[oơ]i m[oơ] d[aâ]u\b/i.test(reportBody)) {
+      finalBody = `# LỜI MỞ ĐẦU\n\n[PAGE_BREAK]\n\n${reportBody}`;
+    } else if (hasCareerReport && !/^\s*#\s*(?:i\b|i\.\s*ph[aâ]n m[oơ] d[aâ]u)/i.test(reportBody)) {
+      finalBody = `# I. PHẦN MỞ ĐẦU\n\n[PAGE_BREAK]\n\n${reportBody}`;
+    }
+
+    const reportTitle = sections[0]?.reportContext?.reportTitle || state?.title || "";
+    const isNoRefReport = hasCareerReport ||
+      hasInternshipReport ||
+      shouldExcludeReferences(reportTitle, finalBody);
+    if (isNoRefReport || !webSources.length) return prepareReportContent(finalBody, reportTitle);
 
     const references = [
       "[PAGE_BREAK]",
@@ -4222,9 +6161,9 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
       }),
     ].join("\n");
 
-    return prepareReportContent(reportBody
-      ? `${reportBody}\n\n${references}`
-      : references);
+    return prepareReportContent(finalBody
+      ? `${finalBody}\n\n${references}`
+      : references, reportTitle);
   }, []);
 
   const openAgentProgressPreview = useCallback(
@@ -4241,16 +6180,119 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
     [buildAgentReportContent],
   );
 
+  // When user clicks "Open" on a report_preview card, fetch content from Turso DB
+  // so stale/buggy cached content is replaced and payload limits are bypassed.
+  const handleOpenReportCard = useCallback(async (reportData) => {
+    // 1. Immediately open the panel with cached content or a loading state to prevent unresponsiveness
+    setSelectedReport({
+      title: reportData?.title || getReportTitleWithDownloadCounter(),
+      content: reportData?.content || "<div class='p-4'>Đang tải nội dung báo cáo...</div>",
+    });
+
+    if (activeSessionId) {
+      try {
+        const res = await fetch(`/api/report-assistant/report?chatId=${activeSessionId}&username=${encodeURIComponent(username || "")}`);
+        if (res.ok) {
+          const data = await res.json();
+          // If Turso has data, use it
+          if (data?.ok && data.data && data.data.length > 0) {
+            const isCareer = reportData?.title?.toLowerCase().includes("định hướng nghề nghiệp") || 
+                             reportData?.title?.toLowerCase().includes("career orientation") ||
+                             data.data.some(s => String(s.content || "").toLowerCase().includes("định hướng nghề nghiệp"));
+            const isInternship = reportData?.title?.toLowerCase().includes("kiến tập") || 
+                                 reportData?.title?.toLowerCase().includes("ba49") || 
+                                 reportData?.title?.toLowerCase().includes("b49") ||
+                                 data.data.some(s => String(s.content || "").toLowerCase().includes("kiến tập"));
+            
+            const pseudoSections = data.data.map(item => ({
+              id: item.section_id,
+              title: item.section_title,
+              content: item.content,
+              reportContext: {
+                internshipReport: isInternship,
+                careerOrientationReport: isCareer,
+                reportTitle: reportData?.title || getReportTitleWithDownloadCounter(),
+              }
+            }));
+
+            const rebuilt = buildAgentReportContent({
+              title: reportData?.title || getReportTitleWithDownloadCounter(),
+              sections_progress: pseudoSections
+            });
+
+            if (rebuilt.trim()) {
+              setSelectedReport({
+                title: reportData?.title || getReportTitleWithDownloadCounter(),
+                content: rebuilt,
+              });
+            }
+          } 
+          // If Turso is empty BUT we have old legacy data
+          else if ((reportData?.sections_progress && reportData.sections_progress.length > 0) || reportData?.content) {
+            let rebuilt = "";
+            let sectionsToMigrate = [];
+
+            if (reportData?.sections_progress && reportData.sections_progress.length > 0) {
+              rebuilt = buildAgentReportContent({
+                title: reportData?.title || getReportTitleWithDownloadCounter(),
+                sections_progress: reportData.sections_progress
+              });
+              sectionsToMigrate = reportData.sections_progress;
+            } else if (reportData?.content) {
+              rebuilt = reportData.content;
+              sectionsToMigrate = [{ id: 'legacy_report', title: reportData.title || 'Báo cáo', content: reportData.content, status: 'completed' }];
+            }
+
+            if (rebuilt.trim()) {
+              setSelectedReport({
+                title: reportData?.title || getReportTitleWithDownloadCounter(),
+                content: rebuilt,
+              });
+            }
+            
+            // Background migration to Turso DB
+            if (sectionsToMigrate.length > 0) {
+              fetch("/api/report-assistant/report", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  chat_id: activeSessionId,
+                  username: username || "default_user",
+                  sections: sectionsToMigrate
+                })
+              }).catch(console.error);
+            }
+          }
+        }
+      } catch (_) {
+        // Ignore fetch errors, fall back to stored content
+      }
+    }
+  }, [activeSessionId, buildAgentReportContent, username]);
+
   const openReportWorkflowConfirm = useCallback((request) => {
+    reportModelsLoadAttemptedRef.current = false;
     setPendingReportRequest(request);
-  }, []);
+    const nextModelId = getReportWorkflowDefaultModelId(reportModels);
+    setSelectedReportModelId(nextModelId);
+    setReportWorkflowModelId(nextModelId);
+  }, [reportModels]);
 
   const closeReportWorkflowConfirm = useCallback(() => {
     setPendingReportRequest(null);
+    setSelectedReportModelId("");
+    setReportWorkflowModelId("");
   }, []);
 
+  useEffect(() => {
+    if (!pendingReportRequest) return;
+    if (!reportModelsLoading) {
+      loadReportModels();
+    }
+  }, [pendingReportRequest, reportModelsLoading, loadReportModels]);
+
   const runAgentInit = useCallback(
-    async (userPrompt, modelId, chatId, subjectOverride = selectedKnowledgeSubject) => {
+    async (userPrompt, modelId, chatId, subjectOverride = "") => {
       const runId = `run_${createId()}`;
       agentCancelRequestedRef.current = false;
       setAgentLoading(true);
@@ -4283,20 +6325,17 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
 
         if (selectedOutlineSubject) {
           try {
-            const dbRes = await fetch(
-              `/api/knowledge-content?username=${encodeURIComponent(REPORT_OUTLINE_CONTENT_USER)}&subject=${encodeURIComponent(selectedOutlineSubject)}`,
-            );
-            if (dbRes.ok) {
-              const dbData = await dbRes.json();
-              outlineKnowledge = (dbData.data || [])
-                .map((row) => {
-                  const text = (row.content_text || "").trim();
-                  if (!text) return "";
-                  return `[De cuong: ${row.filename || selectedOutlineSubject}]\n${text}`;
-                })
-                .filter(Boolean)
-                .join("\n\n");
-            }
+            const rows = await fetchKnowledgeContentCached(REPORT_OUTLINE_CONTENT_USER, {
+              subject: selectedOutlineSubject,
+            });
+            outlineKnowledge = rows
+              .map((row) => {
+                const text = (row.content_text || "").trim();
+                if (!text) return "";
+                return `[De cuong: ${row.filename || selectedOutlineSubject}]\n${text}`;
+              })
+              .filter(Boolean)
+              .join("\n\n");
           } catch (knowledgeErr) {
             console.warn(
               "Failed to load selected outline knowledge:",
@@ -4369,21 +6408,18 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
           }
 
           try {
-            const dbRes = await fetch(
-              `/api/knowledge-content?username=${encodeURIComponent(REPORT_TEMPLATE_CONTENT_USER)}&subject=${encodeURIComponent(selectedOutlineSubject)}`,
-            );
-            if (dbRes.ok) {
-              const dbData = await dbRes.json();
-              templateKnowledge = (dbData.data || [])
-                .slice(0, 3)
-                .map((row) => {
-                  const text = (row.content_text || "").trim();
-                  if (!text) return "";
-                  return `[Bao cao mau: ${row.filename || selectedOutlineSubject}]\n${text.slice(0, 8000)}`;
-                })
-                .filter(Boolean)
-                .join("\n\n");
-            }
+            const rows = await fetchKnowledgeContentCached(REPORT_TEMPLATE_CONTENT_USER, {
+              subject: selectedOutlineSubject,
+            });
+            templateKnowledge = rows
+              .slice(0, 3)
+              .map((row) => {
+                const text = (row.content_text || "").trim();
+                if (!text) return "";
+                return `[Bao cao mau: ${row.filename || selectedOutlineSubject}]\n${text.slice(0, 8000)}`;
+              })
+              .filter(Boolean)
+              .join("\n\n");
           } catch (templateErr) {
             console.warn(
               "Failed to load selected template knowledge:",
@@ -4476,8 +6512,14 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
           }),
         });
 
-        if (!res.ok) throw new Error("Khởi tạo Agent thất bại");
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const message =
+            data?.error ||
+            data?.message ||
+            `Khởi tạo Agent thất bại (HTTP ${res.status})`;
+          throw new Error(message);
+        }
         if (!data.ok) {
           const classified = classifyAgentDraftError(
             0,
@@ -4501,25 +6543,28 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
         setAgentLoading(false);
       }
     },
-    [filesOutlines, filesTemplates, selectedKnowledgeSubject, username],
+    [filesOutlines, filesTemplates, username],
   );
 
   const confirmReportWorkflow = useCallback(async () => {
     const request = pendingReportRequest;
     if (!request) return;
 
-    const model =
-      allModels.find((m) => m.id === (request.modelId || activeModelId)) ||
-      allModels[0];
+    let model =
+      reportModels.find((m) => m.id === (reportWorkflowModelId || selectedReportModelId)) ||
+      reportModels[0];
+    if (!model && reportModels.length === 0) {
+      model = activeModel;
+    }
     if (!model) {
-      showToast("Không tìm thấy model phù hợp để khởi chạy quy trình.", "error");
+      showToast("Không tìm thấy model để khởi chạy quy trình báo cáo.", "error");
       return;
     }
 
     const requestSubject =
       request.subject ||
-      selectedKnowledgeSubject ||
       sessions.find((s) => s.id === (request.sessionId || activeSessionId))?.subject ||
+      selectedKnowledgeSubject ||
       "none";
 
     let sessionId = request.sessionId || activeSessionId;
@@ -4535,12 +6580,7 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
       id: createId(),
       role: "user",
       content: request.content || "Tạo báo cáo",
-      files: (request.files || []).map((f) => ({
-        name: f.name,
-        url: f.url,
-        type: f.type,
-        size: f.size,
-      })),
+      files: request.files || [],
       createdAt: new Date().toISOString(),
     };
 
@@ -4571,15 +6611,35 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
       ),
     );
 
+    setSelectedReport(null);
+    setSelectedOutline(null);
+    setAgentActive(true);
+    setAgentState({
+      chat_id: sessionId,
+      current_step: "PLANNING",
+      outline: [],
+      sections_progress: [
+        {
+          id: "planning",
+          title: "Đang tạo quy trình",
+          description:
+            "AI đang phân tích yêu cầu, đọc đề cương và tham khảo báo cáo mẫu để tạo quy trình phù hợp.",
+          status: "drafting",
+          content: "",
+          feedback: "",
+        },
+      ],
+    });
     setPendingReportRequest(null);
     setSelectedKnowledgeSubject(requestSubject);
     setDraft("");
     setAttachedFiles([]);
-    runAgentInit(request.content || "Tạo báo cáo", model.id, sessionId, requestSubject);
+    void runAgentInit(request.content || "Tạo báo cáo", model.id, sessionId, requestSubject);
   }, [
     pendingReportRequest,
-    allModels,
-    activeModelId,
+    reportModels,
+    selectedReportModelId,
+    reportWorkflowModelId,
     activeSessionId,
     sessions,
     createSession,
@@ -4601,7 +6661,7 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
         day: "2-digit",
         month: "short",
       })}`;
-      const reportTitle = `Báo cáo hoàn chỉnh - ${now.toLocaleDateString("vi-VN")}`;
+      const reportTitle = getReportTitleWithDownloadCounter();
 
       const resultMessage = {
         id: `agent_result_${activeSessionId}_${Date.now()}`,
@@ -4651,15 +6711,16 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
   );
 
   const handleOpenAgentRunFromCard = useCallback(
-    (chatId) => {
+    async (chatId) => {
       if (chatId && chatId !== activeSessionId) {
         setActiveSessionId(chatId);
       }
       setSelectedReport(null);
       setSelectedOutline(null);
       setAgentActive(true);
+      await loadAgentStatus(chatId || activeSessionId, true);
     },
-    [activeSessionId],
+    [activeSessionId, loadAgentStatus],
   );
 
   const ensureAgentResultCardsForState = useCallback(
@@ -4675,7 +6736,7 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
       const stateChatId = state?.chat_id || state?.chatId;
       if (stateChatId && stateChatId !== chatId) return;
 
-      const runId = state?.sections_progress?.[0]?.reportContext?.runId || state?.outline?.[0]?.reportContext?.runId;
+      const runId = state?.sections_progress?.[0]?.reportContext?.runId || state?.outline?.[0]?.reportContext?.runId || `fallback_run_${chatId}`;
       if (!runId) return;
 
       const content = buildAgentReportContent(state);
@@ -4717,7 +6778,7 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
               dateLabel,
               chatId,
             });
-            const reportTitle = `Báo cáo hoàn chỉnh - ${date.toLocaleDateString("vi-VN")}`;
+            const reportTitle = getReportTitleWithDownloadCounter();
             cards.push({
               type: "report_preview",
               title: reportTitle,
@@ -4725,6 +6786,7 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
               report: {
                 title: reportTitle,
                 content,
+                sections_progress: state.sections_progress || [],
               },
             });
           }
@@ -4803,10 +6865,13 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
         if (!res.ok) throw new Error("Duyệt đề cương thất bại");
         const data = await res.json();
         if (data.ok && data.state) {
+          setSelectedReport(null);
+          setSelectedOutline(null);
+          setAgentActive(true);
           setAgentState(data.state);
           showToast("Đã duyệt đề cương! Agent bắt đầu soạn thảo...", "success");
           setTimeout(() => {
-            handleDraftNextSection();
+            void handleDraftNextSection();
           }, 800);
         }
       } catch (err) {
@@ -4942,13 +7007,20 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
       markNextSectionDraftingOptimistically();
       let keepLoading = false;
       try {
-        const activeModel =
-          allModels.find((m) => m.id === activeModelId) || allModels[0];
+        let activeModel =
+          reportModels.find((m) => m.id === (reportWorkflowModelId || selectedReportModelId)) ||
+          reportModels[0];
+        if (!activeModel && reportModels.length === 0) {
+          activeModel = enabledModels.find((m) => m.id === activeModelId) || enabledModels[0];
+        }
+        if (!activeModel) {
+          throw new Error("Không tìm thấy model hợp lệ cho quy trình báo cáo.");
+        }
         const res = await fetch("/api/report-assistant/agent", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            action: "draft_next_background",
+            action: "draft_next_worker",
             chatId: activeSessionId,
             username,
             modelId: activeModel?.id,
@@ -4966,12 +7038,40 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
         const data = await res.json();
         if (data.ok && data.state) {
           if (agentCancelRequestedRef.current) return;
+
+          // Loop guard: verify that the server advanced the section status
+          const sectionsBefore = agentState?.sections_progress || [];
+          const targetSection = sectionsBefore.find((s) => s.status === "todo" || s.status === "drafting");
+          if (targetSection) {
+            const sectionsAfter = data.state.sections_progress || [];
+            const targetSectionAfter = sectionsAfter.find((s) => s.id === targetSection.id);
+            if (targetSectionAfter && targetSectionAfter.status === "todo" && false) {
+              const err = new Error("Hệ thống không thể lưu hoặc đồng bộ tiến trình soạn thảo. Vui lòng kiểm tra lại kết nối Supabase của bạn.");
+              err.agentDialog = {
+                title: "Lỗi đồng bộ cơ sở dữ liệu",
+                message: "Tiến trình soạn thảo chương mục không thể được cập nhật trên máy chủ. Hãy đảm bảo cơ sở dữ liệu Supabase đang hoạt động bình thường.",
+                detail: "State did not advance on the server (remained in todo state).",
+              };
+              throw err;
+            }
+          }
+
           setAgentState(data.state);
+          if (data.emptyDraft) {
+            keepLoading = false;
+            setAgentActive(false);
+            setAgentErrorDialog({
+              title: "Chưa nhận được nội dung từ Luna",
+              message: "Luna/Qwen đã trả về phản hồi rỗng cho mục hiện tại. Mục này vẫn được giữ trong hàng chờ, chưa bị đánh dấu hoàn thành.",
+              detail: data.message || "Empty draft response from report agent.",
+            });
+            return;
+          }
           if (data.queued) {
             keepLoading = true;
             return;
           }
-          if (data.state.current_step === "COMPLETED") {
+          if (isAgentFinishedState(data.state)) {
             showToast(
               "AI Agent đã hoàn thành xuất sắc toàn bộ báo cáo!",
               "success",
@@ -4979,6 +7079,8 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
             setAgentActive(false);
             appendAgentResultCardsMessage(data.state);
           } else {
+            const sections = data.state.sections_progress || [];
+            keepLoading = sections.some((section) => section.status === "todo");
             showToast(
               `Đã hoàn thành mục: ${data.activeSectionId || "chương mục"}`,
               "success",
@@ -5004,13 +7106,53 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
       activeSessionId,
       username,
       activeModelId,
-      allModels,
+      reportModels,
+      reportWorkflowModelId,
+      selectedReportModelId,
       appendAgentResultCardsMessage,
       markNextSectionDraftingOptimistically,
     ],
   );
 
+  const handleReloadSection = useCallback(
+    async (sectionId) => {
+      if (!activeSessionId) return;
+      agentCancelRequestedRef.current = false;
+      setAgentLoading(true);
+      try {
+        const res = await fetch("/api/report-assistant/agent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "reload_section",
+            chatId: activeSessionId,
+            username,
+            sectionId,
+          }),
+        });
+
+        if (!res.ok) throw new Error("Gửi yêu cầu tạo lại mục thất bại");
+        const data = await res.json();
+        if (data.ok && data.state) {
+          setAgentState(data.state);
+          setAgentActive(true);
+          showToast("Đã đặt lại trạng thái mục! Đang bắt đầu tạo lại...", "success");
+          setTimeout(() => {
+            void handleDraftNextSection();
+          }, 800);
+        }
+      } catch (err) {
+        console.error(err);
+        showToast(err.message, "error");
+      } finally {
+        setAgentLoading(false);
+      }
+    },
+    [activeSessionId, username, handleDraftNextSection],
+  );
+
   useEffect(() => {
+    return;
     if (
       !agentActive ||
       !agentLoading ||
@@ -5029,6 +7171,8 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
           body: JSON.stringify({
             action: "status",
             chatId: activeSessionId,
+            username,
+            modelId: reportWorkflowModelId || selectedReportModelId || activeModelId,
           }),
         });
         if (!res.ok || stopped || agentCancelRequestedRef.current) return;
@@ -5051,7 +7195,7 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
     };
 
     pollStatus();
-    const timer = setInterval(pollStatus, 1500);
+    const timer = setInterval(pollStatus, 8000);
     return () => {
       stopped = true;
       clearInterval(timer);
@@ -5061,6 +7205,9 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
     agentActive,
     agentLoading,
     agentState?.current_step,
+    activeModelId,
+    reportWorkflowModelId,
+    username,
     appendAgentResultCardsMessage,
   ]);
 
@@ -5110,6 +7257,8 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
     const userPrompt = draft.trim();
     if (!model || (!userPrompt && activeAttached.length === 0)) return;
 
+    const serializedAttachments = await buildSerializedAttachments(activeAttached);
+
     const explicitReportRequest = isReportIntent(userPrompt);
 
     let sessionId = activeSessionId;
@@ -5127,12 +7276,7 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
           id: createId(),
           role: "user",
           content: userPrompt || "Tạo báo cáo",
-          files: activeAttached.map((f) => ({
-            name: f.name,
-            url: f.url,
-            type: f.type,
-            size: f.size,
-          })),
+          files: serializedAttachments,
           createdAt: new Date().toISOString(),
         };
         const warnMsg = {
@@ -5170,12 +7314,7 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
       openReportWorkflowConfirm({
         content: userPrompt,
         subject: selectedKnowledgeSubject,
-        files: activeAttached.map((f) => ({
-          name: f.name,
-          url: f.url,
-          type: f.type,
-          size: f.size,
-        })),
+        files: serializedAttachments,
         sessionId,
         modelId: model.id,
       });
@@ -5189,12 +7328,7 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
           id: createId(),
           role: "user",
           content: userPrompt || "Tạo báo cáo",
-          files: activeAttached.map((f) => ({
-            name: f.name,
-            url: f.url,
-            type: f.type,
-            size: f.size,
-          })),
+          files: serializedAttachments,
           createdAt: new Date().toISOString(),
         };
         const warnMsg = {
@@ -5233,12 +7367,7 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
         id: createId(),
         role: "user",
         content: userPrompt,
-        files: activeAttached.map((f) => ({
-          name: f.name,
-          url: f.url,
-          type: f.type,
-          size: f.size,
-        })),
+        files: serializedAttachments,
         createdAt: new Date().toISOString(),
       };
 
@@ -5269,12 +7398,7 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
       id: createId(),
       role: "user",
       content: userPrompt,
-      files: activeAttached.map((f) => ({
-        name: f.name,
-        url: f.url,
-        type: f.type,
-        size: f.size,
-      })),
+      files: serializedAttachments,
       createdAt: new Date().toISOString(),
     };
     const asstId = createId();
@@ -5346,7 +7470,7 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
       let outlinesContentMap = {};
       try {
         const dbRes = await fetch(
-          `/api/knowledge-content?username=${encodeURIComponent(REPORT_OUTLINE_CONTENT_USER)}`,
+          `/api/knowledge-content?username=${encodeURIComponent(REPORT_OUTLINE_CONTENT_USER)}&includeContent=1`,
         );
         if (dbRes.ok) {
           const dbData = await dbRes.json();
@@ -5440,7 +7564,7 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
       let templatesContentMap = {};
       try {
         const dbRes = await fetch(
-          `/api/knowledge-content?username=${encodeURIComponent(REPORT_TEMPLATE_CONTENT_USER)}`,
+          `/api/knowledge-content?username=${encodeURIComponent(REPORT_TEMPLATE_CONTENT_USER)}&includeContent=1`,
         );
         if (dbRes.ok) {
           const dbData = await dbRes.json();
@@ -5558,7 +7682,7 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
     let effectivePrompt;
     if (!shouldUseReportMode) {
       // Chat mode: light-weight chat behavior
-      effectivePrompt = ASSISTANT_ONLY_FALLBACK_PROMPT;
+      effectivePrompt = getAssistantOnlyFallbackPrompt(username);
     } else {
       // Report mode: full report assistant behavior
       effectivePrompt = systemPrompt.trim() || defaultSystemPrompt;
@@ -5607,31 +7731,11 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
     for (const m of prevMsgs) {
       if (m.role === "user" || (m.role === "assistant" && m.content)) {
         if (m.role === "user" && m.files && m.files.length > 0) {
-          const imageFiles = m.files.filter((f) =>
-            f.type?.startsWith("image/"),
+          const finalContent = await buildContentWithAttachments(
+            m.content || "",
+            m.files,
           );
-          const nonImageFiles = m.files.filter(
-            (f) => !f.type?.startsWith("image/"),
-          );
-
-          let finalContent = m.content || "";
-          if (nonImageFiles.length > 0) {
-            finalContent += "\n\n--- TÀI LIỆU ĐÍNH KÈM ---";
-            for (const df of nonImageFiles) {
-              finalContent += `\n- [${df.name}](${df.url})`;
-            }
-            finalContent += "\n------------------------";
-          }
-
-          if (imageFiles.length > 0) {
-            const parts = [{ type: "text", text: finalContent }];
-            for (const img of imageFiles) {
-              parts.push({ type: "image_url", image_url: { url: img.url } });
-            }
-            reqMsgs.push({ role: m.role, content: parts });
-          } else {
-            reqMsgs.push({ role: m.role, content: finalContent });
-          }
+          reqMsgs.push({ role: m.role, content: finalContent });
         } else {
           reqMsgs.push({ role: m.role, content: m.content });
         }
@@ -5743,14 +7847,6 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
       currentMsgText += "\n-----------------------------------";
     }
 
-    if (docFiles.length > 0) {
-      currentMsgText += "\n\n--- LINK TÀI LIỆU ĐÍNH KÈM ---";
-      for (const df of docFiles) {
-        currentMsgText += `\n- [${df.name}](${df.url})`;
-      }
-      currentMsgText += "\n------------------------------";
-    }
-
     let currentMsgContent;
     if (imageFiles.length > 0) {
       let msgText = currentMsgText;
@@ -5776,6 +7872,15 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
       currentMsgContent = currentMsgText;
     }
 
+    currentMsgText = userPrompt;
+    if (webSearchContext) {
+      currentMsgText += webSearchContext;
+    }
+    currentMsgContent = await buildContentWithAttachments(
+      currentMsgText,
+      activeAttached,
+    );
+
     if (
       shouldUseReportMode &&
       (outlinesTextList.length > 0 || templatesTextList.length > 0)
@@ -5798,9 +7903,10 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
         onDelta,
         maxTokens = REPORT_MAX_TOKENS,
       ) => {
+        const useStreaming = !isReportAssistantLunaModel(model.id);
         const headers = {
           "Content-Type": "application/json",
-          Accept: "text/event-stream",
+          Accept: useStreaming ? "text/event-stream" : "application/json",
         };
         if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
 
@@ -5817,7 +7923,7 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
               body: JSON.stringify({
                 model: model.id,
                 messages,
-                stream: true,
+                stream: useStreaming,
                 temperature,
                 max_tokens: maxTokens,
               }),
@@ -5863,6 +7969,18 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
             }
 
             setSearchStatus(""); // Reset status
+
+            if (!useStreaming) {
+              const data = await res.json().catch(() => null);
+              const fullPart =
+                data?.choices?.[0]?.message?.content ||
+                data?.choices?.[0]?.delta?.content ||
+                data?.output_text ||
+                data?.text ||
+                "";
+              if (fullPart) onDelta(fullPart, fullPart);
+              return fullPart;
+            }
 
             const reader = res.body?.getReader();
             if (!reader) throw new Error("No streaming body");
@@ -5964,359 +8082,11 @@ export default function ReportAssistantPageClient({ initialPrompt }) {
         }
         return;
       }
-
-      // Detect requested page count in user prompt to dynamically scale report capacity
-      const pageMatch = userPrompt.match(/(\d+)\s*(trang|pages?)/i);
-      let customWordScale = null;
-      if (pageMatch) {
-        const requestedPages = parseInt(pageMatch[1], 10);
-        if (requestedPages > 7) {
-          const totalWords = requestedPages * 350; // average 350 words per page in Times New Roman 13pt 1.5 line spacing
-          customWordScale = {
-            total: totalWords,
-            intro: Math.round(totalWords * 0.1),
-            ch1: Math.round(totalWords * 0.22),
-            ch2: Math.round(totalWords * 0.34),
-            ch3: Math.round(totalWords * 0.17),
-            conclusion: Math.round(totalWords * 0.17),
-          };
-        }
-      }
-
-      const stages = [
-        {
-          name: "LẬP DÀN Ý & BỐ CỤC CHI TIẾT",
-          prompt: (userPrompt) => {
-            const targets = customWordScale
-              ? `Trang bìa & Lời mở đầu ~${customWordScale.intro} từ, Chương 1 ~${customWordScale.ch1} từ, Chương 2 ~${customWordScale.ch2} từ, Chương 3 ~${customWordScale.ch3} từ, Kết luận & Tài liệu tham khảo ~${customWordScale.conclusion} từ`
-              : "Trang bìa & Lời mở đầu ~500-600 từ, Chương 1 ~1.100-1.300 từ, Chương 2 ~1.600-2.000 từ, Chương 3 ~900-1.100 từ, Kết luận & Tài liệu tham khảo ~900-1.100 từ";
-            const total = customWordScale
-              ? `${customWordScale.total} từ`
-              : "5.000-6.000 từ";
-
-            return `Dựa trên yêu cầu: "${userPrompt}" cùng các Đề cương (Outlines) và Báo cáo mẫu đã cung cấp, hãy lập một Dàn ý chi tiết cho báo cáo.
-Dàn ý BẮT BUỘC phải bám sát cấu trúc trong Đề cương được cung cấp: giữ đúng tên phần/chương/mục, thứ tự, phạm vi nội dung và các bảng biểu/yêu cầu bắt buộc. Báo cáo mẫu chỉ được dùng để tham khảo cách trình bày và hành văn, KHÔNG được dùng để thêm, bỏ, đổi tên, gộp/tách hoặc đảo thứ tự đề mục của đề cương.
-Mục tiêu dung lượng bản báo cáo hoàn chỉnh: khoảng ${total} nếu đề cương không quy định ngắn hơn. Phân bổ theo đề cương; nếu đề cương không nêu quota cụ thể thì dùng mặc định: ${targets}. Không viết chi tiết nội dung, chỉ xuất ra dàn ý bằng Markdown. Không viết placeholder kiểu "(Nội dung Chương ... sẽ tiếp nối tại đây...)".`;
-          },
-        },
-        {
-          name: "VIẾT TRANG BÌA & LỜI MỞ ĐẦU",
-          prompt: (outline) => {
-            const introTarget = customWordScale ? customWordScale.intro : 500;
-            return `Dựa trên Dàn ý chi tiết sau đây:\n${outline}\n\nĐồng thời tuân thủ văn phong học thuật của các báo cáo mẫu. Hãy viết đủ chi tiết nhưng gọn cho **TRANG BÌA & LỜI MỞ ĐẦU**.
-Yêu cầu:
-- Không thêm, bỏ, đổi tên hoặc đảo thứ tự các mục so với Dàn ý đã lập từ Đề cương.
-- Trang bìa phải tuân thủ đúng định dạng của báo cáo mẫu (Trường học, khoa viện, tên báo cáo, thông tin sinh viên).
-- Lời mở đầu dài khoảng ${introTarget} từ, nêu rõ lý do chọn đề tài, mục tiêu, đối tượng, phạm vi, phương pháp nghiên cứu và bố cục báo cáo.
-- Phải tự kiểm tra dung lượng trước khi trả lời; nếu dưới ${introTarget} từ thì bổ sung chiều sâu học thuật, nếu vượt ${Math.round(introTarget * 1.3)} từ thì rút gọn.
-- Chỉ xuất nội dung thuộc báo cáo, không viết lời chào, lời dẫn của trợ lý, lời giải thích hệ thống hoặc tự xưng agent.
-- Tuyệt đối KHÔNG tự ý viết các thẻ [START_REPORT] hay [END_REPORT] vào bài viết, hệ thống sẽ tự động thêm chúng ở ngoài.
-- Kết thúc phần này bằng tag [PAGE_BREAK] ở dòng cuối cùng.`;
-          },
-        },
-        {
-          name: "VIẾT CHƯƠNG 1: GIỚI THIỆU TỔNG QUAN VÀ CƠ CẤU TỔ CHỨC",
-          prompt: (prevContent) => {
-            const ch1Target = customWordScale ? customWordScale.ch1 : 1100;
-            return `Dựa trên dàn ý và nội dung đã viết (trích đoạn gần nhất):\n${prevContent}\n\nHãy tiếp tục viết chi tiết **CHƯƠNG 1**.
-Yêu cầu:
-- Chỉ viết các mục thuộc CHƯƠNG 1 theo Dàn ý/Đề cương; không tự thêm, bỏ, đổi tên hoặc đảo thứ tự mục.
-- Viết giới thiệu tổng quan đơn vị kiến tập, lịch sử hình thành, chức năng nhiệm vụ, vẽ Sơ đồ cơ cấu tổ chức bộ máy và thuyết minh chi tiết sơ đồ đó.
-- Độ dài khoảng ${ch1Target} từ. Sử dụng phong cách in đậm cho tiêu đề mục lớn, in nghiêng cho nhận xét/ghi chú bổ trợ khi thật cần thiết.
-- Phải tự kiểm tra dung lượng trước khi trả lời; nếu dưới ${ch1Target} từ thì phát triển thêm đúng các mục của đề cương, nếu vượt ${Math.round(ch1Target * 1.3)} từ thì rút gọn.
-- Chỉ xuất nội dung thuộc báo cáo, không viết lời chào, lời dẫn của trợ lý, lời giải thích hệ thống hoặc tự xưng agent.
-- Tuyệt đối KHÔNG tự ý viết các thẻ [START_REPORT] hay [END_REPORT].
-- Kết thúc phần này bằng tag [PAGE_BREAK] ở dòng cuối cùng.`;
-          },
-        },
-        {
-          name: "VIẾT CHƯƠNG 2: THỰC TRẠNG HOẠT ĐỘNG VÀ PHÂN TÍCH SỐ LIỆU",
-          prompt: (prevContent) => {
-            const ch2Target = customWordScale ? customWordScale.ch2 : 1600;
-            return `Dựa trên dàn ý và nội dung đã viết (trích đoạn gần nhất):\n${prevContent}\n\nHãy tiếp tục viết chi tiết **CHƯƠNG 2**.
-Yêu cầu:
-- Chỉ viết các mục thuộc CHƯƠNG 2 theo Dàn ý/Đề cương; không tự thêm, bỏ, đổi tên hoặc đảo thứ tự mục.
-- Lập bảng biểu số liệu chi tiết trong 3 năm gần nhất là 2023, 2024, và 2025. Cấm lấy dữ liệu 2026.
-- Sau mỗi bảng biểu BẮT BUỘC có đoạn văn nhận xét đánh giá sự tăng/giảm, phân tích nguyên nhân khoảng 80-120 từ.
-- Vẽ sơ đồ Mermaid.js thuyết minh 1 quy trình/hoạt động cốt lõi của đơn vị kiến tập nếu đề cương cần.
-- Độ dài khoảng ${ch2Target} từ.
-- Phải tự kiểm tra dung lượng trước khi trả lời; nếu dưới ${ch2Target} từ thì bổ sung phân tích, bảng biểu và nhận xét theo đúng đề cương, nếu vượt ${Math.round(ch2Target * 1.3)} từ thì rút gọn.
-- Chỉ xuất nội dung thuộc báo cáo, không viết lời chào, lời dẫn của trợ lý, lời giải thích hệ thống hoặc tự xưng agent.
-- Tuyệt đối KHÔNG tự ý viết các thẻ [START_REPORT] hay [END_REPORT].
-- Kết thúc phần này bằng tag [PAGE_BREAK] ở dòng cuối cùng.`;
-          },
-        },
-        {
-          name: "VIẾT CHƯƠNG 3: ĐÁNH GIÁ CHUNG VÀ BÀI HỌC KINH NGHIỆM",
-          prompt: (prevContent) => {
-            const ch3Target = customWordScale ? customWordScale.ch3 : 900;
-            return `Dựa trên dàn ý và nội dung đã viết (trích đoạn gần nhất):\n${prevContent}\n\nHãy tiếp tục viết chi tiết **CHƯƠNG 3**.
-Yêu cầu:
-- Chỉ viết các mục thuộc CHƯƠNG 3 theo Dàn ý/Đề cương; không tự thêm, bỏ, đổi tên hoặc đảo thứ tự mục.
-- Đánh giá ưu điểm, nhược điểm, nguyên nhân hạn chế của đơn vị kiến tập.
-- Đề xuất các giải pháp khả thi và bài học kinh nghiệm thu được sau thời gian kiến tập.
-- Độ dài khoảng ${ch3Target} từ.
-- Phải tự kiểm tra dung lượng trước khi trả lời; nếu dưới ${ch3Target} từ thì phát triển thêm đánh giá, nguyên nhân và bài học theo đúng đề cương, nếu vượt ${Math.round(ch3Target * 1.3)} từ thì rút gọn.
-- Chỉ xuất nội dung thuộc báo cáo, không viết lời chào, lời dẫn của trợ lý, lời giải thích hệ thống hoặc tự xưng agent.
-- Tuyệt đối KHÔNG tự ý viết các thẻ [START_REPORT] hay [END_REPORT].
-- Kết thúc phần này bằng tag [PAGE_BREAK] ở dòng cuối cùng.`;
-          },
-        },
-        {
-          name: "VIẾT KẾT LUẬN & DANH MỤC TÀI LIỆU THAM KHẢO",
-          prompt: (prevContent) => {
-            const concTarget = customWordScale
-              ? customWordScale.conclusion
-              : 900;
-            return `Dựa trên dàn ý và nội dung đã viết (trích đoạn gần nhất):\n${prevContent}\n\nHãy hoàn thành phần cuối cùng của báo cáo gồm: **KẾT LUẬN & ĐỀ XUẤT** và **DANH MỤC TÀI LIỆU THAM KHẢO**.
-Yêu cầu:
-- Phần cuối phải bám đúng Dàn ý/Đề cương; không tự thêm, bỏ, đổi tên hoặc đảo thứ tự mục.
-- Phần Kết luận tổng hợp đầy đủ đánh giá, bài học kinh nghiệm, định hướng của sinh viên và hiệu quả kiến tập (độ dài khoảng ${concTarget} từ).
-- Phải tự kiểm tra dung lượng trước khi trả lời; nếu dưới ${concTarget} từ thì bổ sung tổng hợp và định hướng, nếu vượt ${Math.round(concTarget * 1.3)} từ thì rút gọn.
-- Phần Danh mục tài liệu tham khảo: CHỈ liệt kê các liên kết web thực tế lấy từ Tavily Search/Jina Reader hoặc URL do người dùng cung cấp. Tuyệt đối KHÔNG liệt kê link Supabase (đề cương/báo cáo mẫu/knowledge).
-- Chèn tag [PAGE_BREAK] ngay trước tiêu đề **DANH MỤC TÀI LIỆU THAM KHẢO** để bắt đầu trang mới.
-- Tuyệt đối không chèn bất kỳ dòng trích nguồn nào ở giữa báo cáo.
-- Bắt đầu ngay bằng tiêu đề **KẾT LUẬN VÀ ĐỀ XUẤT** hoặc **DANH MỤC TÀI LIỆU THAM KHẢO**; không viết lời chào, lời dẫn, lời xác nhận đã tiếp nhận yêu cầu, hoặc bất kỳ câu tự xưng hệ thống/agent nào.
-- Tuyệt đối KHÔNG tự ý viết các thẻ [START_REPORT] hay [END_REPORT].`;
-          },
-        },
-      ];
-
-      const conclusionStartMatchers = [
-        /^ket luan\b/,
-        /^ket luan va de xuat\b/,
-        /^phan ket luan\b/,
-        /^danh muc tai lieu tham khao\b/,
-        /^(\d+\s+)+ket luan\b/,
-        /^(\d+\s+)+danh muc\b/,
-      ];
-      const cleanTags = (s, startMatchers = []) =>
-        cleanReportStageContent(s, startMatchers);
-
-      let finalFullContent = "";
-
-      // Step 1: Planning / Outline
-      updateAssistantMsg(
-        reportProgressMessage(
-          "BƯỚC 1/6",
-          "ĐANG LẬP DÀN Ý CHI TIẾT CHO BÁO CÁO...",
-        ),
-      );
-      const outlinePrompt = stages[0].prompt(userPrompt);
-      const outlineMsgs = [
-        { role: "system", content: effectivePrompt },
-        { role: "user", content: outlinePrompt },
-      ];
-      let outlineResult = "";
-      await streamCompletion(
-        outlineMsgs,
-        (delta, full) => {
-          outlineResult = full;
-          updateAssistantMsg(
-            reportProgressMessage(
-              "BƯỚC 1/6",
-              "ĐANG LẬP DÀN Ý CHI TIẾT CHO BÁO CÁO...",
-              full,
-            ),
-          );
-        },
-        OUTLINE_MAX_TOKENS,
-      );
-      const outlineTitle = getDocTitle(outlineResult, "Dàn ý báo cáo");
-      setSelectedOutline({ title: outlineTitle, content: outlineResult });
-      setSelectedReport(null);
-      const outlineContext = clampTextForContext(
-        outlineResult,
-        MAX_OUTLINE_CONTEXT_CHARS,
-      );
-
-      // Step 2: Trang bìa & Lời mở đầu (Bắt đầu gán START_REPORT trực tiếp từ code)
-      updateAssistantMsg(
-        reportProgressMessage(
-          "BƯỚC 2/6",
-          `ĐANG VIẾT TRANG BÌA & LỜI MỞ ĐẦU (Mục tiêu ${customWordScale ? customWordScale.intro : "400-500"} từ)...`,
-        ),
-      );
-      const introPrompt = stages[1].prompt(outlineContext);
-      const introMsgs = [
-        { role: "system", content: effectivePrompt },
-        { role: "user", content: introPrompt },
-      ];
-      let introResult = "";
-      await streamCompletion(
-        introMsgs,
-        (delta, full) => {
-          introResult = full;
-          updateAssistantMsg(
-            reportProgressMessage(
-              "BƯỚC 2/6",
-              `ĐANG VIẾT TRANG BÌA & LỜI MỞ ĐẦU (Mục tiêu ${customWordScale ? customWordScale.intro : "400-500"} từ)...`,
-              full,
-            ),
-          );
-        },
-        REPORT_MAX_TOKENS,
-      );
-      const introClean = ensurePageBreakSuffix(
-        stripAllPageBreaks(cleanTags(introResult)),
-      );
-      finalFullContent += "[START_REPORT]\n" + introClean + "\n\n";
-
-      // Step 3: Chương 1
-      updateAssistantMsg(
-        reportProgressMessage(
-          "BƯỚC 3/6",
-          `ĐANG VIẾT CHƯƠNG 1 (Mục tiêu ${customWordScale ? customWordScale.ch1 : "900-1.100"} từ)...`,
-        ),
-      );
-      const ch1Context = buildStageContext(outlineResult, finalFullContent);
-      const ch1Prompt = stages[2].prompt(ch1Context);
-      const ch1Msgs = [
-        { role: "system", content: effectivePrompt },
-        { role: "user", content: ch1Prompt },
-      ];
-      let ch1Result = "";
-      await streamCompletion(
-        ch1Msgs,
-        (delta, full) => {
-          ch1Result = full;
-          updateAssistantMsg(
-            reportProgressMessage(
-              "BƯỚC 3/6",
-              `ĐANG VIẾT CHƯƠNG 1 (Mục tiêu ${customWordScale ? customWordScale.ch1 : "900-1.100"} từ)...`,
-              full,
-            ),
-          );
-        },
-        REPORT_MAX_TOKENS,
-      );
-      const ch1Clean = ensurePageBreakSuffix(
-        stripAllPageBreaks(cleanTags(ch1Result)),
-      );
-      finalFullContent += ch1Clean + "\n\n";
-
-      // Step 4: Chương 2
-      updateAssistantMsg(
-        reportProgressMessage(
-          "BƯỚC 4/6",
-          `ĐANG VIẾT CHƯƠNG 2 (Mục tiêu ${customWordScale ? customWordScale.ch2 : "1.300-1.600"} từ)...`,
-        ),
-      );
-      const ch2Context = buildStageContext(outlineResult, finalFullContent);
-      const ch2Prompt = stages[3].prompt(ch2Context);
-      const ch2Msgs = [
-        { role: "system", content: effectivePrompt },
-        { role: "user", content: ch2Prompt },
-      ];
-      let ch2Result = "";
-      await streamCompletion(
-        ch2Msgs,
-        (delta, full) => {
-          ch2Result = full;
-          updateAssistantMsg(
-            reportProgressMessage(
-              "BƯỚC 4/6",
-              `ĐANG VIẾT CHƯƠNG 2 (Mục tiêu ${customWordScale ? customWordScale.ch2 : "1.300-1.600"} từ)...`,
-              full,
-            ),
-          );
-        },
-        REPORT_MAX_TOKENS,
-      );
-      const ch2Clean = ensurePageBreakSuffix(
-        stripAllPageBreaks(cleanTags(ch2Result)),
-      );
-      finalFullContent += ch2Clean + "\n\n";
-
-      // Step 5: Chương 3
-      updateAssistantMsg(
-        reportProgressMessage(
-          "BƯỚC 5/6",
-          `ĐANG VIẾT CHƯƠNG 3 (Mục tiêu ${customWordScale ? customWordScale.ch3 : "700-900"} từ)...`,
-        ),
-      );
-      const ch3Context = buildStageContext(outlineResult, finalFullContent);
-      const ch3Prompt = stages[4].prompt(ch3Context);
-      const ch3Msgs = [
-        { role: "system", content: effectivePrompt },
-        { role: "user", content: ch3Prompt },
-      ];
-      let ch3Result = "";
-      await streamCompletion(
-        ch3Msgs,
-        (delta, full) => {
-          ch3Result = full;
-          updateAssistantMsg(
-            reportProgressMessage(
-              "BƯỚC 5/6",
-              `ĐANG VIẾT CHƯƠNG 3 (Mục tiêu ${customWordScale ? customWordScale.ch3 : "700-900"} từ)...`,
-              full,
-            ),
-          );
-        },
-        REPORT_MAX_TOKENS,
-      );
-      const ch3Clean = ensurePageBreakSuffix(
-        stripAllPageBreaks(cleanTags(ch3Result)),
-      );
-      finalFullContent += ch3Clean + "\n\n";
-
-      // Step 6: Kết luận & Tài liệu tham khảo
-      updateAssistantMsg(
-        reportProgressMessage(
-          "BƯỚC 6/6",
-          "ĐANG HOÀN THIỆN PHẦN KẾT LUẬN & TÀI LIỆU THAM KHẢO...",
-        ),
-      );
-      const concContext = buildStageContext(outlineResult, finalFullContent);
-      const concPrompt = stages[5].prompt(concContext);
-      const concMsgs = [
-        { role: "system", content: effectivePrompt },
-        { role: "user", content: concPrompt },
-      ];
-      let concResult = "";
-      await streamCompletion(
-        concMsgs,
-        (delta, full) => {
-          concResult = full;
-          updateAssistantMsg(
-            reportProgressMessage(
-              "BƯỚC 6/6",
-              "ĐANG HOÀN THIỆN PHẦN KẾT LUẬN & TÀI LIỆU THAM KHẢO...",
-              cleanTags(full, conclusionStartMatchers),
-            ),
-          );
-        },
-        REPORT_MAX_TOKENS,
-      );
-      let concClean = removeTrailingPageBreak(
-        stripAllPageBreaks(cleanTags(concResult, conclusionStartMatchers)),
-      );
-      concClean = stripSupabaseReportLinks(concClean);
-      concClean = ensurePageBreakBeforeReferences(concClean);
-      finalFullContent += `${concClean}\n[END_REPORT]`;
-
-      const finalOutput =
-        `[START_OUTLINE]\n${outlineResult}\n[END_OUTLINE]\n` + finalFullContent;
-
-      const reportMatch = finalOutput.match(
-        /\[START_REPORT\]([\s\S]*?)\[END_REPORT\]/,
-      );
-      const reportContent = reportMatch ? reportMatch[1].trim() : "";
-      const reportTitle = getDocTitle(reportContent, "Báo cáo Kiến tập");
-
-      const latencyMs = Date.now() - t0;
-      updateAssistantMsg(finalOutput, "done", latencyMs);
-      setSelectedReport({ title: reportTitle, content: reportContent });
-      setSelectedOutline(null);
     } catch (err) {
       if (err.name !== "AbortError") {
         updateAssistantMsg(`Error: ${textValue(err)}`, "error");
       }
     } finally {
-      if (shouldUseReportMode) {
-        setAssistantOnlyMode(true);
-      }
       setIsSending(false);
       setStreamingId("");
       abortRef.current = null;
@@ -6423,6 +8193,33 @@ Yêu cầu:
       abortRef.current?.abort();
       abortRef.current = new AbortController();
 
+      const updateAssistantMsg = (
+        content,
+        status = "streaming",
+        latencyMs = null,
+      ) => {
+        setSessions((prev) =>
+          prev.map((s) =>
+            s.id === sessionId
+              ? {
+                ...s,
+                messages: s.messages.map((m) =>
+                  m.id === asstId
+                    ? {
+                      ...m,
+                      content,
+                      status,
+                      ...(latencyMs !== null ? { latencyMs } : {}),
+                    }
+                    : m,
+                ),
+                updatedAt: new Date().toISOString(),
+              }
+              : s,
+          ),
+        );
+      };
+
       // ── Knowledge Base Preparation (Outlines & Templates) ──
       const outlinesTextList = [];
       const templatesTextList = [];
@@ -6442,6 +8239,29 @@ Yêu cầu:
           for (const f of files) {
             allTemplates.push({ ...f, subject: subj });
           }
+        }
+      }
+
+      // Detect requested page count in user prompt to dynamically scale report capacity
+      const pageMatch = (updatedUserMsg.content || "").match(/(\d+)\s*(trang|pages?)/i);
+      let customWordScale = null;
+      if (pageMatch) {
+        const requestedPages = parseInt(pageMatch[1], 10);
+        if (requestedPages > 7) {
+          const normalizedContent = (updatedUserMsg.content || "").toLowerCase()
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d");
+          const isB49 = /\b(?:ba49|b49|kien tap)\b/i.test(normalizedContent);
+          const isCareer = /\b(?:thuc tap dinh huong nghe nghiep|dinh huong nghe nghiep)\b/i.test(normalizedContent);
+          const excludedPages = (isB49 || isCareer) ? 4 : 3;
+          const totalWords = Math.max(1, requestedPages - excludedPages) * 350; // average 350 words per page in Times New Roman 13pt 1.5 line spacing
+          customWordScale = {
+            total: totalWords,
+            intro: Math.round(totalWords * 0.08),
+            ch1: Math.round(totalWords * 0.24),
+            ch2: Math.round(totalWords * 0.40),
+            ch3: Math.round(totalWords * 0.23),
+            conclusion: Math.round(totalWords * 0.05),
+          };
         }
       }
 
@@ -6494,11 +8314,16 @@ Yêu cầu:
         finalUserContent = updatedUserMsg.content;
       }
 
+      finalUserContent = await buildContentWithAttachments(
+        updatedUserMsg.content || "",
+        updatedUserMsg.files || [],
+      );
+
       if (shouldUseReportMode && allOutlines.length > 0) {
         let outlinesContentMap = {};
         try {
           const dbRes = await fetch(
-            `/api/knowledge-content?username=${encodeURIComponent(REPORT_OUTLINE_CONTENT_USER)}`,
+            `/api/knowledge-content?username=${encodeURIComponent(REPORT_OUTLINE_CONTENT_USER)}&includeContent=1`,
           );
           if (dbRes.ok) {
             const dbData = await dbRes.json();
@@ -6592,7 +8417,7 @@ Yêu cầu:
         let templatesContentMap = {};
         try {
           const dbRes = await fetch(
-            `/api/knowledge-content?username=${encodeURIComponent(REPORT_TEMPLATE_CONTENT_USER)}`,
+            `/api/knowledge-content?username=${encodeURIComponent(REPORT_TEMPLATE_CONTENT_USER)}&includeContent=1`,
           );
           if (dbRes.ok) {
             const dbData = await dbRes.json();
@@ -6710,7 +8535,7 @@ Yêu cầu:
         );
       }
 
-      let effectivePrompt = systemPrompt.trim() || defaultSystemPrompt;
+      let effectivePrompt = getAssistantOnlyFallbackPrompt(username);
 
       const targetCompany = extractTargetCompany(updatedUserMsg.content || "");
       effectivePrompt += `\n\nQUY TẮC SỬ DỤNG KHO TRI THỨC BÁO CÁO:\n- Đề cương là kiến thức chung bắt buộc để giữ cấu trúc, thứ tự mục và quy chuẩn trình bày.\n- Báo cáo mẫu là nguồn tri thức chi tiết để tham khảo cách viết, cách phân tích và ví dụ tương tự; không sao chép nguyên văn.\n- Dữ liệu người dùng cung cấp trong yêu cầu hiện tại là nguồn sự thật ưu tiên cao nhất.`;
@@ -6776,563 +8601,6 @@ Yêu cầu:
           abortRef.current = null;
         }
         return;
-      }
-
-      // Format historical messages up to the target user message
-      for (const m of keptMsgs) {
-        if (m.role === "user" || (m.role === "assistant" && m.content)) {
-          if (m.role === "user" && m.files && m.files.length > 0) {
-            const imageFiles = m.files.filter((f) =>
-              f.type?.startsWith("image/"),
-            );
-            const nonImageFiles = m.files.filter(
-              (f) => !f.type?.startsWith("image/"),
-            );
-
-            let finalContent = m.content || "";
-            if (nonImageFiles.length > 0) {
-              finalContent += "\n\n--- TÀI LIỆU ĐÍNH KÈM ---";
-              for (const df of nonImageFiles) {
-                finalContent += `\n- [${df.name}](${df.url})`;
-              }
-              finalContent += "\n------------------------";
-            }
-
-            if (imageFiles.length > 0) {
-              const parts = [{ type: "text", text: finalContent }];
-              for (const img of imageFiles) {
-                parts.push({ type: "image_url", image_url: { url: img.url } });
-              }
-              reqMsgs.push({ role: m.role, content: parts });
-            } else {
-              reqMsgs.push({ role: m.role, content: finalContent });
-            }
-          } else {
-            reqMsgs.push({ role: m.role, content: m.content });
-          }
-        }
-      }
-
-      // Format target user message
-      if (updatedUserMsg.files && updatedUserMsg.files.length > 0) {
-        const imageFiles = updatedUserMsg.files.filter((f) =>
-          f.type?.startsWith("image/"),
-        );
-        const nonImageFiles = updatedUserMsg.files.filter(
-          (f) => !f.type?.startsWith("image/"),
-        );
-
-        let finalContent = updatedUserMsg.content || "";
-        if (nonImageFiles.length > 0) {
-          finalContent += "\n\n--- TÀI LIỆU ĐÍNH KÈM ---";
-          for (const df of nonImageFiles) {
-            finalContent += `\n- [${df.name}](${df.url})`;
-          }
-          finalContent += "\n------------------------";
-        }
-
-        if (imageFiles.length > 0) {
-          let msgText = finalContent;
-          if (imageFiles.length > 1) {
-            const multiImageInstruction = `[HƯớNG DẪN ĐỌC NHIỀU ẢNH: Bạn đang nhận được ${imageFiles.length} ảnh. Hãy:
-1. ĐỌC toàn bộ nội dung từ tất cả ${imageFiles.length} ảnh trước khi trả lời.
-2. Xác định các câu hỏi riêng lẻ: mỗi câu được đánh số (câu 1, câu 2...) hoặc phân tách bằng ký hiệu.
-3. Ghep lại các câu bị cắt nửa giữa 2 ảnh: nếu một câu bắt đầu ở ảnh này và tiếp tục sang ảnh khác, hãy ghép chúng lại thành một câu hoàn chỉnh trước khi giải.
-4. Sắp xếp đúng thứ tự: theo số câu tăng dần (câu 1, câu 2, câu 3...) bất kể câu nằm ở ảnh nào.
-5. Trả lời từng câu đầy đủ, không bỏ sót câu nào.]
-
-`;
-            msgText = multiImageInstruction + msgText;
-          }
-          const parts = [{ type: "text", text: msgText }];
-          for (const img of imageFiles) {
-            parts.push({ type: "image_url", image_url: { url: img.url } });
-          }
-          finalUserContent = parts;
-        } else {
-          finalUserContent = finalContent;
-        }
-      } else {
-        finalUserContent = updatedUserMsg.content;
-      }
-
-      if (outlinesTextList.length > 0 || templatesTextList.length > 0) {
-        const citationReminder = `\n\n[LƯU Ý QUAN TRỌNG VỀ TRÍCH NGUỒN: Tuyệt đối KHÔNG viết cụm "Tham khảo: nội dung kiến thức..." ở ngoài hay ở đáy các câu trả lời chat thông thường. Thay vào đó, bạn BẮT BUỘC phải gán danh sách nguồn tham khảo tại phần cuối cùng bên trong cặp thẻ [START_REPORT]...[END_REPORT] ở đáy của toàn bộ báo cáo chi tiết, trình bày thành một mục "## DANH MỤC TÀI LIỆU THAM KHẢO" chuyên biệt. Danh mục này CHỈ LIỆT KÊ các liên kết web thực tế thu thập từ Tavily Search/Jina Reader hoặc các URL do người dùng cung cấp trong prompt. TUYỆT ĐỐI không liệt kê link Supabase (đề cương/báo cáo mẫu/knowledge).]`;
-        if (typeof finalUserContent === "string") {
-          finalUserContent += citationReminder;
-        } else if (Array.isArray(finalUserContent)) {
-          const textPart = finalUserContent.find((p) => p.type === "text");
-          if (textPart) {
-            textPart.text += citationReminder;
-          }
-        }
-      }
-
-      const t0 = Date.now();
-      try {
-        const streamCompletion = async (
-          messages,
-          onDelta,
-          maxTokens = REPORT_MAX_TOKENS,
-        ) => {
-          const headers = {
-            "Content-Type": "application/json",
-            Accept: "text/event-stream",
-          };
-          if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
-
-          let attempts = 0;
-          const maxAttempts = 6;
-          let delay = 3000; // Start with a 3s delay
-          const maxDelayMs = 60000;
-
-          while (attempts < maxAttempts) {
-            try {
-              const res = await fetch("/api/v1/chat/completions", {
-                method: "POST",
-                headers,
-                body: JSON.stringify({
-                  model: model.id,
-                  messages,
-                  stream: true,
-                  temperature,
-                  max_tokens: maxTokens,
-                }),
-                signal: abortRef.current?.signal,
-              });
-
-              if (res.status === 429) {
-                attempts += 1;
-                const retryAfterHeader = res.headers.get("Retry-After");
-                const retryAfterSeconds = Number.parseInt(retryAfterHeader, 10);
-                const retryAfterMs = Number.isFinite(retryAfterSeconds)
-                  ? retryAfterSeconds * 1000
-                  : 0;
-                const jitterMs = Math.floor(Math.random() * 500);
-                const nextDelay = Math.min(
-                  Math.max(delay, retryAfterMs) + jitterMs,
-                  maxDelayMs,
-                );
-                if (attempts >= maxAttempts) {
-                  throw new Error(
-                    "Gặp lỗi giới hạn tần suất (Rate Limit 429) từ API model. Vui lòng thử lại sau ít phút hoặc sử dụng API key khác.",
-                  );
-                }
-                setSearchStatus(
-                  `Gặp lỗi 429 (Rate Limit). Đang tự động thử lại sau ${Math.ceil(nextDelay / 1000)}s... (Lần ${attempts}/${maxAttempts})`,
-                );
-                await new Promise((resolve) => setTimeout(resolve, nextDelay));
-                delay = Math.min(delay * 2, maxDelayMs);
-                continue;
-              }
-
-              if (!res.ok) {
-                const errData = await res.json().catch(() => ({}));
-                const message = textValue(
-                  errData?.error?.message ||
-                  errData?.error ||
-                  errData?.message ||
-                  `HTTP ${res.status}`,
-                );
-                const error = new Error(message);
-                error.status = res.status;
-                throw error;
-              }
-
-              setSearchStatus(""); // Reset status
-
-              const reader = res.body?.getReader();
-              if (!reader) throw new Error("No streaming body");
-
-              const dec = new TextDecoder();
-              let buf = "",
-                fullPart = "";
-              while (true) {
-                const { value, done } = await reader.read();
-                if (done) break;
-                buf += dec.decode(value, { stream: true });
-                const lines = buf.split(/\r?\n/);
-                buf = lines.pop() || "";
-                for (const line of lines) {
-                  const t = line.trim();
-                  if (!t.startsWith("data:")) continue;
-                  const payload = t.slice(5).trim();
-                  if (!payload || payload === "[DONE]") continue;
-                  try {
-                    const chunk = JSON.parse(payload);
-                    const delta =
-                      chunk.choices?.[0]?.delta?.content ||
-                      chunk.choices?.[0]?.message?.content ||
-                      "";
-                    if (delta) {
-                      fullPart += delta;
-                      onDelta(delta, fullPart);
-                    }
-                  } catch { }
-                }
-              }
-              return fullPart;
-            } catch (err) {
-              if (err.name === "AbortError") throw err;
-              const status = err?.status;
-              if (status && !isRetriableStatus(status)) throw err;
-              if (attempts >= maxAttempts - 1) throw err;
-              attempts += 1;
-              const jitterMs = Math.floor(Math.random() * 500);
-              const nextDelay = Math.min(delay + jitterMs, maxDelayMs);
-              setSearchStatus(
-                `Lỗi kết nối hoặc Rate Limit. Đang thử lại sau ${Math.ceil(nextDelay / 1000)}s...`,
-              );
-              await new Promise((resolve) => setTimeout(resolve, nextDelay));
-              delay = Math.min(delay * 2, maxDelayMs);
-            }
-          }
-        };
-
-        const updateAssistantMsg = (
-          content,
-          status = "streaming",
-          latencyMs = null,
-        ) => {
-          setSessions((prev) =>
-            prev.map((s) =>
-              s.id === sessionId
-                ? {
-                  ...s,
-                  messages: s.messages.map((m) =>
-                    m.id === asstId
-                      ? {
-                        ...m,
-                        content,
-                        status,
-                        ...(latencyMs !== null ? { latencyMs } : {}),
-                      }
-                      : m,
-                  ),
-                  updatedAt: new Date().toISOString(),
-                }
-                : s,
-            ),
-          );
-        };
-
-        const stages = [
-          {
-            name: "LẬP DÀN Ý & BỐ CỤC CHI TIẾT",
-            prompt: (
-              userPrompt,
-            ) => `Dựa trên yêu cầu: "${userPrompt}" cùng các Đề cương (Outlines) và Báo cáo mẫu đã cung cấp, hãy lập một Dàn ý chi tiết cho báo cáo.
-Dàn ý BẮT BUỘC phải bám sát cấu trúc trong Đề cương được cung cấp: giữ đúng tên phần/chương/mục, thứ tự, phạm vi nội dung và các bảng biểu/yêu cầu bắt buộc. Báo cáo mẫu chỉ được dùng để tham khảo cách trình bày và hành văn, KHÔNG được dùng để thêm, bỏ, đổi tên, gộp/tách hoặc đảo thứ tự đề mục của đề cương.
-Mục tiêu dung lượng bản báo cáo hoàn chỉnh: khoảng 5.000-6.000 từ nếu đề cương không quy định ngắn hơn. Phân bổ theo đề cương; nếu đề cương không nêu quota cụ thể thì dùng mặc định: Trang bìa & Lời mở đầu ~500-600 từ, Chương 1 ~1.100-1.300 từ, Chương 2 ~1.600-2.000 từ, Chương 3 ~900-1.100 từ, Kết luận & Tài liệu tham khảo ~900-1.100 từ. Không viết chi tiết nội dung, chỉ xuất ra dàn ý bằng Markdown. Không viết placeholder kiểu "(Nội dung Chương ... sẽ tiếp nối tại đây...)".`,
-          },
-          {
-            name: "VIẾT TRANG BÌA & LỜI MỞ ĐẦU",
-            prompt: (
-              outline,
-            ) => `Dựa trên Dàn ý chi tiết sau đây:\n${outline}\n\nĐồng thời tuân thủ văn phong học thuật của các báo cáo mẫu. Hãy viết đủ chi tiết nhưng gọn cho **TRANG BÌA & LỜI MỞ ĐẦU**.
-Yêu cầu:
-- Không thêm, bỏ, đổi tên hoặc đảo thứ tự các mục so với Dàn ý đã lập từ Đề cương.
-- Trang bìa phải tuân thủ đúng định dạng của báo cáo mẫu (Trường học, khoa viện, tên báo cáo, thông tin sinh viên).
-- Lời mở đầu dài khoảng 500-600 từ, nêu rõ lý do chọn đề tài, mục tiêu, đối tượng, phạm vi, phương pháp nghiên cứu và bố cục báo cáo.
-- Phải tự kiểm tra dung lượng trước khi trả lời; nếu dưới 500 từ thì bổ sung chiều sâu học thuật, nếu vượt 700 từ thì rút gọn.
-- Chỉ xuất nội dung thuộc báo cáo, không viết lời chào, lời dẫn của trợ lý, lời giải thích hệ thống hoặc tự xưng agent.
-- Tuyệt đối KHÔNG tự ý viết các thẻ [START_REPORT] hay [END_REPORT] vào bài viết, hệ thống sẽ tự động thêm chúng ở ngoài.
-- Kết thúc phần này bằng tag [PAGE_BREAK] ở dòng cuối cùng.`,
-          },
-          {
-            name: "VIẾT CHƯƠNG 1: GIỚI THIỆU TỔNG QUAN VÀ CƠ CẤU TỔ CHỨC",
-            prompt: (
-              prevContent,
-            ) => `Dựa trên dàn ý và nội dung đã viết (trích đoạn gần nhất):\n${prevContent}\n\nHãy tiếp tục viết chi tiết **CHƯƠNG 1**.
-Yêu cầu:
-- Chỉ viết các mục thuộc CHƯƠNG 1 theo Dàn ý/Đề cương; không tự thêm, bỏ, đổi tên hoặc đảo thứ tự mục.
-- Viết giới thiệu tổng quan đơn vị kiến tập, lịch sử hình thành, chức năng nhiệm vụ, vẽ Sơ đồ cơ cấu tổ chức bộ máy và thuyết minh chi tiết sơ đồ đó.
-- Độ dài khoảng 1.100-1.300 từ. Sử dụng phong cách in đậm cho tiêu đề mục lớn, in nghiêng cho nhận xét/ghi chú bổ trợ khi thật cần thiết.
-- Phải tự kiểm tra dung lượng trước khi trả lời; nếu dưới 1.100 từ thì phát triển thêm đúng các mục của đề cương, nếu vượt 1.400 từ thì rút gọn.
-- Chỉ xuất nội dung thuộc báo cáo, không viết lời chào, lời dẫn của trợ lý, lời giải thích hệ thống hoặc tự xưng agent.
-- Tuyệt đối KHÔNG tự ý viết các thẻ [START_REPORT] hay [END_REPORT].
-- Kết thúc phần này bằng tag [PAGE_BREAK] ở dòng cuối cùng.`,
-          },
-          {
-            name: "VIẾT CHƯƠNG 2: THỰC TRẠNG HOẠT ĐỘNG VÀ PHÂN TÍCH SỐ LIỆU",
-            prompt: (
-              prevContent,
-            ) => `Dựa trên dàn ý và nội dung đã viết (trích đoạn gần nhất):\n${prevContent}\n\nHãy tiếp tục viết chi tiết **CHƯƠNG 2**.
-Yêu cầu:
-- Chỉ viết các mục thuộc CHƯƠNG 2 theo Dàn ý/Đề cương; không tự thêm, bỏ, đổi tên hoặc đảo thứ tự mục.
-- Lập bảng biểu số liệu chi tiết trong 3 năm gần nhất là 2023, 2024, và 2025. Cấm lấy dữ liệu 2026.
-- Sau mỗi bảng biểu BẮT BUỘC có đoạn văn nhận xét đánh giá sự tăng/giảm, phân tích nguyên nhân khoảng 80-120 từ.
-- Vẽ sơ đồ Mermaid.js thuyết minh 1 quy trình/hoạt động cốt lõi của đơn vị kiến tập nếu đề cương cần.
-- Độ dài khoảng 1.600-2.000 từ.
-- Phải tự kiểm tra dung lượng trước khi trả lời; nếu dưới 1.600 từ thì bổ sung phân tích, bảng biểu và nhận xét theo đúng đề cương, nếu vượt 2.200 từ thì rút gọn.
-- Chỉ xuất nội dung thuộc báo cáo, không viết lời chào, lời dẫn của trợ lý, lời giải thích hệ thống hoặc tự xưng agent.
-- Tuyệt đối KHÔNG tự ý viết các thẻ [START_REPORT] hay [END_REPORT].
-- Kết thúc phần này bằng tag [PAGE_BREAK] ở dòng cuối cùng.`,
-          },
-          {
-            name: "VIẾT CHƯƠNG 3: ĐÁNH GIÁ CHUNG VÀ BÀI HỌC KINH NGHIỆM",
-            prompt: (
-              prevContent,
-            ) => `Dựa trên dàn ý và nội dung đã viết (trích đoạn gần nhất):\n${prevContent}\n\nHãy tiếp tục viết chi tiết **CHƯƠNG 3**.
-Yêu cầu:
-- Chỉ viết các mục thuộc CHƯƠNG 3 theo Dàn ý/Đề cương; không tự thêm, bỏ, đổi tên hoặc đảo thứ tự mục.
-- Đánh giá ưu điểm, nhược điểm, nguyên nhân hạn chế của đơn vị kiến tập.
-- Đề xuất các giải pháp khả thi và bài học kinh nghiệm thu được sau thời gian kiến tập.
-- Độ dài khoảng 900-1.100 từ.
-- Phải tự kiểm tra dung lượng trước khi trả lời; nếu dưới 900 từ thì phát triển thêm đánh giá, nguyên nhân và bài học theo đúng đề cương, nếu vượt 1.200 từ thì rút gọn.
-- Chỉ xuất nội dung thuộc báo cáo, không viết lời chào, lời dẫn của trợ lý, lời giải thích hệ thống hoặc tự xưng agent.
-- Tuyệt đối KHÔNG tự ý viết các thẻ [START_REPORT] hay [END_REPORT].
-- Kết thúc phần này bằng tag [PAGE_BREAK] ở dòng cuối cùng.`,
-          },
-          {
-            name: "VIẾT KẾT LUẬN & DANH MỤC TÀI LIỆU THAM KHẢO",
-            prompt: (
-              prevContent,
-            ) => `Dựa trên dàn ý và nội dung đã viết (trích đoạn gần nhất):\n${prevContent}\n\nHãy hoàn thành phần cuối cùng của báo cáo gồm: **KẾT LUẬN & ĐỀ XUẤT** và **DANH MỤC TÀI LIỆU THAM KHẢO**.
-Yêu cầu:
-- Phần cuối phải bám đúng Dàn ý/Đề cương; không tự thêm, bỏ, đổi tên hoặc đảo thứ tự mục.
-- Phần Kết luận tổng hợp đầy đủ đánh giá, bài học kinh nghiệm, định hướng của sinh viên và hiệu quả kiến tập (độ dài khoảng 900-1.100 từ).
-- Phải tự kiểm tra dung lượng trước khi trả lời; nếu dưới 900 từ thì bổ sung tổng hợp và định hướng, nếu vượt 1.200 từ thì rút gọn.
-- Phần Danh mục tài liệu tham khảo: CHỈ liệt kê các liên kết web thực tế lấy từ Tavily Search/Jina Reader hoặc URL do người dùng cung cấp. Tuyệt đối KHÔNG liệt kê link Supabase (đề cương/báo cáo mẫu/knowledge).
-- Chèn tag [PAGE_BREAK] ngay trước tiêu đề **DANH MỤC TÀI LIỆU THAM KHẢO** để bắt đầu trang mới.
-- Tuyệt đối không chèn bất kỳ dòng trích nguồn nào ở giữa báo cáo.
-- Bắt đầu ngay bằng tiêu đề **KẾT LUẬN VÀ ĐỀ XUẤT** hoặc **DANH MỤC TÀI LIỆU THAM KHẢO**; không viết lời chào, lời dẫn, lời xác nhận đã tiếp nhận yêu cầu, hoặc bất kỳ câu tự xưng hệ thống/agent nào.
-- Tuyệt đối KHÔNG tự ý viết các thẻ [START_REPORT] hay [END_REPORT].`,
-          },
-        ];
-
-        const conclusionStartMatchers = [
-          /^ket luan\b/,
-          /^ket luan va de xuat\b/,
-          /^phan ket luan\b/,
-          /^danh muc tai lieu tham khao\b/,
-          /^(\d+\s+)+ket luan\b/,
-          /^(\d+\s+)+danh muc\b/,
-        ];
-        const cleanTags = (s, startMatchers = []) =>
-          cleanReportStageContent(s, startMatchers);
-
-        let finalFullContent = "";
-
-        // Step 1: Planning / Outline
-        updateAssistantMsg(
-          reportProgressMessage(
-            "BƯỚC 1/6",
-            "ĐANG LẬP DÀN Ý CHI TIẾT CHO BÁO CÁO...",
-          ),
-        );
-        const userPrompt = updatedUserMsg.content;
-        const outlinePrompt = stages[0].prompt(userPrompt);
-        const outlineMsgs = [
-          { role: "system", content: effectivePrompt },
-          { role: "user", content: outlinePrompt },
-        ];
-        let outlineResult = "";
-        await streamCompletion(
-          outlineMsgs,
-          (delta, full) => {
-            outlineResult = full;
-            updateAssistantMsg(
-              reportProgressMessage(
-                "BƯỚC 1/6",
-                "ĐANG LẬP DÀN Ý CHI TIẾT CHO BÁO CÁO...",
-                full,
-              ),
-            );
-          },
-          OUTLINE_MAX_TOKENS,
-        );
-        const outlineTitle = getDocTitle(outlineResult, "Dàn ý báo cáo");
-        setSelectedOutline({ title: outlineTitle, content: outlineResult });
-        setSelectedReport(null);
-        const outlineContext = clampTextForContext(
-          outlineResult,
-          MAX_OUTLINE_CONTEXT_CHARS,
-        );
-
-        // Step 2: Trang bìa & Lời mở đầu (Bắt đầu gán START_REPORT trực tiếp từ code)
-        updateAssistantMsg(
-          reportProgressMessage(
-            "BƯỚC 2/6",
-            "ĐANG VIẾT TRANG BÌA & LỜI MỞ ĐẦU (Mục tiêu 400-500 từ)...",
-          ),
-        );
-        const introPrompt = stages[1].prompt(outlineContext);
-        const introMsgs = [
-          { role: "system", content: effectivePrompt },
-          { role: "user", content: introPrompt },
-        ];
-        let introResult = "";
-        await streamCompletion(
-          introMsgs,
-          (delta, full) => {
-            introResult = full;
-            updateAssistantMsg(
-              reportProgressMessage(
-                "BƯỚC 2/6",
-                "ĐANG VIẾT TRANG BÌA & LỜI MỞ ĐẦU (Mục tiêu 400-500 từ)...",
-                full,
-              ),
-            );
-          },
-          REPORT_MAX_TOKENS,
-        );
-        const introClean = ensurePageBreakSuffix(cleanTags(introResult));
-        finalFullContent += "[START_REPORT]\n" + introClean + "\n\n";
-
-        // Step 3: Chương 1
-        updateAssistantMsg(
-          reportProgressMessage(
-            "BƯỚC 3/6",
-            "ĐANG VIẾT CHƯƠNG 1 (Mục tiêu 900-1.100 từ)...",
-          ),
-        );
-        const ch1Context = buildStageContext(outlineResult, finalFullContent);
-        const ch1Prompt = stages[2].prompt(ch1Context);
-        const ch1Msgs = [
-          { role: "system", content: effectivePrompt },
-          { role: "user", content: ch1Prompt },
-        ];
-        let ch1Result = "";
-        await streamCompletion(
-          ch1Msgs,
-          (delta, full) => {
-            ch1Result = full;
-            updateAssistantMsg(
-              reportProgressMessage(
-                "BƯỚC 3/6",
-                "ĐANG VIẾT CHƯƠNG 1 (Mục tiêu 900-1.100 từ)...",
-                full,
-              ),
-            );
-          },
-          REPORT_MAX_TOKENS,
-        );
-        const ch1Clean = ensurePageBreakSuffix(cleanTags(ch1Result));
-        finalFullContent += ch1Clean + "\n\n";
-
-        // Step 4: Chương 2
-        updateAssistantMsg(
-          reportProgressMessage(
-            "BƯỚC 4/6",
-            "ĐANG VIẾT CHƯƠNG 2 (Mục tiêu 1.300-1.600 từ)...",
-          ),
-        );
-        const ch2Context = buildStageContext(outlineResult, finalFullContent);
-        const ch2Prompt = stages[3].prompt(ch2Context);
-        const ch2Msgs = [
-          { role: "system", content: effectivePrompt },
-          { role: "user", content: ch2Prompt },
-        ];
-        let ch2Result = "";
-        await streamCompletion(
-          ch2Msgs,
-          (delta, full) => {
-            ch2Result = full;
-            updateAssistantMsg(
-              reportProgressMessage(
-                "BƯỚC 4/6",
-                "ĐANG VIẾT CHƯƠNG 2 (Mục tiêu 1.300-1.600 từ)...",
-                full,
-              ),
-            );
-          },
-          REPORT_MAX_TOKENS,
-        );
-        const ch2Clean = ensurePageBreakSuffix(cleanTags(ch2Result));
-        finalFullContent += ch2Clean + "\n\n";
-
-        // Step 5: Chương 3
-        updateAssistantMsg(
-          reportProgressMessage(
-            "BƯỚC 5/6",
-            "ĐANG VIẾT CHƯƠNG 3 (Mục tiêu 700-900 từ)...",
-          ),
-        );
-        const ch3Context = buildStageContext(outlineResult, finalFullContent);
-        const ch3Prompt = stages[4].prompt(ch3Context);
-        const ch3Msgs = [
-          { role: "system", content: effectivePrompt },
-          { role: "user", content: ch3Prompt },
-        ];
-        let ch3Result = "";
-        await streamCompletion(
-          ch3Msgs,
-          (delta, full) => {
-            ch3Result = full;
-            updateAssistantMsg(
-              reportProgressMessage(
-                "BƯỚC 5/6",
-                "ĐANG VIẾT CHƯƠNG 3 (Mục tiêu 700-900 từ)...",
-                full,
-              ),
-            );
-          },
-          REPORT_MAX_TOKENS,
-        );
-        const ch3Clean = ensurePageBreakSuffix(cleanTags(ch3Result));
-        finalFullContent += ch3Clean + "\n\n";
-
-        // Step 6: Kết luận & Tài liệu tham khảo
-        updateAssistantMsg(
-          reportProgressMessage(
-            "BƯỚC 6/6",
-            "ĐANG HOÀN THIỆN PHẦN KẾT LUẬN & TÀI LIỆU THAM KHẢO...",
-          ),
-        );
-        const concContext = buildStageContext(outlineResult, finalFullContent);
-        const concPrompt = stages[5].prompt(concContext);
-        const concMsgs = [
-          { role: "system", content: effectivePrompt },
-          { role: "user", content: concPrompt },
-        ];
-        let concResult = "";
-        await streamCompletion(
-          concMsgs,
-          (delta, full) => {
-            concResult = full;
-            updateAssistantMsg(
-              reportProgressMessage(
-                "BƯỚC 6/6",
-                "ĐANG HOÀN THIỆN PHẦN KẾT LUẬN & TÀI LIỆU THAM KHẢO...",
-                cleanTags(full, conclusionStartMatchers),
-              ),
-            );
-          },
-          REPORT_MAX_TOKENS,
-        );
-        let concClean = removeTrailingPageBreak(
-          cleanTags(concResult, conclusionStartMatchers),
-        );
-        concClean = stripSupabaseReportLinks(concClean);
-        concClean = ensurePageBreakBeforeReferences(concClean);
-        finalFullContent += `${concClean}\n[END_REPORT]`;
-
-        const finalOutput =
-          `[START_OUTLINE]\n${outlineResult}\n[END_OUTLINE]\n` +
-          finalFullContent;
-
-        const reportMatch = finalOutput.match(
-          /\[START_REPORT\]([\s\S]*?)\[END_REPORT\]/,
-        );
-        const reportContent = reportMatch ? reportMatch[1].trim() : "";
-        const reportTitle = getDocTitle(reportContent, "Báo cáo Kiến tập");
-
-        const latencyMs = Date.now() - t0;
-        updateAssistantMsg(finalOutput, "done", latencyMs);
-        setSelectedReport({ title: reportTitle, content: reportContent });
-        setSelectedOutline(null);
-      } catch (err) {
-        if (err.name !== "AbortError") {
-          updateAssistantMsg(`Error: ${textValue(err)}`, "error");
-        }
-      } finally {
-        if (shouldUseReportMode) {
-          setAssistantOnlyMode(true);
-        }
-        setIsSending(false);
-        setStreamingId("");
-        abortRef.current = null;
       }
     },
     [
@@ -7426,6 +8694,26 @@ Yêu cầu:
     }
   }, [draft]);
 
+  useGSAP(() => {
+    if (activeDoc && previewPanelRef.current) {
+      gsap.fromTo(
+        previewPanelRef.current,
+        { x: 30, opacity: 0 },
+        { x: 0, opacity: 1, duration: 0.35, ease: "power3.out" }
+      );
+    }
+  }, [!!activeDoc]);
+
+  useGSAP(() => {
+    if (agentActive && agentPanelRef.current) {
+      gsap.fromTo(
+        agentPanelRef.current,
+        { x: 30, opacity: 0 },
+        { x: 0, opacity: 1, duration: 0.35, ease: "power3.out" }
+      );
+    }
+  }, [agentActive]);
+
   // ── Render ──
   return (
     <div className="flex flex-col h-full min-h-0 w-full overflow-hidden">
@@ -7475,6 +8763,16 @@ Yêu cầu:
               </div>
 
               <div className="px-5 py-4 space-y-3">
+                <div className="flex items-start gap-2.5 p-3.5 rounded-[14px] bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs">
+                  <span className="material-symbols-outlined text-[16px] shrink-0 mt-0.5">warning</span>
+                  <div>
+                    <p className="font-bold">Lưu ý về thời gian tạo báo cáo:</p>
+                    <p className="mt-0.5 leading-relaxed font-medium">
+                      Quy trình tạo báo cáo toàn diện (lập dàn ý, nạp tri thức và soạn thảo chi tiết từng chương) có thể kéo dài **khoảng 5 - 10 phút**. Vui lòng giữ cửa sổ hoạt động hoặc chờ trong giây lát.
+                    </p>
+                  </div>
+                </div>
+
                 <div className="rounded-[14px] border border-border-subtle bg-bg/70 p-4">
                   <p className="text-xs font-semibold uppercase tracking-wider text-text-subtle mb-2">
                     Nội dung yêu cầu
@@ -7498,6 +8796,86 @@ Yêu cầu:
                     Chat thường vẫn dùng completions
                   </span>
                 </div>
+
+                <div className="rounded-[14px] border border-border-subtle bg-surface-2 p-4">
+                  {reportModelsLoading ? (
+                    <>
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-text-subtle">
+                          Model Luna cho Agent
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 rounded-[12px] border border-border-subtle bg-bg px-3 py-2 text-xs text-text-muted">
+                        <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                        Đang tải danh sách model báo cáo...
+                      </div>
+                    </>
+                  ) : reportModels.length > 0 ? (
+                    <>
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-text-subtle">
+                          Model Luna cho Agent
+                        </p>
+                        <span className="text-[11px] text-text-subtle">
+                          Chỉ áp dụng cho quy trình báo cáo
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {reportModels.map((model) => {
+                          const active = model.id === (selectedReportModelId || reportModels[0]?.id);
+                          return (
+                            <button
+                              key={model.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedReportModelId(model.id);
+                                setReportWorkflowModelId(model.id);
+                              }}
+                              className={cn(
+                                "flex items-center justify-between gap-3 rounded-[12px] border px-3 py-2 text-left transition-all",
+                                active
+                                  ? "border-brand-500/40 bg-brand-500/10 text-text-main"
+                                  : "border-border-subtle bg-bg text-text-muted hover:bg-surface hover:text-text-main",
+                              )}
+                            >
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold truncate">
+                                  {model.id.split("/").pop()}
+                                </p>
+                                <p className="text-[11px] text-text-subtle truncate">
+                                  {model.owned_by || model.id}
+                                </p>
+                              </div>
+                              <span
+                                className={cn(
+                                  "material-symbols-outlined text-[18px] flex-shrink-0",
+                                  active ? "text-brand-500" : "text-text-subtle",
+                                )}
+                              >
+                                {active ? "radio_button_checked" : "radio_button_unchecked"}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-text-subtle">
+                          Model Agent báo cáo
+                        </p>
+                        <span className="text-[11px] text-text-subtle">
+                          Mặc định sử dụng model chat hiện tại
+                        </span>
+                      </div>
+                      <div className="rounded-[12px] border border-brand-500/20 bg-brand-500/5 px-3.5 py-2.5 text-xs text-brand-600 dark:text-brand-400 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-[16px] shrink-0 text-brand-500">info</span>
+                        <span>Quy trình Agent sẽ mặc định chạy trên model chat hiện tại: <strong>{activeModel?.id?.split("/").pop() || "Chưa chọn"}</strong></span>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-border-subtle bg-surface-2/80">
@@ -7511,7 +8889,8 @@ Yêu cầu:
                 <button
                   type="button"
                   onClick={confirmReportWorkflow}
-                  className="px-4 py-2 rounded-[10px] bg-brand-500 hover:bg-brand-600 text-white transition-all text-sm font-semibold shadow-sm"
+                  disabled={reportModelsLoading || (reportModels.length === 0 && !activeModel)}
+                  className="px-4 py-2 rounded-[10px] bg-brand-500 hover:bg-brand-600 text-white transition-all text-sm font-semibold shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Bắt đầu quy trình
                 </button>
@@ -7620,13 +8999,135 @@ Yêu cầu:
           </div>
         </div>
 
+        {/* ── Mobile History Drawer ── */}
+        {mobileHistoryOpen && (
+          <div
+            className="fixed inset-0 z-[90] lg:hidden"
+            onClick={() => setMobileHistoryOpen(false)}
+          >
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+
+            {/* Drawer panel */}
+            <div
+              className="absolute left-0 top-0 bottom-0 w-72 max-w-[85vw] bg-surface border-r border-border-subtle shadow-[var(--shadow-elev)] flex flex-col"
+              style={{ animation: "asstSlideRight 0.3s cubic-bezier(0.16,1,0.3,1) both" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="px-4 py-3 border-b border-border-subtle flex items-center justify-between flex-shrink-0">
+                <h2 className="text-sm font-semibold text-text-main">Lịch sử chat</h2>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={handleNewChat}
+                    disabled={!activeModel}
+                    className="p-1.5 rounded-[6px] text-text-muted hover:text-text-main hover:bg-surface-2 transition-colors disabled:opacity-40"
+                    title="Cuộc trò chuyện mới"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">add</span>
+                  </button>
+                  <button
+                    onClick={() => setMobileHistoryOpen(false)}
+                    className="p-1.5 rounded-[6px] text-text-muted hover:text-text-main hover:bg-surface-2 transition-colors"
+                    title="Đóng"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">close</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Session List */}
+              <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-0.5">
+                {sortedSessions.length === 0 ? (
+                  <div className="py-10 text-center">
+                    <span className="material-symbols-outlined text-[32px] text-text-subtle block mb-2">forum</span>
+                    <p className="text-xs text-text-subtle">Chưa có cuộc trò chuyện nào</p>
+                  </div>
+                ) : (
+                  sortedSessions.map((s) => {
+                    const isActive = s.id === activeSessionId;
+                    return (
+                      <div
+                        key={s.id}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setActiveSessionId(s.id);
+                            if (s.modelId && allModels.find((m) => m.id === s.modelId))
+                              setActiveModelId(s.modelId);
+                            setMobileHistoryOpen(false);
+                          }
+                        }}
+                        onClick={() => {
+                          setActiveSessionId(s.id);
+                          if (s.modelId && allModels.find((m) => m.id === s.modelId))
+                            setActiveModelId(s.modelId);
+                          setMobileHistoryOpen(false);
+                        }}
+                        className={cn(
+                          "w-full text-left px-3 py-2.5 rounded-[8px] transition-all group cursor-pointer",
+                          "flex items-start gap-2 select-none",
+                          isActive
+                            ? "bg-primary/8 text-primary"
+                            : "text-text-muted hover:bg-surface-2 hover:text-text-main",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "material-symbols-outlined text-[16px] flex-shrink-0 mt-0.5",
+                            isActive ? "fill-1" : "",
+                          )}
+                        >
+                          {isActive ? "chat" : "chat_bubble_outline"}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className={cn(
+                              "text-[13px] font-medium truncate",
+                              isActive ? "text-primary" : "",
+                            )}
+                          >
+                            {s.title}
+                          </p>
+                          <p className="text-[11px] text-text-subtle mt-0.5">
+                            {relTime(s.updatedAt)} · {s.messages?.length || 0} tin
+                          </p>
+                        </div>
+                        <button
+                          onClick={(e) => { handleDeleteSession(s.id, e); }}
+                          className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-text-subtle hover:text-danger transition-all"
+                        >
+                          <span className="material-symbols-outlined text-[13px]">delete_outline</span>
+                        </button>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Drawer footer */}
+              <div className="px-4 py-2.5 border-t border-border-subtle flex-shrink-0">
+                <p className="text-[11px] text-text-subtle text-center">
+                  {enabledModels.length} model{enabledModels.length !== 1 ? "s" : ""} active
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── Main Content Area ── */}
         <div className="flex-1 flex min-w-0 min-h-0 relative overflow-hidden">
           {/* Left Side: Chat Panel */}
           <div
             className={cn(
               "flex flex-col min-w-0 min-h-0 h-full border-r border-border-subtle transition-all duration-300",
-              activeDoc ? "hidden md:flex md:w-[40%] xl:w-[35%]" : "flex-1",
+              activeDoc
+                ? "hidden md:flex md:w-[50%] xl:w-[45%]"
+                : (agentActive && agentState)
+                  ? "hidden md:flex flex-1"
+                  : "flex-1",
             )}
           >
             {/* Top Bar */}
@@ -7732,6 +9233,15 @@ Yêu cầu:
 
               <div className="flex-1" />
 
+              {/* History (mobile) */}
+              <Button
+                variant="ghost"
+                size="sm"
+                icon="history"
+                onClick={() => setMobileHistoryOpen(true)}
+                className="lg:hidden"
+              />
+
               {/* New Chat (mobile) */}
               <Button
                 variant="ghost"
@@ -7826,7 +9336,7 @@ Yêu cầu:
                   onEditSubmit={handleEditSubmit}
                   onRegenerate={handleRegenerate}
                   onOpenOutline={setSelectedOutline}
-                  onOpenReport={setSelectedReport}
+                  onOpenReport={handleOpenReportCard}
                   onOpenAgentRun={handleOpenAgentRunFromCard}
                 />
               ))}
@@ -7844,7 +9354,8 @@ Yêu cầu:
             </div>
 
             {/* Input Area */}
-            <div className="flex-shrink-0 border-t border-border-subtle bg-surface px-4 py-3">
+            <div className="flex-shrink-0 border-t border-border-subtle bg-surface px-4 py-3 pb-6 md:pb-3">
+              <div className="max-w-4xl mx-auto w-full">
               {searchStatus && (
                 <div className="flex items-center gap-2 px-3 py-1.5 mb-2 rounded-[8px] bg-brand-500/5 border border-brand-500/10 text-[11px] text-brand-600 dark:text-brand-400 font-medium">
                   <span className="material-symbols-outlined text-[14px] animate-spin">
@@ -8063,17 +9574,15 @@ Yêu cầu:
                 AI Agent có khả năng tự động trích xuất tri thức, phân tích & lập
                 đề cương báo cáo chất lượng cao.
               </div>
+              </div>
             </div>
           </div>
 
           {/* Right Panel: Preview or Agent view */}
           {activeDoc ? (
             <div
-              className="flex-1 flex flex-col min-w-0 min-h-0 h-full bg-surface border-l border-border-subtle asst-slide-left relative overflow-hidden"
-              style={{
-                animation:
-                  "asstSlideLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1) both",
-              }}
+              ref={previewPanelRef}
+              className="flex-1 flex flex-col min-w-0 min-h-0 h-full bg-surface border-l border-border-subtle relative overflow-hidden"
             >
               {/* Preview Header */}
               <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle bg-surface flex-shrink-0">
@@ -8107,6 +9616,7 @@ Yêu cầu:
                     onClick={async () => {
                       const copied = await copyReportRichText(
                         activeDoc.content || "",
+                        activeDocTitle,
                       );
                       showToast(
                         copied
@@ -8158,16 +9668,62 @@ Yêu cầu:
 
               {/* Preview Pages */}
               <div className="flex-1 overflow-y-auto custom-scrollbar px-0 py-6 bg-surface-2 dark:bg-bg min-h-0">
-                {(() => {
+                {!isRenderingPreview ? (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-text-muted gap-3">
+                    <div className="w-8 h-8 rounded-full border-2 border-brand-500 border-t-transparent animate-spin" />
+                    <span className="text-sm">Đang tải tài liệu...</span>
+                  </div>
+                ) : (() => {
+                  const isBa49 = activeDocTitle.toLowerCase().includes("ba49") ||
+                    activeDocTitle.toLowerCase().includes("b49") ||
+                    activeDocTitle.toLowerCase().includes("kiến tập") ||
+                    (activeDoc.content || "").toLowerCase().includes("ba49") ||
+                    (activeDoc.content || "").toLowerCase().includes("b49") ||
+                    (activeDoc.content || "").toLowerCase().includes("kiến tập");
+
                   const pages = paginateReportContent(
-                    prepareReportContent(activeDoc.content || ""),
+                    prepareReportContent(activeDoc.content || "", activeDocTitle),
                   );
+                  const pageMeta = pages.map((pageContent) => {
+                    const isCover = pageContent.includes("cover-page-container") ||
+                      pageContent.includes("TRƯỜNG ĐẠI HỌC MỞ HÀ NỘI") ||
+                      pageContent.includes("[LOGO_HOU]");
+                    const isAbbrev = pageContent.includes("DANH MỤC TỪ VIẾT TẮT") ||
+                      pageContent.includes("DANH MUC TU VIET TAT");
+                    const isAfterConc = pageContent.includes("NHẬN XÉT KIẾN TẬP") ||
+                      pageContent.includes("NHAN XET KIEN TAP") ||
+                      pageContent.includes("DANH MỤC TÀI LIỆU THAM KHẢO") ||
+                      pageContent.includes("DANH MUC TAI LIEU THAM KHAO") ||
+                      pageContent.includes("XÁC NHẬN CỦA CÁN BỘ HƯỚNG DẪN THỰC TẬP") ||
+                      pageContent.includes("XAC NHAN CUA CAN BO HUONG DAN THUC TAP");
+                    const isActive = !isCover && !isAbbrev && !isAfterConc;
+                    return { isActive };
+                  });
+
+                  let runningPageNum = 0;
+                  const pageNumbers = pageMeta.map((meta) => {
+                    if (meta.isActive) {
+                      runningPageNum++;
+                      return runningPageNum;
+                    }
+                    return null;
+                  });
+
                   return (
                     <div className="flex flex-col items-center gap-6 w-full">
+                      <style>{`
+                        .report-view h3 {
+                          font-weight: normal !important;
+                          font-style: italic !important;
+                        }
+                      `}</style>
                       {pages.map((pageContent, idx) => (
                         <div
                           key={idx}
-                          className="relative w-[90%] min-h-[297mm] bg-white dark:bg-bg border border-border/40 rounded-[4px] shadow-[0_4px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.22)] overflow-hidden report-view select-text text-text-main"
+                          className={cn(
+                            "relative w-[90%] min-h-[297mm] bg-white dark:bg-bg border border-border/40 rounded-[4px] shadow-[0_4px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.22)] overflow-hidden report-view select-text text-text-main",
+                            isBa49 && "is-ba49-report"
+                          )}
                           style={{
                             paddingTop: "2.5cm",
                             paddingRight: "2cm",
@@ -8176,15 +9732,30 @@ Yêu cầu:
                             animation: "asstFadeIn 0.3s ease both",
                           }}
                         >
+                          {idx === 0 && (
+                            <div
+                              className="absolute pointer-events-none"
+                              style={{
+                                top: "0.4cm",
+                                bottom: "0.4cm",
+                                left: "0.4cm",
+                                right: "0.4cm",
+                                border: "4px double currentColor",
+                                zIndex: 10
+                              }}
+                            />
+                          )}
                           <div
                             className="w-full h-full overflow-visible"
                             dangerouslySetInnerHTML={{
                               __html: renderMarkdownAndMath(pageContent),
                             }}
                           />
-                          <div className="absolute bottom-4 left-0 right-0 text-center text-[11px] text-text-subtle select-none font-sans pointer-events-none">
-                            Trang {idx + 1} / {pages.length}
-                          </div>
+                          {pageNumbers[idx] !== null && (
+                            <div className="absolute bottom-4 left-0 right-0 text-center text-[11px] text-text-subtle select-none font-sans pointer-events-none">
+                              Trang {pageNumbers[idx]}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -8196,11 +9767,8 @@ Yêu cầu:
             agentActive &&
             agentState && (
               <div
-                className="flex-1 md:max-w-[45%] xl:max-w-[40%] flex flex-col min-w-0 min-h-0 h-full bg-surface/75 dark:bg-bg/75 backdrop-blur-xl border-l border-border/60 asst-slide-left relative overflow-hidden shadow-2xl"
-                style={{
-                  animation:
-                    "asstSlideLeft 0.35s cubic-bezier(0.16, 1, 0.3, 1) both",
-                }}
+                ref={agentPanelRef}
+                className="flex-1 md:max-w-[45%] xl:max-w-[40%] flex flex-col min-w-0 min-h-0 h-full bg-surface/75 dark:bg-bg/75 backdrop-blur-xl border-l border-border/60 relative overflow-hidden shadow-2xl"
               >
                 {/* Decorative dynamic ambient glow */}
                 <div className="absolute -top-24 -right-24 w-48 h-48 bg-brand-500/10 rounded-full blur-3xl pointer-events-none animate-pulse-glow" />
@@ -8284,8 +9852,33 @@ Yêu cầu:
                                 ? "Chúc mừng! Toàn bộ nội dung báo cáo đã được soạn thảo và kiểm định hoàn tất."
                                 : ""}
                       </p>
+                      {(agentState.current_step === "PLANNING" || agentState.current_step === "DRAFTING") && (
+                        <p className="text-amber-600 dark:text-amber-400 font-semibold text-[10.5px] mt-2 flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[13px] animate-pulse">hourglass_empty</span>
+                          <span>Thời gian xử lý dự kiến: &gt; 5 phút. Vui lòng không đóng trang.</span>
+                        </p>
+                      )}
                     </div>
                   </div>
+
+                  {currentSession && shouldAutoRestoreReportSession(currentSession) && (
+                    <div className="mt-3 flex items-center justify-between gap-3 rounded-[14px] border border-border/60 bg-surface/70 px-4 py-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-text-main">Session báo cáo có thể tiếp tục</p>
+                        <p className="text-[11px] text-text-muted mt-0.5">
+                          Bấm để tải lại trạng thái quy trình gần nhất thay vì tự động gọi khi mở trang.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => loadAgentStatus(currentSession.id)}
+                        disabled={agentLoading}
+                        className="shrink-0 px-3 py-2 rounded-[10px] bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Tiếp tục quy trình
+                      </button>
+                    </div>
+                  )}
 
                   {/* Milestone Approval Box */}
                   {agentState.current_step === "COMPLETED" && (
@@ -8311,6 +9904,17 @@ Yêu cầu:
                           </span>
                           Xem bản xem trước báo cáo
                         </button>
+                        <button
+                          onClick={() => {
+                            setAgentActive(true);
+                          }}
+                          className="px-4 py-2.5 text-xs font-bold bg-surface hover:bg-surface-2 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-[10px] transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.98]"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">
+                            format_list_bulleted
+                          </span>
+                          Xem dàn ý
+                        </button>
                       </div>
                     </div>
                   )}
@@ -8323,6 +9927,10 @@ Yêu cầu:
                         </span>
                         Phê duyệt đề cương để Agent triển khai
                       </h4>
+                      <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-relaxed font-semibold flex items-start gap-1">
+                        <span className="material-symbols-outlined text-[14px] shrink-0 mt-0.5">warning</span>
+                        <span>Quá trình soạn thảo chi tiết từng chương sau khi phê duyệt sẽ mất khoảng 5 - 10 phút. Vui lòng giữ tab này mở.</span>
+                      </p>
                       <div className="flex gap-2">
                         <button
                           onClick={handleCancelAgent}
@@ -8375,12 +9983,15 @@ Yêu cầu:
                     </div>
 
                     <div className="space-y-3.5">
-                      {(agentState.sections_progress || []).map((sec, idx) => {
+                      {(agentState.sections_progress || []).map((sec) => {
                         const isDrafting = sec.status === "drafting";
                         const isDone = sec.status === "done";
                         return (
                           <div
                             key={sec.id}
+                            style={{
+                              marginLeft: `${Math.max(0, (sec.level || 1) - 1) * 14}px`,
+                            }}
                             className={cn(
                               "p-4 rounded-[16px] border transition-all text-xs space-y-3 duration-300",
                               isDrafting
@@ -8393,36 +10004,73 @@ Yêu cầu:
                             <div className="flex items-center justify-between gap-3">
                               <div className="flex items-center gap-2 min-w-0">
                                 <span className="font-bold text-text-main truncate text-[12.5px] tracking-wide">
-                                  {idx + 1}. {sec.title}
+                                  {sec.title}
                                 </span>
                               </div>
-                              <span
-                                className={cn(
-                                  "px-2.5 py-0.5 rounded-full text-[9px] font-extrabold flex items-center gap-1 uppercase tracking-wider shadow-sm shrink-0",
-                                  isDrafting
-                                    ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 animate-pulse"
-                                    : isDone
-                                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                                      : "bg-surface-2 text-text-subtle border border-border/40",
+                              <div className="flex items-center gap-2 shrink-0">
+                                {isDone && !agentLoading && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleReloadSection(sec.id);
+                                    }}
+                                    className="p-1 rounded bg-surface border border-border hover:bg-surface-2 text-text-muted hover:text-text-main flex items-center justify-center cursor-pointer transition-colors"
+                                    title="Tạo lại mục này"
+                                  >
+                                    <span className="material-symbols-outlined text-[12px]">
+                                      refresh
+                                    </span>
+                                  </button>
                                 )}
-                              >
-                                {isDrafting && (
-                                  <span className="material-symbols-outlined text-[10px] animate-spin">
-                                    sync
+                                {sec.level && sec.level > 1 && (
+                                  <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider bg-surface-2 text-text-subtle border border-border/40">
+                                    Cấp {sec.level}
                                   </span>
                                 )}
-                                {isDone && (
-                                  <span className="material-symbols-outlined text-[10px]">
-                                    check
-                                  </span>
-                                )}
-                                {sec.status.toUpperCase()}
-                              </span>
+                                <span
+                                  className={cn(
+                                    "px-2.5 py-0.5 rounded-full text-[9px] font-extrabold flex items-center gap-1 uppercase tracking-wider shadow-sm",
+                                    isDrafting
+                                      ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 animate-pulse"
+                                      : isDone
+                                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                                        : "bg-surface-2 text-text-subtle border border-border/40",
+                                  )}
+                                >
+                                  {isDrafting && (
+                                    <span className="material-symbols-outlined text-[10px] animate-spin">
+                                      sync
+                                    </span>
+                                  )}
+                                  {isDone && (
+                                    <span className="material-symbols-outlined text-[10px]">
+                                      check
+                                    </span>
+                                  )}
+                                  {(sec.status || "todo").toUpperCase()}
+                                </span>
+                              </div>
                             </div>
 
                             <p className="text-text-muted text-[11px] leading-relaxed font-medium">
                               {sec.description}
                             </p>
+
+                            {Array.isArray(sec.subsections) && sec.subsections.length > 0 && (
+                              <div className="rounded-[12px] border border-border/45 bg-bg/40 px-3 py-2">
+                                <p className="text-[10px] font-extrabold uppercase tracking-wider text-text-subtle mb-1">
+                                  Mục con
+                                </p>
+                                <div className="space-y-1.5 pl-2 border-l border-border/50">
+                                  {sec.subsections.map((subsection, subIdx) => (
+                                    <div key={`${sec.id}-${subIdx}`} className="text-[11px] leading-relaxed text-text-main font-medium">
+                                      <span className="text-text-subtle mr-1">•</span>
+                                      {subsection}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
 
                             {sec.activity?.message && (
                               <div className="rounded-[10px] border border-border/45 bg-bg/55 dark:bg-bg/35 px-3 py-2">

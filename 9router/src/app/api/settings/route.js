@@ -3,18 +3,34 @@ import { getSettings, updateSettings } from "@/lib/localDb";
 import { applyOutboundProxyEnv } from "@/lib/network/outboundProxy";
 import { resetComboRotation } from "open-sse/services/combo.js";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const SETTINGS_RESPONSE_HEADERS = {
-  "Cache-Control": "no-store"
+  "Cache-Control": "private, max-age=30, stale-while-revalidate=300",
+  "Vary": "Cookie"
 };
+
+function settingsResponse(request, body) {
+  const json = JSON.stringify(body);
+  const etag = `\"${crypto.createHash("sha1").update(json).digest("base64url")}\"`;
+  const headers = { ...SETTINGS_RESPONSE_HEADERS, ETag: etag };
+
+  if (request.headers.get("if-none-match") === etag) {
+    return new NextResponse(null, { status: 304, headers });
+  }
+
+  return new NextResponse(json, {
+    headers: { ...headers, "Content-Type": "application/json" }
+  });
+}
 
 // Secrets must never be mass-assigned from request body (CWE-915)
 const PROTECTED_SETTING_KEYS = ["password", "mitmSudoEncrypted"];
 
-export async function GET() {
+export async function GET(request) {
   try {
     const settings = await getSettings();
     const { password, oidcClientSecret, ...safeSettings } = settings;
@@ -23,12 +39,12 @@ export async function GET() {
     const enableRequestLogs = process.env.ENABLE_REQUEST_LOGS === "true";
     const enableTranslator = process.env.ENABLE_TRANSLATOR === "true";
     
-    return NextResponse.json({ 
+    return settingsResponse(request, {
       ...safeSettings, 
       enableRequestLogs,
       enableTranslator,
       hasPassword: !!password
-    }, { headers: SETTINGS_RESPONSE_HEADERS });
+    });
   } catch (error) {
     console.log("Error getting settings:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

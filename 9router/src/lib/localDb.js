@@ -18,4 +18,5 @@ export {
   getMitmAlias, setMitmAliasAll,
   getPricing, getPricingForModel, updatePricing, resetPricing, resetAllPricing,
   exportDb, importDb,
+  getScannerHistory, createScannerHistory, deleteScannerHistory, clearScannerHistory,
 } from "@/lib/db/index.js";

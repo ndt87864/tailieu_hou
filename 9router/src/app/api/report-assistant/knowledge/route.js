@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
+import { getDashboardAuthSession } from "@/lib/auth/dashboardSession";
+import { isRestrictedUser, isRestrictedReportAssistantSubject } from "@/lib/userResourceMapping";
 
 export const dynamic = "force-dynamic";
 
@@ -7,6 +9,9 @@ export async function GET(request) {
   const url = new URL(request.url);
   const username = url.searchParams.get("username") || "admin";
   const type = url.searchParams.get("type") || "outlines"; // 'outlines' or 'templates'
+  const authToken = request.cookies.get("auth_token")?.value || null;
+  const session = authToken ? await getDashboardAuthSession(authToken) : null;
+  const restricted = isRestrictedUser(session?.username);
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -25,7 +30,8 @@ export async function GET(request) {
 
     const subjectNames = (rootItems || [])
       .filter(item => !item.id && item.name !== ".emptyFolderPlaceholder")
-      .map(item => item.name);
+      .map(item => item.name)
+      .filter((subject) => !restricted || isRestrictedReportAssistantSubject(subject));
 
     const filesBySubject = {};
 
@@ -73,9 +79,15 @@ export async function POST(request) {
     const filename = formData.get("filename");
     const file = formData.get("file");
     const type = formData.get("type") || "outlines"; // 'outlines' or 'templates'
+    const authToken = request.cookies.get("auth_token")?.value || null;
+    const session = authToken ? await getDashboardAuthSession(authToken) : null;
+    const restricted = isRestrictedUser(session?.username);
 
     if (!subject || !filename || !file) {
       return NextResponse.json({ error: "subject, filename, and file are required" }, { status: 400 });
+    }
+    if (restricted && !isRestrictedReportAssistantSubject(subject)) {
+      return NextResponse.json({ error: "Restricted accounts can only use el67, sl06, and sl07." }, { status: 403 });
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -121,9 +133,15 @@ export async function DELETE(request) {
     const subject = url.searchParams.get("subject");
     const filename = url.searchParams.get("filename");
     const type = url.searchParams.get("type") || "outlines"; // 'outlines' or 'templates'
+    const authToken = request.cookies.get("auth_token")?.value || null;
+    const session = authToken ? await getDashboardAuthSession(authToken) : null;
+    const restricted = isRestrictedUser(session?.username);
 
     if (!subject || !filename) {
       return NextResponse.json({ error: "subject and filename are required" }, { status: 400 });
+    }
+    if (restricted && !isRestrictedReportAssistantSubject(subject)) {
+      return NextResponse.json({ error: "Restricted accounts can only use el67, sl06, and sl07." }, { status: 403 });
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

@@ -1078,6 +1078,13 @@ export default function ProviderDetailPage() {
       type: "llm",
     });
 
+    const groupedDisplayModels = providerId === "arena"
+      ? Object.entries(displayModels.reduce((groups, model) => {
+          (groups[model.group || "Other"] ||= []).push(model);
+          return groups;
+        }, {}))
+      : [[null, displayModels]];
+
     return (
       <div className="flex flex-wrap gap-3">
         {/* Custom models first */}
@@ -1107,7 +1114,14 @@ export default function ProviderDetailPage() {
           />
         ))}
 
-        {displayModels.map((model) => {
+        {groupedDisplayModels.map(([group, groupModels]) => (
+          <div key={group || "models"} className="contents">
+            {group && (
+              <div className="w-full pt-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
+                {group} ({groupModels.length})
+              </div>
+            )}
+        {groupModels.map((model) => {
           const fullModel = `${providerStorageAlias}/${model.id}`;
           const oldFormatModel = `${providerId}/${model.id}`;
           const existingAlias = Object.entries(modelAliases).find(
@@ -1133,6 +1147,8 @@ export default function ProviderDetailPage() {
             />
           );
         })}
+          </div>
+        ))}
 
         {/* Add model button — inline, same style as model chips */}
         <button

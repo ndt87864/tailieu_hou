@@ -1,4 +1,4 @@
-export default {
+const arenaProvider = {
   id: "arena",
   priority: 136,
   alias: "ar",
@@ -13,7 +13,10 @@ export default {
     },
   },
   category: "oauth",
-  serviceKinds: ["llm"],
+  serviceKinds: ["llm", "image", "video", "webSearch"],
+  searchViaChat: {
+    defaultModel: "gpt-5-search",
+  },
   transport: {
     baseUrl: "https://arena.ai/api/v1/chat/completions",
     format: "arena",
@@ -28,6 +31,7 @@ export default {
     },
   },
   models: [
+    // Claude Models
     {
         "id": "claude-haiku-4-5-20251001",
         "name": "claude-haiku-4-5-20251001 (anthropic)"
@@ -49,17 +53,10 @@ export default {
         "name": "claude-sonnet-4-5-20250929-thinking-32k (googleVertexAnthropic)"
     },
     {
-        "id": "claude-sonnet-4-5-search",
-        "name": "claude-sonnet-4-5-search (anthropicSearch)"
-    },
-    {
         "id": "claude-sonnet-4-6",
         "name": "claude-sonnet-4-6 (googleVertexAnthropic)"
     },
-    {
-        "id": "claude-sonnet-4-6-search",
-        "name": "claude-sonnet-4-6-search (anthropicSearch)"
-    },
+    // DeepSeek Models
     {
         "id": "deepseek-v4-flash",
         "name": "deepseek-v4-flash"
@@ -80,10 +77,7 @@ export default {
         "id": "deepseek-v4-pro-thinking",
         "name": "deepseek-v4-pro-thinking (deepseekToolCalling)"
     },
-    {
-        "id": "flux-1-kontext-max",
-        "name": "flux-1-kontext-max"
-    },
+    // Gemini/Gemma Models
     {
         "id": "gemini-2.0-flash-001",
         "name": "gemini-2.0-flash-001 (google)"
@@ -91,10 +85,6 @@ export default {
     {
         "id": "gemini-2.5-flash",
         "name": "gemini-2.5-flash (googleVertex)"
-    },
-    {
-        "id": "gemini-2.5-flash-image-preview (nano-banana)",
-        "name": "gemini-2.5-flash-image-preview (nano-banana) (google-genai)"
     },
     {
         "id": "gemini-2.5-pro",
@@ -156,6 +146,7 @@ export default {
         "id": "pteronura",
         "name": "gemma-4-31b (googleWithThoughtSignatures)"
     },
+    // GLM Models
     {
         "id": "glm-4.7",
         "name": "glm-4.7 (fireworks)"
@@ -172,6 +163,7 @@ export default {
         "id": "glm-5v-turbo",
         "name": "glm-5v-turbo (siliconFlowToolCalling)"
     },
+    // GPT Models
     {
         "id": "gpt-4.1-2025-04-14",
         "name": "gpt-4.1-2025-04-14 (openai)"
@@ -209,24 +201,8 @@ export default {
         "name": "gpt-5-nano-high (openai)"
     },
     {
-        "id": "gpt-5-search",
-        "name": "gpt-5-search (openaiResponses)"
-    },
-    {
         "id": "gpt-5.1",
         "name": "gpt-5.1 (openai)"
-    },
-    {
-        "id": "gpt-5.1-codex",
-        "name": "gpt-5.1-codex (openaiResponses)"
-    },
-    {
-        "id": "gpt-5.1-codex-max",
-        "name": "gpt-5.1-codex-max (openaiResponses)"
-    },
-    {
-        "id": "gpt-5.1-codex-mini",
-        "name": "gpt-5.1-codex-mini (openaiResponses)"
     },
     {
         "id": "gpt-5.1-high",
@@ -237,14 +213,6 @@ export default {
         "name": "gpt-5.1-medium (openai)"
     },
     {
-        "id": "gpt-5.1-search",
-        "name": "gpt-5.1-search (openaiResponses)"
-    },
-    {
-        "id": "gpt-5.1-search-sp",
-        "name": "gpt-5.1-search-sp (openaiResponses)"
-    },
-    {
         "id": "gpt-5.2",
         "name": "gpt-5.2"
     },
@@ -253,28 +221,12 @@ export default {
         "name": "gpt-5.2-chat-latest (openai)"
     },
     {
-        "id": "gpt-5.2-codex",
-        "name": "gpt-5.2-codex (openaiResponses)"
-    },
-    {
         "id": "gpt-5.2-high",
         "name": "gpt-5.2-high (openai)"
     },
     {
-        "id": "gpt-5.2-search",
-        "name": "gpt-5.2-search (openaiResponses)"
-    },
-    {
-        "id": "gpt-5.2-search-non-reasoning",
-        "name": "gpt-5.2-search-non-reasoning (openaiResponses)"
-    },
-    {
         "id": "gpt-5.3-chat-latest",
         "name": "gpt-5.3-chat-latest (openai)"
-    },
-    {
-        "id": "gpt-5.3-codex",
-        "name": "gpt-5.3-codex (openaiResponsesWithPhase)"
     },
     {
         "id": "gpt-5.4",
@@ -289,32 +241,12 @@ export default {
         "name": "gpt-5.4-medium"
     },
     {
-        "id": "gpt-5.4-mini-high",
-        "name": "gpt-5.4-mini-high (openaiResponses)"
-    },
-    {
-        "id": "gpt-5.4-nano-high",
-        "name": "gpt-5.4-nano-high (openaiResponses)"
-    },
-    {
         "id": "gpt-5.4-no-system-prompt",
         "name": "gpt-5.4-no-system-prompt"
     },
     {
         "id": "gpt-5.5-instant",
         "name": "gpt-5.5-instant (openaiResponses)"
-    },
-    {
-        "id": "gpt-image-1",
-        "name": "gpt-image-1 (customOpenai)"
-    },
-    {
-        "id": "gpt-image-1-high-fidelity",
-        "name": "gpt-image-1-high-fidelity"
-    },
-    {
-        "id": "gpt-image-2 (medium)",
-        "name": "gpt-image-2 (medium)"
     },
     {
         "id": "gpt-oss-120b",
@@ -324,6 +256,7 @@ export default {
         "id": "gpt-oss-20b",
         "name": "gpt-oss-20b (fireworks)"
     },
+    // Grok Models
     {
         "id": "grok-3-mini-beta",
         "name": "grok-3-mini-beta (xaiPublic)"
@@ -331,14 +264,6 @@ export default {
     {
         "id": "grok-3-mini-high",
         "name": "grok-3-mini-high (xaiPublic)"
-    },
-    {
-        "id": "grok-4-1-fast-search",
-        "name": "grok-4-1-fast-search (xaiResponsesSearch)"
-    },
-    {
-        "id": "grok-4-search",
-        "name": "grok-4-search (xaiSearch)"
     },
     {
         "id": "grok-4.20-beta-0309-reasoning",
@@ -364,26 +289,7 @@ export default {
         "id": "grok-build-0.1",
         "name": "grok-build-0.1 (xaiPublic)"
     },
-    {
-        "id": "grok-imagine-image",
-        "name": "grok-imagine-image (xaiImage)"
-    },
-    {
-        "id": "grok-imagine-image-quality",
-        "name": "grok-imagine-image-quality (xaiImage)"
-    },
-    {
-        "id": "blue-crab",
-        "name": "grok-imagine-image-quality (20260519) (xaiImage)"
-    },
-    {
-        "id": "grok-imagine-video",
-        "name": "grok-imagine-video (xai)"
-    },
-    {
-        "id": "grok-imagine-video-1.5-preview-720p",
-        "name": "grok-imagine-video-1.5-preview-720p (xai)"
-    },
+    // Hailuo Models
     {
         "id": "hailuo-02-fast",
         "name": "hailuo-02-fast (fal)"
@@ -404,22 +310,7 @@ export default {
         "id": "hailuo-2.3-fast",
         "name": "hailuo-2.3-fast (minimax)"
     },
-    {
-        "id": "imagen-3.0-generate-002",
-        "name": "imagen-3.0-generate-002 (googleVertex)"
-    },
-    {
-        "id": "imagen-4.0-fast-generate-001",
-        "name": "imagen-4.0-fast-generate-001 (googleVertex)"
-    },
-    {
-        "id": "imagen-4.0-generate-001",
-        "name": "imagen-4.0-generate-001 (googleVertex)"
-    },
-    {
-        "id": "imagen-4.0-ultra-generate-001",
-        "name": "imagen-4.0-ultra-generate-001 (googleVertex)"
-    },
+    // Kimi Models
     {
         "id": "kimi-k2-0711-preview",
         "name": "kimi-k2-0711-preview (moonshot)"
@@ -452,6 +343,7 @@ export default {
         "id": "Max",
         "name": "Max (boss-bandit)"
     },
+    // Mimo Models
     {
         "id": "mimo-v2-flash",
         "name": "mimo-v2-flash (xiaomiV1)"
@@ -476,6 +368,7 @@ export default {
         "id": "mimo-v2.5-pro",
         "name": "mimo-v2.5-pro (xiaomiV1)"
     },
+    // Minimax Models
     {
         "id": "minimax-m1",
         "name": "minimax-m1 (minimax)"
@@ -508,26 +401,7 @@ export default {
         "id": "minimax-m3",
         "name": "minimax-m3"
     },
-    {
-        "id": "qwen-image-2.0",
-        "name": "qwen-image-2.0 (alibaba)"
-    },
-    {
-        "id": "qwen-image-2.0-pro",
-        "name": "qwen-image-2.0-pro (alibaba)"
-    },
-    {
-        "id": "qwen-image-2512",
-        "name": "qwen-image-2512 (alibaba)"
-    },
-    {
-        "id": "qwen-image-edit",
-        "name": "qwen-image-edit (alibaba)"
-    },
-    {
-        "id": "qwen-image-edit-2511",
-        "name": "qwen-image-edit-2511 (alibaba)"
-    },
+    // Qwen Models
     {
         "id": "qwen-vl-max-2025-08-13",
         "name": "qwen-vl-max-2025-08-13 (alibaba)"
@@ -688,9 +562,145 @@ export default {
         "id": "qwq-32b",
         "name": "qwq-32b (alibaba)"
     },
+    // Codex Models
+    {
+        "id": "gpt-5.1-codex",
+        "name": "gpt-5.1-codex (openaiResponses)"
+    },
+    {
+        "id": "gpt-5.1-codex-max",
+        "name": "gpt-5.1-codex-max (openaiResponses)"
+    },
+    {
+        "id": "gpt-5.1-codex-mini",
+        "name": "gpt-5.1-codex-mini (openaiResponses)"
+    },
+    {
+        "id": "gpt-5.2-codex",
+        "name": "gpt-5.2-codex (openaiResponses)"
+    },
+    {
+        "id": "gpt-5.3-codex",
+        "name": "gpt-5.3-codex (openaiResponsesWithPhase)"
+    },
+    // Search Models
+    {
+        "id": "claude-sonnet-4-5-search",
+        "name": "claude-sonnet-4-5-search (anthropicSearch)"
+    },
+    {
+        "id": "claude-sonnet-4-6-search",
+        "name": "claude-sonnet-4-6-search (anthropicSearch)"
+    },
+    {
+        "id": "gpt-5-search",
+        "name": "gpt-5-search (openaiResponses)"
+    },
+    {
+        "id": "gpt-5.1-search",
+        "name": "gpt-5.1-search (openaiResponses)"
+    },
+    {
+        "id": "gpt-5.1-search-sp",
+        "name": "gpt-5.1-search-sp (openaiResponses)"
+    },
+    {
+        "id": "gpt-5.2-search",
+        "name": "gpt-5.2-search (openaiResponses)"
+    },
+    {
+        "id": "gpt-5.2-search-non-reasoning",
+        "name": "gpt-5.2-search-non-reasoning (openaiResponses)"
+    },
+    {
+        "id": "grok-4-1-fast-search",
+        "name": "grok-4-1-fast-search (xaiResponsesSearch)"
+    },
+    {
+        "id": "grok-4-search",
+        "name": "grok-4-search (xaiSearch)"
+    },
+    // Image Models
+    {
+        "id": "flux-1-kontext-max",
+        "name": "flux-1-kontext-max"
+    },
+    {
+        "id": "gemini-2.5-flash-image-preview (nano-banana)",
+        "name": "gemini-2.5-flash-image-preview (nano-banana) (google-genai)"
+    },
+    {
+        "id": "gpt-image-1",
+        "name": "gpt-image-1 (customOpenai)"
+    },
+    {
+        "id": "gpt-image-1-high-fidelity",
+        "name": "gpt-image-1-high-fidelity"
+    },
+    {
+        "id": "gpt-image-2 (medium)",
+        "name": "gpt-image-2 (medium)"
+    },
+    {
+        "id": "grok-imagine-image",
+        "name": "grok-imagine-image (xaiImage)"
+    },
+    {
+        "id": "grok-imagine-image-quality",
+        "name": "grok-imagine-image-quality (xaiImage)"
+    },
+    {
+        "id": "blue-crab",
+        "name": "grok-imagine-image-quality (20260519) (xaiImage)"
+    },
+    {
+        "id": "imagen-3.0-generate-002",
+        "name": "imagen-3.0-generate-002 (googleVertex)"
+    },
+    {
+        "id": "imagen-4.0-fast-generate-001",
+        "name": "imagen-4.0-fast-generate-001 (googleVertex)"
+    },
+    {
+        "id": "imagen-4.0-generate-001",
+        "name": "imagen-4.0-generate-001 (googleVertex)"
+    },
+    {
+        "id": "imagen-4.0-ultra-generate-001",
+        "name": "imagen-4.0-ultra-generate-001 (googleVertex)"
+    },
+    {
+        "id": "qwen-image-2.0",
+        "name": "qwen-image-2.0 (alibaba)"
+    },
+    {
+        "id": "qwen-image-2.0-pro",
+        "name": "qwen-image-2.0-pro (alibaba)"
+    },
+    {
+        "id": "qwen-image-2512",
+        "name": "qwen-image-2512 (alibaba)"
+    },
+    {
+        "id": "qwen-image-edit",
+        "name": "qwen-image-edit (alibaba)"
+    },
+    {
+        "id": "qwen-image-edit-2511",
+        "name": "qwen-image-edit-2511 (alibaba)"
+    },
     {
         "id": "uni-1.1-max",
         "name": "uni-1.1-max (lumaImagePublic)"
+    },
+    // Video Models
+    {
+        "id": "grok-imagine-video",
+        "name": "grok-imagine-video (xai)"
+    },
+    {
+        "id": "grok-imagine-video-1.5-preview-720p",
+        "name": "grok-imagine-video-1.5-preview-720p (xai)"
     },
     {
         "id": "veo-2",
@@ -743,3 +753,41 @@ export default {
     usage: false,
   },
 };
+
+const ARENA_MEDIA_GROUPS = {
+  Search: "webSearch",
+  Image: "image",
+  Video: "video",
+};
+
+function getArenaModelGroup(model) {
+  const id = model.id.toLowerCase();
+  const name = model.name.toLowerCase();
+
+  if (id.includes("search") || id.includes("grounding")) return "Search";
+  if (id.includes("image") || id.includes("imagen") || id.includes("flux-") || id === "blue-crab" || id === "uni-1.1-max") return "Image";
+  if (id.includes("video") || id.startsWith("veo-") || id.startsWith("hailuo-")) return "Video";
+  if (id.startsWith("claude-")) return "Claude";
+  if (id.includes("codex")) return "Codex";
+  if (id.startsWith("gpt-") || name.includes("(openai)")) return "OpenAI";
+  if (id.startsWith("gemini-") || id.startsWith("gemma-") || id === "significant-otter" || id === "pteronura") return "Gemini / Gemma";
+  if (id.startsWith("deepseek-")) return "DeepSeek";
+  if (id.startsWith("glm-")) return "GLM";
+  if (id.startsWith("grok-")) return "Grok";
+  if (id.startsWith("kimi-") || id === "max") return "Kimi";
+  if (id.startsWith("mimo-")) return "MiMo";
+  if (id.startsWith("minimax-") || id === "deep-octo") return "MiniMax";
+  if (id.startsWith("qwen") || id.startsWith("qwq-") || ["kiteki", "kizen-alpha", "korin", "melyora", "may-alpha"].includes(id)) return "Qwen";
+  return "Other";
+}
+
+arenaProvider.models = arenaProvider.models.map((model) => {
+  const group = getArenaModelGroup(model);
+  return {
+    ...model,
+    group,
+    ...(ARENA_MEDIA_GROUPS[group] ? { kind: ARENA_MEDIA_GROUPS[group] } : {}),
+  };
+});
+
+export default arenaProvider;

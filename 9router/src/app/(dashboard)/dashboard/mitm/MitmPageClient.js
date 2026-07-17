@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { MITM_TOOLS } from "@/shared/constants/cliTools";
 import { getModelsByProviderId } from "@/shared/constants/models";
 import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
-import { MitmServerCard, MitmToolCard } from "@/app/(dashboard)/dashboard/cli-tools/components";
+import MitmServerCard from "./components/MitmServerCard";
+import MitmToolCard from "./components/MitmToolCard";
 
 export default function MitmPageClient() {
   const [connections, setConnections] = useState([]);

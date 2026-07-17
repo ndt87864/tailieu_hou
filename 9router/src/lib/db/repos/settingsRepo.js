@@ -4,6 +4,13 @@ import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
 const DEFAULT_MITM_ROUTER_BASE = "http://localhost:20128";
 const DEFAULT_HEADROOM_URL = process.env.HEADROOM_URL || "http://localhost:8787";
 
+// Settings are read by nearly every dashboard request. Keep the warm-instance
+// copy long enough to avoid a Redis/Supabase round trip on normal navigation.
+let settingsCache = null;
+let settingsCacheTime = 0;
+let settingsReadPromise = null;
+const SETTINGS_CACHE_TTL_MS = 5 * 60 * 1000;
+
 const DEFAULT_SETTINGS = {
   cloudEnabled: false,
   tunnelEnabled: false,
@@ -75,8 +82,25 @@ function mergeWithDefaults(raw) {
 }
 
 export async function getSettings() {
-  const raw = await readRaw();
-  return mergeWithDefaults(raw);
+  const now = Date.now();
+  if (settingsCache && (now - settingsCacheTime) < SETTINGS_CACHE_TTL_MS) {
+    return settingsCache;
+  }
+
+  // Deduplicate cold-start/concurrent reads in the same server instance.
+  if (!settingsReadPromise) {
+    settingsReadPromise = readRaw()
+      .then((raw) => {
+        settingsCache = mergeWithDefaults(raw);
+        settingsCacheTime = Date.now();
+        return settingsCache;
+      })
+      .finally(() => {
+        settingsReadPromise = null;
+      });
+  }
+
+  return settingsReadPromise;
 }
 
 // Atomic read-merge-write inside transaction (prevents losing concurrent updates)
@@ -92,6 +116,10 @@ export async function updateSettings(updates) {
       [stringifyJson(next)]
     );
   });
+  // Invalidate cache after update
+  settingsCache = null;
+  settingsCacheTime = 0;
+  settingsReadPromise = null;
   return mergeWithDefaults(next);
 }
 

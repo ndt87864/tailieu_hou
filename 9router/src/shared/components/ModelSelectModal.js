@@ -122,7 +122,7 @@ export default function ModelSelectModal({
     // Kinds where the provider IS the model (no per-model selection needed)
     const PROVIDER_AS_MODEL_KINDS = new Set(["webSearch", "webFetch"]);
     // Kinds that map directly to model.type field
-    const TYPED_KINDS = new Set(["image", "tts", "stt", "embedding", "imageToText"]);
+    const TYPED_KINDS = new Set(["image", "video", "tts", "stt", "embedding", "imageToText"]);
     // For these kinds, providers without hardcoded models can still be picked (provider-as-model fallback)
     const ALLOW_PROVIDER_FALLBACK_KINDS = new Set(["tts", "image", "webFetch"]);
 
@@ -304,7 +304,7 @@ export default function ModelSelectModal({
           .map((m) => ({ id: m.id, name: m.name || m.id, value: `${alias}/${m.id}`, isCustom: true }));
 
         const merged = [
-          ...hardcodedModels.map((m) => ({ id: m.id, name: m.name, value: `${alias}/${m.id}`, kind: getModelKind(m) })),
+          ...hardcodedModels.map((m) => ({ id: m.id, name: m.name, value: `${alias}/${m.id}`, kind: getModelKind(m), group: m.group })),
           ...customAliasModels,
           ...customRegisteredModels,
         ];
@@ -499,8 +499,18 @@ export default function ModelSelectModal({
               </span>
             </div>
 
-            <div className="flex flex-wrap gap-1.5">
-              {group.models.map((model) => {
+            <div className="space-y-2">
+              {Object.entries(group.models.reduce((modelGroups, model) => {
+                const modelGroup = providerId === "arena" ? (model.group || "Other") : "";
+                (modelGroups[modelGroup] ||= []).push(model);
+                return modelGroups;
+              }, {})).map(([modelGroup, models]) => (
+                <div key={modelGroup || "models"}>
+                  {modelGroup && (
+                    <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-text-muted">{modelGroup}</p>
+                  )}
+                  <div className="flex flex-wrap gap-1.5">
+              {models.map((model) => {
                 const isSelected = selectedModel === model.value;
                 const isPlaceholder = model.isPlaceholder;
                 return (
@@ -545,6 +555,9 @@ export default function ModelSelectModal({
                   </button>
                 );
               })}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         ))}

@@ -14,7 +14,9 @@ export async function POST(request) {
         headers["Authorization"] = `Bearer ${jinaKey}`;
       }
 
-      console.log(`[Jina Reader] Crawling URL: ${url}`);
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[Jina Reader] Crawling URL: ${url}`);
+      }
       const res = await fetch(`https://r.jina.ai/${url}`, {
         method: "GET",
         headers
@@ -50,7 +52,9 @@ export async function POST(request) {
         });
       }
 
-      console.log(`[Tavily Search] Query: ${cleanQuery}`);
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[Tavily Search] Query: ${cleanQuery}`);
+      }
       const fastMode = mode === "fast";
       const res = await fetch("https://api.tavily.com/search", {
         method: "POST",

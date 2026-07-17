@@ -67,6 +67,11 @@ export {
   saveRequestDetail, getRequestDetails, getRequestDetailById, getDistinctProviders,
 } from "./repos/requestDetailsRepo.js";
 
+// Document scanner history
+export {
+  getScannerHistory, createScannerHistory, deleteScannerHistory, clearScannerHistory,
+} from "./repos/scannerHistoryRepo.js";
+
 // Export/import full DB
 export async function exportDb() {
   const db = await getAdapter();

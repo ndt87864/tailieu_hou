@@ -53,13 +53,16 @@ export async function GET(request) {
       filter.isActive = isActive;
     }
 
-    const proxyPools = await getProxyPools(filter);
+    const proxyPoolsPromise = getProxyPools(filter);
 
     if (!includeUsage) {
-      return NextResponse.json({ proxyPools });
+      return NextResponse.json({ proxyPools: await proxyPoolsPromise });
     }
 
-    const connections = await getProviderConnections();
+    const [proxyPools, connections] = await Promise.all([
+      proxyPoolsPromise,
+      getProviderConnections(),
+    ]);
     const usageMap = buildUsageMap(connections);
 
     const enrichedProxyPools = proxyPools.map((pool) => ({

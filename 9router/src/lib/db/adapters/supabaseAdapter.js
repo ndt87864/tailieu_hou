@@ -1,4 +1,39 @@
 import { supabase } from "../../supabaseClient.js";
+import redis from "../../redisClient.js";
+import crypto from "crypto";
+
+const memoryStore = new Map();
+
+function getQueryCacheKey(username, tableName, sql, params) {
+  const hash = crypto.createHash("sha256").update(sql + ":" + JSON.stringify(params)).digest("hex");
+  return `dbcache:${username}:${tableName.toLowerCase()}:${hash}`;
+}
+
+async function invalidateTableCache(username, tableName) {
+  const cleanTable = String(tableName || "").trim().toLowerCase();
+  
+  // 1. Invalidate Redis Cache
+  if (typeof redis.get === "function") {
+    const setKey = `9router:dbcache:keys:${username}:${cleanTable}`;
+    try {
+      const keys = await redis.smembers(setKey);
+      if (keys && keys.length > 0) {
+        await redis.del(...keys);
+      }
+      await redis.del(setKey);
+    } catch (e) {
+      console.warn(`[Redis Cache] Failed to invalidate cache for table ${cleanTable}:`, e.message);
+    }
+  }
+
+  // 2. Invalidate memoryStore Cache
+  const memoryPrefix = `dbcache:${username}:${cleanTable}:`;
+  for (const key of memoryStore.keys()) {
+    if (key.startsWith(memoryPrefix)) {
+      memoryStore.delete(key);
+    }
+  }
+}
 
 export function createSupabaseAdapter(username) {
   const cleanUsername = String(username || "admin").trim().toLowerCase();
@@ -120,6 +155,33 @@ export function createSupabaseAdapter(username) {
       const orderByStr = selectMatch[4];
       const limitStr = selectMatch[5];
 
+      const cacheKey = getQueryCacheKey(cleanUsername, table, trimmedSql, params);
+
+      let cachedVal = null;
+      let redisFailed = false;
+      if (typeof redis.get === "function") {
+        try {
+          cachedVal = await redis.get("9router:" + cacheKey);
+        } catch (e) {
+          console.warn("[Redis Cache] Read error, falling back to memoryStore:", e.message);
+          redisFailed = true;
+        }
+      }
+
+      if (cachedVal) {
+        return JSON.parse(cachedVal);
+      }
+
+      if (redisFailed || typeof redis.get !== "function") {
+        const entry = memoryStore.get(cacheKey);
+        if (entry) {
+          if (Date.now() < entry.expiresAt) {
+            return entry.data;
+          }
+          memoryStore.delete(cacheKey);
+        }
+      }
+
       let selectFields = selectCols;
       if (selectFields === '1') {
         selectFields = '*'; // PostgREST doesn't support SELECT 1
@@ -190,42 +252,83 @@ export function createSupabaseAdapter(username) {
 
       const resultData = await executeWithFallback(table, executeSelect);
 
+      let finalResult;
       if (isCount) {
-        return [{ n: resultData || 0 }];
+        finalResult = [{ n: resultData || 0 }];
+      } else if (selectCols === '1') {
+        finalResult = resultData.length ? resultData.map(() => ({ '1': 1 })) : [];
+      } else {
+        // Map rows (JSON parsing and normalizations)
+        finalResult = resultData.map(row => {
+          const mapped = {};
+          for (const [key, value] of Object.entries(row)) {
+            // Normalize column names back to original camelCase if lowercase was returned
+            let mappedKey = key;
+            if (key === 'isactive') mappedKey = 'isActive';
+            else if (key === 'authtype') mappedKey = 'authType';
+            else if (key === 'createdat') mappedKey = 'createdAt';
+            else if (key === 'updatedat') mappedKey = 'updatedAt';
+            else if (key === 'machineid') mappedKey = 'machineId';
+            else if (key === 'datekey') mappedKey = 'dateKey';
+            else if (key === 'filetype') mappedKey = 'fileType';
+            else if (key === 'prompttokens') mappedKey = 'promptTokens';
+            else if (key === 'completiontokens') mappedKey = 'completionTokens';
+            else if (key === 'connectionid') mappedKey = 'connectionId';
+            else if (key === 'apikey') mappedKey = 'apiKey';
+
+            // Handle Boolean
+            if (mappedKey === 'isActive') {
+              mapped[mappedKey] = (value === true || value === 1 || value === 'true') ? 1 : 0;
+            } else {
+              mapped[mappedKey] = value;
+            }
+          }
+          delete mapped.username; // Hide username partition column
+          return mapped;
+        });
       }
 
-      if (selectCols === '1') {
-        return resultData.length ? resultData.map(() => ({ '1': 1 })) : [];
+      let saveToMemory = typeof redis.get !== "function";
+      if (typeof redis.get === "function") {
+        try {
+          const redisKey = "9router:" + cacheKey;
+          const setKey = `9router:dbcache:keys:${cleanUsername}:${table.toLowerCase()}`;
+          // Cache persistence is deliberately off the request critical path.
+          // The response can use the in-process result while Redis is updated.
+          void Promise.all([
+            redis.setex(redisKey, 600, JSON.stringify(finalResult)),
+            redis.sadd(setKey, redisKey),
+            redis.expire(setKey, 86400),
+          ]).catch((e) => {
+            console.warn("[Redis Cache] Write error:", e.message);
+          });
+        } catch (e) {
+          console.warn("[Redis Cache] Write error, falling back to memoryStore:", e.message);
+          saveToMemory = true;
+        }
       }
 
-      // Map rows (JSON parsing and normalizations)
-      return resultData.map(row => {
-        const mapped = {};
-        for (const [key, value] of Object.entries(row)) {
-          // Normalize column names back to original camelCase if lowercase was returned
-          let mappedKey = key;
-          if (key === 'isactive') mappedKey = 'isActive';
-          else if (key === 'authtype') mappedKey = 'authType';
-          else if (key === 'createdat') mappedKey = 'createdAt';
-          else if (key === 'updatedat') mappedKey = 'updatedAt';
-          else if (key === 'machineid') mappedKey = 'machineId';
-          else if (key === 'datekey') mappedKey = 'dateKey';
-          else if (key === 'filetype') mappedKey = 'fileType';
-          else if (key === 'prompttokens') mappedKey = 'promptTokens';
-          else if (key === 'completiontokens') mappedKey = 'completionTokens';
-          else if (key === 'connectionid') mappedKey = 'connectionId';
-          else if (key === 'apikey') mappedKey = 'apiKey';
-
-          // Handle Boolean
-          if (mappedKey === 'isActive') {
-            mapped[mappedKey] = (value === true || value === 1 || value === 'true') ? 1 : 0;
-          } else {
-            mapped[mappedKey] = value;
+      if (saveToMemory) {
+        if (memoryStore.size >= 500) {
+          const now = Date.now();
+          for (const [key, entry] of memoryStore.entries()) {
+            if (now >= entry.expiresAt) {
+              memoryStore.delete(key);
+            }
+          }
+          if (memoryStore.size >= 500) {
+            // If still full, drop oldest entries (first key returned by Map.prototype.keys())
+            const firstKey = memoryStore.keys().next().value;
+            if (firstKey) memoryStore.delete(firstKey);
           }
         }
-        delete mapped.username; // Hide username partition column
-        return mapped;
-      });
+        memoryStore.set(cacheKey, {
+          data: finalResult,
+          expiresAt: Date.now() + 600000 // 10 minutes TTL (600,000 ms)
+        });
+      }
+
+      return finalResult;
     }
 
     // 2. INSERT / UPSERT
@@ -289,6 +392,7 @@ export function createSupabaseAdapter(username) {
       };
 
       const data = await executeWithFallback(table, executeInsert);
+      await invalidateTableCache(cleanUsername, table);
       const firstRow = data?.[0] || {};
       const lastInsertRowid = firstRow.id || firstRow.rowid || firstRow.datekey || firstRow.key || null;
       return { changes: data ? data.length : 1, lastInsertRowid };
@@ -348,6 +452,7 @@ export function createSupabaseAdapter(username) {
 
       // Reset paramIndexRef for SET and WHERE evaluation order
       const data = await executeWithFallback(table, executeUpdate);
+      await invalidateTableCache(cleanUsername, table);
       return { changes: data ? data.length : 1 };
     }
 
@@ -374,6 +479,7 @@ export function createSupabaseAdapter(username) {
       };
 
       const data = await executeWithFallback(table, executeDelete);
+      await invalidateTableCache(cleanUsername, table);
       return { changes: data ? data.length : 1 };
     }
 

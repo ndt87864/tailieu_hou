@@ -152,6 +152,20 @@ export const TABLES = {
       "CREATE INDEX IF NOT EXISTS idx_rd_conn ON requestDetails(connectionId)",
     ],
   },
+  scannerHistory: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      filename: "TEXT NOT NULL",
+      fileType: "TEXT NOT NULL",
+      model: "TEXT NOT NULL",
+      results: "TEXT NOT NULL",
+      createdAt: "TEXT NOT NULL",
+      username: "TEXT",
+    },
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_sh_created ON scannerHistory(createdAt DESC)",
+    ],
+  },
 };
 
 export function buildCreateTableSql(name, def) {

@@ -358,16 +358,40 @@ export class ArenaService {
     };
   }
 
+  isUsableCdpEndpoint(versionInfo, browserHint = {}) {
+    const browser = String(versionInfo?.Browser || "").toLowerCase();
+    const userAgent = String(versionInfo?.["User-Agent"] || "").toLowerCase();
+    const hintedUserAgent = String(browserHint?.userAgent || browserHint?.requestUserAgent || "").toLowerCase();
+    const wsEndpoint = String(versionInfo?.webSocketDebuggerUrl || "").toLowerCase();
+    const combined = `${browser}\n${userAgent}\n${wsEndpoint}`;
+
+    if (!versionInfo?.webSocketDebuggerUrl) return false;
+    if (/webview|edgwebview|webview2/.test(combined)) return false;
+    if (/webview|edgwebview|webview2/.test(hintedUserAgent)) return false;
+    if (!/^mozilla\//.test(userAgent)) return false;
+    if (!/(chrome|chromium|edg\/|brave|coccoc|coc_coc|cocbrowser)/.test(userAgent)) return false;
+
+    const preferredBrowser = this.detectBrowserName(browserHint);
+    if (!preferredBrowser) return true;
+
+    if (preferredBrowser === "edge") return /edge|edg\//.test(combined);
+    if (preferredBrowser === "brave") return /brave/.test(combined);
+    if (preferredBrowser === "coccoc") return /coccoc|coc_coc|cocbrowser/.test(combined);
+    if (preferredBrowser === "chrome") return /chrome/.test(combined) && !/edge|edg\/|brave|coccoc/.test(combined);
+    if (preferredBrowser === "chromium") return /chromium/.test(combined);
+    return true;
+  }
+
   async connectCDP(browserHint = {}) {
     const puppeteer = await this.ensurePuppeteer();
     const http = await import("http");
 
-    const detectCdpEndpoint = () => {
+    const detectCdpEndpoint = (port) => {
       return new Promise((resolve) => {
         const req = http.get(
           {
             host: "127.0.0.1",
-            port: this.config.captureConfig.cdpPort,
+            port: port,
             path: "/json/version",
             timeout: 1500,
           },
@@ -395,14 +419,20 @@ export class ArenaService {
     };
 
     try {
-      const versionInfo = await detectCdpEndpoint();
-      if (!versionInfo?.webSocketDebuggerUrl) return null;
-
-      const browser = await puppeteer.connect({
-        browserWSEndpoint: versionInfo.webSocketDebuggerUrl,
-        defaultViewport: null,
-      });
-      return browser;
+      // Scan common Chrome remote debugging ports
+      const ports = [9222, 9223, 9224, 9225, 9226, 9227, 9228, 9229];
+      
+      for (const port of ports) {
+        const versionInfo = await detectCdpEndpoint(port);
+        if (this.isUsableCdpEndpoint(versionInfo, browserHint)) {
+          const browser = await puppeteer.connect({
+            browserWSEndpoint: versionInfo.webSocketDebuggerUrl,
+            defaultViewport: null,
+          });
+          return browser;
+        }
+      }
+      return null;
     } catch {
       return null;
     }

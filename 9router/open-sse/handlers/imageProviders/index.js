@@ -13,6 +13,7 @@ import runwayml from "./runwayml.js";
 import cloudflareAi from "./cloudflareAi.js";
 import antigravity from "./antigravity.js";
 import luna from "./luna.js";
+import arena from "./arena.js";
 
 const ADAPTERS = {
   openai: createOpenAIAdapter("openai"),
@@ -29,6 +30,7 @@ const ADAPTERS = {
   nanobanana,
   antigravity,
   luna,
+  arena,
   "fal-ai": falAi,
   "stability-ai": stabilityAi,
   "black-forest-labs": blackForestLabs,

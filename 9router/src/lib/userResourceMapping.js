@@ -10,6 +10,13 @@
 // Danh sách các tài khoản bị giới hạn chỉ xem trang "Trợ lý báo cáo"
 const RESTRICTED_USERS = ["trang", "thu", "thủy", "nga"];
 
+const RESTRICTED_REPORT_ASSISTANT_SUBJECT_CODES = ["el67", "sl06", "sl07"];
+const RESTRICTED_REPORT_ASSISTANT_SUBJECTS = [
+    "EL67 Thuc tap dinh huong nghe nghiep 2",
+    "SL06 Thuc tap dinh huong nghe nghiep 1",
+    "SL07 Thuc tap dinh huong nghe nghiep 2",
+];
+
 // Tài khoản chủ sở hữu tài nguyên mà restricted users sẽ dùng
 const RESOURCE_OWNER = "minh";
 
@@ -79,4 +86,24 @@ export function normalizeUsername(username) {
     if (!username) return "";
     return String(username).trim().toLowerCase()
         .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+export function getRestrictedUsers() {
+    return [...RESTRICTED_USERS];
+}
+
+export function getRestrictedReportAssistantSubjects() {
+    return [...RESTRICTED_REPORT_ASSISTANT_SUBJECTS];
+}
+
+export function isRestrictedReportAssistantSubject(subject) {
+    const clean = String(subject || "").trim().toLowerCase();
+    if (!clean) return false;
+    return RESTRICTED_REPORT_ASSISTANT_SUBJECT_CODES.some((code) => (
+        clean === code ||
+        clean.startsWith(`${code} `) ||
+        clean.startsWith(`${code}-`) ||
+        clean.startsWith(`${code}_`) ||
+        clean.includes(` ${code} `)
+    )) || RESTRICTED_REPORT_ASSISTANT_SUBJECTS.some((label) => clean === label.toLowerCase());
 }

@@ -4,6 +4,7 @@ import { promisify } from "util";
 import { DefaultExecutor } from "./default.js";
 import { sanitizeHeaders } from "../utils/headerSanitizer.js";
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
+import arenaProvider from "../providers/registry/arena.js";
 
 const execAsync = promisify(exec);
 
@@ -163,6 +164,41 @@ export class ArenaExecutor extends DefaultExecutor {
     const userMessageId = this.uuid7();
     const modelAMessageId = this.uuid7();
 
+    const registryModel = arenaProvider.models.find(
+      (m) => m.id === model || m.name === model || modelId === m.id
+    );
+    const group = registryModel?.group || "";
+    const kind = registryModel?.kind || "";
+
+    let modality = "chat";
+    const lowerModelId = modelId.toLowerCase();
+    if (
+      group === "Image" ||
+      kind === "image" ||
+      lowerModelId.includes("image") ||
+      lowerModelId.includes("imagen") ||
+      lowerModelId.includes("flux") ||
+      lowerModelId.includes("seedream") ||
+      lowerModelId.includes("autumn") ||
+      lowerModelId.includes("wan2.7") ||
+      lowerModelId.includes("instant-ramen") ||
+      lowerModelId.startsWith("uni-") ||
+      lowerModelId === "blue-crab"
+    ) {
+      modality = "image";
+    } else if (
+      group === "Search" ||
+      kind === "webSearch" ||
+      lowerModelId.includes("search") ||
+      lowerModelId.includes("grounding")
+    ) {
+      modality = "search";
+    } else if (
+      group === "Codex" ||
+      lowerModelId.includes("codex")
+    ) {
+      modality = "webdev";
+    }
 
     const payload = {
       modelAId: modelId,
@@ -173,7 +209,7 @@ export class ArenaExecutor extends DefaultExecutor {
         experimental_attachments: [],
         metadata: {},
       },
-      modality: "chat",
+      modality,
       recaptchaV3Token: "",
     };
 
@@ -211,6 +247,53 @@ export class ArenaExecutor extends DefaultExecutor {
       try {
         const text = JSON.parse(chunkData);
         return { type: "content", content: text };
+      } catch (e) {
+        return null;
+      }
+    }
+
+    if (trimmed.startsWith("a2:")) {
+      const chunkData = trimmed.slice(3);
+      try {
+        const arr = JSON.parse(chunkData);
+        if (Array.isArray(arr)) {
+          let content = "";
+          for (const item of arr) {
+            if (item.type === "image") {
+              content += `\n![Generated Image](${item.image})\n`;
+            } else if (item.type === "webdev" && item.event) {
+              const ev = item.event;
+              if (ev.type === "init" && Array.isArray(ev.files)) {
+                content += `\n### Initialize Web App files:\n`;
+                for (const f of ev.files) {
+                  content += `\n**File: \`${f.path}\`**\n\`\`\`${f.contentType || ""}\n${f.content}\n\`\`\`\n`;
+                }
+              } else if (ev.type === "title") {
+                content += `\n**App Title**: ${ev.title}\n`;
+              }
+            }
+          }
+          if (content) {
+            return { type: "content", content };
+          }
+        }
+      } catch (e) {
+        return null;
+      }
+    }
+
+    if (trimmed.startsWith("ac:")) {
+      const chunkData = trimmed.slice(3);
+      try {
+        const obj = JSON.parse(chunkData);
+        if (obj.toolCallId === "citation-source" && obj.argsTextDelta) {
+          const delta = JSON.parse(obj.argsTextDelta);
+          if (delta.source) {
+            const s = delta.source;
+            const citation = `\n[^${s.id}]: [${s.title || s.url}](${s.url})\n`;
+            return { type: "content", content: citation };
+          }
+        }
       } catch (e) {
         return null;
       }
@@ -345,7 +428,10 @@ export class ArenaExecutor extends DefaultExecutor {
             console.warn(`[ArenaExecutor] reCAPTCHA rejected on attempt ${attempt + 1}, retrying with a fresh token.`);
             continue;
           }
-          throw new Error(`Arena API error: ${response.status} - ${errorText.slice(0, 200)}`);
+          // Preserve the original error text for proper rate limit detection
+          const error = new Error(errorText);
+          error.status = response.status;
+          throw error;
         }
 
         if (!stream || body.stream === false) {
@@ -371,7 +457,8 @@ export class ArenaExecutor extends DefaultExecutor {
       throw new Error("Arena API error: reCAPTCHA validation failed after 3 attempts");
     } catch (error) {
       if (error.name === "AbortError") throw error;
-      throw new Error(`Arena executor error: ${error.message}`);
+      // Preserve the original error with status code for proper rate limit handling
+      throw error;
     }
   }
 
