@@ -27,276 +27,77 @@ README.md
 backend/node_modules/
 lms_crawler/Danh_Sach_Mon_Hoc_EHOU.xlsx
 
-
 # =========================================================================
-# OmniRoute Git Ignore Rules
+# 9router Git Ignore Rules
 # =========================================================================
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+9router/node_modules
+9router/.pnp
+9router/.pnp.*
+9router/.yarn/*
+!9router/.yarn/patches
+!9router/.yarn/plugins
+!9router/.yarn/releases
+!9router/.yarn/versions
 
-# project-specific directories
-OmniRoute/.omnivscodeagent/
-OmniRoute/omnirouteCloud/
-OmniRoute/omnirouteSite/
-OmniRoute/_cache/
-OmniRoute/_ideia/
-OmniRoute/_mono_repo/
-OmniRoute/_references/
-OmniRoute/_tasks/
-OmniRoute/.agents/**
-OmniRoute/.claude/**
-OmniRoute/.gemini/**
-OmniRoute/.config/**
-OmniRoute/.data/**
-OmniRoute/.logs/**
-OmniRoute/.tests/**
-OmniRoute/.coverage/**
-OmniRoute/coverage/
-OmniRoute/.dist/**
-OmniRoute/.next/**
-OmniRoute/.build/**
-OmniRoute/.out/**
+9router/coverage
 
-# Stryker mutation testing — ephemeral sandbox + generated reports (never commit)
-OmniRoute/.stryker-tmp/
-OmniRoute/reports/mutation/
-OmniRoute/stryker-output-*.json
+9router/.next/
+9router/.next-cli-build/
+9router/out/
+9router/cli/.build-home/
+9router/product
+9router/build
+9router/.idea/
 
+9router/.DS_Store
+9router/*.pem
 
-# Memory Bank and Cursor rules (local-only AI agent context)
-OmniRoute/memory-bank/
-OmniRoute/.cursor/rules/core.mdc
-OmniRoute/.cursor/rules/memory-bank.mdc
+9router/npm-debug.log*
+9router/yarn-debug.log*
+9router/yarn-error.log*
+9router/.pnpm-debug.log*
 
-# Claude Code local state — runtime files only; shared commands at .claude/commands/ are tracked
-OmniRoute/.claude/scheduled_tasks.lock
-OmniRoute/.claude/scheduled_tasks/
-OmniRoute/.claude/sessions/
-OmniRoute/.claude/state.json
-OmniRoute/.claude/settings.local.json
+9router/.env*
+!9router/.env.example
 
-# Root-level underscore-prefixed directories (private/draft — never commit)
-/OmniRoute/_*/
+9router/.vercel
 
-# Draft features documentation (internal only)
-OmniRoute/docs/new-features/
+9router/*.tsbuildinfo
+9router/next-env.d.ts
 
-# dependencies
-OmniRoute/node_modules/
-# Also ignore a root node_modules SYMLINK (worktree setups symlink it from the main
-# checkout). The trailing-slash pattern above only matches a directory, so without this
-# a symlink named node_modules could be staged by `git add -A` and committed.
-/OmniRoute/node_modules
-OmniRoute/*.map
-OmniRoute/.DS_Store
+9router/.bin/*
+9router/data/
+9router/logs/*
+9router/source/*
+9router/.cursor/*
+9router/docs/*
+!9router/docs/ARCHITECTURE.md
+9router/test/*
+9router/open-sse/test/*
+9router/RM.vn.md
+9router/RM.md
+9router/cursor/*
+9router/PUBLIC.md
+9router/Thanks.md
+9router/PUBLIC.en.md
+9router/PR/*
+9router/package-lock.json
 
-# Obsidian sync plugin — committed for community distribution
-!OmniRoute/obsidian-plugin/
-OmniRoute/obsidian-plugin/node_modules/
+9router/.github/instructions/codacy.instructions.md
+9router/README1.md
+9router/deploy*.sh
+9router/ecosystem.config.*
 
-# Serena AI assistant config (local-only tool, not project code)
-OmniRoute/.serena/
+9router/scripts/agSniffer/*
+9router/gitbooks/*
+9router/gitbook/README.md
+9router/.dockerignore
+9router/.env.example
+9router/.claude
+9router/DOCKER.md
+9router/Dockerfile
+9router/docs
 
-# debug
-OmniRoute/npm-debug.log*
-OmniRoute/yarn-debug.log*
-OmniRoute/yarn-error.log*
-OmniRoute/.pnpm-debug.log*
-
-# env files (can opt-in for committing if needed)
-OmniRoute/.env*
-!OmniRoute/.env.example
-!OmniRoute/.env.homolog.example
-# Provider API keys (never commit)
-OmniRoute/*.api-key
-OmniRoute/.nvidia-api-key
-
-# vercel
-OmniRoute/.vercel
-
-# typescript
-OmniRoute/*.tsbuildinfo
-OmniRoute/next-env.d.ts
-
-# data and logs
-OmniRoute/data/
-OmniRoute/.data/
-OmniRoute/logs/*
-OmniRoute/test_output.log
-
-# analysis directories (generated, not tracked)
-OmniRoute/.analysis/
-OmniRoute/antigravity-manager-analysis/
-OmniRoute/.sisyphus/
-OmniRoute/.plans/
-
-# open-sse tests
-OmniRoute/open-sse/test/*
-
-# Ignore vscode AI rules
-OmniRoute/.github/instructions/codacy.instructions.md
-
-# Playwright
-OmniRoute/.playwright-mcp/
-OmniRoute/test-results/
-OmniRoute/playwright-report/
-OmniRoute/blob-report/
-OmniRoute/cloud/
-OmniRoute/.tmp/
-
-# Security Analysis (standalone project with own git)
-OmniRoute/security-analysis/
-
-# Deploy workflow (contains sensitive VPS credentials)
-OmniRoute/clipr/
-OmniRoute/app.log
-OmniRoute/*.tgz
-OmniRoute/.gh-discussions.json
-OmniRoute/deploy.sh
-OmniRoute/docker-compose.minimal.yml
-
-
-# Backup directories
-OmniRoute/app.__qa_backup/
-OmniRoute/.app-build-backup-*/
-OmniRoute/backup/
-
-# Build intermediates (.build/) and shippable standalone (dist/).
-# These are fully reproducible from source; never committed.
-# Layer 1: Next.js now writes to .build/next (was .next); assembled bundle → dist/
-# (Previously /app/ was the standalone output; renamed to /dist/ in Layer 1.)
-/OmniRoute/.build/
-/OmniRoute/dist/
-/OmniRoute/.next/
-
-# Electron
-OmniRoute/electron/dist-electron/
-OmniRoute/electron/node_modules/
-OmniRoute/icon.iconset/
-
-# VS Code Extension (independent Git repo)
-OmniRoute/vscode-extension/
-
-# SQLite residual files
-OmniRoute/*.sqlite-shm
-OmniRoute/*.sqlite-wal
-OmniRoute/*.sqlite-journal
-
-# IDEA
-OmniRoute/.idea/
-
-# Local OpenCode agent config
-OmniRoute/.config/
-
-# Empty/dangling files
-OmniRoute/typescript
-
-# Gemini Antigravity agent data
-OmniRoute/.gemini/
-
-# Superpowers plans/specs (internal tooling, not project code)
-OmniRoute/docs/superpowers/
-# Superpowers visual-companion brainstorm mockups (ephemeral)
-OmniRoute/.superpowers/
-
-# TIA test-impact map — generated at runtime in CI (build-test-impact-map.mjs), never committed (~21MB)
-OmniRoute/config/quality/test-impact-map.json
-
-# GitNexus local index
-OmniRoute/.gitnexus
-OmniRoute/.worktrees
-OmniRoute/bin/omniroute.mjs
-
-# Consistent with .dockerignore / .npmignore
-OmniRoute/.omc/
-OmniRoute/audit-report.json
-OmniRoute/bun.lock
-
-# Private environment variables for .http-client
-OmniRoute/http-client.private.env.json
-
-# Note: _ideia/ (feature-triage drafts) is fully covered by the /_*/ rule above
-# and kept as a separate local-only git repo. Never committed to OmniRoute.
-
-# i18n audit artifact (generated by scripts/i18n/audit-dashboard-pages.mjs)
-OmniRoute/scripts/i18n/_audit.json
-OmniRoute/scripts/i18n/_pending-keys.json
-
-# Private workflow / skill / command implementations
-# These contain proprietary multi-phase logic and should not be committed
-OmniRoute/.agents/workflows/implement-features-ag.md
-OmniRoute/.agents/workflows/port-upstream-features-ag.md
-OmniRoute/.agents/workflows/port-upstream-issues-ag.md
-OmniRoute/.agents/skills/implement-features/
-OmniRoute/.claude/commands/implement-features-cc.md
-OmniRoute/.claude/commands/port-upstream-features-cc.md
-OmniRoute/.claude/commands/port-upstream-issues-cc.md
-OmniRoute/.claude/worktrees/
-OmniRoute/.codegraph/
-
-# Fumadocs generated source
-OmniRoute/.source/
-
-# AI agent local settings and configs
-OmniRoute/.agents/
-OmniRoute/.antigravitycli/
-OmniRoute/.claude/
-
-# PR Reviews and local feedback files
-OmniRoute/pr_reviews*.json
-
-#hidden local data directories (never commit)
-OmniRoute/.local-data/
-OmniRoute/.data-dev/
-/OmniRoute/.junie/
-
-# internal setup prompts with personal credentials — never commit
-OmniRoute/CODEX-SETUP-PROMPT.md
-# Quality ratchet — métricas efêmeras (baseline commitado em config/quality/; métricas não)
-OmniRoute/config/quality/quality-metrics.json
-
-# Runtime logs (diretório local, nunca versionado)
-/OmniRoute/logs/
-OmniRoute/-home-diegosouzapw-dev-automações-bots-yt-downloader-20260504 .txt
-OmniRoute/-home-diegosouzapw-dev-automações-bots-yt-downloader-20260410 .txt
-OmniRoute/docs/prompts/AGENT-OWNERSHIP-PROTOCOL.omniroute.md
-OmniRoute/docs/prompts/AGENT-OWNERSHIP-PROTOCOL.md
-OmniRoute/docs/prompts/AGENT-OWNERSHIP-PROTOCOL.omniroute-mim.md
-OmniRoute/docs/prompts/AGENT-OWNERSHIP-PROTOCOL.omniroute-mid.md
-OmniRoute/omniroute.md
-
-# mise configuration
-OmniRoute/mise.toml
-OmniRoute/_artifacts/
-OmniRoute/.claude-flow/
-
-# ESLint file cache (npm run lint --cache / complexity ratchets)
-OmniRoute/.eslintcache
-OmniRoute/.eslintcache-complexity
-
-
-# CI/local quality artifacts (eslint-results.json, etc.)
-OmniRoute/.artifacts/
-
-# Homologation E2E suite (npm run homolog) — real-environment credentials + report output
-OmniRoute/.env.homolog
-OmniRoute/tests/homolog/.auth/
-OmniRoute/tests/homolog/ui/.auth/
-OmniRoute/homolog-report/
-
-/OmniRoute/.github
-/OmniRoute/@omniroute
-/OmniRoute/bin
-/OmniRoute/changelog.d
-/OmniRoute/config
-/OmniRoute/docs
-/OmniRoute/electron
-/OmniRoute/examples
-/OmniRoute/contrib
-/OmniRoute/open-sse
-/OmniRoute/public
-/OmniRoute/scripts
-/OmniRoute/src/i18n
-/OmniRoute/src/lib
-/OmniRoute/src
-/OmniRoute/tests
-/OmniRoute/skills
+9router/.firebase/
+9router/.firebaserc
+9router/firebase.json
