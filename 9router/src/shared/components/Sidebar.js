@@ -39,6 +39,38 @@ const systemItems = [
   { href: "/dashboard/skills", label: "Skills", icon: "extension" },
 ];
 
+let settingsPromise = null;
+function getSettings() {
+  if (!settingsPromise) {
+    settingsPromise = fetch("/api/settings")
+      .then(res => {
+        if (!res.ok) throw new Error();
+        return res.json();
+      })
+      .catch(err => {
+        settingsPromise = null;
+        throw err;
+      });
+  }
+  return settingsPromise;
+}
+
+let versionPromise = null;
+function getVersion() {
+  if (!versionPromise) {
+    versionPromise = fetch("/api/version")
+      .then(res => {
+        if (!res.ok) throw new Error();
+        return res.json();
+      })
+      .catch(err => {
+        versionPromise = null;
+        throw err;
+      });
+  }
+  return versionPromise;
+}
+
 export default function Sidebar({ onClose }) {
   const pathname = usePathname();
   const [mediaOpen, setMediaOpen] = useState(false);
@@ -54,16 +86,14 @@ export default function Sidebar({ onClose }) {
   const INSTALL_CMD = UPDATER_CONFIG.installCmdLatest;
 
   useEffect(() => {
-    fetch("/api/settings")
-      .then(res => res.json())
+    getSettings()
       .then(data => { if (data.enableTranslator) setEnableTranslator(true); })
       .catch(() => {});
   }, []);
 
   // Lazy check for new npm version on mount
   useEffect(() => {
-    fetch("/api/version")
-      .then(res => res.json())
+    getVersion()
       .then(data => { if (data.hasUpdate) setUpdateInfo(data); })
       .catch(() => {});
   }, []);

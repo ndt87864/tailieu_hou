@@ -3,6 +3,7 @@ import { GoogleAnalytics } from "@next/third-parties/google";
 import "material-symbols/outlined.css";
 import "./globals.css";
 import { ThemeProvider } from "@/shared/components/ThemeProvider";
+import FetchDeduplicator from "@/shared/components/FetchDeduplicator";
 import "@/lib/network/initOutboundProxy"; // Auto-initialize outbound proxy env
 import "@/shared/services/bootstrap"; // Auto-run initializeApp (watchdog, auto-resume tunnel)
 import { initConsoleLogCapture } from "@/lib/consoleLogBuffer";
@@ -40,6 +41,7 @@ export default function RootLayout({ children }) {
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
         <ThemeProvider>
+          <FetchDeduplicator />
           <RuntimeI18nProvider>
             {children}
           </RuntimeI18nProvider>

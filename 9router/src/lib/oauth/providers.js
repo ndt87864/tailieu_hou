@@ -29,6 +29,7 @@ import {
   KIMCHI_CONFIG,
   GROK_CLI_CONFIG,
   LUNA_CONFIG,
+  ARENA_CONFIG,
   getOAuthClientMetadata,
 } from "./constants/oauth";
 import { XAI_CONFIG, XAI_PKCE_VERIFIER_BYTES } from "./constants/xai";
@@ -38,9 +39,10 @@ import {
   extractEmailFromAccessToken,
   extractCodexAccountInfo,
   fetchKiroProfileArn,
+  decodeJwtPayload,
 } from "./providerHelpers";
 
-export { extractCodexAccountInfo, fetchKiroProfileArn, LUNA_CONFIG };
+export { extractCodexAccountInfo, fetchKiroProfileArn, LUNA_CONFIG, ARENA_CONFIG };
 
 // Inlined from services/xai.js to keep web route bundle free of `open` (CLI-only) package
 let cachedXaiDiscovery = null;
@@ -60,6 +62,21 @@ async function discoverXaiEndpoints() {
   } catch { /* fall through to static fallback */ }
   cachedXaiDiscovery = { authorizeUrl: XAI_CONFIG.authorizeUrl, tokenUrl: XAI_CONFIG.tokenUrl };
   return cachedXaiDiscovery;
+}
+
+function decodeArenaAuthSessionToken(token) {
+  try {
+    const cleanToken = typeof token === "string" ? token.trim() : "";
+    if (!cleanToken.startsWith("base64-")) return null;
+    const b64 = cleanToken.slice("base64-".length);
+    if (!b64) return null;
+    const padding = (4 - (b64.length % 4)) % 4;
+    const padded = b64 + "=".repeat(padding);
+    const decoded = Buffer.from(padded, "base64").toString("utf8");
+    return JSON.parse(decoded);
+  } catch {
+    return null;
+  }
 }
 
 function normalizeLunaCookies(token, cookies) {
@@ -1258,6 +1275,64 @@ const PROVIDERS = {
       } catch (error) {
         return { valid: false, error: `Validation error: ${error.message}` };
       }
+    },
+  },
+
+  arena: {
+    config: ARENA_CONFIG,
+    flowType: "browser_capture",
+    buildAuthUrl: null,
+    exchangeToken: null,
+    mapTokens: (tokens) => {
+      const accessToken = tokens.accessToken || tokens.token;
+      return {
+        accessToken,
+        refreshToken: tokens.refreshToken || null,
+        expiresIn: tokens.expiresIn || 86400,
+        email: tokens.email,
+        displayName: tokens.displayName,
+        providerSpecificData: {
+          cookies: tokens.cookies,
+          accountInfo: tokens.accountInfo,
+          captureMethod: tokens.captureMethod || "browser_capture",
+        },
+      };
+    },
+    validateToken: async (credentials) => {
+      const token = credentials.accessToken || credentials.token;
+      if (!token) return { valid: false, error: "No token provided" };
+
+      let session = null;
+      let email = null;
+      let expiresAt = null;
+
+      if (token.startsWith("base64-")) {
+        session = decodeArenaAuthSessionToken(token);
+        if (session) {
+          email = session.user?.email || extractEmailFromAccessToken(session.access_token);
+          expiresAt = session.expires_at || decodeJwtPayload(session.access_token)?.exp;
+        }
+      } else {
+        const payload = decodeJwtPayload(token);
+        if (payload) {
+          email = payload.email || payload.preferred_username || payload.sub;
+          expiresAt = payload.exp;
+        }
+      }
+
+      if (!email) {
+        return { valid: false, error: "Invalid token structure" };
+      }
+
+      if (expiresAt && expiresAt * 1000 < Date.now()) {
+        return { valid: false, error: "Token has expired" };
+      }
+
+      return {
+        valid: true,
+        email,
+        accountInfo: session || { email },
+      };
     },
   },
 

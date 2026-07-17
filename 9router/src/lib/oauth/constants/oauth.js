@@ -34,6 +34,9 @@ export const QWEN_CONFIG = { ...PROVIDER_OAUTH["qwen"] };
 // Luna (Qwen Capture) OAuth Configuration (Device Code Flow with PKCE)
 export const LUNA_CONFIG = { ...PROVIDER_OAUTH["luna"] };
 
+// Arena Proxy Configuration
+export const ARENA_CONFIG = { ...PROVIDER_OAUTH["arena"] };
+
 // Qoder OAuth Configuration (Device Token Flow with PKCE).
 // Device tokens are long-lived (~30 days for access, ~360 for refresh).
 // The upstream refresh endpoint at center.qoder.sh returns 403 for our
@@ -146,4 +149,5 @@ export const PROVIDERS = {
   KIMCHI: "kimchi",
   GROK_CLI: "grok-cli",
   LUNA: "luna",
+  ARENA: "arena",
 };
