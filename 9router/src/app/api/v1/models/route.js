@@ -138,6 +138,13 @@ function inferKindFromUnknownModelId(modelId) {
   return LLM_KIND;
 }
 
+if (!global._compatibleModelsCache) {
+  global._compatibleModelsCache = new Map();
+}
+if (!global._liveModelsCache) {
+  global._liveModelsCache = new Map();
+}
+
 async function fetchCompatibleModelIds(connection) {
   if (!connection?.apiKey) return [];
 
@@ -146,6 +153,13 @@ async function fetchCompatibleModelIds(connection) {
     : "";
 
   if (!baseUrl) return [];
+
+  const cacheKey = `${connection.id}:${baseUrl}:${connection.apiKey}`;
+  const cached = global._compatibleModelsCache.get(cacheKey);
+  const now = Date.now();
+  if (cached && (now - cached.timestamp < 300000)) { // 5 minutes cache
+    return cached.data;
+  }
 
   let url = `${baseUrl}/models`;
   const headers = {
@@ -183,16 +197,44 @@ async function fetchCompatibleModelIds(connection) {
     const data = await response.json();
     const rawModels = parseOpenAIStyleModels(data);
 
-    return Array.from(
+    const result = Array.from(
       new Set(
         rawModels
           .map((model) => model?.id || model?.name || model?.model)
           .filter((modelId) => typeof modelId === "string" && modelId.trim() !== "")
       )
     );
+
+    global._compatibleModelsCache.set(cacheKey, {
+      timestamp: now,
+      data: result,
+    });
+
+    return result;
   } catch {
     return [];
   }
+}
+
+async function getCachedLiveModels(providerId, conn) {
+  const cacheKey = `${providerId}:${conn.id}:${conn.accessToken || conn.apiKey || ""}`;
+  const cached = global._liveModelsCache.get(cacheKey);
+  const now = Date.now();
+  if (cached && (now - cached.timestamp < 300000)) { // 5 minutes cache
+    return cached.data;
+  }
+
+  const liveResolver = LIVE_MODEL_RESOLVERS[providerId];
+  if (!liveResolver) return null;
+
+  const data = await liveResolver(conn);
+  if (data) {
+    global._liveModelsCache.set(cacheKey, {
+      timestamp: now,
+      data,
+    });
+  }
+  return data;
 }
 
 // Provider matches kindFilter when its serviceKinds intersect the requested kinds.
@@ -354,13 +396,10 @@ export async function buildModelsList(kindFilter, options = {}) {
         rawModelIds = await fetchCompatibleModelIds(conn);
       }
 
-      // Config-driven live catalog override (e.g. Kiro returns dynamic
-      // -thinking/-agentic variants per account). On failure, fall back to
-      // whatever rawModelIds already holds.
       const liveResolver = LIVE_MODEL_RESOLVERS[providerId];
       if (liveResolver && !hasExplicitEnabledModels) {
         try {
-          const live = await liveResolver(conn);
+          const live = await getCachedLiveModels(providerId, conn);
           if (live?.models?.length) {
             rawModelIds = live.models.map((m) => m.id);
             liveModelKindById = new Map(

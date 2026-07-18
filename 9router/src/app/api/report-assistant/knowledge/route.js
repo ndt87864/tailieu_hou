@@ -5,6 +5,11 @@ import { isRestrictedUser, isRestrictedReportAssistantSubject } from "@/lib/user
 
 export const dynamic = "force-dynamic";
 
+if (!global._knowledgeCache) {
+  global._knowledgeCache = new Map();
+}
+const CACHE_TTL = 60000; // 60 seconds cache
+
 export async function GET(request) {
   const url = new URL(request.url);
   const username = url.searchParams.get("username") || "admin";
@@ -12,6 +17,12 @@ export async function GET(request) {
   const authToken = request.cookies.get("auth_token")?.value || null;
   const session = authToken ? await getDashboardAuthSession(authToken) : null;
   const restricted = isRestrictedUser(session?.username);
+
+  const cacheKey = `${username}:${type}:${restricted}`;
+  const cached = global._knowledgeCache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+    return NextResponse.json(cached.data);
+  }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -61,10 +72,16 @@ export async function GET(request) {
       })
     );
 
-    return NextResponse.json({
+    const resultData = {
       subjects: subjectNames,
       filesBySubject
+    };
+    global._knowledgeCache.set(cacheKey, {
+      timestamp: Date.now(),
+      data: resultData
     });
+
+    return NextResponse.json(resultData);
   } catch (err) {
     console.error("Failed to load report knowledge in backend:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
@@ -115,6 +132,9 @@ export async function POST(request) {
       .from("report_assistant")
       .getPublicUrl(filePath);
 
+    // Invalidate cache
+    global._knowledgeCache?.clear();
+
     return NextResponse.json({
       success: true,
       filePath,
@@ -164,6 +184,9 @@ export async function DELETE(request) {
         error: "Không thể xóa file. Lệnh xóa bị từ chối bởi RLS Policy (DELETE) trên Supabase của bạn. Vui lòng cấp quyền DELETE cho vai trò anon/public trên bảng storage.objects."
       }, { status: 403 });
     }
+
+    // Invalidate cache
+    global._knowledgeCache?.clear();
 
     return NextResponse.json({ success: true });
   } catch (err) {
