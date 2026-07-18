@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable react-hooks/set-state-in-effect -- Legacy effects synchronize UI state with browser storage, persisted sessions, and async resources. */
+
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Button, Badge } from "@/shared/components";
 import { gsap } from "gsap";
@@ -6871,6 +6873,8 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
           setAgentState(data.state);
           showToast("Đã duyệt đề cương! Agent bắt đầu soạn thảo...", "success");
           setTimeout(() => {
+            // Callback executes after handleDraftNextSection is initialized.
+            // eslint-disable-next-line react-hooks/immutability
             void handleDraftNextSection();
           }, 800);
         }
@@ -7045,7 +7049,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
           if (targetSection) {
             const sectionsAfter = data.state.sections_progress || [];
             const targetSectionAfter = sectionsAfter.find((s) => s.id === targetSection.id);
-            if (targetSectionAfter && targetSectionAfter.status === "todo" && false) {
+            if (targetSectionAfter && targetSectionAfter.status === "todo") {
               const err = new Error("Hệ thống không thể lưu hoặc đồng bộ tiến trình soạn thảo. Vui lòng kiểm tra lại kết nối Supabase của bạn.");
               err.agentDialog = {
                 title: "Lỗi đồng bộ cơ sở dữ liệu",
@@ -7152,7 +7156,6 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
   );
 
   useEffect(() => {
-    return;
     if (
       !agentActive ||
       !agentLoading ||
@@ -7180,6 +7183,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
         if (data?.ok && data.state && !stopped) {
           setAgentState(data.state);
           if (data.state.current_step === "COMPLETED") {
+            stopped = true;
             setAgentLoading(false);
             setAgentActive(false);
             appendAgentResultCardsMessage(data.state);
@@ -7187,6 +7191,10 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
               "AI Agent đã hoàn thành xuất sắc toàn bộ báo cáo!",
               "success",
             );
+          } else if (data.state.current_step === "CANCELLED") {
+            stopped = true;
+            setAgentLoading(false);
+            setAgentActive(false);
           }
         }
       } catch (err) {
@@ -7207,6 +7215,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     agentState?.current_step,
     activeModelId,
     reportWorkflowModelId,
+    selectedReportModelId,
     username,
     appendAgentResultCardsMessage,
   ]);
@@ -9391,6 +9400,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
                           {isImg && file.url ? (
                             <img
                               src={file.url}
+                              alt={file.name || "Tệp hình ảnh"}
                               className="size-6 rounded-[4px] object-cover flex-shrink-0"
                             />
                           ) : (
@@ -9797,7 +9807,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
                       agentState.current_step === "DRAFTING") && (
                         <button
                           onClick={handleCancelAgent}
-                          disabled={agentLoading && agentCancelRequestedRef.current}
+                          disabled={agentLoading}
                           className="h-7 px-2.5 rounded-full border border-red-500/25 bg-red-500/8 text-red-600 dark:text-red-400 hover:bg-red-500/12 text-[10px] font-extrabold uppercase tracking-wide flex items-center gap-1 disabled:opacity-50"
                           title="Hủy quy trình Agent"
                         >
@@ -9934,7 +9944,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
                       <div className="flex gap-2">
                         <button
                           onClick={handleCancelAgent}
-                          disabled={agentLoading && agentCancelRequestedRef.current}
+                          disabled={agentLoading}
                           className="px-3 py-2.5 text-xs font-bold bg-surface/80 hover:bg-red-500/8 text-red-600 dark:text-red-400 border border-red-500/25 rounded-[10px] transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.98] disabled:opacity-50"
                         >
                           <span className="material-symbols-outlined text-[16px]">

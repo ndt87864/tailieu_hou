@@ -10,6 +10,7 @@ import * as promptsBase from "./prompts";
 import { getDraftingSystemCareer } from "./promptsCareer";
 import { getDraftingSystemB49 } from "./promptsB49";
 import { getDraftingSystemStandard } from "./promptsStandard";
+import { rankKnowledgeItems } from "./ragRanking";
 
 const prompts = {
   ...promptsBase,
@@ -2000,21 +2001,7 @@ export async function POST(request) {
 
         if (allItems.length === 0) return "";
 
-        const queryWords = supabaseQuery.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-        const rankedChunks = allItems
-          .map((item) => {
-            const text = item.content_text || "";
-            let score = 0;
-            for (const word of queryWords) {
-              const regex = new RegExp(word, "gi");
-              const matches = text.match(regex);
-              if (matches) score += matches.length;
-            }
-            return { item, score };
-          })
-          .filter(x => x.score > 0)
-          .sort((a, b) => b.score - a.score)
-          .slice(0, 2);
+        const rankedChunks = rankKnowledgeItems(supabaseQuery, allItems, 2);
 
         if (rankedChunks.length === 0) return "";
 
