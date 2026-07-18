@@ -11,6 +11,7 @@ import { getDraftingSystemCareer } from "./promptsCareer";
 import { getDraftingSystemB49 } from "./promptsB49";
 import { getDraftingSystemStandard } from "./promptsStandard";
 import { rankKnowledgeItems } from "./ragRanking";
+import { applyCriticDecision, recoverInterruptedDraft, syncReportCompletionState } from "./stateTransitions";
 
 const prompts = {
   ...promptsBase,
@@ -1014,28 +1015,11 @@ function normalizeAgentState(state) {
     }
 
     if (section.status === "drafting") {
-      if (String(section.content || "").trim()) {
-        section.status = "done";
-        section.feedback = section.feedback || "Auto-normalized from stale drafting state.";
-      } else if (isStaleQueuedDraft(section)) {
-        section.status = "todo";
-        section.feedback = "";
-        if (section.activity) {
-          section.activity.phase = "stale_reset";
-          section.activity.message = "Mục này bị kẹt và đã tự động được đặt lại trạng thái chờ soạn thảo.";
-          section.activity.updatedAt = new Date().toISOString();
-        }
-      }
+      recoverInterruptedDraft(section, { stale: isStaleQueuedDraft(section) });
     }
   }
 
-  if (
-    state.current_step !== "CANCELLED" &&
-    progress.length > 0 &&
-    !progress.some((p) => p.status === "todo" || p.status === "drafting")
-  ) {
-    state.current_step = "COMPLETED";
-  }
+  syncReportCompletionState(state);
 
   return state;
 }
@@ -2512,14 +2496,14 @@ export async function POST(request) {
       setReportLunaChatId(stateToSave, reportSession.lunaChatId);
       setReportLunaMessageId(stateToSave, reportSession.lunaMessageId);
 
-      const targetSection = stateToSave.sections_progress.find((s) => String(s.id) === String(nextToDraft.id));
+      const targetSection = applyCriticDecision(stateToSave, nextToDraft.id, {
+        approved: isApproved,
+        content: draftResult,
+        feedback: criticResult,
+        webSources,
+      });
       if (targetSection) {
-        targetSection.content = draftResult;
-        targetSection.web_sources = webSources;
         if (isApproved) {
-          targetSection.status = "done";
-          targetSection.feedback = "";
-          
           // Save the completed section content to Turso DB
           const reportTitle = activeReportContext?.subject || "Unknown Report";
           try {
@@ -2553,11 +2537,7 @@ export async function POST(request) {
             approved: true,
           });
         } else {
-          // Do not keep the same section in "drafting" forever. Save the draft and
-          // preserve critic feedback for later manual review instead of blocking the queue.
-          targetSection.status = "done";
-          targetSection.feedback = criticResult.replace(/^REJECTED\s*/i, "").trim();
-          setAgentActivity(stateToSave, targetSection, "section_completed_with_notes", "Mục này đã được soạn xong nhưng có ghi chú kiểm định cần xem lại.", {
+          setAgentActivity(stateToSave, targetSection, "critic_rejected", "Mục này cần người dùng xem lại trước khi tiếp tục.", {
             actor: "Critic",
             approved: false,
           });
@@ -2566,10 +2546,13 @@ export async function POST(request) {
 
       await saveAgentState(chatId, username, stateToSave);
 
+      if (!isApproved) {
+        return NextResponse.json({ ok: true, state: stateToSave, activeSectionId: nextToDraft.id, draftResult });
+      }
+
       // Check if all are done now
-      const stillTodo = stateToSave.sections_progress.find((p) => p.status === "todo" || p.status === "drafting");
-      if (!stillTodo) {
-        stateToSave.current_step = "COMPLETED";
+      syncReportCompletionState(stateToSave);
+      if (stateToSave.current_step === "COMPLETED") {
         setAgentActivity(stateToSave, null, "report_completed", "Tất cả mục trong báo cáo đã hoàn tất.", {
           actor: "Report Agent",
           sections: stateToSave.sections_progress.length,

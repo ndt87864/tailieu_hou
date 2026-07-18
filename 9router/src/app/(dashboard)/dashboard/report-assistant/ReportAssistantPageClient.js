@@ -6964,7 +6964,12 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
 
   const markNextSectionDraftingOptimistically = useCallback(() => {
     setAgentState((prev) => {
-      if (!prev || prev.current_step === "COMPLETED" || prev.current_step === "CANCELLED") {
+      if (
+        !prev ||
+        prev.current_step === "COMPLETED" ||
+        prev.current_step === "CANCELLED" ||
+        prev.current_step === "REVIEW_REQUIRED"
+      ) {
         return prev;
       }
 
@@ -7061,6 +7066,13 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
           }
 
           setAgentState(data.state);
+          if (data.state.current_step === "REVIEW_REQUIRED") {
+            keepLoading = false;
+            setAgentLoading(false);
+            setAgentActive(true);
+            showToast("Critic yêu cầu xem lại mục vừa soạn.", "warning");
+            return;
+          }
           if (data.emptyDraft) {
             keepLoading = false;
             setAgentActive(false);
@@ -9849,6 +9861,8 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
                               ? "Agent đang soạn thảo báo cáo..."
                               : agentState.current_step === "COMPLETED"
                                 ? "Đã hoàn thành toàn bộ báo cáo!"
+                                : agentState.current_step === "REVIEW_REQUIRED"
+                                  ? "Nội dung cần được xem lại"
                                 : "Agent đang chạy..."}
                       </p>
                       <p className="text-text-muted mt-1 leading-relaxed text-[11px] font-medium">
@@ -9860,6 +9874,8 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
                               ? "Hệ thống đang chạy ngầm tự động soạn thảo từng chương mục một cách độc lập."
                               : agentState.current_step === "COMPLETED"
                                 ? "Chúc mừng! Toàn bộ nội dung báo cáo đã được soạn thảo và kiểm định hoàn tất."
+                                : agentState.current_step === "REVIEW_REQUIRED"
+                                  ? "Critic chưa phê duyệt mục vừa soạn. Hãy đọc phản hồi và tạo lại mục này để tiếp tục."
                                 : ""}
                       </p>
                       {(agentState.current_step === "PLANNING" || agentState.current_step === "DRAFTING") && (
@@ -9996,6 +10012,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
                       {(agentState.sections_progress || []).map((sec) => {
                         const isDrafting = sec.status === "drafting";
                         const isDone = sec.status === "done";
+                        const needsReview = sec.status === "review_required";
                         return (
                           <div
                             key={sec.id}
@@ -10018,7 +10035,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
                                 </span>
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
-                                {isDone && !agentLoading && (
+                                {(isDone || needsReview) && !agentLoading && (
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -10042,6 +10059,8 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
                                     "px-2.5 py-0.5 rounded-full text-[9px] font-extrabold flex items-center gap-1 uppercase tracking-wider shadow-sm",
                                     isDrafting
                                       ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 animate-pulse"
+                                      : needsReview
+                                        ? "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20"
                                       : isDone
                                         ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
                                         : "bg-surface-2 text-text-subtle border border-border/40",
@@ -10057,6 +10076,11 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
                                       check
                                     </span>
                                   )}
+                                  {needsReview && (
+                                    <span className="material-symbols-outlined text-[10px]">
+                                      rate_review
+                                    </span>
+                                  )}
                                   {(sec.status || "todo").toUpperCase()}
                                 </span>
                               </div>
@@ -10065,6 +10089,13 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
                             <p className="text-text-muted text-[11px] leading-relaxed font-medium">
                               {sec.description}
                             </p>
+
+                            {needsReview && sec.feedback && (
+                              <div className="rounded-[10px] border border-red-500/25 bg-red-500/5 px-3 py-2 text-[11px] leading-relaxed text-red-700 dark:text-red-300">
+                                <p className="font-bold mb-1">Phản hồi từ Critic</p>
+                                <p>{sec.feedback}</p>
+                              </div>
+                            )}
 
                             {Array.isArray(sec.subsections) && sec.subsections.length > 0 && (
                               <div className="rounded-[12px] border border-border/45 bg-bg/40 px-3 py-2">
