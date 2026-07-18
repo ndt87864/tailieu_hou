@@ -160,13 +160,24 @@ export class LunaExecutor extends DefaultExecutor {
     const messages = body.messages || [];
     const userContent = this.mergeMessagesToUserContent(messages);
 
+    // Strip custom prefixes like "ln/" or "luna/"
+    let cleanModel = model || "";
+    if (cleanModel.startsWith("ln/")) {
+      cleanModel = cleanModel.slice(3);
+    } else if (cleanModel.startsWith("luna/")) {
+      cleanModel = cleanModel.slice(5);
+    }
+    if (cleanModel.toLowerCase() === "qwen-3.7-plus") {
+      cleanModel = "qwen3.7-plus";
+    }
+
     const fid = this.uuid();
     const childId = this.uuid();
     const requestId = this.uuid();
     const ts = Math.floor(Date.now() / 1000);
 
     // Determine thinking mode from model name / request flags
-    const modelLower = (model || "").toLowerCase();
+    const modelLower = cleanModel.toLowerCase();
     const explicitThinkingMode = String(
       body.thinking_mode ||
         body.thinkingMode ||
@@ -236,6 +247,10 @@ export class LunaExecutor extends DefaultExecutor {
       featureConfig.thinking_budget = body.thinking_budget;
     }
 
+    const chatType = body.chat_type || body.chatType || "t2t";
+    const subChatType = body.sub_chat_type || body.subChatType || chatType;
+    const size = body.size || (chatType === "t2i" ? "16:9" : undefined);
+
     const qwenRequest = {
       request_id: requestId,
       stream: true,
@@ -243,7 +258,7 @@ export class LunaExecutor extends DefaultExecutor {
       incremental_output: true,
       chat_id: chatId,
       chat_mode: "normal",
-      model: model,
+      model: cleanModel,
       parent_id: parentMessageId || null,
       data: parentMessageId ? { id: parentMessageId } : undefined,
       messages: [
@@ -256,16 +271,17 @@ export class LunaExecutor extends DefaultExecutor {
           user_action: "chat",
           files: [],
           timestamp: ts,
-          models: [model],
-          chat_type: "t2t",
+          models: [cleanModel],
+          chat_type: chatType,
           feature_config: featureConfig,
-          extra: { meta: { subChatType: "t2t" } },
-          sub_chat_type: "t2t",
+          extra: { meta: { subChatType, size } },
+          sub_chat_type: subChatType,
           parent_id: parentMessageId || null,
         },
       ],
       timestamp: ts + 1,
       file_ids: [],
+      size: size,
     };
 
     return qwenRequest;
@@ -307,9 +323,21 @@ export class LunaExecutor extends DefaultExecutor {
     const url = "https://chat.qwen.ai/api/v2/chats/new";
     const headers = this.buildHeaders(credentials, false);
     const title = this.resolveChatTitle(body);
+
+    // Strip custom prefixes like "ln/" or "luna/"
+    let cleanModel = model || "";
+    if (cleanModel.startsWith("ln/")) {
+      cleanModel = cleanModel.slice(3);
+    } else if (cleanModel.startsWith("luna/")) {
+      cleanModel = cleanModel.slice(5);
+    }
+    if (cleanModel.toLowerCase() === "qwen-3.7-plus") {
+      cleanModel = "qwen3.7-plus";
+    }
+
     const payload = {
       title: title,
-      models: [model],
+      models: [cleanModel],
       chat_mode: "normal",
       chat_type: "t2t",
       timestamp: Date.now(),
@@ -491,7 +519,7 @@ export class LunaExecutor extends DefaultExecutor {
               reasoningText += content;
             } else if (phase === "thinking_summary") {
               if (summary && summary.length > summaryText.length) summaryText = summary;
-            } else if ((phase === "answer" || phase == null) && content) {
+            } else if ((phase === "answer" || phase === "image_gen" || phase == null) && content) {
               fullContent += content;
             }
           } catch (e) {
@@ -515,7 +543,7 @@ export class LunaExecutor extends DefaultExecutor {
               reasoningText += content;
             } else if (phase === "thinking_summary") {
               if (summary && summary.length > summaryText.length) summaryText = summary;
-            } else if ((phase === "answer" || phase == null) && content) {
+            } else if ((phase === "answer" || phase === "image_gen" || phase == null) && content) {
               fullContent += content;
             }
           } catch (e) {
@@ -656,7 +684,7 @@ export class LunaExecutor extends DefaultExecutor {
 
       const finalResponseId = responseId || activeResponseId || `chatcmpl-${Date.now()}`;
 
-      if ((phase === "answer" || phase == null) && content) {
+      if ((phase === "answer" || phase === "image_gen" || phase == null) && content) {
         const openaiChunk = {
           id: finalResponseId,
           object: "chat.completion.chunk",

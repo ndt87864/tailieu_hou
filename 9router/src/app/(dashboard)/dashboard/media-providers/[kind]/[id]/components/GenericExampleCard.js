@@ -510,28 +510,41 @@ export function GenericExampleCard({ providerId, kind }) {
               </button>
             )}
           </div>
+          {(() => {
+            if (kind !== "image") return null;
+            const hasImage = binaryImageUrl || result?.data?.data?.[0];
+            if (!hasImage) return null;
+
+            const downloadUrl = binaryImageUrl || (result?.data?.data?.[0]?.b64_json ? `data:image/png;base64,${result.data.data[0].b64_json}` : result?.data?.data?.[0]?.url || "");
+            let displayUrl = downloadUrl;
+            if (displayUrl && (displayUrl.startsWith("http://") || displayUrl.startsWith("https://"))) {
+              displayUrl = `/api/img-proxy?url=${encodeURIComponent(displayUrl)}`;
+            }
+
+            return (
+              <div className="mt-2 mb-4">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">Generated Image</span>
+                  <a
+                    href={downloadUrl}
+                    download="image.png"
+                    className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-primary transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">download</span>
+                    Download
+                  </a>
+                </div>
+                <img
+                  src={displayUrl}
+                  alt="Generated"
+                  className="max-w-full rounded-lg border border-border bg-sidebar max-h-[500px] object-contain mx-auto"
+                />
+              </div>
+            );
+          })()}
           <pre className="bg-sidebar rounded-lg px-3 py-2.5 text-xs font-mono text-text-main overflow-x-auto whitespace-pre-wrap break-all opacity-70">
             {result ? resultJson : exConfig.defaultResponse}
           </pre>
-          {kind === "image" && (binaryImageUrl || result?.data?.data?.[0]) && (
-            <div className="mt-2">
-              <div className="flex items-center justify-end mb-1.5">
-                <a
-                  href={binaryImageUrl || (result?.data?.data?.[0]?.b64_json ? `data:image/png;base64,${result.data.data[0].b64_json}` : result?.data?.data?.[0]?.url || "")}
-                  download="image.png"
-                  className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-primary transition-colors"
-                >
-                  <span className="material-symbols-outlined text-[14px]">download</span>
-                  Download
-                </a>
-              </div>
-              <img
-                src={binaryImageUrl || (result?.data?.data?.[0]?.b64_json ? `data:image/png;base64,${result.data.data[0].b64_json}` : result?.data?.data?.[0]?.url)}
-                alt="Generated"
-                className="max-w-full rounded-lg border border-border"
-              />
-            </div>
-          )}
         </div>
       </div>
     </Card>
