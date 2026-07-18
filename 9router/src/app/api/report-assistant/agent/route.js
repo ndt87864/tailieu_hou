@@ -6,6 +6,7 @@ import { getDefaultModel } from "@/shared/constants/models";
 import { getDashboardAuthSession } from "@/lib/auth/dashboardSession";
 import { normalizeUsername, isRestrictedUser, isRestrictedReportAssistantSubject } from "@/lib/userResourceMapping";
 import { ensureRestrictedUserResources } from "@/lib/restrictedUserProvisioning";
+import { hasValidCliToken, isLocalRequest } from "@/dashboardGuard";
 import * as promptsBase from "./prompts";
 import { getDraftingSystemCareer } from "./promptsCareer";
 import { getDraftingSystemB49 } from "./promptsB49";
@@ -1244,9 +1245,36 @@ async function getAgentState(chatId, username = "admin") {
 /**
  * Persist agent state to Turso (upsert).
  */
-async function saveAgentState(chatId, username, stateData) {
+async function saveAgentState(chatId, username, stateData, expectedUpdatedAt = null) {
   const now = new Date().toISOString();
   try {
+    if (expectedUpdatedAt && typeof expectedUpdatedAt === "string") {
+      const result = await turso.execute({
+        sql: `UPDATE report_agent_states
+              SET current_step      = ?,
+                  current_activity  = ?,
+                  outline           = ?,
+                  sections_progress = ?,
+                  updated_at        = ?
+              WHERE chat_id = ? AND updated_at = ?`,
+        args: [
+          stateData.current_step || "PLANNING",
+          JSON.stringify(stateData.current_activity || null),
+          JSON.stringify(stateData.outline || []),
+          JSON.stringify(stateData.sections_progress || []),
+          now,
+          chatId,
+          expectedUpdatedAt,
+        ],
+      });
+      if (result.rowsAffected === 0) {
+        const err = new Error("Concurrency conflict: The state was updated by another request.");
+        err.code = "CONCURRENCY_CONFLICT";
+        throw err;
+      }
+      return { savedTurso: true };
+    }
+
     await turso.execute({
       sql: `INSERT INTO report_agent_states
               (chat_id, username, current_step, current_activity, outline, sections_progress, created_at, updated_at)
@@ -1271,6 +1299,9 @@ async function saveAgentState(chatId, username, stateData) {
     return { savedTurso: true };
   } catch (err) {
     console.error("[agent/route] saveAgentState failed:", err.message);
+    if (err.code === "CONCURRENCY_CONFLICT") {
+      throw err;
+    }
     return { savedTurso: false, error: err.message };
   }
 }
@@ -1476,7 +1507,15 @@ export async function POST(request) {
 
     const authSession = authToken ? await getDashboardAuthSession(authToken) : null;
     // Restricted users keep their own DB partition; missing report resources are copied from Minh.
-    const username = normalizeUsername(authSession?.username || rawUsername || "admin") || "admin";
+    let resolvedUsername;
+    if (authSession?.username) {
+      resolvedUsername = authSession.username;
+    } else if ((await hasValidCliToken(request)) || isLocalRequest(request)) {
+      resolvedUsername = rawUsername || "admin";
+    } else {
+      resolvedUsername = "admin";
+    }
+    const username = normalizeUsername(resolvedUsername) || "admin";
     await ensureRestrictedUserResources(username);
     const requestBaseUrl = getBaseUrl(request);
     if (subject && isRestrictedUser(username) && !isRestrictedReportAssistantSubject(subject)) {
@@ -1854,7 +1893,17 @@ export async function POST(request) {
         sectionId: nextToDraft.id,
         background: true,
       });
-      await saveAgentState(chatId, username, currentState, true);
+      try {
+        await saveAgentState(chatId, username, currentState, currentState.updated_at);
+      } catch (err) {
+        if (err.code === "CONCURRENCY_CONFLICT") {
+          return NextResponse.json(
+            { error: "Concurrency conflict: State was updated by another request.", code: "CONCURRENCY_CONFLICT" },
+            { status: 409 }
+          );
+        }
+        throw err;
+      }
 
       return NextResponse.json({
         ok: true,
@@ -1898,7 +1947,17 @@ export async function POST(request) {
         sectionId: nextToDraft.id,
       });
       console.log(`[agent/route] Draft worker started chatId=${chatId} sectionId=${nextToDraft.id} model=${targetModelId}`);
-      await saveAgentState(chatId, username, currentState, true);
+      try {
+        await saveAgentState(chatId, username, currentState, currentState.updated_at);
+      } catch (err) {
+        if (err.code === "CONCURRENCY_CONFLICT") {
+          return NextResponse.json(
+            { error: "Concurrency conflict: State was updated by another request.", code: "CONCURRENCY_CONFLICT" },
+            { status: 409 }
+          );
+        }
+        throw err;
+      }
       await throwIfCancelled();
 
       // 1. Search Planning (Heuristic RAG - 0ms)
@@ -2637,3 +2696,8 @@ export async function POST(request) {
     return NextResponse.json({ error: String(err.message || err) }, { status: 500 });
   }
 }
+
+export const __test__ = {
+  saveAgentState,
+  getAgentState,
+};
