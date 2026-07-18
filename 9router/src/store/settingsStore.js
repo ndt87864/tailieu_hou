@@ -8,26 +8,36 @@ const useSettingsStore = create((set, get) => ({
   loading: false,
   error: null,
   lastFetched: 0,
+  activePromise: null,
 
   invalidate: () => set({ lastFetched: 0 }),
 
   // Skips network when cache is fresh; pass {force:true} to override
   fetchSettings: async ({ force = false } = {}) => {
-    const { lastFetched, settings } = get();
+    const { lastFetched, settings, activePromise, loading } = get();
     if (!force && settings && Date.now() - lastFetched < CLIENT_STORE_TTL_MS) return settings;
+    if (activePromise) return activePromise;
+    if (loading && !force) return activePromise;
+
     set({ loading: true, error: null });
-    try {
-      const res = await fetch("/api/settings");
-      const data = await res.json();
-      if (res.ok) {
-        set({ settings: data, loading: false, lastFetched: Date.now() });
-        return data;
+    const promise = (async () => {
+      try {
+        const res = await fetch("/api/settings");
+        if (res.ok) {
+          const data = await res.json();
+          set({ settings: data, loading: false, lastFetched: Date.now(), activePromise: null });
+          return data;
+        }
+        const data = await res.json().catch(() => ({}));
+        set({ error: data.error, loading: false, activePromise: null });
+      } catch {
+        set({ error: "Failed to fetch settings", loading: false, activePromise: null });
       }
-      set({ error: data.error, loading: false });
-    } catch (e) {
-      set({ error: "Failed to fetch settings", loading: false });
-    }
-    return null;
+      return null;
+    })();
+
+    set({ activePromise: promise });
+    return promise;
   },
 
   // PATCH server + merge into local cache (no extra fetch needed)

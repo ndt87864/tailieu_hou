@@ -27,3 +27,7 @@ export function getAdapterSync() {
   return state.instance;
 }
 
+export async function getAdapterForUsername(username) {
+  return createSupabaseAdapter(username);
+}
+

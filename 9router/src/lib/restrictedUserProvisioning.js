@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
 import { getAdapterForUsername } from "./db/driver.js";
-import { generateApiKeyWithUserMachine } from "../shared/utils/apiKey.js";
+import { generateApiKeyWithMachine } from "../shared/utils/apiKey.js";
 import { normalizeUsername, isRestrictedUser, getRestrictedUsers } from "./userResourceMapping.js";
 import { getConsistentMachineId } from "../shared/utils/machineId.js";
 
@@ -213,7 +213,7 @@ async function ensureInternalApiKey(targetDb, username, machineId) {
   if (active?.key) return { key: active.key, created: false };
 
   const resolvedMachineId = machineId || await getConsistentMachineId();
-  const generated = generateApiKeyWithUserMachine(username, resolvedMachineId);
+  const generated = generateApiKeyWithMachine(resolvedMachineId);
   const now = new Date().toISOString();
   const apiKey = {
     id: uuidv4(),

@@ -37,6 +37,12 @@ export default function DashboardLayout({ children }) {
   const notifications = useNotificationStore((state) => state.notifications);
   const removeNotification = useNotificationStore((state) => state.removeNotification);
 
+  const isFullScreen =
+    pathname === "/dashboard/basic-chat" ||
+    pathname === "/dashboard/doc-scanner" ||
+    pathname === "/dashboard/assistant" ||
+    pathname?.startsWith("/dashboard/report-assistant");
+
   return (
     <div className="flex h-screen w-full overflow-hidden bg-bg">
       <div className="fixed top-4 right-4 z-[80] flex w-[min(92vw,380px)] flex-col gap-2">
@@ -93,8 +99,8 @@ export default function DashboardLayout({ children }) {
         {/* Faint grid background */}
         <div className="landing-grid absolute inset-0 pointer-events-none -z-10" aria-hidden="true" />
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <div className={`flex-1 overflow-y-auto custom-scrollbar ${pathname === "/dashboard/basic-chat" ? "" : "p-6 lg:p-10"} ${pathname === "/dashboard/basic-chat" ? "flex flex-col overflow-hidden" : ""}`}>
-          <div className={`${pathname === "/dashboard/basic-chat" ? "flex-1 w-full h-full flex flex-col" : "max-w-7xl mx-auto"}`}>{children}</div>
+        <div className={`flex-1 ${isFullScreen ? "flex flex-col overflow-hidden h-full" : "overflow-y-auto custom-scrollbar p-6 lg:p-10"} ${isFullScreen ? "flex flex-col overflow-hidden" : ""}`}>
+          <div className={`${isFullScreen ? "flex-1 w-full h-full flex flex-col min-h-0" : "max-w-7xl mx-auto"}`}>{children}</div>
         </div>
       </main>
     </div>
