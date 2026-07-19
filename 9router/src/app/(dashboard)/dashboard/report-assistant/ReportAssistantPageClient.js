@@ -4992,6 +4992,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
   const [agentErrorDialog, setAgentErrorDialog] = useState(null);
   const agentCancelRequestedRef = useRef(false);
   const agentQueueingRef = useRef(false);
+  const agentDraftingInProgressRef = useRef(false);
   const reportModelsLoadAttemptedRef = useRef(false);
   const [selectedKnowledgeSubject, setSelectedKnowledgeSubject] =
     useState("none");
@@ -6872,11 +6873,8 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
           setAgentActive(true);
           setAgentState(data.state);
           showToast("Đã duyệt đề cương! Agent bắt đầu soạn thảo...", "success");
-          setTimeout(() => {
-            // Callback executes after handleDraftNextSection is initialized.
-            // eslint-disable-next-line react-hooks/immutability
-            void handleDraftNextSection();
-          }, 800);
+          // The useEffect hook automatically watches agentState and agentActive and will trigger
+          // handleDraftNextSection() when the state transition to DRAFTING is complete.
         }
       } catch (err) {
         console.error(err);
@@ -7012,6 +7010,11 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
   const handleDraftNextSection = useCallback(
     async (criticFeedback = "") => {
       if (!activeSessionId || agentCancelRequestedRef.current) return;
+      if (agentDraftingInProgressRef.current) {
+        console.log("Draft next section is already in progress, skipping duplicate call.");
+        return;
+      }
+      agentDraftingInProgressRef.current = true;
       setAgentLoading(true);
       markNextSectionDraftingOptimistically();
       let keepLoading = false;
@@ -7124,6 +7127,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
           classifyAgentDraftError(0, "", err),
         );
       } finally {
+        agentDraftingInProgressRef.current = false;
         if (!keepLoading) {
           setAgentLoading(false);
         }
@@ -7164,9 +7168,8 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
           setAgentState(data.state);
           setAgentActive(true);
           showToast("Đã đặt lại trạng thái mục! Đang bắt đầu tạo lại...", "success");
-          setTimeout(() => {
-            void handleDraftNextSection();
-          }, 800);
+          // The useEffect hook monitors agentState and agentActive and will automatically
+          // trigger handleDraftNextSection() when state updates.
         }
       } catch (err) {
         console.error(err);
