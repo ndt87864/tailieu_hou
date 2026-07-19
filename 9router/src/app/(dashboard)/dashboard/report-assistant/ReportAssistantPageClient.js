@@ -7048,6 +7048,17 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
         if (data.ok && data.state) {
           if (agentCancelRequestedRef.current) return;
 
+          if (data.workerAlreadyRunning) {
+            if (data.state) {
+              setAgentState(data.state);
+            }
+            keepLoading = false;
+            setAgentLoading(false);
+            setAgentActive(false);
+            showToast("Báo cáo đang được xử lý ở một cửa sổ/worker khác.", "warning");
+            return;
+          }
+
           // Loop guard: verify that the server advanced the section status
           const sectionsBefore = agentState?.sections_progress || [];
           const targetSection = sectionsBefore.find((s) => s.status === "todo" || s.status === "drafting");
@@ -7235,7 +7246,6 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
   useEffect(() => {
     if (
       !agentActive ||
-      !agentLoading ||
       !activeSessionId ||
       agentState?.current_step !== "DRAFTING" ||
       agentCancelRequestedRef.current
@@ -7266,7 +7276,6 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
   }, [
     activeSessionId,
     agentActive,
-    agentLoading,
     agentState,
     handleDraftNextSection,
   ]);
