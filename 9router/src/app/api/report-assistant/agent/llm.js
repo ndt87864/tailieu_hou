@@ -4,7 +4,7 @@ import { getDefaultModel } from "@/shared/constants/models";
 import { ensureRestrictedUserResources } from "@/lib/restrictedUserProvisioning";
 
 const CLI_TOKEN_SALT = "9r-cli-auth";
-const REPORT_LLM_TIMEOUT_MS = Number.parseInt(process.env.REPORT_AGENT_LLM_TIMEOUT_MS || "600000", 10);
+const REPORT_LLM_TIMEOUT_MS = Number.parseInt(process.env.REPORT_AGENT_LLM_TIMEOUT_MS || "60000", 10);
 const REPORT_LLM_MAX_ATTEMPTS = Number.parseInt(process.env.REPORT_AGENT_LLM_MAX_ATTEMPTS || "1", 10);
 const REPORT_MAX_COMBO_MODELS = Number.parseInt(process.env.REPORT_AGENT_MAX_COMBO_MODELS || "2", 10);
 const REPORT_COMBO_STRATEGY = String(process.env.REPORT_AGENT_COMBO_STRATEGY || "round-robin").trim().toLowerCase();
@@ -262,6 +262,13 @@ export async function callLLM(modelId, messages, temperature = 0.3, authToken = 
       return extractLLMText(data);
     } catch (err) {
       attempt++;
+      if (err.name === "AbortError" || err.message?.includes("timeout") || err.name === "TimeoutError") {
+        console.warn(`[agent/route] Request to ${currentModelId} timed out after ${timeoutMs}ms.`);
+        currentModelIdx++;
+        attempt = 0;
+        backoffMs = 2000;
+        continue;
+      }
       if (attempt >= maxAttempts) {
         console.warn(`[agent/route] Connection error on ${currentModelId} after all attempts. Switching to next fallback model... Error:`, err.message);
         currentModelIdx++;
@@ -275,5 +282,5 @@ export async function callLLM(modelId, messages, temperature = 0.3, authToken = 
       backoffMs *= 2;
     }
   }
-  throw new Error("Failed to contact LLM: all configured fallback models failed or hit quota limits.");
+  throw new Error("Failed to contact LLM: all configured fallback models failed, hit quota limits, or timed out.");
 }

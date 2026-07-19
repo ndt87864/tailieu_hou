@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { turso } from "@/lib/tursoClient";
+import { getDashboardAuthSession } from "@/lib/auth/dashboardSession";
 
 export const dynamic = "force-dynamic";
 
@@ -9,13 +10,18 @@ function cleanString(value, fallback = "") {
 }
 
 /**
- * GET /api/report-assistant/history?username=...
- * Fetch last 20 chat sessions for a user from Turso.
+ * GET /api/report-assistant/history
+ * Fetch last 20 chat sessions for the authenticated user from Turso.
  */
 export async function GET(request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const username = cleanString(searchParams.get("username"), "admin").toLowerCase();
+    const authToken = request.cookies.get("auth_token")?.value || null;
+    const session = authToken ? await getDashboardAuthSession(authToken) : null;
+    if (!session?.username) {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    }
+
+    const username = cleanString(session.username, "admin").toLowerCase();
 
     const result = await turso.execute({
       sql: `SELECT chat_id, title, model, messages, created_at, updated_at
@@ -49,27 +55,30 @@ export async function GET(request) {
 
 /**
  * POST /api/report-assistant/history
- * Body: { username: string, sessions: Session[] }
+ * Body: { sessions: Session[] }
  *
  * Smart sync — only writes what's necessary:
  *   • Session not in Turso yet          → INSERT
  *   • Session in Turso, client is newer → UPDATE (compare updated_at ISO strings)
  *   • Session in Turso, already current → SKIP (no write)
  *
- * This prevents client from overwriting fresher server-side data and avoids
- * unnecessary writes on every heartbeat.
- *
  * Special case: empty sessions array → delete all sessions for the user.
  */
 export async function POST(request) {
   try {
-    const body = await request.json();
-    const { username, sessions } = body || {};
-    if (!username || !Array.isArray(sessions)) {
-      return NextResponse.json({ error: "username and sessions required" }, { status: 400 });
+    const authToken = request.cookies.get("auth_token")?.value || null;
+    const session = authToken ? await getDashboardAuthSession(authToken) : null;
+    if (!session?.username) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const cleanUsername = cleanString(username, "admin").toLowerCase();
+    const body = await request.json();
+    const { sessions } = body || {};
+    if (!Array.isArray(sessions)) {
+      return NextResponse.json({ error: "sessions array required" }, { status: 400 });
+    }
+
+    const cleanUsername = cleanString(session.username, "admin").toLowerCase();
     const now = new Date().toISOString();
 
     // Empty array → delete all sessions for this user
@@ -86,34 +95,33 @@ export async function POST(request) {
     if (rows.length === 0) {
       return NextResponse.json({ ok: true, inserted: 0, updated: 0, skipped: 0 });
     }
- 
+
     // ── Fetch existing records from Turso in one query ─────────────────────
-    // Build a map of { id → stored_updated_at } for quick lookup.
     const ids = rows.map((s) => cleanString(s.id || s.chatId || s.chat_id));
     const placeholders = ids.map(() => "?").join(", ");
     const existingResult = await turso.execute({
       sql: `SELECT chat_id, updated_at FROM report_chat_sessions WHERE chat_id IN (${placeholders})`,
       args: ids,
     });
- 
+
     /** @type {Map<string, string>} sessionId → stored updated_at */
     const storedMap = new Map(
       (existingResult.rows || []).map((r) => [String(r.chat_id), String(r.updated_at || "")])
     );
- 
+
     // ── Compare and write only what's needed ───────────────────────────────
     let inserted = 0;
     let updated = 0;
     let skipped = 0;
- 
+
     for (const session of rows) {
       const sessionId = cleanString(session.id || session.chatId || session.chat_id);
       if (!sessionId) continue;
- 
+
       const clientUpdatedAt = cleanString(session.updatedAt || session.updated_at, now);
       const clientCreatedAt = cleanString(session.createdAt || session.created_at, now);
       const storedUpdatedAt = storedMap.get(sessionId);
- 
+
       if (storedUpdatedAt === undefined) {
         // ── New session — not in Turso yet → INSERT ──────────────────────
         await turso.execute({
@@ -135,13 +143,14 @@ export async function POST(request) {
         await turso.execute({
           sql: `UPDATE report_chat_sessions
                 SET title = ?, model = ?, messages = ?, updated_at = ?
-                WHERE chat_id = ?`,
+                WHERE chat_id = ? AND username = ?`,
           args: [
             cleanString(session.title, "New Chat"),
             cleanString(session.modelId || session.model),
             JSON.stringify(Array.isArray(session.messages) ? session.messages : []),
             clientUpdatedAt,
             sessionId,
+            cleanUsername,
           ],
         });
         updated++;
@@ -158,3 +167,4 @@ export async function POST(request) {
     return NextResponse.json({ ok: false, warning: String(err) }, { status: 200 });
   }
 }
+

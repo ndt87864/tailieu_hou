@@ -9,14 +9,28 @@ if (!global._knowledgeCache) {
   global._knowledgeCache = new Map();
 }
 const CACHE_TTL = 60000; // 60 seconds cache
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit
+
+// Sanitize path component to prevent directory traversal
+function sanitizePath(input) {
+  if (!input) return "";
+  return String(input)
+    .replace(/\.\./g, "")
+    .replace(/[\/\\]/g, "")
+    .trim();
+}
 
 export async function GET(request) {
   const url = new URL(request.url);
-  const username = url.searchParams.get("username") || "admin";
   const type = url.searchParams.get("type") || "outlines"; // 'outlines' or 'templates'
   const authToken = request.cookies.get("auth_token")?.value || null;
   const session = authToken ? await getDashboardAuthSession(authToken) : null;
-  const restricted = isRestrictedUser(session?.username);
+  
+  if (!session?.username) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const username = session.username;
+  const restricted = isRestrictedUser(username);
 
   const cacheKey = `${username}:${type}:${restricted}`;
   const cached = global._knowledgeCache.get(cacheKey);
@@ -90,21 +104,29 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const formData = await request.formData();
-    const username = formData.get("username") || "admin";
-    const subject = formData.get("subject");
-    const filename = formData.get("filename");
-    const file = formData.get("file");
-    const type = formData.get("type") || "outlines"; // 'outlines' or 'templates'
     const authToken = request.cookies.get("auth_token")?.value || null;
     const session = authToken ? await getDashboardAuthSession(authToken) : null;
-    const restricted = isRestrictedUser(session?.username);
+    
+    if (!session?.username) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const username = session.username;
+    const restricted = isRestrictedUser(username);
+
+    const formData = await request.formData();
+    const subject = sanitizePath(formData.get("subject"));
+    const filename = sanitizePath(formData.get("filename"));
+    const file = formData.get("file");
+    const type = formData.get("type") || "outlines"; // 'outlines' or 'templates'
 
     if (!subject || !filename || !file) {
       return NextResponse.json({ error: "subject, filename, and file are required" }, { status: 400 });
     }
     if (restricted && !isRestrictedReportAssistantSubject(subject)) {
       return NextResponse.json({ error: "Restricted accounts can only use el67, sl06, and sl07." }, { status: 403 });
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json({ error: "File quá lớn (tối đa 10MB)" }, { status: 413 });
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -148,14 +170,19 @@ export async function POST(request) {
 
 export async function DELETE(request) {
   try {
-    const url = new URL(request.url);
-    const username = url.searchParams.get("username") || "admin";
-    const subject = url.searchParams.get("subject");
-    const filename = url.searchParams.get("filename");
-    const type = url.searchParams.get("type") || "outlines"; // 'outlines' or 'templates'
     const authToken = request.cookies.get("auth_token")?.value || null;
     const session = authToken ? await getDashboardAuthSession(authToken) : null;
-    const restricted = isRestrictedUser(session?.username);
+    
+    if (!session?.username) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const username = session.username;
+    const restricted = isRestrictedUser(username);
+
+    const url = new URL(request.url);
+    const subject = sanitizePath(url.searchParams.get("subject"));
+    const filename = sanitizePath(url.searchParams.get("filename"));
+    const type = url.searchParams.get("type") || "outlines"; // 'outlines' or 'templates'
 
     if (!subject || !filename) {
       return NextResponse.json({ error: "subject and filename are required" }, { status: 400 });

@@ -1,9 +1,16 @@
 import { NextResponse } from "next/server";
+import { getDashboardAuthSession } from "@/lib/auth/dashboardSession";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request) {
   try {
+    const authToken = request.cookies.get("auth_token")?.value || null;
+    const session = authToken ? await getDashboardAuthSession(authToken) : null;
+    if (!session?.username) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { query, url, mode } = await request.json();
 
     // 1. If a URL is provided, crawl it using Jina Reader
