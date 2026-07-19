@@ -7947,6 +7947,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
         const maxAttempts = 6;
         let delay = 3000; // Start with a 3s delay
         const maxDelayMs = 60000;
+        let hasReceivedContent = false;
 
         while (attempts < maxAttempts) {
           try {
@@ -8011,7 +8012,10 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
                 data?.output_text ||
                 data?.text ||
                 "";
-              if (fullPart) onDelta(fullPart, fullPart);
+              if (fullPart) {
+                hasReceivedContent = true;
+                onDelta(fullPart, fullPart);
+              }
               return fullPart;
             }
 
@@ -8039,6 +8043,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
                     chunk.choices?.[0]?.message?.content ||
                     "";
                   if (delta) {
+                    hasReceivedContent = true;
                     fullPart += delta;
                     onDelta(delta, fullPart);
                   }
@@ -8047,7 +8052,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
             }
             return fullPart;
           } catch (err) {
-            if (err.name === "AbortError") throw err;
+            if (err.name === "AbortError" || hasReceivedContent) throw err;
             const status = err?.status;
             if (status && !isRetriableStatus(status)) throw err;
             if (attempts >= maxAttempts - 1) throw err;

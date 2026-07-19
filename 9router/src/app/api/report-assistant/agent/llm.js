@@ -203,6 +203,7 @@ export async function callLLM(modelId, messages, temperature = 0.3, authToken = 
           messages,
           temperature,
           stream: false,
+          auto_search: false,
           ...(sessionState ? {
             lunaChatId: sessionState.lunaChatId || "",
             lunaParentMessageId: sessionState.lunaMessageId || "",

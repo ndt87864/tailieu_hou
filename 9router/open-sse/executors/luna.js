@@ -240,7 +240,7 @@ export class LunaExecutor extends DefaultExecutor {
       auto_thinking: shouldAutoThink,
       thinking_mode: qwenThinkingMode,
       thinking_format: "summary",
-      auto_search: true,
+      auto_search: body.auto_search !== false && body.enable_search !== false,
     };
 
     if (body.thinking_budget) {
