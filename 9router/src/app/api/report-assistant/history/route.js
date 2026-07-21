@@ -168,3 +168,35 @@ export async function POST(request) {
   }
 }
 
+/**
+ * DELETE /api/report-assistant/history
+ * Query param: chatId
+ */
+export async function DELETE(request) {
+  try {
+    const authToken = request.cookies.get("auth_token")?.value || null;
+    const session = authToken ? await getDashboardAuthSession(authToken) : null;
+    if (!session?.username) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const chatId = cleanString(searchParams.get("chatId"));
+    if (!chatId) {
+      return NextResponse.json({ error: "chatId query parameter required" }, { status: 400 });
+    }
+
+    const cleanUsername = cleanString(session.username, "admin").toLowerCase();
+
+    await turso.execute({
+      sql: `DELETE FROM report_chat_sessions WHERE chat_id = ? AND username = ?`,
+      args: [chatId, cleanUsername],
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("[report-assistant/history] DELETE error", err);
+    return NextResponse.json({ ok: false, error: String(err) }, { status: 200 });
+  }
+}
+

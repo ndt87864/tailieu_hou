@@ -606,6 +606,11 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     const nextSessions = sessions.filter((item) => item.id !== sessionId);
     setSessions(nextSessions);
     
+    // Call API to delete session in DB
+    fetch(`/api/report-assistant/history?chatId=${sessionId}`, {
+      method: "DELETE",
+    }).catch((err) => console.warn("Failed to delete session from DB", err));
+
     if (activeSessionId === sessionId) {
       if (nextSessions.length > 0) {
         const deletedIdx = sessions.findIndex((item) => item.id === sessionId);
@@ -625,7 +630,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
   return (
     <div className="flex h-screen bg-bg text-text-main overflow-hidden font-sans">
       {/* Sidebar - Sessions List */}
-      <div className="w-80 border-r border-border bg-surface flex flex-col h-full flex-shrink-0">
+      <div className="w-64 border-r border-border bg-surface flex flex-col h-full flex-shrink-0">
         <div className="p-4 border-b border-border flex items-center justify-between">
           <h2 className="text-sm font-bold text-text-main">Lịch sử trò chuyện</h2>
           <Button
