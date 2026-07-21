@@ -29,8 +29,9 @@ export async function GET(request) {
   if (!session?.username) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const username = session.username;
-  const restricted = isRestrictedUser(username);
+  const queryUsername = url.searchParams.get("username");
+  const username = queryUsername === "global" ? "global" : session.username;
+  const restricted = isRestrictedUser(session.username);
 
   const cacheKey = `${username}:${type}:${restricted}`;
   const cached = global._knowledgeCache.get(cacheKey);

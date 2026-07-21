@@ -11,12 +11,12 @@ import {
   DEFAULT_TEMPERATURE,
   REPORT_KNOWLEDGE_GLOBAL_USER,
   RESTRICTED_REPORT_ASSISTANT_SUBJECTS,
+  getSK,
 } from "./constants";
 
 import {
   createId,
   safeParse,
-  getSK,
   formatBytes,
   relTime,
   getReportAssistantLunaModels,
@@ -83,6 +83,22 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
   const [streamingId, setStreamingId] = useState("");
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [selectedKnowledgeSubject, setSelectedKnowledgeSubject] = useState("none");
+  const [webSearchEnabled, setWebSearchEnabled] = useState(true);
+  const [searchStatus, setSearchStatus] = useState("");
+  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+  const [subjectDropdownOpen, setSubjectDropdownOpen] = useState(false);
+
+  const fileInputRef = useRef(null);
+  const textareaRef = useRef(null);
+
+  // Auto-resize textarea height
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height =
+        Math.min(textareaRef.current.scrollHeight, 160) + "px";
+    }
+  }, [draft]);
 
   // Knowledge Base States
   const [subjectsOutlines, setSubjectsOutlines] = useState([]);
@@ -232,6 +248,13 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     }
   }, [hydrated, fetchUser, loadFullModels]);
 
+  useEffect(() => {
+    if (hydrated && usernameLoaded && isSupabaseConfigured) {
+      loadOutlines();
+      loadTemplates();
+    }
+  }, [hydrated, usernameLoaded, isSupabaseConfigured, loadOutlines, loadTemplates]);
+
   const {
     sessions,
     setSessions,
@@ -310,6 +333,122 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     return allModels.find((m) => m.id === activeSession?.modelId) || allModels[0] || null;
   }, [allModels, activeSession]);
 
+  const triggerFileInput = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const uploadFile = useCallback(
+    async (item) => {
+      if (!isSupabaseConfigured) {
+        setAttachedFiles((prev) =>
+          prev.map((f) =>
+            f.id === item.id
+              ? {
+                  ...f,
+                  status: "error",
+                  errorMsg: "Chưa cấu hình Supabase URL/Key",
+                }
+              : f
+          )
+        );
+        return;
+      }
+
+      try {
+        const fileExt = item.name.split(".").pop();
+        const fileName = `${createId()}.${fileExt}`;
+        const filePath = `report_uploads/${username}/${fileName}`;
+
+        const { data, error } = await supabase.storage
+          .from("ai_assistant")
+          .upload(filePath, item.file, {
+            cacheControl: "3600",
+            upsert: false,
+          });
+
+        if (error) throw error;
+
+        const { data: urlData } = supabase.storage
+          .from("ai_assistant")
+          .getPublicUrl(filePath);
+
+        setAttachedFiles((prev) =>
+          prev.map((f) =>
+            f.id === item.id
+              ? {
+                  ...f,
+                  status: "success",
+                  url: urlData.publicUrl,
+                }
+              : f
+          )
+        );
+      } catch (err) {
+        console.error("Upload error:", err);
+        let errorMsg = err.message || "Tải lên thất bại";
+        if (
+          errorMsg.toLowerCase().includes("row-level security") ||
+          errorMsg.toLowerCase().includes("permission denied") ||
+          errorMsg.toLowerCase().includes("policy")
+        ) {
+          errorMsg = "Lỗi RLS Policy (Vui lòng thiết lập INSERT cho bucket)";
+        }
+        setAttachedFiles((prev) =>
+          prev.map((f) =>
+            f.id === item.id
+              ? {
+                  ...f,
+                  status: "error",
+                  errorMsg,
+                }
+              : f
+          )
+        );
+      }
+    },
+    [isSupabaseConfigured, username]
+  );
+
+  const handleFileChange = useCallback(
+    (e) => {
+      const files = Array.from(e.target.files || []);
+      if (files.length === 0) return;
+
+      const newFiles = files.map((file) => ({
+        id: createId(),
+        file,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        status: "uploading",
+        url: "",
+        errorMsg: "",
+      }));
+
+      setAttachedFiles((prev) => [...prev, ...newFiles]);
+
+      for (const item of newFiles) {
+        uploadFile(item);
+      }
+
+      if (e.target) e.target.value = "";
+    },
+    [uploadFile]
+  );
+
+  const removeAttachedFile = useCallback((id) => {
+    setAttachedFiles((prev) => prev.filter((f) => f.id !== id));
+  }, []);
+
+  const allSubjects = useMemo(() => {
+    if (isRestrictedUser) return [...RESTRICTED_REPORT_ASSISTANT_SUBJECTS];
+    const set = new Set([
+      ...Object.keys(filesOutlines || {}),
+      ...Object.keys(filesTemplates || {}),
+    ]);
+    return Array.from(set).filter(Boolean);
+  }, [filesOutlines, filesTemplates, isRestrictedUser]);
+
   const handleSendMessage = useCallback(async () => {
     if (!activeSessionId || isSending) return;
     setIsSending(true);
@@ -341,6 +480,67 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     setAttachedFiles([]);
 
     try {
+      let webSearchContext = "";
+      const urls = userText.match(/(https?:\/\/[^\s]+)/g);
+      if (webSearchEnabled && urls && urls.length > 0) {
+        setSearchStatus("Đang đọc nội dung liên kết qua Jina Reader...");
+        showToast("Jina Reader đang đọc nội dung liên kết...", "info");
+        for (const u of urls) {
+          try {
+            const res = await fetch("/api/report-assistant/web-search", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ url: u }),
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.content) {
+                webSearchContext += `\n\n--- NỘI DUNG TÀI LIỆU CHI TIẾT TỪ LIÊN KẾT [${u}] ---\n${data.content.slice(0, 15000)}\n------------------------------------------------`;
+              }
+            }
+          } catch (e) {
+            console.error("Error fetching Jina Reader content", e);
+          }
+        }
+      }
+
+      if (
+        webSearchEnabled &&
+        (isReportIntent(userText) || userText.trim().length > 10)
+      ) {
+        const searchQuery = cleanWebSearchQuery(userText);
+        setSearchStatus(
+          `Đang tìm kiếm thông tin mới nhất trên Google qua Tavily AI cho từ khoá "${searchQuery}"...`
+        );
+        showToast("Tavily AI đang tìm kiếm thông tin mới nhất...", "info");
+        try {
+          const res = await fetch("/api/report-assistant/web-search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query: searchQuery }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.results) {
+              showToast("Tavily AI đã tìm kiếm thông tin thành công!", "success");
+              let searchContent = `\n\n--- DỮ LIỆU TÌM KIẾM MỚI NHẤT TỪ TAVILY AI ---`;
+              if (data.results.answer) {
+                searchContent += `\n**Tóm tắt câu trả lời:** ${data.results.answer}`;
+              }
+              searchContent += `\n\n**Các nguồn tin cậy tìm thấy:**`;
+              for (const r of data.results.results || []) {
+                searchContent += `\n\n- **[${r.title}](${r.url})**\n  *Nội dung trích dẫn:* ${r.content}`;
+              }
+              searchContent += `\n--------------------------------------------`;
+              webSearchContext += searchContent;
+            }
+          }
+        } catch (e) {
+          console.error("Error fetching Tavily Search content", e);
+        }
+      }
+      setSearchStatus("");
+
       const response = await fetch("/api/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -351,7 +551,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
           model: activeModel?.id,
           messages: [
             { role: "system", content: systemPrompt || defaultSystemPrompt },
-            { role: "user", content: await buildContentWithAttachments(userText, filePayloads) },
+            { role: "user", content: await buildContentWithAttachments(userText + webSearchContext, filePayloads) },
           ],
           temperature,
         }),
@@ -383,6 +583,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
       showToast("Lỗi gửi tin nhắn: " + err.message, "error");
     } finally {
       setIsSending(false);
+      setSearchStatus("");
     }
   }, [
     activeSessionId,
@@ -396,7 +597,28 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     temperature,
     setSessions,
     showToast,
+    webSearchEnabled,
   ]);
+
+  const handleDeleteSession = useCallback((sessionId, e) => {
+    e.stopPropagation();
+    
+    const nextSessions = sessions.filter((item) => item.id !== sessionId);
+    setSessions(nextSessions);
+    
+    if (activeSessionId === sessionId) {
+      if (nextSessions.length > 0) {
+        const deletedIdx = sessions.findIndex((item) => item.id === sessionId);
+        const nextActiveIdx = deletedIdx < nextSessions.length ? deletedIdx : nextSessions.length - 1;
+        const nextActiveId = nextSessions[nextActiveIdx].id;
+        setActiveSessionId(nextActiveId);
+        router.replace(`/dashboard/report-assistant/${nextActiveId}`);
+      } else {
+        setActiveSessionId("");
+        router.replace("/dashboard/report-assistant");
+      }
+    }
+  }, [activeSessionId, sessions, router, setSessions, setActiveSessionId]);
 
   if (!hydrated) return null;
 
@@ -434,10 +656,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
                 <p className="text-[10px] text-text-subtle">{relTime(s.updatedAt)}</p>
               </div>
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSessions((prev) => prev.filter((item) => item.id !== s.id));
-                }}
+                onClick={(e) => handleDeleteSession(s.id, e)}
                 className="text-text-subtle hover:text-rose-500 text-xs p-1"
               >
                 ✕
@@ -453,9 +672,66 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
         <div className="h-14 border-b border-border px-6 flex items-center justify-between bg-surface">
           <div className="flex items-center gap-3">
             <h1 className="text-sm font-bold text-text-main">Trợ lý học tập</h1>
-            <Badge variant="default" size="sm">
-              {activeModel?.id?.split("/").pop()}
-            </Badge>
+            {/* Custom Model Selector */}
+            <div className="relative">
+              <button
+                onClick={() => setModelDropdownOpen((prev) => !prev)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-border bg-bg hover:bg-surface-2 transition-all text-xs font-semibold text-text-main cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[15px] text-brand-500">
+                  smart_toy
+                </span>
+                <span>{activeModel?.id?.split("/").pop() || "Chọn mô hình"}</span>
+                <span className="material-symbols-outlined text-[16px] text-text-subtle">
+                  expand_more
+                </span>
+              </button>
+
+              {modelDropdownOpen && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setModelDropdownOpen(false)} />
+                  <div className="absolute left-0 mt-1.5 z-40 w-64 bg-surface border border-border rounded-xl shadow-lg overflow-hidden py-1">
+                    <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                      {allModels.map((m) => {
+                        const active = m.id === activeModel?.id;
+                        return (
+                          <button
+                            key={m.id}
+                            onClick={() => {
+                              if (activeSessionId) {
+                                setSessions((prev) =>
+                                  prev.map((s) =>
+                                    s.id === activeSessionId
+                                      ? {
+                                          ...s,
+                                          modelId: m.id,
+                                          updatedAt: new Date().toISOString(),
+                                        }
+                                      : s
+                                  )
+                                );
+                              }
+                              setModelDropdownOpen(false);
+                            }}
+                            className={cn(
+                              "w-full flex items-center gap-2 px-3 py-2 text-left text-xs transition-colors",
+                              active
+                                ? "bg-brand-500/10 text-brand-600 font-semibold"
+                                : "text-text-main hover:bg-surface-2"
+                            )}
+                          >
+                            <span className="material-symbols-outlined text-[15px] text-brand-500">
+                              psychology
+                            </span>
+                            <span className="truncate">{m.id.split("/").pop()}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
           <Button size="sm" variant="outline" onClick={() => setSettingsOpen(true)}>
             Cấu hình
@@ -499,9 +775,246 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
         </div>
 
         {/* Input Bar */}
-        <div className="p-4 border-t border-border bg-surface">
-          <div className="flex items-center gap-3 bg-bg border border-border rounded-2xl px-4 py-2">
+        <div className="p-4 border-t border-border bg-surface flex flex-col gap-2">
+          {searchStatus && (
+            <div className="flex items-center gap-2 px-3 py-1 bg-brand-500/10 text-brand-600 rounded-[10px] text-xs font-semibold animate-pulse">
+              <span className="material-symbols-outlined text-[16px] animate-spin">sync</span>
+              <span>{searchStatus}</span>
+            </div>
+          )}
+
+          {/* Attached Files Bar */}
+          {attachedFiles.length > 0 && (
+            <div className="flex flex-wrap gap-2 px-3 py-2 border-b border-border bg-bg/50 rounded-xl">
+              {attachedFiles.map((file) => {
+                const isImg = file.type?.startsWith("image/");
+                const isUploading = file.status === "uploading";
+                const isError = file.status === "error";
+
+                return (
+                  <div
+                    key={file.id}
+                    className={cn(
+                      "relative flex items-center gap-2 pl-2 pr-1 py-1 rounded-[8px] border text-xs font-medium bg-surface min-w-[120px] max-w-[200px]",
+                      isError
+                        ? "border-danger/30 bg-danger/5 text-danger"
+                        : "border-border"
+                    )}
+                  >
+                    {isImg && file.url ? (
+                      <img
+                        src={file.url}
+                        alt={file.name || "Tệp hình ảnh"}
+                        className="size-6 rounded-[4px] object-cover flex-shrink-0"
+                      />
+                    ) : (
+                      <span className="material-symbols-outlined text-[16px] text-text-muted flex-shrink-0">
+                        {isImg ? "image" : "description"}
+                      </span>
+                    )}
+
+                    <div className="flex-1 min-w-0 leading-tight">
+                      <p
+                        className="truncate text-[11px] text-text-main"
+                        title={file.name}
+                      >
+                        {file.name}
+                      </p>
+                      {isUploading ? (
+                        <p className="text-[9px] text-text-subtle animate-pulse">
+                          Uploading...
+                        </p>
+                      ) : isError ? (
+                        <p
+                          className="text-[9px] text-danger truncate"
+                          title={file.errorMsg}
+                        >
+                          {file.errorMsg}
+                        </p>
+                      ) : (
+                        <p className="text-[9px] text-text-subtle">
+                          {formatBytes(file.size)}
+                        </p>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={() => removeAttachedFile(file.id)}
+                      className="size-5 rounded-full hover:bg-surface-2 flex items-center justify-center text-text-muted hover:text-text-main transition-colors flex-shrink-0"
+                    >
+                      <span className="material-symbols-outlined text-[13px]">
+                        close
+                      </span>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="flex items-end gap-3 bg-bg border border-border rounded-2xl px-4 py-2">
+            <button
+              type="button"
+              onClick={() => setWebSearchEnabled((prev) => !prev)}
+              className={cn(
+                "size-8 rounded-[8px] flex items-center justify-center transition-colors cursor-pointer shrink-0 mb-0.5",
+                webSearchEnabled
+                  ? "bg-brand-500/10 text-brand-500 hover:bg-brand-500/20"
+                  : "text-text-muted hover:text-text-main hover:bg-surface-2"
+              )}
+              title={
+                webSearchEnabled
+                  ? "Tắt Tìm kiếm Web (đang Bật)"
+                  : "Bật Tìm kiếm Web (Tavily AI)"
+              }
+            >
+              <span className="material-symbols-outlined text-[18px]">
+                language
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={triggerFileInput}
+              disabled={isSending || !activeModel}
+              className="size-8 rounded-[8px] flex items-center justify-center text-text-muted hover:text-text-main hover:bg-surface-2 cursor-pointer disabled:opacity-50 shrink-0 mb-0.5"
+              title="Tải lên tài liệu (.pdf, .txt, .docx, hình ảnh...)"
+            >
+              <span className="material-symbols-outlined text-[18px]">
+                attach_file
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setAssistantOnlyMode((prev) => !prev)}
+              className={cn(
+                "size-8 rounded-[8px] flex items-center justify-center transition-colors cursor-pointer shrink-0 mb-0.5",
+                !assistantOnlyMode
+                  ? "bg-brand-500/10 text-brand-500 hover:bg-brand-500/20"
+                  : "text-text-muted hover:text-text-main hover:bg-surface-2"
+              )}
+              title={
+                !assistantOnlyMode
+                  ? "Tắt Chế độ AI Agent (đang Bật)"
+                  : "Bật Chế độ AI Agent (Planning & execution)"
+              }
+            >
+              <span className="material-symbols-outlined text-[18px]">
+                support_agent
+              </span>
+            </button>
+
+            {/* Custom Subject Selector */}
+            {allSubjects.length > 0 && (
+              <div className="relative mb-0.5">
+                <button
+                  type="button"
+                  onClick={() => setSubjectDropdownOpen((prev) => !prev)}
+                  className="flex items-center gap-1.5 h-8 px-2.5 rounded-[8px] border border-border bg-surface hover:bg-surface-2 transition-all text-xs font-semibold text-text-main cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[15px] text-brand-500">
+                    menu_book
+                  </span>
+                  <span className="max-w-[130px] truncate">
+                    {selectedKnowledgeSubject === "none"
+                      ? "Chủ đề báo cáo"
+                      : selectedKnowledgeSubject}
+                  </span>
+                  <span className="material-symbols-outlined text-[16px] text-text-subtle">
+                    expand_more
+                  </span>
+                </button>
+
+                {subjectDropdownOpen && (
+                  <>
+                    <div className="fixed inset-0 z-30" onClick={() => setSubjectDropdownOpen(false)} />
+                    <div className="absolute left-0 bottom-full mb-1.5 z-40 w-56 bg-surface border border-border rounded-xl shadow-lg overflow-hidden py-1">
+                      <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                        <button
+                          onClick={() => {
+                            setSelectedKnowledgeSubject("none");
+                            if (activeSessionId) {
+                              setSessions((prev) =>
+                                prev.map((s) =>
+                                  s.id === activeSessionId
+                                    ? {
+                                        ...s,
+                                        subject: "none",
+                                        updatedAt: new Date().toISOString(),
+                                      }
+                                    : s
+                                )
+                              );
+                            }
+                            setSubjectDropdownOpen(false);
+                          }}
+                          className={cn(
+                            "w-full flex items-center gap-2 px-3 py-2 text-left text-xs transition-colors",
+                            selectedKnowledgeSubject === "none"
+                              ? "bg-brand-500/10 text-brand-600 font-semibold"
+                              : "text-text-main hover:bg-surface-2"
+                          )}
+                        >
+                          <span className="material-symbols-outlined text-[15px] text-text-subtle">
+                            layers_clear
+                          </span>
+                          <span>-- Chủ đề báo cáo --</span>
+                        </button>
+                        {allSubjects.map((s) => {
+                          const active = s === selectedKnowledgeSubject;
+                          return (
+                            <button
+                              key={s}
+                              onClick={() => {
+                                setSelectedKnowledgeSubject(s);
+                                if (activeSessionId) {
+                                  setSessions((prev) =>
+                                    prev.map((sItem) =>
+                                      sItem.id === activeSessionId
+                                        ? {
+                                            ...sItem,
+                                            subject: s,
+                                            updatedAt: new Date().toISOString(),
+                                          }
+                                        : sItem
+                                    )
+                                  );
+                                }
+                                setSubjectDropdownOpen(false);
+                              }}
+                              className={cn(
+                                "w-full flex items-center gap-2 px-3 py-2 text-left text-xs transition-colors",
+                                active
+                                  ? "bg-brand-500/10 text-brand-600 font-semibold"
+                                  : "text-text-main hover:bg-surface-2"
+                              )}
+                            >
+                              <span className="material-symbols-outlined text-[15px] text-brand-500">
+                                library_books
+                              </span>
+                              <span className="truncate">{s}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              onChange={handleFileChange}
+              className="hidden"
+              disabled={isSending || !activeModel}
+            />
+
             <textarea
+              ref={textareaRef}
               rows={1}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
@@ -512,9 +1025,9 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
                 }
               }}
               placeholder="Nhập tin nhắn..."
-              className="flex-1 bg-transparent border-0 outline-none text-sm resize-none text-text-main placeholder:text-text-subtle"
+              className="flex-1 bg-transparent border-0 outline-none text-sm resize-none text-text-main placeholder:text-text-subtle py-1.5 max-h-40 overflow-y-auto"
             />
-            <Button size="sm" onClick={handleSendMessage} disabled={isSending || !draft.trim()}>
+            <Button size="sm" onClick={handleSendMessage} disabled={isSending || !draft.trim()} className="mb-0.5">
               Gửi
             </Button>
           </div>
@@ -555,4 +1068,45 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
       />
     </div>
   );
+}
+
+function isReportIntent(text) {
+  if (!text) return false;
+  const normalized = String(text)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return /\b(tao bao cao|lap bao cao|viet bao cao)\b/.test(normalized);
+}
+
+function cleanWebSearchQuery(text) {
+  if (!text) return "";
+  let q = text;
+  // Remove link URLs
+  q = q.replace(/https?:\/\/[^\s]+/g, "");
+  // Remove markdown images/links
+  q = q.replace(/!\[.*?\]\(.*?\)/g, "");
+  q = q.replace(/\[.*?\]\(.*?\)/g, "");
+  // Remove special prompt commands or phrases like 'lap de cuong', 'viet bao cao'
+  const removes = [
+    /lập đề cương/gi,
+    /viết báo cáo/gi,
+    /soạn thảo báo cáo/gi,
+    /chi tiết/gi,
+    /về chủ đề/gi,
+    /hãy/gi,
+    /giúp tôi/gi,
+    /cho tôi/gi,
+    /tạo báo cáo/gi,
+    /báo cáo/gi,
+  ];
+  for (const r of removes) {
+    q = q.replace(r, "");
+  }
+  return q.replace(/\s+/g, " ").trim().slice(0, 150);
 }
