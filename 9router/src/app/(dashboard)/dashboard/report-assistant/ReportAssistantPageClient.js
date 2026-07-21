@@ -87,6 +87,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
   const [searchStatus, setSearchStatus] = useState("");
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [subjectDropdownOpen, setSubjectDropdownOpen] = useState(false);
+  const [copiedMessageId, setCopiedMessageId] = useState(null);
 
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
@@ -330,7 +331,12 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
   }, [sessions, activeSessionId]);
 
   const activeModel = useMemo(() => {
-    return allModels.find((m) => m.id === activeSession?.modelId) || allModels[0] || null;
+    if (!activeSession?.modelId) {
+      return allModels[0] || null;
+    }
+    const found = allModels.find((m) => m.id === activeSession.modelId);
+    if (found) return found;
+    return { id: activeSession.modelId };
   }, [allModels, activeSession]);
 
   const triggerFileInput = useCallback(() => {
@@ -744,33 +750,113 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
         </div>
 
         {/* Message Panel */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
-          {activeSession?.messages?.map((msg) => (
-            <div
-              key={msg.id}
-              className={cn(
-                "flex gap-4 max-w-3xl",
-                msg.role === "user" ? "ml-auto flex-row-reverse" : "mr-auto"
-              )}
-            >
-              {msg.role === "user" ? <UserAvatar /> : <AssistantAvatar />}
-              <div
-                className={cn(
-                  "p-4 rounded-2xl border text-sm leading-relaxed",
-                  msg.role === "user"
-                    ? "bg-brand-500 border-brand-500 text-white"
-                    : "bg-surface border-border text-text-main"
-                )}
-              >
-                <div
-                  dangerouslySetInnerHTML={{
-                    __html: renderMarkdownAndMath(msg.content),
-                  }}
-                />
-                <MessageFilesGrid files={msg.files || []} />
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar flex flex-col">
+          {!activeSession?.messages || activeSession.messages.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-center p-8 max-w-xl mx-auto my-auto space-y-4 select-none">
+              <div className="w-16 h-16 rounded-2xl bg-brand-500/10 flex items-center justify-center text-brand-500 mb-2">
+                <span className="material-symbols-outlined text-[36px]">
+                  auto_awesome
+                </span>
+              </div>
+              <h3 className="text-lg font-bold text-text-main">Trợ lý Soạn thảo Báo cáo Học tập</h3>
+              <p className="text-xs text-text-subtle leading-relaxed">
+                Chào mừng bạn! Tôi có thể giúp bạn tạo báo cáo, soạn thảo đề cương học tập, và phân tích tài liệu một cách thông minh. Hãy bắt đầu bằng cách nhập một tin nhắn hoặc chọn một tài liệu mẫu bên dưới.
+              </p>
+              <div className="grid grid-cols-2 gap-3 w-full pt-4">
+                <button
+                  onClick={() => setDraft("Lập đề cương báo cáo chi tiết về đề tài chuyển đổi số trong giáo dục đại học.")}
+                  className="p-3 text-left border border-border rounded-xl bg-surface hover:bg-surface-2 transition-all hover:border-brand-500/30 text-xs cursor-pointer group"
+                >
+                  <div className="font-semibold text-text-main flex items-center gap-1.5 mb-1">
+                    <span className="material-symbols-outlined text-[14px] text-brand-500">edit_note</span>
+                    Lập đề cương báo cáo
+                  </div>
+                  <div className="text-[10px] text-text-subtle truncate">Chuyển đổi số giáo dục...</div>
+                </button>
+                <button
+                  onClick={() => setDraft("Viết một báo cáo phân tích về tiềm năng ứng dụng AI trong học tập.")}
+                  className="p-3 text-left border border-border rounded-xl bg-surface hover:bg-surface-2 transition-all hover:border-brand-500/30 text-xs cursor-pointer group"
+                >
+                  <div className="font-semibold text-text-main flex items-center gap-1.5 mb-1">
+                    <span className="material-symbols-outlined text-[14px] text-brand-500">school</span>
+                    AI trong học tập
+                  </div>
+                  <div className="text-[10px] text-text-subtle truncate">Phân tích ứng dụng AI...</div>
+                </button>
               </div>
             </div>
-          ))}
+          ) : (
+            <div className="space-y-6">
+              {activeSession?.messages?.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={cn(
+                    "flex gap-4 max-w-3xl group relative",
+                    msg.role === "user" ? "ml-auto flex-row-reverse" : "mr-auto"
+                  )}
+                >
+                  {msg.role === "user" ? <UserAvatar /> : <AssistantAvatar />}
+                  <div className="relative">
+                    <div
+                      className={cn(
+                        "p-4 rounded-2xl border text-sm leading-relaxed",
+                        msg.role === "user"
+                          ? "bg-brand-500 border-brand-500 text-white"
+                          : "bg-surface border-border text-text-main"
+                      )}
+                    >
+                      <div
+                        dangerouslySetInnerHTML={{
+                          __html: renderMarkdownAndMath(msg.content),
+                        }}
+                      />
+                      <MessageFilesGrid files={msg.files || []} />
+                    </div>
+
+                    {/* Hover actions */}
+                    <div
+                      className={cn(
+                        "absolute opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 bg-surface border border-border shadow-sm rounded-lg p-0.5 z-10 top-full mt-1",
+                        msg.role === "user" ? "right-2" : "left-2"
+                      )}
+                    >
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(msg.content);
+                          showToast("Sao chép thành công!", "success");
+                          setCopiedMessageId(msg.id);
+                          setTimeout(() => setCopiedMessageId(null), 2000);
+                        }}
+                        className={cn(
+                          "p-1 rounded cursor-pointer flex items-center justify-center transition-colors",
+                          copiedMessageId === msg.id
+                            ? "text-green-500 bg-green-500/10"
+                            : "text-text-subtle hover:text-text-main hover:bg-surface-2"
+                        )}
+                        title={copiedMessageId === msg.id ? "Đã sao chép" : "Sao chép"}
+                      >
+                        <span className="material-symbols-outlined text-[15px]">
+                          {copiedMessageId === msg.id ? "done" : "content_copy"}
+                        </span>
+                      </button>
+                      {msg.role === "user" && (
+                        <button
+                          onClick={() => {
+                            setDraft(msg.content);
+                            textareaRef.current?.focus();
+                          }}
+                          className="p-1 rounded text-text-subtle hover:text-text-main hover:bg-surface-2 cursor-pointer flex items-center justify-center"
+                          title="Sửa tin nhắn"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">edit</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
           {isSending && (
             <div className="flex gap-4 max-w-3xl mr-auto">
               <AssistantAvatar />
@@ -1071,6 +1157,24 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
         loadingTemplates={loadingTemplates}
         loadTemplates={loadTemplates}
       />
+
+      {toast.show && (
+        <div className={cn(
+          "fixed bottom-4 right-4 z-[90] rounded-lg border px-3 py-2 shadow-lg backdrop-blur-sm transition-all duration-300",
+          toast.type === "success" 
+            ? "border-green-500/30 bg-green-500/10 text-green-600 dark:text-green-400"
+            : toast.type === "error"
+            ? "border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400"
+            : "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400"
+        )}>
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[18px]">
+              {toast.type === "success" ? "check_circle" : toast.type === "error" ? "error" : "info"}
+            </span>
+            <span className="text-xs font-medium">{toast.message}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

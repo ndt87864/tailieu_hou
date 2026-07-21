@@ -101,9 +101,7 @@ export default function DashboardLayout({ children }) {
       <main className="flex flex-col flex-1 h-full min-w-0 relative transition-colors duration-300 isolate">
         {/* Faint grid background */}
         <div className="landing-grid absolute inset-0 pointer-events-none -z-10" aria-hidden="true" />
-        {!pathname?.startsWith("/dashboard/report-assistant") && (
-          <Header onMenuClick={() => setSidebarOpen(true)} />
-        )}
+        <Header onMenuClick={() => setSidebarOpen(true)} />
         <div className={`flex-1 ${isFullScreen ? "flex flex-col overflow-hidden h-full" : "overflow-y-auto custom-scrollbar p-6 lg:p-10"} ${isFullScreen ? "flex flex-col overflow-hidden" : ""}`}>
           <div className={`${isFullScreen ? "flex-1 w-full h-full flex flex-col min-h-0" : "max-w-7xl mx-auto"}`}>{children}</div>
         </div>
