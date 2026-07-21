@@ -5,6 +5,7 @@ import { useConfirm } from "../../context/ConfirmContext.js";
 import { supabase } from "../../context/AuthContext.js";
 import { useUI } from "../../context/UIContext.js";
 import * as XLSX from "xlsx";
+import apiClient from "../../services/client.js";
 
 interface Registration {
   id: string;
@@ -119,12 +120,10 @@ export const ProxyTab: React.FC = () => {
     if (!isConfirmed) return;
 
     try {
-      const { error } = await supabase
-        .from("proxy_registrations")
-        .update({ status: "approved" })
-        .eq("id", id);
+      await apiClient.put(`/api/v1/admin/proxy-registrations/${id}/status`, {
+        status: "approved",
+      });
 
-      if (error) throw error;
       toast.success("Đã duyệt đăng ký thành công!");
       fetchRegistrations();
     } catch (err) {

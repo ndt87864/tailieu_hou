@@ -2,6 +2,68 @@ export const REPORT_KNOWLEDGE_GLOBAL_USER = "global";
 export const REPORT_OUTLINE_CONTENT_USER = `report_assistant_outlines_${REPORT_KNOWLEDGE_GLOBAL_USER}`;
 export const REPORT_TEMPLATE_CONTENT_USER = `report_assistant_templates_${REPORT_KNOWLEDGE_GLOBAL_USER}`;
 
+import {
+  buildReportContext as buildCtx,
+  reportContextPrompt as ctxPrompt,
+  extractRequestedPages as reqPages
+} from "./utils/contextHelpers";
+
+export const buildReportContext = buildCtx;
+export const reportContextPrompt = ctxPrompt;
+export const extractRequestedPages = reqPages;
+
+export function sanitizeReportDraftContent(content) {
+  if (typeof content !== "string") return "";
+  return content
+    .replace(/^```markdown\s*/i, "")
+    .replace(/^```txt\s*/i, "")
+    .replace(/^```text\s*/i, "")
+    .replace(/^```\s*/, "")
+    .replace(/```\s*$/, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+export function hasSubstantiveDraftContent(content) {
+  return /[a-zA-Z0-9\u00C0-\u1EF9]/u.test(String(content || ""));
+}
+
+export function sanitizeB49OpeningDraftContent(content) {
+  const lines = String(content || "")
+    .replace(/\r\n/g, "\n")
+    .split("\n");
+
+  const firstSubsectionIdx = lines.findIndex((line) => {
+    const trimmed = line.trim();
+    return /^\s*(?:#{1,6}\s*)?\d+(?:\.\d+)+\.?\s+\S/.test(trimmed) || 
+           /^\s*\*\*\d+(?:\.\d+)+\.?\s+/.test(trimmed);
+  });
+
+  if (firstSubsectionIdx < 0) return content;
+  return lines.slice(firstSubsectionIdx).join("\n").trim();
+}
+
+export function shouldUseWebRagForSection(section, reportContext = null) {
+  const normalized = normalizeOutlineMatchText(
+    `${section?.title || ""} ${section?.description || ""} ${(section?.subsections || []).join(" ")}`,
+  );
+
+  if (!normalized) return false;
+  if (isReferenceOnlySection(section) || isConclusionSection(section) || isOpeningSection(section)) {
+    return false;
+  }
+  if (/\bket cau khoa luan|muc luc|loi cam on|loi mo dau\b/.test(normalized)) {
+    return false;
+  }
+
+  return (
+    reportContext?.financialAccounting ||
+    /\b(thuc trang|phan tich|so lieu|bao cao|tai chinh|doanh thu|loi nhuan|hieu qua|2023|2024|2025)\b/.test(normalized) ||
+    /\b(co so phap ly|quy dinh|van ban phap luat|phap luat hien hanh|luat)\b/.test(normalized)
+  );
+}
+
 export function getLastCompletedYears(count = 3) {
   const endYear = new Date().getFullYear();
   return Array.from({ length: count }, (_, idx) => endYear - count + 1 + idx);
@@ -14,7 +76,7 @@ export function isFinancialAccountingSubject(text) {
 
 export function isLegalEconomicSubject(text) {
   const normalized = normalizeOutlineMatchText(text);
-  return /\b(luat|phap luat|luat kinh te|kinh te luat|phap ly|hop dong|doanh nghiep|thuong mai|tranh chap|tu van phap luat|dich vu phap ly|to tung|tu phap)\b/.test(normalized);
+  return /\b(luat|phap luat|luat kinh te|kinh te luat|phap ly|hop dong|tranh chap|tu van phap luat|dich vu phap ly|to tung|tu phap|luat doanh nghiep|luat thuong mai|phap che)\b/.test(normalized);
 }
 
 export function extractTargetCompanyFromPrompt(prompt) {
@@ -56,12 +118,6 @@ export function extractTargetCompanyFromPrompt(prompt) {
     .join(" ");
 }
 
-export function extractRequestedPages(prompt) {
-  const match = String(prompt || "").match(/(\d+)\s*(?:trang|pages?)/i);
-  const pages = match ? Number(match[1]) : 0;
-  return Number.isFinite(pages) && pages > 0 ? pages : 0;
-}
-
 export function inferStudyIssue(prompt, subject) {
   const normalized = normalizeOutlineMatchText(`${prompt || ""} ${subject || ""}`);
   const issueMap = [
@@ -87,39 +143,6 @@ export function isExplicitCareerOrientationReport(text = "") {
   );
 }
 
-export function buildReportContext(userPrompt, subject, outlineSource) {
-  const requestedPages = extractRequestedPages(userPrompt);
-  const targetCompany = extractTargetCompanyFromPrompt(userPrompt) || "đơn vị được yêu cầu";
-  const studyIssue = inferStudyIssue(userPrompt, `${subject || ""} ${outlineSource || ""}`);
-  const internshipReport = isExplicitB49Report(`${userPrompt || ""} ${subject || ""} ${outlineSource || ""}`);
-  const careerOrientationReport = !internshipReport && isExplicitCareerOrientationReport(`${userPrompt || ""} ${subject || ""} ${outlineSource || ""}`);
-  const reportTitle = internshipReport
-    ? `Báo cáo kiến tập thực tế tại ${targetCompany}`
-    : (careerOrientationReport
-      ? `Báo cáo thực tập định hướng nghề nghiệp tại ${targetCompany}`
-      : `Khóa luận tốt nghiệp về ${studyIssue} tại ${targetCompany}`);
-  const analysisYears = getLastCompletedYears(3);
-  const financialAccounting = isFinancialAccountingSubject(`${userPrompt || ""} ${subject || ""} ${outlineSource || ""} ${studyIssue}`);
-  const legalEconomic = isLegalEconomicSubject(`${userPrompt || ""} ${subject || ""} ${outlineSource || ""} ${studyIssue}`);
-
-  return {
-    userPrompt: String(userPrompt || "").trim(),
-    subject: subject || "",
-    outlineSource: outlineSource || "",
-    targetCompany,
-    studyIssue,
-    reportTitle,
-    requestedPages,
-    targetWords: requestedPages ? Math.max(1, requestedPages - ((internshipReport || careerOrientationReport) ? 4 : 3)) * 480 : 10125,
-    analysisYears,
-    analysisYearLabel: analysisYears.join(", "),
-    financialAccounting,
-    legalEconomic,
-    internshipReport,
-    careerOrientationReport,
-  };
-}
-
 export function adaptOutlineTitleToContext(title, reportContext) {
   if (!reportContext) return title;
   const issue = reportContext.studyIssue || "vấn đề nghiên cứu";
@@ -141,40 +164,6 @@ export function adaptOutlineTitleToContext(title, reportContext) {
     .replace(/\s+tại\s*$/i, ` tại ${company}`)
     .replace(/\s{2,}/g, " ")
     .trim();
-}
-
-export function reportContextPrompt(reportContext, sectionCount = 1, overrideSectionTarget = 0) {
-  if (!reportContext) return "";
-  const targetWords = reportContext.targetWords || 0;
-  const sectionTarget = overrideSectionTarget || (targetWords && sectionCount
-    ? Math.max(600, Math.round(targetWords / Math.max(sectionCount, 1)))
-    : 0);
-
-  return [
-    "YÊU CẦU GỐC CỦA NGƯỜI DÙNG - BẮT BUỘC TUÂN THỦ:",
-    `- Yêu cầu: ${reportContext.userPrompt || "Không rõ"}`,
-    `- Đề tài thực tế: ${reportContext.reportTitle}`,
-    `- Đơn vị nghiên cứu: ${reportContext.targetCompany}`,
-    `- Vấn đề nghiên cứu: ${reportContext.studyIssue}`,
-    reportContext.internshipReport ? "- Kiểu báo cáo: báo cáo kiến tập B49 / thực tế, trong luồng soạn thảo chỉ triển khai từ các mục 1.1, 1.2... trở đi; phần mở đầu sẽ được hệ thống ghép một lần ở đầu báo cáo hoàn chỉnh khi xuất cuối. Các mục 1.1.1, 1.1.2... là heading cấp 3 con của từng mục 1.1/1.2 và phải được xuất ra đúng Markdown ('###'). Không ép sang 3 chương." : "",
-    `- Giai đoạn số liệu bắt buộc: ${reportContext.analysisYearLabel || getLastCompletedYears(3).join(", ")}. Không dùng số liệu năm hiện tại vì năm hiện tại chưa kết thúc.`,
-    reportContext.requestedPages ? `- Độ dài mục tiêu: khoảng ${reportContext.requestedPages} trang (~${targetWords} từ).` : "",
-    sectionTarget ? `- Mục hiện tại nên viết khoảng ${sectionTarget} từ nếu không có chỉ dẫn khác.` : "",
-    "- Đề cương Supabase chỉ là khung cấu trúc; không được giữ placeholder như '[Tên đơn vị]', 'đơn vị', 'vấn đề nghiên cứu', 'ABC'.",
-    "- Báo cáo mẫu chỉ dùng để tham khảo văn phong/định dạng; tuyệt đối không lấy công ty, đề tài hoặc số liệu của báo cáo mẫu thay cho yêu cầu người dùng.",
-    "- THỨ TỰ ƯU TIÊN KHI VIẾT BÁO CÁO: (1) yêu cầu của người dùng, (2) nội dung và phong cách của báo cáo mẫu đã tải lên, (3) đề cương Supabase để giữ cấu trúc, (4) tri thức Supabase / tài liệu nội bộ chỉ dùng khi báo cáo mẫu chưa đủ tường minh cho một phần cần viết.",
-    "- Nếu báo cáo mẫu đã nêu rõ văn phong, cách trình bày, ví dụ, số liệu hoặc cách diễn đạt cho một mục, hãy ưu tiên học theo báo cáo mẫu trước; chỉ mượn Supabase để bổ sung khi còn thiếu thông tin hoặc cần làm rõ một phần chưa được mẫu thể hiện đủ.",
-    "- Khi có mâu thuẫn giữa báo cáo mẫu và tri thức Supabase, hãy ưu tiên báo cáo mẫu và yêu cầu hiện tại của người dùng; Supabase chỉ là nguồn bổ trợ cuối cùng.",
-    reportContext.financialAccounting
-      ? "- Môn/chủ đề tài chính, kế toán, ngân hàng: bắt buộc có bảng số liệu 3 năm, công thức/phép tính chỉ tiêu, nhận xét sau bảng và sơ đồ/quy trình minh họa phù hợp. Nếu không có đủ số liệu từ web/tài liệu, hãy lập số liệu phân tích logic cho đúng giai đoạn 3 năm bắt buộc và trình bày như dữ liệu phân tích chính thức; tuyệt đối không chèn chú thích kiểu \"số liệu mô phỏng\", \"ước tính\", \"tham khảo\"."
-      : "",
-    reportContext.legalEconomic
-      ? "- Môn/chủ đề luật kinh tế/pháp lý: bắt buộc xoay quanh cơ sở pháp lý, quy định hiện hành, thực trạng áp dụng tại đơn vị, rủi ro pháp lý, hợp đồng/tuân thủ/tranh chấp nếu phù hợp và giải pháp pháp lý. Không được chuyển sang quản trị kinh doanh, marketing hoặc tài chính nếu người dùng không yêu cầu."
-      : "",
-    reportContext.templateStyleGuide
-      ? `\nQUY TẮC ĐÃ HỌC TỪ BÁO CÁO MẪU CHẤT LƯỢNG CAO - BẮT BUỘC NOI THEO HỢP LÝ, KHÔNG SAO CHÉP:\n${reportContext.templateStyleGuide}`
-      : "",
-  ].filter(Boolean).join("\n");
 }
 
 export function parseJsonBlock(rawText) {
@@ -249,108 +238,58 @@ export function inferSectionTemplateExpectation(section, reportContext) {
   if (/co so ly luan|ly thuyet|khai niem|chi tieu/.test(normalized)) {
     expectations.push("Phần lý luận phải đi từ khái niệm, vai trò, hệ thống chỉ tiêu/công thức, nhân tố ảnh hưởng; không kể chuyện chung chung.");
   }
-  if (/phap ly|phap luat|luat|hop dong|tu van|tranh chap|tuan thu/.test(normalized)) {
-    expectations.push("Phần luật/pháp lý phải nêu cơ sở pháp lý, nguyên tắc áp dụng, đối tượng điều chỉnh, quyền-nghĩa vụ/rủi ro và ví dụ tình huống tại đơn vị.");
+  if (/thuc trang|dac diem|gioi thieu/.test(normalized)) {
+    expectations.push("Giới thiệu thực tế doanh nghiệp phải khớp với thông tin thật: cơ cấu tổ chức, quy trình phòng ban.");
   }
-  if (/thuc trang|phan tich|danh gia|hieu qua|tai chinh|ke toan|ngan hang/.test(normalized)) {
-    expectations.push("Phần phân tích phải có bảng, công thức/phép tính, nhận xét sau bảng và liên hệ trực tiếp với đơn vị nghiên cứu.");
+  if (/ket luan|kien nghi|giai phap/.test(normalized)) {
+    expectations.push("Đưa ra giải pháp trực tiếp cho rủi ro thực tế được phân tích ở chương trước.");
   }
-  if (/giai phap|kien nghi|de xuat/.test(normalized)) {
-    expectations.push("Giải pháp phải bám vào hạn chế/nguyên nhân đã phân tích, có điều kiện thực hiện, tác động kỳ vọng và thứ tự ưu tiên.");
-  }
-  if (/ket luan|tai lieu tham khao|phu luc/.test(normalized)) {
-    expectations.push("Phần kết luận/tài liệu tham khảo trình bày gọn, tổng hợp kết quả chính và giữ đúng chuẩn trích dẫn của báo cáo mẫu.");
-  }
-  if (reportContext?.financialAccounting) {
-    expectations.push(`Với tài chính/kế toán/ngân hàng, số liệu chỉ dùng ${reportContext.analysisYearLabel || getLastCompletedYears(3).join(", ")}; bảng phân tích phải có công thức và nhận xét định lượng.`);
-  }
-  if (reportContext?.legalEconomic) {
-    expectations.push("Với luật kinh tế, luôn ưu tiên căn cứ pháp luật hiện hành, thực trạng áp dụng tại đơn vị, rủi ro pháp lý, quy trình tuân thủ và kiến nghị hoàn thiện; không dùng khung quản trị kinh doanh làm trục chính.");
-  }
-
-  return expectations.join("\n");
+  return expectations.join(" ");
 }
 
 export function cleanOutlineLine(line) {
   return String(line || "")
-    .replace(/^\uFEFF/, "")
-    .replace(/^(?:dòng|dong)\s+\d+\s*:\s*/i, "")
-    .replace(/\t+/g, " ")
+    .trim()
+    .replace(/^#{1,6}\s+/, "")
+    .replace(/^[\s\-\*\•\d\.\)\(ivxlcdmIVXLCDM]+[:.]?\s+/, "")
+    .trim();
+}
+
+export function removeVietnameseTones(str) {
+  if (typeof str !== "string") return "";
+  let s = str;
+  s = s.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, "a");
+  s = s.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, "e");
+  s = s.replace(/ì|í|ị|ỉ|ĩ/g, "i");
+  s = s.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, "o");
+  s = s.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, "u");
+  s = s.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, "y");
+  s = s.replace(/đ/g, "d");
+  s = s.replace(/À|Á|Ạ|Ả|Ã|Â|Ầ|Ấ|Ậ|Ẩ|Ẫ|Ă|Ằ|Ắ|Ặ|Ẳ|Ẵ/g, "A");
+  s = s.replace(/È|É|Ẹ|Ẻ|Ẽ|Ê|Ề|Ế|Ệ|Ể|Ễ/g, "E");
+  s = s.replace(/Ì|Í|Ị|Ỉ|Ĩ/g, "I");
+  s = s.replace(/Ò|Ó|Ọ|Ỏ|Õ|Ô|Ồ|Ố|Ộ|Ổ|Ỗ|Ơ|Ờ|Ớ|Ợ|Ở|Ỡ/g, "O");
+  s = s.replace(/Ù|Ú|Ụ|Ủ|Ũ|Ư|Ừ|Ứ|Ự|Ử|Ữ/g, "U");
+  s = s.replace(/Ỳ|Ý|Ỵ|Ỷ|Ỹ/g, "Y");
+  s = s.replace(/Đ/g, "D");
+  s = s.replace(/\u0300|\u0301|\u0303|\u0309|\u0323/g, "");
+  s = s.replace(/\u02C6|\u0306|\u031B/g, "");
+  return s;
+}
+
+export function normalizeOutlineMatchText(str) {
+  return removeVietnameseTones(str)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-export function sanitizeReportDraftContent(content) {
-  return String(content || "")
-    .replace(/\s*\((?:Số liệu|Dữ liệu)\s+(?:mô phỏng|ước tính|tham khảo)[^)]{0,160}\)/gi, "")
-    .replace(/\s*\((?:So lieu|Du lieu)\s+(?:mo phong|uoc tinh|tham khao)[^)]{0,160}\)/gi, "")
-    .replace(/^\s*(?:Ghi chú|Lưu ý|Chú thích)\s*:\s*(?:Số liệu|Dữ liệu)\s+(?:mô phỏng|ước tính|tham khảo)[^\n]*(?:\n|$)/gim, "")
-    .replace(/^\s*(?:Ghi chu|Luu y|Chu thich)\s*:\s*(?:So lieu|Du lieu)\s+(?:mo phong|uoc tinh|tham khao)[^\n]*(?:\n|$)/gim, "")
-    .replace(/^\s*(?:Số liệu|Dữ liệu)\s+(?:mô phỏng|ước tính|tham khảo)[^\n]*(?:\n|$)/gim, "")
-    .replace(/^\s*(?:So lieu|Du lieu)\s+(?:mo phong|uoc tinh|tham khao)[^\n]*(?:\n|$)/gim, "")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
-
-export function hasSubstantiveDraftContent(content) {
-  return /[a-zA-Z0-9\u00C0-\u1EF9]/u.test(String(content || ""));
-}
-
-export function sanitizeB49OpeningDraftContent(content) {
-  const lines = String(content || "")
-    .replace(/\r\n/g, "\n")
-    .split("\n");
-
-  const firstSubsectionIdx = lines.findIndex((line) => {
-    const trimmed = line.trim();
-    return /^\s*(?:#{1,6}\s*)?\d+(?:\.\d+)+\.?\s+\S/.test(trimmed) || 
-           /^\s*\*\*\d+(?:\.\d+)+\.?\s+/.test(trimmed);
-  });
-
-  if (firstSubsectionIdx < 0) return content;
-  return lines.slice(firstSubsectionIdx).join("\n").trim();
-}
-
-export function normalizeOutlineMatchText(line) {
-  return cleanOutlineLine(line)
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/đ/g, "d");
-}
-
-export function isReferenceOnlySection(titleOrSection) {
-  const text = typeof titleOrSection === "string" ? titleOrSection : (titleOrSection?.title || "");
-  const normalized = normalizeOutlineMatchText(text);
-  if (/\b(ket luan|ket thuc|tom tat|de xuat)\b/.test(normalized)) {
-    return false;
-  }
+export function isReferenceOnlySection(section) {
+  const normalized = normalizeOutlineMatchText(section?.title || section || "");
   return (
-    /\btai lieu tham khao\b/.test(normalized) ||
-    /\bdanh muc tai lieu tham khao\b/.test(normalized) ||
-    /\bbibliograph/.test(normalized) ||
-    /\breferences?\b/.test(normalized)
-  );
-}
-
-export function shouldUseWebRagForSection(section, reportContext = null) {
-  const normalized = normalizeOutlineMatchText(
-    `${section?.title || ""} ${section?.description || ""} ${(section?.subsections || []).join(" ")}`,
-  );
-
-  if (!normalized) return false;
-  if (isReferenceOnlySection(section) || isConclusionSection(section) || isOpeningSection(section)) {
-    return false;
-  }
-  if (/\bket cau khoa luan|muc luc|loi cam on|loi mo dau\b/.test(normalized)) {
-    return false;
-  }
-
-  return (
-    reportContext?.financialAccounting ||
-    /\b(thuc trang|phan tich|so lieu|bao cao|tai chinh|doanh thu|loi nhuan|hieu qua|2023|2024|2025)\b/.test(normalized) ||
-    /\b(co so phap ly|quy dinh|van ban phap luat|phap luat hien hanh|luat)\b/.test(normalized)
+    /^(?:\d+(?:\.\d+)*\.?\s*)?(?:tai lieu tham khao|references?|thu muc tai lieu)\b/.test(normalized) ||
+    section?.is_reference_section === true
   );
 }
 
@@ -506,4 +445,126 @@ export function safeParseJson(jsonString, fallback = null) {
     console.warn("JSON parse failed, using fallback:", err.message);
     return fallback;
   }
+}
+
+/**
+ * Hậu kiểm chất lượng nội dung đã soạn thảo
+ * @param {string} content - Nội dung văn bản
+ * @param {Object} section - Thông tin mục đang viết
+ * @param {Object} reportContext - Thông tin ngữ cảnh báo cáo
+ * @returns {{ valid: boolean, reason: string }} Kết quả hậu kiểm
+ */
+export function validateDraftQuality(content, section, reportContext) {
+  if (!content || typeof content !== "string") {
+    return { valid: false, reason: "Nội dung trống rỗng." };
+  }
+
+  const wordCount = content.trim().split(/\s+/).length;
+  const targetWords = section.target_words || 0;
+  
+  // 1. Kiểm tra độ dài tối thiểu (đạt ít nhất 55% target words, ngoại trừ kết luận và mở đầu ngắn)
+  const isShortSection = isOpeningSection(section) || isConclusionSection(section);
+  const minPercent = isShortSection ? 0.4 : 0.55;
+  if (targetWords > 0 && wordCount < targetWords * minPercent) {
+    return { 
+      valid: false, 
+      reason: `Nội dung quá ngắn (${wordCount} từ), chưa đạt mục tiêu tối thiểu là ${Math.round(targetWords * minPercent)} từ (mục tiêu đầy đủ ${targetWords} từ). Hãy viết chi tiết và sâu sắc hơn.` 
+    };
+  }
+
+  // 2. Kiểm tra sự hiện diện của bảng biểu và sơ đồ cho tài chính/kế toán/pháp lý thực tế
+  if (!isShortSection && !reportContext?.careerOrientationReport) {
+    if (reportContext?.financialAccounting) {
+      const hasTable = content.includes("|");
+      if (!hasTable) {
+        return {
+          valid: false,
+          reason: "Thiếu bảng phân tích số liệu tài chính hoặc bảng so sánh (bắt buộc phải có dạng bảng biểu Markdown với các cột năm tương ứng)."
+        };
+      }
+    }
+  }
+
+  // 3. Kiểm tra sơ đồ Mermaid bắt buộc cho các tiểu mục quy trình của báo cáo BA49
+  const diagramCheck = validateB49MermaidRequirement(content, section, reportContext);
+  if (!diagramCheck.valid) {
+    return diagramCheck;
+  }
+
+  return { valid: true, reason: "" };
+}
+
+/**
+ * Danh sách tiểu mục BA49 bắt buộc phải có sơ đồ Mermaid (flowchart) theo prompt promptsB49.
+ * Khóa là số thứ tự phân cấp của tiểu mục, giá trị là mô tả loại sơ đồ cần vẽ.
+ */
+const B49_REQUIRED_DIAGRAM_SECTIONS = {
+  "1.1.2": "sơ đồ quy trình sản xuất - kinh doanh dạng Mermaid `flowchart TD`",
+  "1.3.1": "sơ đồ cơ cấu tổ chức bộ máy dạng Mermaid `flowchart TD`",
+  "1.3.2": "sơ đồ cơ cấu tổ chức bộ máy dạng Mermaid `flowchart TD`",
+  "1.4.2": "sơ đồ luồng Mermaid `flowchart TD` cho từng quy trình quản trị (nhân sự, tài chính, truyền thông, công nghệ)",
+};
+
+/**
+ * Trích số thứ tự phân cấp (vd "1.4.2") từ tiêu đề tiểu mục.
+ * @param {Object|string} section - Mục đang xét
+ * @returns {string} Số thứ tự phân cấp hoặc chuỗi rỗng nếu không tìm thấy
+ */
+function extractSectionNumber(section) {
+  const title = typeof section === "string" ? section : (section?.title || "");
+  const match = cleanOutlineLine(title).match(/^\s*#{0,6}\s*\*{0,2}\s*(\d+(?:\.\d+)+)/);
+  return match ? match[1] : "";
+}
+
+/**
+ * Đếm số sơ đồ Mermaid (flowchart/graph) trong nội dung.
+ * Ưu tiên đếm theo số khối ```mermaid; nếu không có khối rào thì đếm số khai báo flowchart/graph.
+ * @param {string} content - Nội dung văn bản đã soạn
+ * @returns {number}
+ */
+function countMermaidDiagrams(content) {
+  const text = String(content || "");
+  const fencedBlocks = text.match(/```\s*mermaid[\s\S]*?```/gi);
+  if (fencedBlocks && fencedBlocks.length > 0) {
+    return fencedBlocks.length;
+  }
+  const declarations = text.match(/\b(?:flowchart|graph)\s+(?:TD|TB|LR|RL|BT)\b/gi);
+  return declarations ? declarations.length : 0;
+}
+
+/**
+ * Số sơ đồ tối thiểu bắt buộc cho một tiểu mục BA49 nhất định.
+ * Mục 1.4.2 cần một sơ đồ cho từng quy trình quản trị (nhân sự, tài chính, truyền thông, công nghệ).
+ */
+const B49_MIN_DIAGRAM_COUNT = {
+  "1.4.2": 4,
+};
+
+/**
+ * Hậu kiểm yêu cầu sơ đồ Mermaid cho các tiểu mục quy trình của báo cáo BA49.
+ * @param {string} content - Nội dung văn bản đã soạn
+ * @param {Object} section - Thông tin mục đang viết
+ * @param {Object} reportContext - Thông tin ngữ cảnh báo cáo
+ * @returns {{ valid: boolean, reason: string }}
+ */
+function validateB49MermaidRequirement(content, section, reportContext) {
+  const isB49 = !!reportContext?.internshipReport || isInternshipB49ReportSection(section);
+  if (!isB49) return { valid: true, reason: "" };
+
+  const sectionNumber = extractSectionNumber(section);
+  const requirement = B49_REQUIRED_DIAGRAM_SECTIONS[sectionNumber];
+  if (!requirement) return { valid: true, reason: "" };
+
+  const diagramCount = countMermaidDiagrams(content);
+  const minCount = B49_MIN_DIAGRAM_COUNT[sectionNumber] || 1;
+
+  if (diagramCount < minCount) {
+    const base = `Tiểu mục ${sectionNumber} bắt buộc phải có ${requirement}.`;
+    const detail = minCount > 1
+      ? ` Hiện chỉ phát hiện ${diagramCount} sơ đồ nhưng cần tối thiểu ${minCount} sơ đồ Mermaid riêng biệt (mỗi quy trình quản trị một khối \`\`\`mermaid với flowchart TD riêng), kèm chú thích "Sơ đồ ${sectionNumber}.x: ..." in nghiêng và đoạn thuyết minh chi tiết dưới mỗi sơ đồ.`
+      : ` Bắt buộc phải có sơ đồ Mermaid (khối \`\`\`mermaid với flowchart TD) kèm chú thích "Sơ đồ ${sectionNumber}: ..." in nghiêng ngay bên dưới và đoạn thuyết minh chi tiết cho sơ đồ.`;
+    return { valid: false, reason: `${base}${detail}` };
+  }
+
+  return { valid: true, reason: "" };
 }

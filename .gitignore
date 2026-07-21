@@ -101,3 +101,7 @@ lms_crawler/Danh_Sach_Mon_Hoc_EHOU.xlsx
 9router/.firebase/
 9router/.firebaserc
 9router/firebase.json
+9router/.agents
+/9router/scratch
+.vscode
+.clinerules

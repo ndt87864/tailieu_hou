@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import apiClient from "../../services/client.js";
 import { toast } from "react-toastify";
-import { Search, Plus, Trash2, Edit2, RefreshCw, Loader2, Eye, EyeOff, Crown } from "lucide-react";
+import { Search, Plus, Trash2, Edit2, RefreshCw, Loader2, Eye, EyeOff, Crown, ChevronDown } from "lucide-react";
 import { useConfirm } from "../../context/ConfirmContext.js";
 import { useAdminCategories } from "../../hooks/useAdminCategories.js";
 import { useUI } from "../../context/UIContext.js";
@@ -15,7 +15,18 @@ interface Document {
   active: boolean;
   premium: boolean;
   category?: { title: string } | null;
+  created_at?: string;
 }
+
+type SortOption = "default" | "az" | "za" | "oldest" | "newest";
+
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: "default", label: "Mặc định" },
+  { value: "az", label: "Theo chữ cái (A → Z)" },
+  { value: "za", label: "Theo chữ cái (Z → A)" },
+  { value: "oldest", label: "Thời gian tạo (Cũ → Mới)" },
+  { value: "newest", label: "Thời gian tạo (Mới → Cũ)" },
+];
 
 const ToggleSwitch: React.FC<{
   checked: boolean;
@@ -46,6 +57,7 @@ const DocumentsTab: React.FC = () => {
   const { categories } = useAdminCategories();
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<SortOption>("default");
   const [editingDoc, setEditingDoc] = useState<Document | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({
@@ -78,6 +90,15 @@ const DocumentsTab: React.FC = () => {
 
   useEffect(() => {
     fetchInitialData();
+  }, []);
+
+  // Đóng dropdown khi click ra ngoài
+  useEffect(() => {
+    const handleOutsideClick = () => {
+      document.querySelectorAll(".custom-select-options").forEach((el) => el.classList.add("hidden"));
+    };
+    window.addEventListener("click", handleOutsideClick);
+    return () => window.removeEventListener("click", handleOutsideClick);
   }, []);
 
   const handleCreateOrUpdate = async (e: React.FormEvent) => {
@@ -174,43 +195,101 @@ const DocumentsTab: React.FC = () => {
     setFormData((prev) => ({ ...prev, slug }));
   };
 
-  const filtered = documents.filter(
-    (d) =>
-      d.title.toLowerCase().includes(search.toLowerCase()) ||
-      (d.category?.title || "").toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = documents
+    .filter((d) => {
+      const term = search.toLowerCase().trim();
+      return (
+        d.title.toLowerCase().includes(term) ||
+        (d.category?.title || "").toLowerCase().includes(term)
+      );
+    })
+    .sort((a, b) => {
+      if (sortBy === "az") return a.title.localeCompare(b.title, "vi");
+      if (sortBy === "za") return b.title.localeCompare(a.title, "vi");
+      if (sortBy === "oldest" || sortBy === "newest") {
+        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return sortBy === "oldest" ? timeA - timeB : timeB - timeA;
+      }
+      return 0;
+    });
 
   if (loading) return null;
 
   return (
     <div className="space-y-4">
       {/* Controls */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="relative w-full sm:w-80">
-          <Search className="absolute left-3 top-2.5 w-4 h-4 input-search-icon" />
-          <input
-            type="text"
-            placeholder="Tìm kiếm tài liệu..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="input-themed w-full pl-9 pr-4 py-2 text-sm rounded-xl outline-none focus:border-brand-500"
-          />
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="relative w-full sm:w-80">
+            <Search className="absolute left-3 top-2.5 w-4 h-4 input-search-icon" />
+            <input
+              type="text"
+              placeholder="Tìm kiếm tài liệu..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="input-themed w-full pl-9 pr-4 py-2 text-sm rounded-xl outline-none focus:border-brand-500"
+            />
+          </div>
+
+          <div className="flex gap-2 w-full sm:w-auto">
+            <button
+              onClick={() => setShowModal(true)}
+              className="btn-primary flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium rounded-xl hover:bg-brand-700 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Thêm tài liệu
+            </button>
+            <button
+              onClick={fetchInitialData}
+              title="Tải lại danh sách"
+              className="btn-secondary p-2 rounded-xl hover:bg-[var(--bg-2)] transition-colors shadow-sm"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
-        <div className="flex gap-2 w-full sm:w-auto">
-          <button
-            onClick={() => setShowModal(true)}
-            className="btn-primary flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium rounded-xl hover:bg-brand-700 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Thêm tài liệu
-          </button>
-          <button
-            onClick={fetchInitialData}
-            className="btn-secondary p-2 rounded-xl hover:bg-[var(--bg-2)] transition-colors shadow-sm"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
+        {/* Sắp xếp */}
+        <div className="flex items-center gap-2 w-full sm:max-w-xs">
+          <span className="text-xs font-semibold text-[var(--fg-2)] whitespace-nowrap">Sắp xếp:</span>
+          <div className="relative flex-1">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                const target = e.currentTarget.nextElementSibling as HTMLElement;
+                if (target) {
+                  const isHidden = target.classList.contains("hidden");
+                  document.querySelectorAll(".custom-select-options").forEach((el) => el.classList.add("hidden"));
+                  if (isHidden) target.classList.remove("hidden");
+                }
+              }}
+              className="w-full select-themed px-3 py-2 text-xs rounded-xl outline-none focus:border-brand-500 text-left flex items-center justify-between border border-[var(--border)] bg-[var(--surface)] text-[var(--fg)]"
+            >
+              <span>{SORT_OPTIONS.find((o) => o.value === sortBy)?.label}</span>
+              <ChevronDown className="w-3.5 h-3.5 shrink-0 opacity-70" />
+            </button>
+            <div className="custom-select-options hidden absolute left-0 right-0 top-full mt-1.5 z-50 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-lg overflow-hidden py-1">
+              {SORT_OPTIONS.map((item) => (
+                <button
+                  key={item.value}
+                  type="button"
+                  onClick={(e) => {
+                    setSortBy(item.value);
+                    e.currentTarget.parentElement?.classList.add("hidden");
+                  }}
+                  className={`w-full text-left px-3 py-2 text-xs transition-colors hover:bg-[var(--bg-2)] ${
+                    sortBy === item.value
+                      ? "bg-brand-50 dark:bg-brand-950/20 text-brand-700 dark:text-brand-400 font-semibold"
+                      : "text-[var(--fg)]"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 

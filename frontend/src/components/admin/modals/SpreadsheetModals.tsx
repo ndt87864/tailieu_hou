@@ -12,9 +12,9 @@ export const HelpShortcutsModal: React.FC<HelpShortcutsModalProps> = ({ show, on
   if (!show) return null;
   return (
     <div className="sheets-modal-overlay">
-      <div className="sheets-modal-card" style={{ maxWidth: "500px" }}>
+      <div className="sheets-modal-card max-w-[500px]">
         <h3>Trợ giúp & Phím tắt Bảng tính</h3>
-        <div className="sheets-modal-body" style={{ fontSize: "13px", gap: "10px", maxHeight: "300px", overflowY: "auto" }}>
+        <div className="sheets-modal-body text-[13px] gap-[10px] max-h-[300px] overflow-y-auto">
           <p><strong>Thao tác ô tính:</strong></p>
           <ul className="list-disc pl-5 space-y-1">
             <li>Nhấp đúp chuột vào ô để sửa dữ liệu hoặc nhập công thức bắt đầu bằng dấu <code>=</code> (Ví dụ: <code>=SUM(A1:A5)</code>).</li>
@@ -50,14 +50,14 @@ export const OpenSpreadsheetModal: React.FC<OpenSpreadsheetModalProps> = ({ show
   if (!show) return null;
   return (
     <div className="sheets-modal-overlay" onClick={onClose}>
-      <div className="sheets-modal-card" style={{ maxWidth: "500px" }} onClick={(e) => e.stopPropagation()}>
+      <div className="sheets-modal-card max-w-[500px]" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center border-b border-[var(--border)] pb-3 mb-2">
           <h3>Mở trang tính</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="sheets-modal-body" style={{ maxHeight: "320px", overflowY: "auto" }}>
+        <div className="sheets-modal-body max-h-[320px] overflow-y-auto">
           {loading ? (
             <div className="text-center py-8">Đang tải danh sách...</div>
           ) : list.length === 0 ? (
@@ -99,14 +99,14 @@ export const VersionHistoryModal: React.FC<VersionHistoryModalProps> = ({ show, 
   if (!show) return null;
   return (
     <div className="sheets-modal-overlay" onClick={onClose}>
-      <div className="sheets-modal-card" style={{ maxWidth: "500px" }} onClick={(e) => e.stopPropagation()}>
+      <div className="sheets-modal-card max-w-[500px]" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center border-b border-[var(--border)] pb-3 mb-2">
           <h3>Nhật ký phiên bản</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="sheets-modal-body" style={{ maxHeight: "320px", overflowY: "auto" }}>
+        <div className="sheets-modal-body max-h-[320px] overflow-y-auto">
           {history.length === 0 ? (
             <div className="text-center py-8 text-gray-500 flex flex-col items-center gap-2">
               <Clock className="w-8 h-8 text-gray-400" />
@@ -151,14 +151,14 @@ export const DocumentDetailsModal: React.FC<DocumentDetailsModalProps> = ({ show
   if (!show) return null;
   return (
     <div className="sheets-modal-overlay" onClick={onClose}>
-      <div className="sheets-modal-card" style={{ maxWidth: "400px" }} onClick={(e) => e.stopPropagation()}>
+      <div className="sheets-modal-card max-w-[400px]" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center border-b border-[var(--border)] pb-3 mb-2">
           <h3>Chi tiết tài liệu</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="sheets-modal-body" style={{ fontSize: "13px", gap: "12px" }}>
+        <div className="sheets-modal-body text-[13px] gap-[12px]">
           <div>
             <span className="text-gray-400 block text-[11px] uppercase tracking-wider">Tên tài liệu</span>
             <span className="font-semibold text-sm">{title}</span>
@@ -194,7 +194,7 @@ export const RenameSheetModal: React.FC<RenameSheetModalProps> = ({ show, onClos
   if (!show) return null;
   return (
     <div className="sheets-modal-overlay" onClick={onClose}>
-      <div className="sheets-modal-card" style={{ maxWidth: "400px" }} onClick={(e) => e.stopPropagation()}>
+      <div className="sheets-modal-card max-w-[400px]" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center border-b border-[var(--border)] pb-3 mb-2">
           <h3>Đổi tên trang tính</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
@@ -243,7 +243,7 @@ export const DeleteSheetModal: React.FC<DeleteSheetModalProps> = ({ show, onClos
   if (!show) return null;
   return (
     <div className="sheets-modal-overlay" onClick={onClose}>
-      <div className="sheets-modal-card" style={{ maxWidth: "400px" }} onClick={(e) => e.stopPropagation()}>
+      <div className="sheets-modal-card max-w-[400px]" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center border-b border-[var(--border)] pb-3 mb-2">
           <h3>Xóa trang tính?</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
@@ -283,7 +283,7 @@ export const NewDocModal: React.FC<NewDocModalProps> = ({ show, onClose, title, 
   if (!show) return null;
   return (
     <div className="sheets-modal-overlay" onClick={onClose}>
-      <div className="sheets-modal-card" style={{ maxWidth: "420px" }} onClick={(e) => e.stopPropagation()}>
+      <div className="sheets-modal-card max-w-[420px]" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center border-b border-[var(--border)] pb-3 mb-2">
           <h3 className="text-base font-bold">{title}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
@@ -355,7 +355,7 @@ export const SelectVipSheetsModal: React.FC<SelectVipSheetsModalProps> = ({ show
 
   return (
     <div className="sheets-modal-overlay" onClick={onCancelCreation}>
-      <div className="sheets-modal-card" style={{ maxWidth: "450px" }} onClick={(e) => e.stopPropagation()}>
+      <div className="sheets-modal-card max-w-[450px]" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center border-b border-[var(--border)] pb-3 mb-2">
           <h3 className="text-base font-bold">Tạo trang tính VIP?</h3>
           <button onClick={onCancelCreation} className="text-gray-400 hover:text-gray-600">
@@ -431,7 +431,7 @@ export const LinkInsertModal: React.FC<LinkInsertModalProps> = ({ show, onClose,
 
   return (
     <div className="sheets-modal-overlay" onClick={onClose}>
-      <div className="sheets-modal-card" style={{ maxWidth: "400px" }} onClick={(e) => e.stopPropagation()}>
+      <div className="sheets-modal-card max-w-[400px]" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center border-b border-[var(--border)] pb-3 mb-2">
           <h3 className="text-base font-bold">Chèn đường liên kết</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">

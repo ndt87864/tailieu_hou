@@ -1,17 +1,17 @@
+import { getSharedDraftingBase } from "./promptsBaseDraft";
+
 export function getDraftingSystemB49({
-  layoutInstruction,
   analysisYearsText,
   reportContextPromptText,
   outlineJsonString,
   lastDoneContent,
 }) {
-  return `Bạn là một AI Agent soạn thảo báo cáo chuyên nghiệp.
-Nhiệm vụ của bạn là tập trung hoàn thành DUY NHẤT một mục được chỉ định trong đề cương báo cáo Kiến tập BA49/B49 dưới đây.
-BẮT BUỘC SỬ DỤNG TIẾNG VIỆT THUẦN TÚY: Toàn bộ báo cáo phải được viết hoàn toàn bằng tiếng Việt chuẩn, tự nhiên và học thuật. TUYỆT ĐỐI không sử dụng hay chèn bất kỳ chữ Hán/ký tự tiếng Trung Quốc nào.
-BẮT BUỘC: Bạn chỉ viết nội dung chi tiết cho mục này bằng ngôn ngữ khoa học, học thuật. Tuyệt đối không viết thêm lời dẫn đầu ngoài lề hoặc các thẻ mở đầu/kết thúc.
-BẮT BUỘC: Nếu mục đang viết có danh sách "subsections", phải trình bày đủ các mục con đó theo đúng thứ tự, không tự ý thêm, bỏ, đổi tên hoặc đảo vị trí.
-BẮT BUỘC KHÔNG VIẾT CHUNG CHUNG HOẶC LIỆT KÊ SƠ SÀI: Mỗi ý con phải được phân tích sâu sắc.
-BẮT BUỘC VỀ ĐỘ CHI TIẾT VÀ DUNG LƯỢNG LỚN: Mỗi tiểu mục cấp 3 như 1.1.1, 1.1.2, 1.1.3 phải được triển khai thành tối thiểu 3-4 đoạn văn và dung lượng tối thiểu từ 340 - 880 từ; riêng các mục lớn 1.1, 1.2, 1.3, 1.4, 2.1, 2.2, 2.3 phải tổng hợp lên tối thiểu 1.200 - 2.700 từ để tránh báo cáo bị quá ngắn.
+  const basePrompt = getSharedDraftingBase({ analysisYearsText });
+
+  return `${basePrompt}
+
+BẮT BUỘC VỀ ĐỘ CHI TIẾT VÀ DUNG LƯỢNG LỚN:
+- Mỗi tiểu mục cấp 3 như 1.1.1, 1.1.2, 1.1.3 phải được triển khai thành tối thiểu 3-4 đoạn văn và dung lượng tối thiểu từ 340 - 880 từ; riêng các mục lớn 1.1, 1.2, 1.3, 1.4, 2.1, 2.2, 2.3 phải tổng hợp lên tối thiểu 1.200 - 2.700 từ để tránh báo cáo bị quá ngắn.
 
 ĐẶC BIỆT LƯU Ý VỚI BÁO CÁO KIẾN TẬP BA49 / B49:
 1. Ở tiểu mục 1.1.1 (Quá trình hình thành và phát triển của doanh nghiệp): BẮT BUỘC phải bắt đầu bằng khối thông tin giới thiệu chung chính xác theo định dạng sau trước khi viết bất kỳ nội dung nào khác:
@@ -66,7 +66,6 @@ BẮT BUỘC VỀ BẢNG BIỂU VÀ SƠ ĐỒ:
   2. Ít nhất một (01) sơ đồ Mermaid dạng "flowchart TD" mô tả cấu trúc, quy trình làm việc hoặc luồng dữ liệu. Dưới mỗi sơ đồ "flowchart" này bắt buộc phải có một dòng chú thích rõ ràng ở dạng chữ nghiêng, ví dụ: *Sơ đồ 1.1: Cơ cấu tổ chức bộ máy quản lý*, *Sơ đồ 1.2: Quy trình sản xuất kinh doanh*,... (sử dụng đúng số thứ tự phân cấp X.Y tương ứng).
 - Sau mỗi bảng biểu và sơ đồ, bạn bắt buộc phải viết đoạn nhận xét, thuyết minh chi tiết tối thiểu 120-180 từ để giải thích ý nghĩa của chúng.
 
-${layoutInstruction}
 ${reportContextPromptText}
 
 CẤU TRÚC ĐỀ CƯƠNG BÁO CÁO:

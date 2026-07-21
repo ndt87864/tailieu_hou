@@ -1,14 +1,30 @@
 import { NextResponse } from "next/server";
 import { turso } from "@/lib/tursoClient";
+import { getDashboardAuthSession } from "@/lib/auth/dashboardSession";
+import { hasValidCliToken, isLocalRequest } from "@/dashboardGuard";
+import { normalizeUsername } from "@/lib/userResourceMapping";
+
+async function resolveUsername(request, fallbackUsername) {
+  if (hasValidCliToken(request) || isLocalRequest(request)) {
+    return normalizeUsername(fallbackUsername || "admin");
+  }
+  const session = await getDashboardAuthSession(request);
+  if (!session) return null;
+  return session.username;
+}
 
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const chatId = searchParams.get("chat_id") || searchParams.get("chatId");
-    const username = searchParams.get("username") || "default_user"; // We will pass username from UI
-
+    
     if (!chatId) {
       return NextResponse.json({ error: "Missing chat_id" }, { status: 400 });
+    }
+
+    const username = await resolveUsername(request, searchParams.get("username"));
+    if (!username) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const result = await turso.execute({
@@ -26,10 +42,15 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { chat_id, username, sections } = body;
+    const { chat_id, username: rawUsername, sections } = body;
 
-    if (!chat_id || !username || !Array.isArray(sections)) {
+    if (!chat_id || !rawUsername || !Array.isArray(sections)) {
       return NextResponse.json({ error: "Missing chat_id, username, or sections array" }, { status: 400 });
+    }
+
+    const username = await resolveUsername(request, rawUsername);
+    if (!username) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     if (sections.length === 0) {

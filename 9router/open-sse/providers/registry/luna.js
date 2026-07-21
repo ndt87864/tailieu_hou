@@ -23,6 +23,7 @@ export default {
     baseUrl: "https://portal.qwen.ai/v1/chat/completions",
   },
   models: [
+    { id: "qwen3.8-max-preview", name: "Qwen 3.8 Max Preview" },
     { id: "qwen3.7-plus", name: "Qwen 3.7 Plus" },
     { id: "qwen3.7-max", name: "Qwen 3.7 Max" },
     { id: "qwen3.6-plus", name: "Qwen 3.6 Plus" },

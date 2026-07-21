@@ -751,7 +751,7 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
               {sheet.isVip && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-500 border border-amber-500/30 ml-1">⭐ VIP</span>}
             </span>
             {sheet.isProtected ? (
-              <button className="btn-tab-close" style={{ cursor: "default" }}><Lock className="w-3 h-3 text-amber-500" /></button>
+              <button className="btn-tab-close cursor-default"><Lock className="w-3 h-3 text-amber-500" /></button>
             ) : (
               visibleSheetsCount > 1 && <button className="btn-tab-close" onClick={e => { e.stopPropagation(); setDeleteSheetModal({ idx, name: sheet.name }); }}><X className="w-3 h-3" /></button>
             )}
@@ -813,8 +813,8 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
           setNewDocModal({ show: false, title: "Tạo trang tính mới", defaultName: "Trang tính chưa có tên", action: () => {} });
         }}
       />
-      <input type="file" id="excel-open-file-input" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={handleExcelOpenChange} />
-      <input type="file" id="excel-import-file-input" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={handleExcelImportChange} />
+      <input type="file" id="excel-open-file-input" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleExcelOpenChange} />
+      <input type="file" id="excel-import-file-input" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleExcelImportChange} />
 
       <LinkInsertModal
         show={!!showLinkModal}

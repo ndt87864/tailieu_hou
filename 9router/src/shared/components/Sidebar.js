@@ -47,6 +47,7 @@ export default function Sidebar({ onClose }) {
   const [isDisconnected, setIsDisconnected] = useState(false);
   const [enableTranslator, setEnableTranslator] = useState(false);
   const [mediaOpen, setMediaOpen] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
   const { fetchSettings } = useSettingsStore();
 
@@ -69,25 +70,42 @@ export default function Sidebar({ onClose }) {
     return pathname.startsWith(href);
   };
 
+  const isMobile = !!onClose;
+  const isExpanded = isMobile || isHovered;
+
   return (
     <>
-      <aside className="flex w-72 flex-col border-r border-border-subtle bg-vibrancy backdrop-blur-xl transition-colors duration-300 min-h-full">
+      <aside
+        onMouseEnter={() => !isMobile && setIsHovered(true)}
+        onMouseLeave={() => !isMobile && setIsHovered(false)}
+        className={cn(
+          "flex flex-col border-r border-border-subtle bg-vibrancy backdrop-blur-xl transition-all duration-300 min-h-full overflow-hidden select-none",
+          isMobile
+            ? "w-72"
+            : cn(
+                "fixed top-0 bottom-0 left-0 z-40",
+                isHovered ? "w-72 shadow-[0_0_30px_rgba(0,0,0,0.3)]" : "w-16"
+              )
+        )}
+      >
         {/* Traffic lights */}
-        <div className="flex items-center gap-2 px-6 pt-5 pb-2">
+        <div className={cn("flex items-center gap-2 px-6 pt-5 pb-2 transition-all duration-300 shrink-0", !isExpanded && "opacity-0 h-0 pt-0 pb-0 overflow-hidden")}>
           <div className="w-3 h-3 rounded-full bg-[#FF5F56]" />
           <div className="w-3 h-3 rounded-full bg-[#FFBD2E]" />
           <div className="w-3 h-3 rounded-full bg-[#27C93F]" />
         </div>
 
         {/* Logo */}
-        <div className="px-6 py-4">
+        <div className={cn("px-6 py-4 transition-all duration-300 shrink-0", !isExpanded && "flex justify-center px-0 py-5")}>
           <Link href="/dashboard" className="flex items-center gap-3">
-            <div className="flex items-center justify-center size-9 rounded-[10px] bg-gradient-to-br from-brand-500 to-brand-700 shadow-[var(--shadow-warm)]">
+            <div className="flex items-center justify-center size-9 rounded-[10px] bg-gradient-to-br from-brand-500 to-brand-700 shadow-[var(--shadow-warm)] shrink-0">
               <span className="material-symbols-outlined text-white text-[20px]">school</span>
             </div>
-            <h1 className="text-lg font-semibold tracking-tight text-text-main">
-              {APP_CONFIG.name}
-            </h1>
+            {isExpanded && (
+              <h1 className="text-lg font-semibold tracking-tight text-text-main truncate animate-fade-in">
+                {APP_CONFIG.name}
+              </h1>
+            )}
           </Link>
         </div>
 
@@ -95,71 +113,84 @@ export default function Sidebar({ onClose }) {
         <nav className="flex-1 px-4 py-2 space-y-0.5 overflow-y-auto custom-scrollbar">
           {/* Connections section */}
           <div className="space-y-0.5">
-            <p className="px-4 text-xs font-semibold text-text-muted/60 uppercase tracking-wider mb-2">
-              Connections
-            </p>
+            {isExpanded && (
+              <p className="px-4 text-xs font-semibold text-text-muted/60 uppercase tracking-wider mb-2">
+                Connections
+              </p>
+            )}
             {connectionItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
                 onClick={onClose}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-1 rounded-lg transition-all group",
+                  "flex items-center rounded-lg transition-all group",
+                  isExpanded ? "gap-3 px-3 py-1" : "justify-center p-2 mx-1",
                   isActive(item.href)
                     ? "bg-primary/10 text-primary"
                     : "text-text-muted hover:bg-surface-2 hover:text-text-main"
                 )}
+                title={!isExpanded ? item.label : undefined}
               >
                 <span
                   className={cn(
-                    "material-symbols-outlined text-[18px]",
+                    "material-symbols-outlined text-[18px] shrink-0",
                     isActive(item.href) ? "fill-1" : "group-hover:text-primary transition-colors"
                   )}
                 >
                   {item.icon}
                 </span>
-                <span className="text-[13px] font-medium">{item.label}</span>
+                {isExpanded && (
+                  <span className="text-[13px] font-medium truncate">{item.label}</span>
+                )}
               </Link>
             ))}
           </div>
 
           {/* Monitoring section */}
-          <div className="pt-3 mt-2 space-y-0.5">
-            <p className="px-4 text-xs font-semibold text-text-muted/60 uppercase tracking-wider mb-2">
-              Monitoring
-            </p>
+          <div className={cn("space-y-0.5", isExpanded && "pt-3 mt-2")}>
+            {isExpanded && (
+              <p className="px-4 text-xs font-semibold text-text-muted/60 uppercase tracking-wider mb-2">
+                Monitoring
+              </p>
+            )}
             {monitoringItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
                 onClick={onClose}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-1 rounded-lg transition-all group",
+                  "flex items-center rounded-lg transition-all group",
+                  isExpanded ? "gap-3 px-3 py-1" : "justify-center p-2 mx-1",
                   isActive(item.href)
                     ? "bg-primary/10 text-primary"
                     : "text-text-muted hover:bg-surface-2 hover:text-text-main"
                 )}
+                title={!isExpanded ? item.label : undefined}
               >
                 <span
                   className={cn(
-                    "material-symbols-outlined text-[18px]",
+                    "material-symbols-outlined text-[18px] shrink-0",
                     isActive(item.href) ? "fill-1" : "group-hover:text-primary transition-colors"
                   )}
                 >
                   {item.icon}
                 </span>
-                <span className="text-[13px] font-medium">{item.label}</span>
+                {isExpanded && (
+                  <span className="text-[13px] font-medium truncate">{item.label}</span>
+                )}
               </Link>
             ))}
           </div>
 
           {/* AI Tools section */}
-          <div className="pt-3 mt-2 space-y-0.5">
-            <p className="px-4 text-xs font-semibold text-text-muted/60 uppercase tracking-wider mb-2">
-              AI Tools
-            </p>
+          <div className={cn("space-y-0.5", isExpanded && "pt-3 mt-2")}>
+            {isExpanded && (
+              <p className="px-4 text-xs font-semibold text-text-muted/60 uppercase tracking-wider mb-2">
+                AI Tools
+              </p>
+            )}
             {debugItems.map((item) => {
-              // Translator is conditional on settings; AI Assistant always shows
               const show = item.href !== "/dashboard/translator" || enableTranslator;
               return show ? (
                 <Link
@@ -167,80 +198,97 @@ export default function Sidebar({ onClose }) {
                   href={item.href}
                   onClick={onClose}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-1 rounded-lg transition-all group",
+                    "flex items-center rounded-lg transition-all group",
+                    isExpanded ? "gap-3 px-3 py-1" : "justify-center p-2 mx-1",
                     isActive(item.href)
                       ? "bg-primary/10 text-primary"
                       : "text-text-muted hover:bg-surface-2 hover:text-text-main"
                   )}
+                  title={!isExpanded ? item.label : undefined}
                 >
                   <span
                     className={cn(
-                      "material-symbols-outlined text-[18px]",
+                      "material-symbols-outlined text-[18px] shrink-0",
                       isActive(item.href) ? "fill-1" : "group-hover:text-primary transition-colors"
                     )}
                   >
                     {item.icon}
                   </span>
-                  <span className="text-[13px] font-medium">{item.label}</span>
+                  {isExpanded && (
+                    <span className="text-[13px] font-medium truncate">{item.label}</span>
+                  )}
                 </Link>
               ) : null;
             })}
           </div>
 
           {/* Reports section */}
-          <div className="pt-3 mt-2 space-y-0.5">
-            <p className="px-4 text-xs font-semibold text-text-muted/60 uppercase tracking-wider mb-2">
-              Reports
-            </p>
-
+          <div className={cn("space-y-0.5", isExpanded && "pt-3 mt-2")}>
+            {isExpanded && (
+              <p className="px-4 text-xs font-semibold text-text-muted/60 uppercase tracking-wider mb-2">
+                Reports
+              </p>
+            )}
             {reportItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
                 onClick={onClose}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-1 rounded-lg transition-all group",
+                  "flex items-center rounded-lg transition-all group",
+                  isExpanded ? "gap-3 px-3 py-1" : "justify-center p-2 mx-1",
                   isActive(item.href)
                     ? "bg-primary/10 text-primary"
                     : "text-text-muted hover:bg-surface-2 hover:text-text-main"
                 )}
+                title={!isExpanded ? item.label : undefined}
               >
                 <span
                   className={cn(
-                    "material-symbols-outlined text-[18px]",
+                    "material-symbols-outlined text-[18px] shrink-0",
                     isActive(item.href) ? "fill-1" : "group-hover:text-primary transition-colors"
                   )}
                 >
                   {item.icon}
                 </span>
-                <span className="text-[13px] font-medium">{item.label}</span>
+                {isExpanded && (
+                  <span className="text-[13px] font-medium truncate">{item.label}</span>
+                )}
               </Link>
             ))}
           </div>
 
           {/* System section */}
-          <div className="pt-3 mt-2 space-y-0.5">
-            <p className="px-4 text-xs font-semibold text-text-muted/60 uppercase tracking-wider mb-2">
-              System
-            </p>
+          <div className={cn("space-y-0.5", isExpanded && "pt-3 mt-2")}>
+            {isExpanded && (
+              <p className="px-4 text-xs font-semibold text-text-muted/60 uppercase tracking-wider mb-2">
+                System
+              </p>
+            )}
 
             {/* Media Providers accordion */}
             <button
-              onClick={() => setMediaOpen((v) => !v)}
+              onClick={() => isExpanded && setMediaOpen((v) => !v)}
               className={cn(
-                "w-full flex items-center gap-3 px-3 py-1.5 rounded-lg transition-all group text-left",
+                "w-full flex items-center rounded-lg transition-all group text-left",
+                isExpanded ? "gap-3 px-3 py-1.5" : "justify-center p-2 mx-1",
                 pathname.startsWith("/dashboard/media-providers")
                   ? "bg-primary/10 text-primary"
                   : "text-text-muted hover:bg-surface-2 hover:text-text-main"
               )}
+              title={!isExpanded ? "Media Providers" : undefined}
             >
-              <span className="material-symbols-outlined text-[18px]">perm_media</span>
-              <span className="text-[13px] font-medium flex-1">Media Providers</span>
-              <span className="material-symbols-outlined text-[14px] transition-transform" style={{ transform: mediaOpen ? "rotate(180deg)" : "rotate(0deg)" }}>
-                expand_more
-              </span>
+              <span className="material-symbols-outlined text-[18px] shrink-0">perm_media</span>
+              {isExpanded && (
+                <>
+                  <span className="text-[13px] font-medium flex-1 truncate">Media Providers</span>
+                  <span className="material-symbols-outlined text-[14px] transition-transform shrink-0" style={{ transform: mediaOpen ? "rotate(180deg)" : "rotate(0deg)" }}>
+                    expand_more
+                  </span>
+                </>
+              )}
             </button>
-            {mediaOpen && (
+            {isExpanded && mediaOpen && (
               <div className="pl-4 space-y-0.5">
                 {MEDIA_PROVIDER_KINDS.filter((k) => VISIBLE_MEDIA_KINDS.includes(k.id)).map((kind) => (
                   <Link
@@ -254,8 +302,8 @@ export default function Sidebar({ onClose }) {
                         : "text-text-muted hover:bg-surface-2 hover:text-text-main"
                     )}
                   >
-                    <span className="material-symbols-outlined text-[16px]">{kind.icon}</span>
-                    <span className="text-[13px] font-medium">{kind.label}</span>
+                    <span className="material-symbols-outlined text-[16px] shrink-0">{kind.icon}</span>
+                    <span className="text-[13px] font-medium truncate">{kind.label}</span>
                   </Link>
                 ))}
                 <Link
@@ -269,8 +317,8 @@ export default function Sidebar({ onClose }) {
                       : "text-text-muted hover:bg-surface-2 hover:text-text-main"
                   )}
                 >
-                  <span className="material-symbols-outlined text-[16px]">{COMBINED_WEB_ITEM.icon}</span>
-                  <span className="text-[13px] font-medium">{COMBINED_WEB_ITEM.label}</span>
+                  <span className="material-symbols-outlined text-[16px] shrink-0">{COMBINED_WEB_ITEM.icon}</span>
+                  <span className="text-[13px] font-medium truncate">{COMBINED_WEB_ITEM.label}</span>
                 </Link>
               </div>
             )}
@@ -281,21 +329,25 @@ export default function Sidebar({ onClose }) {
                 href={item.href}
                 onClick={onClose}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-1 rounded-lg transition-all group",
+                  "flex items-center rounded-lg transition-all group",
+                  isExpanded ? "gap-3 px-3 py-1" : "justify-center p-2 mx-1",
                   isActive(item.href)
                     ? "bg-primary/10 text-primary"
                     : "text-text-muted hover:bg-surface-2 hover:text-text-main"
                 )}
+                title={!isExpanded ? item.label : undefined}
               >
                 <span
                   className={cn(
-                    "material-symbols-outlined text-[18px]",
+                    "material-symbols-outlined text-[18px] shrink-0",
                     isActive(item.href) ? "fill-1" : "group-hover:text-primary transition-colors"
                   )}
                 >
                   {item.icon}
                 </span>
-                <span className="text-[13px] font-medium">{item.label}</span>
+                {isExpanded && (
+                  <span className="text-[13px] font-medium truncate">{item.label}</span>
+                )}
               </Link>
             ))}
 
@@ -304,25 +356,28 @@ export default function Sidebar({ onClose }) {
               href="/dashboard/profile"
               onClick={onClose}
               className={cn(
-                "flex items-center gap-3 px-3 py-1 rounded-lg transition-all group",
+                "flex items-center rounded-lg transition-all group",
+                isExpanded ? "gap-3 px-3 py-1" : "justify-center p-2 mx-1",
                 isActive("/dashboard/profile")
                   ? "bg-primary/10 text-primary"
                   : "text-text-muted hover:bg-surface-2 hover:text-text-main"
               )}
+              title={!isExpanded ? "Settings" : undefined}
             >
               <span
                 className={cn(
-                  "material-symbols-outlined text-[18px]",
+                  "material-symbols-outlined text-[18px] shrink-0",
                   isActive("/dashboard/profile") ? "fill-1" : "group-hover:text-primary transition-colors"
                 )}
               >
                 settings
               </span>
-              <span className="text-[13px] font-medium">Settings</span>
+              {isExpanded && (
+                <span className="text-[13px] font-medium truncate">Settings</span>
+              )}
             </Link>
           </div>
         </nav>
-
       </aside>
 
       {/* Disconnected Overlay */}

@@ -1,19 +1,20 @@
+import { getSharedDraftingBase } from "./promptsBaseDraft";
+
 export function getDraftingSystemCareer({
-  layoutInstruction,
   analysisYearsText,
   reportContextPromptText,
   outlineJsonString,
   lastDoneContent,
 }) {
-  return `Bạn là một AI Agent soạn thảo báo cáo chuyên nghiệp.
-Nhiệm vụ của bạn là tập trung hoàn thành DUY NHẤT một mục được chỉ định trong đề cương báo cáo Thực tập định hướng nghề nghiệp dưới đây.
-BẮT BUỘC SỬ DỤNG TIẾNG VIỆT THUẦN TÚY: Toàn bộ báo cáo phải được viết hoàn toàn bằng tiếng Việt chuẩn, tự nhiên và học thuật. TUYỆT ĐỐI không sử dụng hay chèn bất kỳ chữ Hán/ký tự tiếng Trung Quốc nào (ví dụ: TUYỆT ĐỐI KHÔNG dùng từ như "業務", "管理", "部門", v.v.). Hãy thay thế hoàn toàn bằng thuật ngữ tiếng Việt tương ứng.
-BẮT BUỘC: Bạn chỉ viết nội dung chi tiết cho mục này bằng ngôn ngữ khoa học, học thuật. Tuyệt đối không viết thêm lời dẫn đầu ngoài lề hoặc các thẻ mở đầu/kết thúc.
-BẮT BUỘC: Nếu mục đang viết có danh sách "subsections", phải trình bày đủ các mục con đó theo đúng thứ tự, không tự ý thêm, bỏ, đổi tên hoặc đảo vị trí.
-BẮT BUỘC KHÔNG VIẾT CHUNG CHUNG HOẶC LIỆT KÊ SƠ SÀI: Mỗi ý con phải được phân tích sâu sắc.
-BẮT BUỘC VỀ ĐỘ CHI TIẾT VÀ DUNG LƯỢNG LỚN: Mỗi tiểu mục cấp 3 như 1.1.1, 1.1.2, 1.1.3 phải được triển khai thành tối thiểu 3-4 đoạn văn và dung lượng tối thiểu từ 340 - 880 từ; riêng các mục lớn 1.1, 1.2, 1.3, 1.4, 2.1, 2.2, 2.3 phải tổng hợp lên tối thiểu 1.200 - 2.700 từ để tránh báo cáo bị quá ngắn.
+  const basePrompt = getSharedDraftingBase({ analysisYearsText });
 
-CẤM TUYỆT ĐỐI CHÈN BẢNG BIỂU VÀ SƠ ĐỒ/BIỂU ĐỒ: Đối với báo cáo Thực tập định hướng nghề nghiệp, TUYỆT ĐỐI CẤM tự ý tạo hoặc chèn bất kỳ bảng biểu (Markdown tables), biểu đồ hoặc sơ đồ (Mermaid diagrams) nào vào báo cáo, NGOẠI TRỪ duy nhất sơ đồ/biểu đồ bộ máy lãnh đạo ở phần "Bộ máy lãnh đạo" thuộc mục 1.1 (nếu là cơ quan nhà nước / công ty luật) và bảng biểu nhật ký thực tập ở mục 4.1. Tất cả các phần còn lại (bao gồm mục 1.2, 2.1, 2.2, 2.3, 2.4, 3,...) BẮT BUỘC 100% phải được viết hoàn toàn bằng văn xuôi (paragraphs) phân tích chuyên sâu. Tuyệt đối không được chèn bảng hay sơ đồ nào khác.
+  return `${basePrompt}
+
+BẮT BUỘC VỀ ĐỘ CHI TIẾT VÀ DUNG LƯỢNG LỚN:
+- Mỗi tiểu mục cấp 3 như 1.1.1, 1.1.2, 1.1.3 phải được triển khai thành tối thiểu 3-4 đoạn văn và dung lượng tối thiểu từ 340 - 880 từ; riêng các mục lớn 1.1, 1.2, 1.3, 1.4, 2.1, 2.2, 2.3 phải tổng hợp lên tối thiểu 1.200 - 2.700 từ để tránh báo cáo bị quá ngắn.
+
+CẤM TUYỆT ĐỐI CHÈN BẢNG BIỂU VÀ SƠ ĐỒ/BIỂU ĐỒ:
+- Đối với báo cáo Thực tập định hướng nghề nghiệp, TUYỆT ĐỐI CẤM tự ý tạo hoặc chèn bất kỳ bảng biểu (Markdown tables), biểu đồ hoặc sơ đồ (Mermaid diagrams) nào vào báo cáo, NGOẠI TRỪ duy nhất sơ đồ/biểu đồ bộ máy lãnh đạo ở phần "Bộ máy lãnh đạo" thuộc mục 1.1 (nếu là cơ quan nhà nước / công ty luật) và bảng biểu nhật ký thực tập ở mục 4.1. Tất cả các phần còn lại (bao gồm mục 1.2, 2.1, 2.2, 2.3, 2.4, 3,...) BẮT BUỘC 100% phải được viết hoàn toàn bằng văn xuôi (paragraphs) phân tích chuyên sâu. Tuyệt đối không được chèn bảng hay sơ đồ nào khác.
 
 ĐẶC BIỆT LƯU Ý VỚI BÁO CÁO THỰC TẬP ĐỊNH HƯỚNG NGHỀ NGHIỆP:
 * Khung báo cáo luôn tuân thủ chính xác cấu trúc sau:
@@ -113,7 +114,6 @@ CẤM TUYỆT ĐỐI CHÈN BẢNG BIỂU VÀ SƠ ĐỒ/BIỂU ĐỒ: Đối vớ
     | | ....., ngày .... tháng ..... năm 2026<br><br>**CÁN BỘ HƯỚNG DẪN**<br>*(Kí và ghi rõ họ tên)* |
     |---|---|
 
-${layoutInstruction}
 ${reportContextPromptText}
 
 CẤU TRÚC ĐỀ CƯƠNG BÁO CÁO:

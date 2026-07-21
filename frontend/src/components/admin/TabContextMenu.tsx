@@ -35,29 +35,18 @@ export const TabContextMenu: React.FC<TabContextMenuProps> = ({
   return (
     <>
       <div
-        className="sheets-context-menu-backdrop"
+        className="sheets-context-menu-backdrop fixed inset-0 z-[99998]"
         onClick={onClose}
         onContextMenu={(e) => { e.preventDefault(); onClose(); }}
-        style={{ position: "fixed", inset: 0, zIndex: 99998 }}
       />
       <div
-        className="sheets-tab-context-menu"
+        className="sheets-tab-context-menu fixed z-[99999] bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-[0_4px_12px_rgba(0,0,0,0.15)] py-1 min-w-[160px] text-[var(--fg)]"
         style={{
-          position: "fixed",
           top: `${tabContextMenu.y - 180}px`,
           left: `${tabContextMenu.x}px`,
-          zIndex: 99999,
-          backgroundColor: "var(--surface, #fff)",
-          border: "1px solid var(--border)",
-          borderRadius: "8px",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-          padding: "4px 0",
-          minWidth: "160px",
-          color: "var(--fg)",
         }}
       >
         <button
-          className="sheets-tab-menu-item"
           onClick={() => {
             if (sheet.isProtected) {
               toast.error("Không thể xóa trang tính đang được bảo vệ!");
@@ -72,23 +61,16 @@ export const TabContextMenu: React.FC<TabContextMenuProps> = ({
             setDeleteSheetModal({ idx: targetIdx, name: sheet.name });
             onClose();
           }}
-          style={{
-            display: "flex",
-            width: "100%",
-            padding: "8px 12px",
-            border: "none",
-            background: "none",
-            fontSize: "13px",
-            cursor: sheet.isProtected ? "not-allowed" : "pointer",
-            color: sheet.isProtected ? "gray" : "red",
-            opacity: sheet.isProtected ? 0.5 : 1,
-            textAlign: "left",
-          }}
+          className={`sheets-tab-menu-item flex w-full px-3 py-2 border-none bg-none text-[13px] text-left ${
+            sheet.isProtected 
+              ? "text-gray-400 cursor-not-allowed opacity-50" 
+              : "text-red-500 hover:bg-[var(--bg-3)] cursor-pointer"
+          }`}
         >
           Xóa
         </button>
         <button
-          className="sheets-tab-menu-item"
+          className="sheets-tab-menu-item flex w-full px-3 py-2 border-none bg-none text-[13px] text-left text-inherit cursor-pointer hover:bg-[var(--bg-3)]"
           onClick={() => {
             updateSheetsAndSaveHistory((prev) => [
               ...prev,
@@ -103,44 +85,28 @@ export const TabContextMenu: React.FC<TabContextMenuProps> = ({
             onClose();
             toast.success("Đã nhân bản trang tính!");
           }}
-          style={{ display: "flex", width: "100%", padding: "8px 12px", border: "none", background: "none", fontSize: "13px", cursor: "pointer", color: "inherit", textAlign: "left" }}
         >
           Nhân bản
         </button>
         <button
-          className="sheets-tab-menu-item"
+          className="sheets-tab-menu-item flex w-full px-3 py-2 border-none bg-none text-[13px] text-left text-inherit cursor-pointer hover:bg-[var(--bg-3)]"
           onClick={() => {
             setRenameSheetModal({ idx: targetIdx, name: sheet.name });
             onClose();
           }}
-          style={{ display: "flex", width: "100%", padding: "8px 12px", border: "none", background: "none", fontSize: "13px", cursor: "pointer", color: "inherit", textAlign: "left" }}
         >
           Đổi tên
         </button>
-        <div className="sheets-tab-menu-submenu-wrapper" style={{ position: "relative" }}>
+        <div className="sheets-tab-menu-submenu-wrapper relative">
           <button
-            className="sheets-tab-menu-item flex justify-between items-center"
+            className="sheets-tab-menu-item flex justify-between items-center w-full px-3 py-2 border-none bg-none text-[13px] text-left text-inherit cursor-pointer hover:bg-[var(--bg-3)]"
             onClick={(e) => { e.stopPropagation(); }}
-            style={{ display: "flex", justifyContent: "space-between", width: "100%", padding: "8px 12px", border: "none", background: "none", fontSize: "13px", cursor: "pointer", color: "inherit", textAlign: "left" }}
           >
             <span>Thay đổi màu</span>
-            <span style={{ fontSize: "9px" }}>▶</span>
+            <span className="text-[9px]">▶</span>
           </button>
           <div
-            className="sheets-tab-color-picker"
-            style={{
-              position: "absolute",
-              left: "100%",
-              top: 0,
-              backgroundColor: "var(--surface, #fff)",
-              border: "1px solid var(--border)",
-              borderRadius: "6px",
-              padding: "8px",
-              display: "grid",
-              gridTemplateColumns: "repeat(4, 1fr)",
-              gap: "4px",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-            }}
+            className="sheets-tab-color-picker absolute left-full top-0 bg-[var(--surface)] border border-[var(--border)] rounded-md p-2 grid grid-cols-4 gap-1 shadow-[0_4px_12px_rgba(0,0,0,0.1)]"
           >
             {["#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899", ""].map((c) => (
               <button
@@ -153,13 +119,9 @@ export const TabContextMenu: React.FC<TabContextMenuProps> = ({
                   });
                   onClose();
                 }}
+                className="w-4 h-4 rounded-full border border-gray-300 cursor-pointer"
                 style={{
-                  width: "16px",
-                  height: "16px",
-                  borderRadius: "50%",
                   backgroundColor: c || "#ccc",
-                  border: "1px solid #ddd",
-                  cursor: "pointer",
                 }}
                 title={c ? c : "Không màu"}
               />
@@ -167,7 +129,7 @@ export const TabContextMenu: React.FC<TabContextMenuProps> = ({
           </div>
         </div>
         <button
-          className="sheets-tab-menu-item"
+          className="sheets-tab-menu-item flex w-full px-3 py-2 border-none bg-none text-[13px] text-left text-inherit cursor-pointer hover:bg-[var(--bg-3)]"
           onClick={() => {
             const isCurrentProtected = !!sheet.isProtected;
             updateSheetsAndSaveHistory((prev) => {
@@ -179,13 +141,12 @@ export const TabContextMenu: React.FC<TabContextMenuProps> = ({
             onClose();
             setTimeout(() => handleSave(), 100);
           }}
-          style={{ display: "flex", width: "100%", padding: "8px 12px", border: "none", background: "none", fontSize: "13px", cursor: "pointer", color: "inherit", textAlign: "left" }}
         >
           {sheet.isProtected ? "Hủy bảo vệ trang tính" : "Bảo vệ trang tính"}
         </button>
         {visibleSheetsCount > 1 && (
           <button
-            className="sheets-tab-menu-item"
+            className="sheets-tab-menu-item flex w-full px-3 py-2 border-none bg-none text-[13px] text-left text-inherit cursor-pointer hover:bg-[var(--bg-3)]"
             onClick={() => {
               updateSheetsAndSaveHistory((prev) => {
                 const copy = [...prev];
@@ -200,13 +161,12 @@ export const TabContextMenu: React.FC<TabContextMenuProps> = ({
               onClose();
               setTimeout(() => handleSave(), 100);
             }}
-            style={{ display: "flex", width: "100%", padding: "8px 12px", border: "none", background: "none", fontSize: "13px", cursor: "pointer", color: "inherit", textAlign: "left" }}
           >
             Ẩn trang tính
           </button>
         )}
         <button
-          className="sheets-tab-menu-item"
+          className="sheets-tab-menu-item flex w-full px-3 py-2 border-none bg-none text-[13px] text-left text-inherit cursor-pointer hover:bg-[var(--bg-3)]"
           onClick={() => {
             const isCurrentVip = !!sheet.isVip;
             let updatedSheets: Sheet[] = [];
@@ -250,13 +210,11 @@ export const TabContextMenu: React.FC<TabContextMenuProps> = ({
             onClose();
             setTimeout(() => handleSave(updatedSheets), 100);
           }}
-          style={{ display: "flex", width: "100%", padding: "8px 12px", border: "none", background: "none", fontSize: "13px", cursor: "pointer", color: "inherit", textAlign: "left" }}
         >
           {sheet.isVip ? "⭐ Hủy gán Sheet VIP" : "⭐ Gán làm Sheet VIP"}
         </button>
-        <div style={{ height: "1px", backgroundColor: "var(--border)", margin: "4px 0" }} />
+        <div className="h-[1px] bg-[var(--border)] my-1" />
         <button
-          className="sheets-tab-menu-item"
           disabled={targetIdx === sheets.length - 1}
           onClick={() => {
             if (targetIdx < sheets.length - 1) {
@@ -271,12 +229,15 @@ export const TabContextMenu: React.FC<TabContextMenuProps> = ({
             }
             onClose();
           }}
-          style={{ display: "flex", width: "100%", padding: "8px 12px", border: "none", background: "none", fontSize: "13px", cursor: targetIdx === sheets.length - 1 ? "not-allowed" : "pointer", color: "inherit", opacity: targetIdx === sheets.length - 1 ? 0.4 : 1, textAlign: "left" }}
+          className={`sheets-tab-menu-item flex w-full px-3 py-2 border-none bg-none text-[13px] text-left text-inherit ${
+            targetIdx === sheets.length - 1
+              ? "cursor-not-allowed opacity-40"
+              : "cursor-pointer hover:bg-[var(--bg-3)]"
+          }`}
         >
           Di chuyển sang phải
         </button>
         <button
-          className="sheets-tab-menu-item"
           disabled={targetIdx === 0}
           onClick={() => {
             if (targetIdx > 0) {
@@ -291,7 +252,11 @@ export const TabContextMenu: React.FC<TabContextMenuProps> = ({
             }
             onClose();
           }}
-          style={{ display: "flex", width: "100%", padding: "8px 12px", border: "none", background: "none", fontSize: "13px", cursor: targetIdx === 0 ? "not-allowed" : "pointer", color: "inherit", opacity: targetIdx === 0 ? 0.4 : 1, textAlign: "left" }}
+          className={`sheets-tab-menu-item flex w-full px-3 py-2 border-none bg-none text-[13px] text-left text-inherit ${
+            targetIdx === 0
+              ? "cursor-not-allowed opacity-40"
+              : "cursor-pointer hover:bg-[var(--bg-3)]"
+          }`}
         >
           Di chuyển sang trái
         </button>

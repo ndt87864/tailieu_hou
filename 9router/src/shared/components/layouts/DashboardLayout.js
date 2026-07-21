@@ -82,6 +82,9 @@ export default function DashboardLayout({ children }) {
         />
       )}
 
+      {/* Sidebar - Desktop Spacer (prevents content shift) */}
+      <div className="hidden lg:block shrink-0 w-16" />
+
       {/* Sidebar - Desktop */}
       <div className="hidden lg:flex">
         <Sidebar />

@@ -228,6 +228,30 @@ adminRouter.delete("/users/:userId", async (c) => {
   }
 });
 
+// Cập nhật trạng thái duyệt proxy registration
+adminRouter.put("/proxy-registrations/:id/status", async (c) => {
+  const id = c.req.param("id");
+  try {
+    const { status } = await c.req.json();
+    if (!["pending", "approved", "rejected"].includes(status)) {
+      return c.json({ error: "Invalid status value" }, 400);
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from("proxy_registrations")
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return c.json({ success: true, data });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+
 // Cổ điển: Endpoint cập nhật riêng quyền (PUT /users/:userId/role)
 adminRouter.put("/users/:userId/role", async (c) => {
   const userId = c.req.param("userId");

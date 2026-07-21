@@ -21,14 +21,14 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
 
   return (
     <div className="sheets-modal-overlay" onClick={onClose}>
-      <div className="sheets-modal-card" style={{ maxWidth: "450px" }} onClick={(e) => e.stopPropagation()}>
+      <div className="sheets-modal-card max-w-[450px]" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center border-b border-[var(--border)] pb-3 mb-4">
           <h3 className="text-lg font-bold">Nhập dữ liệu từ Excel</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="sheets-modal-body py-2 space-y-4" style={{ fontSize: "14px" }}>
+        <div className="sheets-modal-body py-2 space-y-4 text-[14px]">
           <p className="text-sm text-[var(--fg-muted)] mb-3">
             Chọn vị trí bạn muốn nhập dữ liệu từ tệp tin Excel này:
           </p>

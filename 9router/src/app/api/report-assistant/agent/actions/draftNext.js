@@ -8,6 +8,7 @@ import {
 import { runSupabaseRag, runWebRag } from "../rag";
 import { callLLM, isLunaModelId } from "../llm";
 import { LeaseManager } from "../leaseManager";
+import { handleDraftFinalize } from "./draftFinalize";
 import {
   stripOutlineNumberPrefix,
   shouldUseWebRagForSection,
@@ -19,9 +20,10 @@ import {
   sanitizeReportDraftContent,
   isB49OpeningSection,
   sanitizeB49OpeningDraftContent,
-  hasSubstantiveDraftContent
+  hasSubstantiveDraftContent,
+  validateDraftQuality,
+  normalizeOutlineMatchText
 } from "../utils";
-import { handleDraftFinalize } from "./draftFinalize";
 import {
   sanitizeCareerSectionIV,
   normalizeSignatureTable,
@@ -223,12 +225,10 @@ export async function handleDraftNext(ctx) {
 
   const isB49 = isInternshipB49ReportSection(nextToDraft);
   const isCareer = isCareerOrientationReportSection(nextToDraft);
-  const layoutInstruction = prompts.getLayoutInstruction ? prompts.getLayoutInstruction() : "";
-  
+
   let systemPrompt = "";
   if (isCareer) {
     systemPrompt = prompts.getDraftingSystemCareer({
-      layoutInstruction,
       analysisYearsText: activeReportContext?.analysisYearLabel || getLastCompletedYears(3).join(", "),
       reportContextPromptText: reportContextPrompt(activeReportContext, progress.length, nextToDraft.target_words),
       outlineJsonString: JSON.stringify(currentState.outline, null, 2),
@@ -236,7 +236,6 @@ export async function handleDraftNext(ctx) {
     });
   } else if (isB49) {
     systemPrompt = prompts.getDraftingSystemB49({
-      layoutInstruction,
       analysisYearsText: activeReportContext?.analysisYearLabel || getLastCompletedYears(3).join(", "),
       reportContextPromptText: reportContextPrompt(activeReportContext, progress.length, nextToDraft.target_words),
       outlineJsonString: JSON.stringify(currentState.outline, null, 2),
@@ -244,16 +243,12 @@ export async function handleDraftNext(ctx) {
     });
   } else {
     systemPrompt = prompts.getDraftingSystemStandard({
-      layoutInstruction,
       analysisYearsText: activeReportContext?.analysisYearLabel || getLastCompletedYears(3).join(", "),
-      financialAccounting: !!activeReportContext?.financialAccounting,
-      legalEconomic: !!activeReportContext?.legalEconomic,
       reportContextPromptText: reportContextPrompt(activeReportContext, progress.length, nextToDraft.target_words),
       outlineJsonString: JSON.stringify(currentState.outline, null, 2),
       lastDoneContent,
     });
   }
-
   // If this is a references-only section, override to a specialized listing prompt
   const isRefSection = nextToDraft.is_reference_section || isReferenceOnlySection(nextToDraft);
   const userPromptMsg = isRefSection
@@ -270,204 +265,33 @@ export async function handleDraftNext(ctx) {
       webRAGContent,
     });
 
+  const messages = [
+    { role: "system", content: systemPrompt },
+    { role: "user", content: userPromptMsg }
+  ];
+
+  setAgentActivity(currentState, nextToDraft, "drafting_content", "Agent đang soạn nội dung chi tiết cho mục này.", {
+    actor: "Writer",
+    model: targetModelId,
+    sectionId: nextToDraft.id,
+  });
   try {
-    // Mark section as drafting
-    nextToDraft.status = "drafting";
-    setAgentActivity(currentState, nextToDraft, "section_started", `Agent bắt đầu xử lý mục: ${nextToDraft.title}`, {
-      actor: "Report Agent",
-      sectionId: nextToDraft.id,
-    });
-    console.log(`[agent/route] Draft worker started chatId=${chatId} sectionId=${nextToDraft.id} model=${targetModelId}`);
+    await saveAgentState(chatId, username, currentState, null, lockId);
+  } catch (err) {
+    await leaseManager.release();
+    const { data: latestState } = await getAgentState(chatId, username);
+    return NextResponse.json({ ok: true, state: latestState, message: "Worker aborted: lease lost before drafting content." });
+  }
 
-    try {
-      await checkPreconditions(leaseManager, getAgentState, chatId, username);
-      await saveAgentState(chatId, username, currentState, null, lockId);
-    } catch (err) {
-      await leaseManager.release();
-      if (err.code === "LEASE_LOST") {
-        const { data: latestState } = await getAgentState(chatId, username);
-        return NextResponse.json({ ok: true, state: latestState, message: "Worker aborted: lease lost." });
-      }
-      if (err.code === "CONCURRENCY_CONFLICT") {
-        return NextResponse.json(
-          { error: "Concurrency conflict: State was updated by another request.", code: "CONCURRENCY_CONFLICT" },
-          { status: 409 }
-        );
-      }
-      throw err;
-    }
-    try {
-      await checkPreconditions(leaseManager, getAgentState, chatId, username);
-    } catch (err) {
-      await leaseManager.release();
-      const { data: latestState } = await getAgentState(chatId, username);
-      return NextResponse.json({ ok: true, state: latestState, message: "Worker aborted: cancelled or lease lost." });
-    }
+  const isSolutionOrConclusion = /giai phap|kien nghi|ket luan/i.test(normalizeOutlineMatchText(nextToDraft.title));
+  const draftTemperature = isSolutionOrConclusion ? 0.65 : 0.4;
 
-    // 1. Search Planning (Heuristic RAG - 0ms)
-    let supabaseQuery = "";
-    let webQuery = "";
+  let draftResult = "";
+  let attempts = 0;
+  const maxDraftAttempts = 3;
+  let dynamicUserPrompt = userPromptMsg;
 
-    const cleanTitle = stripOutlineNumberPrefix(nextToDraft.title);
-    supabaseQuery = cleanTitle;
-    webQuery = cleanTitle;
-
-    if (activeReportContext) {
-      const contextQuery = [
-        activeReportContext.studyIssue,
-        activeReportContext.targetCompany,
-        activeReportContext.analysisYearLabel,
-      ]
-        .filter(Boolean)
-        .join(" ");
-      supabaseQuery = `${contextQuery} ${supabaseQuery}`.trim();
-      webQuery = `${contextQuery} ${webQuery}`.trim();
-    }
-
-    setAgentActivity(currentState, nextToDraft, "search_plan_ready", "Agent đã lập truy vấn thông tin dạng heuristic cực nhanh (0ms).", {
-      actor: "Planner",
-      supabaseQuery,
-      webQuery,
-    });
-
-    try {
-      await saveAgentState(chatId, username, currentState, null, lockId);
-    } catch (err) {
-      await leaseManager.release();
-      const { data: latestState } = await getAgentState(chatId, username);
-      return NextResponse.json({ ok: true, state: latestState, message: "Worker aborted: lease lost during planning." });
-    }
-
-    // 2. Execute Supabase RAG and Web RAG in parallel
-    let supabaseRAGContent = "";
-    let webRAGContent = "";
-    let webSources = [];
-    const useWebRag = !!webQuery && shouldUseWebRagForSection(nextToDraft, activeReportContext);
-
-    setAgentActivity(currentState, nextToDraft, "rag_parallel_started", useWebRag
-      ? "Agent đang đọc tài liệu nội bộ và tìm kiếm web song song."
-      : "Agent đang đọc tài liệu nội bộ; bỏ qua Web RAG cho mục này để tăng tốc.", {
-      actor: "RAG",
-      supabaseQuery,
-      webQuery: useWebRag ? webQuery : "",
-      webSkipped: !useWebRag,
-    });
-    try {
-      await saveAgentState(chatId, username, currentState, null, lockId);
-    } catch (err) {
-      await leaseManager.release();
-      const { data: latestState } = await getAgentState(chatId, username);
-      return NextResponse.json({ ok: true, state: latestState, message: "Worker aborted: lease lost during RAG trigger." });
-    }
-
-    const [supabaseResult, webResult] = await Promise.allSettled([
-      runSupabaseRag({ supabaseQuery, username, requestBaseUrl, activeReportContext, authToken }),
-      runWebRag({ useWebRag, webQuery, requestBaseUrl, authToken }),
-    ]);
-
-    if (supabaseResult.status === "fulfilled") {
-      supabaseRAGContent = supabaseResult.value || "";
-    } else {
-      console.warn("Execute Supabase RAG failed:", supabaseResult.reason?.message || supabaseResult.reason);
-    }
-
-    if (webResult.status === "fulfilled") {
-      webRAGContent = webResult.value?.content || "";
-      webSources = webResult.value?.sources || [];
-    } else {
-      console.warn("Execute Web RAG failed:", webResult.reason?.message || webResult.reason);
-    }
-
-    setAgentActivity(currentState, nextToDraft, "rag_parallel_ready", "Agent đã hoàn tất truy xuất tri thức cho mục này.", {
-      actor: "RAG",
-      internalMatched: !!supabaseRAGContent,
-      webSources: webSources.length,
-      webSkipped: !useWebRag,
-    });
-    try {
-      await saveAgentState(chatId, username, currentState, null, lockId);
-    } catch (err) {
-      await leaseManager.release();
-      const { data: latestState } = await getAgentState(chatId, username);
-      return NextResponse.json({ ok: true, state: latestState, message: "Worker aborted: lease lost after RAG ready." });
-    }
-    await throwIfCancelled(getAgentState, chatId, username);
-
-    // Construct drafting prompt (Scope Control)
-    const previousDone = progress.filter((p) => p.status === "done");
-    const lastDoneContent = previousDone.length > 0 ? previousDone[previousDone.length - 1].content : "";
-
-    const isB49 = isInternshipB49ReportSection(nextToDraft);
-    const isCareer = isCareerOrientationReportSection(nextToDraft);
-    const layoutInstruction = prompts.getLayoutInstruction ? prompts.getLayoutInstruction() : "";
-    
-    let systemPrompt = "";
-    if (isCareer) {
-      systemPrompt = prompts.getDraftingSystemCareer({
-        layoutInstruction,
-        analysisYearsText: activeReportContext?.analysisYearLabel || getLastCompletedYears(3).join(", "),
-        reportContextPromptText: reportContextPrompt(activeReportContext, progress.length, nextToDraft.target_words),
-        outlineJsonString: JSON.stringify(currentState.outline, null, 2),
-        lastDoneContent,
-      });
-    } else if (isB49) {
-      systemPrompt = prompts.getDraftingSystemB49({
-        layoutInstruction,
-        analysisYearsText: activeReportContext?.analysisYearLabel || getLastCompletedYears(3).join(", "),
-        reportContextPromptText: reportContextPrompt(activeReportContext, progress.length, nextToDraft.target_words),
-        outlineJsonString: JSON.stringify(currentState.outline, null, 2),
-        lastDoneContent,
-      });
-    } else {
-      systemPrompt = prompts.getDraftingSystemStandard({
-        layoutInstruction,
-        analysisYearsText: activeReportContext?.analysisYearLabel || getLastCompletedYears(3).join(", "),
-        financialAccounting: !!activeReportContext?.financialAccounting,
-        legalEconomic: !!activeReportContext?.legalEconomic,
-        reportContextPromptText: reportContextPrompt(activeReportContext, progress.length, nextToDraft.target_words),
-        outlineJsonString: JSON.stringify(currentState.outline, null, 2),
-        lastDoneContent,
-      });
-    }
-
-    // If this is a references-only section, override to a specialized listing prompt
-    const isRefSection = nextToDraft.is_reference_section || isReferenceOnlySection(nextToDraft);
-    const userPromptMsg = isRefSection
-      ? prompts.getReferencesUser(supabaseRAGContent, webRAGContent)
-      : prompts.getDraftingUser({
-        nextToDraftId: nextToDraft.id,
-        nextToDraftTitle: nextToDraft.title,
-        nextToDraftDescription: nextToDraft.description,
-        styleGuidance: nextToDraft.style_guidance,
-        targetWords: nextToDraft.target_words,
-        subsections: nextToDraft.subsections,
-        feedback: nextToDraft.feedback,
-        supabaseRAGContent,
-        webRAGContent,
-      });
-
-    const messages = [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPromptMsg }
-    ];
-
-    setAgentActivity(currentState, nextToDraft, "drafting_content", "Agent đang soạn nội dung chi tiết cho mục này.", {
-      actor: "Writer",
-      model: targetModelId,
-      sectionId: nextToDraft.id,
-    });
-    try {
-      await saveAgentState(chatId, username, currentState, null, lockId);
-    } catch (err) {
-      await leaseManager.release();
-      const { data: latestState } = await getAgentState(chatId, username);
-      return NextResponse.json({ ok: true, state: latestState, message: "Worker aborted: lease lost before drafting content." });
-    }
-
-    let draftResult = "";
-    let attempts = 0;
-    const maxDraftAttempts = 3;
-
+  try {
     while (attempts < maxDraftAttempts) {
       attempts++;
       try {
@@ -486,7 +310,7 @@ export async function handleDraftNext(ctx) {
             stateToSave,
             nextToDraft,
             "drafting_retry",
-            `Lỗi xử lý mục: không thấy nội dung báo cáo. Hệ thống đang tự động khởi tạo chat Qwen mới để xử lý lại (lần ${attempts}/${maxDraftAttempts})...`,
+            `Lỗi chất lượng hoặc cấu trúc mục: ${attempts === 2 ? "chất lượng văn bản chưa đạt" : "đang tối ưu chiều sâu phân tích"}. Hệ thống đang tự động khởi tạo chat mới để xử lý lại (lần ${attempts}/${maxDraftAttempts})...`,
             {
               actor: "Writer",
               model: targetModelId,
@@ -498,15 +322,10 @@ export async function handleDraftNext(ctx) {
         }
 
         await throwIfCancelled(getAgentState, chatId, username);
-        const rawDraft = await callLLM(targetModelId, messages, 0.5, authToken, username, requestBaseUrl, reportSession, { timeout: 120000 });
-        console.log(`[DEBUG DRAFT] rawDraft length: ${rawDraft ? rawDraft.length : 0}`);
-        if (rawDraft && rawDraft.length < 500) {
-          console.log(`[DEBUG DRAFT] rawDraft snippet: "${rawDraft}"`);
-        } else if (rawDraft) {
-          console.log(`[DEBUG DRAFT] rawDraft snippet: "${rawDraft.slice(0, 300)}..."`);
-        } else {
-          console.log(`[DEBUG DRAFT] rawDraft is null or undefined`);
-        }
+        const rawDraft = await callLLM(targetModelId, [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: dynamicUserPrompt }
+        ], draftTemperature, authToken, username, requestBaseUrl, reportSession, { timeout: 120000 });
         draftResult = sanitizeReportDraftContent(rawDraft);
         if (isB49OpeningSection(nextToDraft)) {
           draftResult = sanitizeB49OpeningDraftContent(draftResult);
@@ -527,7 +346,15 @@ export async function handleDraftNext(ctx) {
         }
 
         if (hasSubstantiveDraftContent(draftResult)) {
-          break;
+          // Thực hiện hậu kiểm chất lượng
+          const qualityCheck = validateDraftQuality(draftResult, nextToDraft, activeReportContext);
+          if (qualityCheck.valid) {
+            break;
+          } else {
+            console.warn(`[executeDraftNext] Quality check failed for section ${nextToDraft.id} (Attempt ${attempts}): ${qualityCheck.reason}`);
+            // Cập nhật lại user prompt gửi đi kèm lý do lỗi chất lượng để AI sửa đổi chính xác
+            dynamicUserPrompt = `${userPromptMsg}\n\n⚠️ LƯU Ý SỬA LỖI TỪ LẦN SOẠN THẢO TRƯỚC (BẮT BUỘC KHẮC PHỤC):\nNội dung bạn vừa soạn thảo chưa đạt yêu cầu do: ${qualityCheck.reason}\nHãy viết lại phần này, đảm bảo khắc phục triệt để lỗi trên.`;
+          }
         }
         if (isLunaModelId(targetModelId) && attempts < maxDraftAttempts) {
           retryWithFreshLunaChat(reportSession, currentState);
@@ -546,15 +373,12 @@ export async function handleDraftNext(ctx) {
       }
     }
 
-    // After drafting is complete, transition step or save progress
-    // Typically, next step is critic, or directly completed depending on design.
-    // In our backend design, draftNext saves draft and returns it for Critic step in draftFinalize.
-    return NextResponse.json({
-      ok: true,
-      state: currentState,
-      activeSectionId: nextToDraft.id,
+    return handleDraftFinalize(ctx, {
+      nextToDraft,
+      activeReportContext,
       draftResult,
       webSources,
+      leaseManager
     });
   } catch (err) {
     console.error("[executeDraftNext] Unexpected error in draftNext workflow:", err);
@@ -566,4 +390,3 @@ export async function handleDraftNext(ctx) {
     throw err;
   }
 }
-
