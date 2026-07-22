@@ -1989,7 +1989,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
         </div>
       ) : (
         agentActive && agentState && (
-          <div className="w-[420px] border-l border-border bg-surface flex flex-col h-full shrink-0 shadow-lg z-20 transition-all">
+          <div className="w-[714px] border-l border-border bg-surface flex flex-col h-full shrink-0 shadow-lg z-20 transition-all">
             {/* Header */}
             <div className="p-4 border-b border-border flex items-center justify-between bg-surface-2/50">
               <div className="flex items-center gap-2.5 min-w-0">
@@ -2087,10 +2087,29 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
             <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
               <div className="flex items-center justify-between text-xs font-extrabold text-text-subtle uppercase tracking-wider">
                 <span>TIẾN ĐỘ CÁC CHƯƠNG MỤC ({agentState.sections_progress?.length || 0})</span>
-                <span>
-                  {agentState.sections_progress?.filter((s) => s.status === "done").length || 0}/
-                  {agentState.sections_progress?.length || 0} Hoàn thành
-                </span>
+                <div className="flex items-center gap-2">
+                  <span>
+                    {agentState.sections_progress?.filter((s) => s.status === "done").length || 0}/
+                    {agentState.sections_progress?.length || 0} Hoàn thành
+                  </span>
+                  {agentState.sections_progress?.some((s) => s.status === "done" && s.content) && (
+                    <button
+                      onClick={() => {
+                        const completedText = (agentState.sections_progress || [])
+                          .filter((s) => s.status === "done" && s.content)
+                          .map((s) => `## ${s.title}\n\n${s.content}`)
+                          .join("\n\n");
+                        navigator.clipboard.writeText(completedText);
+                        showToast("Đã sao chép toàn bộ nội dung hoàn thành!", "success");
+                      }}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20 transition-all cursor-pointer shadow-2xs"
+                      title="Sao chép toàn bộ các chương đã hoàn thành"
+                    >
+                      <span className="material-symbols-outlined text-[12px]">content_copy</span>
+                      <span>Copy All</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
               {(agentState.sections_progress || []).map((sec, idx) => {
@@ -2145,12 +2164,25 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
                     {/* Completed Content Preview Snippet */}
                     {isDone && sec.content && (
                       <div className="pt-2 border-t border-emerald-500/20 space-y-1">
-                        <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[13px]">check_circle</span>
-                          <span>Nội dung đã hoàn thành:</span>
+                        <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center justify-between gap-1">
+                          <div className="flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[13px]">check_circle</span>
+                            <span>Nội dung đã hoàn thành:</span>
+                          </div>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(sec.content);
+                              showToast("Đã sao chép nội dung chương mục này!", "success");
+                            }}
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 transition-colors cursor-pointer font-bold"
+                            title="Sao chép chương mục này"
+                          >
+                            <span className="material-symbols-outlined text-[12px]">content_copy</span>
+                            <span>Copy</span>
+                          </button>
                         </div>
-                        <div className="text-[11px] text-text-main/90 line-clamp-3 bg-emerald-500/5 p-2 rounded-xl leading-relaxed whitespace-pre-wrap font-sans border border-emerald-500/10">
-                          {sec.content.replace(/^#+\s*.*(\r?\n|$)/, "").trim().slice(0, 250)}...
+                        <div className="text-[11px] text-text-main/90 max-h-48 overflow-y-auto custom-scrollbar bg-emerald-500/5 p-2 rounded-xl leading-relaxed whitespace-pre-wrap font-sans border border-emerald-500/10">
+                          {sec.content.replace(/^#+\s*.*(\r?\n|$)/, "").trim()}
                         </div>
                       </div>
                     )}
