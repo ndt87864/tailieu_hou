@@ -123,7 +123,19 @@ export function useChatSession({
         setSelectedKnowledgeSubject(savedSubject);
       }
 
-      setAssistantOnlyMode(true);
+      const rawActiveModel =
+        localStorage.getItem(uSK.activeModel) ??
+        localStorage.getItem("report-assistant.activeModel");
+      if (rawActiveModel && typeof setActiveModelId === "function") {
+        setActiveModelId(rawActiveModel);
+      }
+
+      const rawAssistantOnly =
+        localStorage.getItem(uSK.assistantOnlyMode) ??
+        localStorage.getItem("report-assistant.assistantOnlyMode");
+      if (rawAssistantOnly !== null) {
+        setAssistantOnlyMode(rawAssistantOnly === "true");
+      }
     } catch {}
   }, [hydrated, usernameLoaded, username, initialChatId, router]);
 

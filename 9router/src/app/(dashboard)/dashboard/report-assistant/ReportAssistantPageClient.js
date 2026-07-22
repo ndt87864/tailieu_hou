@@ -62,6 +62,19 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
   const [usernameLoaded, setUsernameLoaded] = useState(false);
   const [isRestrictedUser, setIsRestrictedUser] = useState(false);
   const [allModels, setAllModels] = useState([]);
+  const [selectedModelId, setSelectedModelId] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      const uSK = getSK("admin");
+      return (
+        localStorage.getItem(uSK.activeModel) ||
+        localStorage.getItem("report-assistant.activeModel") ||
+        ""
+      );
+    } catch {
+      return "";
+    }
+  });
   const [apiKey, setApiKey] = useState("");
   const [loadingModels, setLoadingModels] = useState(true);
   const [fullModelsLoaded, setFullModelsLoaded] = useState(false);
@@ -89,15 +102,36 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
   const [streamingId, setStreamingId] = useState("");
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [selectedKnowledgeSubject, setSelectedKnowledgeSubject] = useState("none");
-  const [webSearchEnabled, setWebSearchEnabled] = useState(true);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const uSK = getSK("admin");
+      const saved = localStorage.getItem(uSK.webSearchEnabled) ?? localStorage.getItem("report-assistant.webSearchEnabled");
+      return saved !== null ? saved === "true" : true;
+    } catch { return true; }
+  });
   const [searchStatus, setSearchStatus] = useState("");
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [subjectDropdownOpen, setSubjectDropdownOpen] = useState(false);
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState(null);
 
-  const [streamEnabled, setStreamEnabled] = useState(true);
-  const [thinkingMode, setThinkingMode] = useState("auto"); // "auto", "fast", "thinking"
+  const [streamEnabled, setStreamEnabled] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const uSK = getSK("admin");
+      const saved = localStorage.getItem(uSK.streamEnabled) ?? localStorage.getItem("report-assistant.streamEnabled");
+      return saved !== null ? saved === "true" : true;
+    } catch { return true; }
+  });
+  const [thinkingMode, setThinkingMode] = useState(() => {
+    if (typeof window === "undefined") return "auto";
+    try {
+      const uSK = getSK("admin");
+      const saved = localStorage.getItem(uSK.thinkingMode) ?? localStorage.getItem("report-assistant.thinkingMode");
+      return saved || "auto";
+    } catch { return "auto"; }
+  });
 
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
@@ -112,6 +146,13 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     models.forEach((m) => enabledSet.add(m.id));
     setAllModels(models);
     setEnabledModelIds(enabledSet);
+
+    setSelectedModelId((prev) => {
+      if (prev && models.some((m) => m.id === prev)) return prev;
+      const saved = localStorage.getItem(uSK.activeModel) || localStorage.getItem("report-assistant.activeModel");
+      if (saved && models.some((m) => m.id === saved)) return saved;
+      return models[0]?.id || prev;
+    });
   }, []);
 
   const { fetchUser } = useUserStore();
@@ -141,8 +182,8 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     username,
     usernameLoaded,
     hydrated,
-    activeModelId: allModels[0]?.id || "",
-    setActiveModelId: () => {},
+    activeModelId: selectedModelId,
+    setActiveModelId: setSelectedModelId,
     systemPrompt,
     setSystemPrompt,
     temperature,
@@ -160,6 +201,20 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     loadFullModels,
   });
 
+  const activeSession = useMemo(() => {
+    return sessions.find((s) => s.id === activeSessionId) || null;
+  }, [sessions, activeSessionId]);
+
+  const activeModel = useMemo(() => {
+    const targetModelId = activeSession?.modelId || selectedModelId;
+    if (targetModelId) {
+      const found = allModels.find((m) => m.id === targetModelId);
+      if (found) return found;
+      return { id: targetModelId, name: targetModelId.split("/").pop() };
+    }
+    return allModels[0] || null;
+  }, [allModels, activeSession, selectedModelId]);
+
   const handleStopStreaming = useCallback(() => {
     if (abortRef.current) {
       abortRef.current.abort();
@@ -169,6 +224,18 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     setStreamingId("");
     setSearchStatus("");
   }, []);
+
+  // Persist toggle states (AI Agent, Web Search, Stream, Thinking) to localStorage
+  useEffect(() => {
+    if (!hydrated || !usernameLoaded) return;
+    const uSK = getSK(username);
+    try {
+      localStorage.setItem(uSK.assistantOnlyMode, String(assistantOnlyMode));
+      localStorage.setItem(uSK.webSearchEnabled, String(webSearchEnabled));
+      localStorage.setItem(uSK.streamEnabled, String(streamEnabled));
+      localStorage.setItem(uSK.thinkingMode, String(thinkingMode));
+    } catch (err) {}
+  }, [hydrated, usernameLoaded, username, assistantOnlyMode, webSearchEnabled, streamEnabled, thinkingMode]);
 
   // Auto-resize textarea height
   useEffect(() => {
@@ -514,7 +581,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     selectedKnowledgeSubject,
     setSelectedKnowledgeSubject,
     reportModels,
-    activeModel: allModels[0],
+    activeModel: activeModel,
     createSession,
     showToast,
     filesOutlines,
@@ -553,18 +620,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     setSelectedReport(null);
   }, [setSelectedOutline, setSelectedReport]);
 
-  const activeSession = useMemo(() => {
-    return sessions.find((s) => s.id === activeSessionId) || null;
-  }, [sessions, activeSessionId]);
 
-  const activeModel = useMemo(() => {
-    if (!activeSession?.modelId) {
-      return allModels[0] || null;
-    }
-    const found = allModels.find((m) => m.id === activeSession.modelId);
-    if (found) return found;
-    return { id: activeSession.modelId };
-  }, [allModels, activeSession]);
 
   // Tự động đồng bộ trạng thái AI Agent Workflow khi chuyển đổi session hoặc bật AI Agent mode
   useEffect(() => {
@@ -1146,6 +1202,13 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
                           <button
                             key={m.id}
                             onClick={() => {
+                              setSelectedModelId(m.id);
+                              if (usernameLoaded) {
+                                const uSK = getSK(username);
+                                try {
+                                  localStorage.setItem(uSK.activeModel, m.id);
+                                } catch {}
+                              }
                               if (activeSessionId) {
                                 setSessions((prev) =>
                                   prev.map((s) =>
@@ -1449,20 +1512,17 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
 
             {/* 4. Thinking Mode Badge */}
             {(() => {
-              const isModel38 = !!(activeModel?.id && (activeModel.id.includes("3.8") || activeModel.id.includes("qwen3.8") || activeModel.id.includes("qwen-3.8")));
-              const currentThinkingMode = isModel38 ? "thinking" : thinkingMode;
+              const currentThinkingMode = thinkingMode;
 
               return (
                 <span
                   onClick={() => {
-                    if (isModel38) return;
                     const modes = ["auto", "fast", "thinking"];
                     const nextIdx = (modes.indexOf(thinkingMode) + 1) % modes.length;
                     setThinkingMode(modes[nextIdx]);
                   }}
                   className={cn(
-                    "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-medium transition-colors",
-                    isModel38 ? "cursor-not-allowed opacity-90" : "cursor-pointer hover:opacity-80",
+                    "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-medium transition-colors cursor-pointer hover:opacity-80",
                     currentThinkingMode === "thinking"
                       ? "bg-purple-500/10 border-purple-500/20 text-purple-600 dark:text-purple-400"
                       : currentThinkingMode === "fast"
@@ -1658,28 +1718,22 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
 
                       {/* 5. Thinking Mode */}
                       {(() => {
-                        const isModel38 = !!(activeModel?.id && (activeModel.id.includes("3.8") || activeModel.id.includes("qwen3.8") || activeModel.id.includes("qwen-3.8")));
-                        const currentThinkingMode = isModel38 ? "thinking" : thinkingMode;
+                        const currentThinkingMode = thinkingMode;
                         return (
                           <button
                             type="button"
-                            disabled={isModel38}
                             onClick={() => {
-                              if (isModel38) return;
                               const modes = ["auto", "fast", "thinking"];
                               const nextIdx = (modes.indexOf(thinkingMode) + 1) % modes.length;
                               setThinkingMode(modes[nextIdx]);
                             }}
-                            className={cn(
-                              "w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs font-medium transition-colors",
-                              isModel38 ? "opacity-80 cursor-not-allowed" : "hover:bg-surface-2 cursor-pointer"
-                            )}
+                            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs font-medium hover:bg-surface-2 cursor-pointer transition-colors"
                           >
                             <div className="flex items-center gap-2.5">
                               <span className="material-symbols-outlined text-[18px] text-purple-500">
                                 {currentThinkingMode === "thinking" ? "psychology" : currentThinkingMode === "fast" ? "bolt" : "tune"}
                               </span>
-                              <span>Chế độ Suy nghĩ</span>
+                              <span>Thinking Mode</span>
                             </div>
                             <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 capitalize">
                               {currentThinkingMode}

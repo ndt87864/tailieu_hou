@@ -46,6 +46,10 @@ export const getSK = (username) => {
     enabledModels: `${prefix}.enabledModels`,
     knownModels: `${prefix}.knownModels`,
     knowledgeSubject: `${prefix}.knowledgeSubject`,
+    assistantOnlyMode: `${prefix}.assistantOnlyMode`,
+    webSearchEnabled: `${prefix}.webSearchEnabled`,
+    streamEnabled: `${prefix}.streamEnabled`,
+    thinkingMode: `${prefix}.thinkingMode`,
   };
 };
 
