@@ -779,6 +779,7 @@ export class LunaExecutor extends DefaultExecutor {
 
       if (content) {
         const isThinking = phase === "think" || phase === "thinking_summary";
+        const finishReason = choice.finish_reason || null;
         const openaiChunk = {
           id: finalResponseId,
           object: "chat.completion.chunk",
@@ -789,7 +790,7 @@ export class LunaExecutor extends DefaultExecutor {
             delta: isThinking
               ? { reasoning_content: content, content: content }
               : { content },
-            finish_reason: null,
+            finish_reason: finishReason,
           }],
         };
         return `data: ${JSON.stringify(openaiChunk)}\n\n`;

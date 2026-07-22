@@ -55,20 +55,28 @@ export function useChatSession({
         .then((data) => {
           if (data && data.ok && Array.isArray(data.sessions)) {
             if (data.sessions.length > 0) {
-              setSessions(data.sessions);
-              lastHistorySyncSignatureRef.current = historySyncSignature(
-                username,
-                data.sessions
-              );
-              try {
-                localStorage.setItem(uSK.sessions, JSON.stringify(data.sessions));
-              } catch (err) {
-                if (data.sessions.length > 5) {
-                  try {
-                    localStorage.setItem(uSK.sessions, JSON.stringify(data.sessions.slice(0, 5)));
-                  } catch (e) {}
+              setSessions((prevSessions) => {
+                // Merge database sessions and local sessions without losing newly created local sessions
+                const dbIds = new Set(data.sessions.map((s) => s.id));
+                const localOnly = (prevSessions || []).filter((s) => !dbIds.has(s.id));
+                const merged = [...data.sessions, ...localOnly];
+
+                lastHistorySyncSignatureRef.current = historySyncSignature(
+                  username,
+                  merged
+                );
+                try {
+                  localStorage.setItem(uSK.sessions, JSON.stringify(merged));
+                } catch (err) {
+                  if (merged.length > 5) {
+                    try {
+                      localStorage.setItem(uSK.sessions, JSON.stringify(merged.slice(0, 5)));
+                    } catch (e) {}
+                  }
                 }
-              }
+                return merged;
+              });
+
               if (!initialChatId) {
                 setActiveSessionId((prev) => {
                   const targetSession = (prev && data.sessions.some(s => s.id === prev)) ? prev : data.sessions[0].id;
@@ -191,7 +199,7 @@ export function useChatSession({
     }
 
     historySyncTimerRef.current = setTimeout(() => {
-      const payload = { username, sessions: sessions.slice(0, 5) };
+      const payload = { username, sessions: sessions.slice(0, 50) };
       fetch("/api/report-assistant/history", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

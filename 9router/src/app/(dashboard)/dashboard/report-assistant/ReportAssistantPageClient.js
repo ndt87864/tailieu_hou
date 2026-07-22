@@ -152,29 +152,14 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     loadFullModels,
   });
 
-  const handleStopStreaming = useCallback(async () => {
+  const handleStopStreaming = useCallback(() => {
     if (abortRef.current) {
       abortRef.current.abort();
-    }
-    // Gửi lệnh stop tới Qwen web nếu có activeSessionId
-    if (activeSessionId) {
-      try {
-        await fetch(`https://chat.qwen.ai/api/v2/chat/completions/stop?chat_id=${activeSessionId}`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({ chat_id: activeSessionId }),
-        }).catch(() => {});
-      } catch (e) {
-        // Ignore cross-origin / network error if direct call fails
-      }
     }
     setIsSending(false);
     setStreamingId("");
     setSearchStatus("");
-  }, [activeSessionId, apiKey]);
+  }, []);
 
   // Auto-resize textarea height
   useEffect(() => {
@@ -304,7 +289,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     if (hydrated) {
       initUser();
     }
-  }, [hydrated, fetchUser, loadFullModels]);
+  }, [hydrated]);
 
   useEffect(() => {
     if (hydrated && usernameLoaded && isSupabaseConfigured) {
@@ -701,10 +686,10 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
         }
       }
 
-      // Mark message complete
+      const targetSessionId = activeSessionId;
       setSessions((prev) =>
         prev.map((s) =>
-          s.id === activeSessionId
+          s.id === targetSessionId
             ? {
                 ...s,
                 messages: (s.messages || []).map((m) =>
@@ -717,6 +702,9 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
             : s
         )
       );
+
+      setIsSending(false);
+      setStreamingId("");
 
       if (!fullContent.trim()) {
         throw new Error("Không nhận được phản hồi từ mô hình AI.");
