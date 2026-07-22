@@ -311,6 +311,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
 
   const {
     agentActive,
+    setAgentActive,
     agentState,
     agentLoading,
     selectedReport,
@@ -322,7 +323,9 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     reportWorkflowModelId,
     setReportWorkflowModelId,
     buildAgentReportContent,
+    openAgentProgressPreview,
     runAgentInit,
+    confirmOutlineAndStartDrafting,
     loadAgentStatus,
     cancelAgentWorkflow,
   } = useAgentWorkflow({
@@ -594,7 +597,8 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
 
             if (res.ok) {
               const data = await res.json();
-              const extractedText = data.content || data.text || data.markdown || "";
+              const rawText = data.content || data.text || data.markdown || (typeof data === "string" ? data : JSON.stringify(data));
+              const extractedText = typeof rawText === "string" ? rawText : String(rawText || "");
               if (extractedText) {
                 showToast("Thu thập dữ liệu Web Fetch thành công!", "success");
                 let searchContent = `\n\n--- DỮ LIỆU TÌM KIẾM & BÓC TÁCH MỚI NHẤT TỪ WEB FETCH (fetch-combo) ---`;
@@ -1003,21 +1007,78 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
                 >
                   {msg.role === "user" ? <UserAvatar /> : <AssistantAvatar />}
                   <div className="relative">
-                    <div
-                      className={cn(
-                        "p-4 rounded-2xl border text-sm leading-relaxed",
-                        msg.role === "user"
-                          ? "bg-brand-500 border-brand-500 text-white"
-                          : "bg-surface border-border text-text-main"
-                      )}
-                    >
+                    {msg.isOutlineCard ? (
+                      <div className="flex items-center justify-between gap-6 px-4 py-3 bg-surface border border-border/80 rounded-2xl shadow-sm hover:shadow transition-all min-w-[320px]">
+                        <div className="flex items-center gap-3">
+                          <div className="size-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold">
+                            <span className="material-symbols-outlined text-[20px]">format_list_bulleted</span>
+                          </div>
+                          <div>
+                            <div className="text-xs font-bold text-text-main leading-tight">
+                              Dàn ý báo cáo
+                            </div>
+                            <div className="text-[10px] text-text-subtle mt-0.5">
+                              {new Date(msg.createdAt || Date.now()).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {agentState?.current_step === "WAIT_APPROVAL" && (
+                            <button
+                              onClick={() => confirmOutlineAndStartDrafting()}
+                              className="px-3 py-1.5 rounded-full bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs transition-all cursor-pointer shadow-sm active:scale-95"
+                            >
+                              Xác nhận dàn ý
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setAgentActive(true)}
+                            className="px-3.5 py-1.5 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold text-xs border border-emerald-500/20 transition-all cursor-pointer shadow-2xs"
+                          >
+                            Open
+                          </button>
+                        </div>
+                      </div>
+                    ) : msg.isReportCard ? (
+                      <div className="flex items-center justify-between gap-6 px-4 py-3 bg-surface border border-brand-500/30 rounded-2xl shadow-sm hover:shadow transition-all min-w-[320px]">
+                        <div className="flex items-center gap-3">
+                          <div className="size-10 rounded-xl bg-brand-500/10 text-brand-600 flex items-center justify-center font-bold">
+                            <span className="material-symbols-outlined text-[20px]">description</span>
+                          </div>
+                          <div>
+                            <div className="text-xs font-bold text-text-main leading-tight">
+                              Báo cáo hoàn chỉnh
+                            </div>
+                            <div className="text-[10px] text-text-subtle mt-0.5">
+                              {new Date(msg.createdAt || Date.now()).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => openAgentProgressPreview(agentState, "Báo cáo hoàn chỉnh")}
+                          className="px-3.5 py-1.5 rounded-full bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs transition-all cursor-pointer shadow-sm active:scale-95 flex items-center gap-1"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">visibility</span>
+                          <span>Xem báo cáo</span>
+                        </button>
+                      </div>
+                    ) : (
                       <div
-                        dangerouslySetInnerHTML={{
-                          __html: renderMarkdownAndMath(msg.content),
-                        }}
-                      />
-                      <MessageFilesGrid files={msg.files || []} />
-                    </div>
+                        className={cn(
+                          "p-4 rounded-2xl border text-sm leading-relaxed",
+                          msg.role === "user"
+                            ? "bg-brand-500 border-brand-500 text-white"
+                            : "bg-surface border-border text-text-main"
+                        )}
+                      >
+                        <div
+                          dangerouslySetInnerHTML={{
+                            __html: renderMarkdownAndMath(msg.content),
+                          }}
+                        />
+                        <MessageFilesGrid files={msg.files || []} />
+                      </div>
+                    )}
 
                     {/* Hover actions */}
                     <div
@@ -1099,13 +1160,21 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
             {/* 2. AI Agent Badge */}
             {!assistantOnlyMode && (
               <span
-                onClick={() => setAssistantOnlyMode(true)}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-600 dark:text-brand-400 font-medium text-[11px] cursor-pointer hover:bg-brand-500/20 transition-colors"
-                title="BẬT: Chế độ AI Agent tự động (Click để tắt)"
+                title="BẬT: Chế độ AI Agent tự động (Click chữ để mở xem tiến độ, click [x] để tắt)"
               >
                 <span className="material-symbols-outlined text-[14px]">support_agent</span>
-                <span>AI Agent: BẬT</span>
-                <span className="material-symbols-outlined text-[12px] opacity-70 hover:opacity-100">close</span>
+                <span onClick={() => { if (agentState) setAgentActive(true); }}>AI Agent: BẬT</span>
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setAssistantOnlyMode(true);
+                    setAgentActive(false);
+                  }}
+                  className="material-symbols-outlined text-[12px] opacity-70 hover:opacity-100 p-0.5"
+                >
+                  close
+                </span>
               </span>
             )}
 
@@ -1529,12 +1598,18 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
           </div>
 
           {/* Banner Status */}
-          <div className="p-4 border-b border-border/50 bg-amber-500/5 space-y-2">
+          <div className="p-4 border-b border-border/50 bg-amber-500/5 space-y-3">
             <div className="flex items-center gap-2 text-xs font-bold text-amber-700 dark:text-amber-400">
-              <span className="material-symbols-outlined text-[18px] animate-spin">sync</span>
+              <span className="material-symbols-outlined text-[18px]">
+                {agentState.current_step === "WAIT_APPROVAL" || agentState.current_step === "OUTLINING"
+                  ? "fact_check"
+                  : agentState.current_step === "COMPLETED"
+                  ? "check_circle"
+                  : "sync"}
+              </span>
               <span>
-                {agentState.current_step === "OUTLINING"
-                  ? "Đã lập đề cương, đang khởi chạy vòng lặp viết nội dung..."
+                {agentState.current_step === "WAIT_APPROVAL" || agentState.current_step === "OUTLINING"
+                  ? "Đã tạo xong dàn ý báo cáo! Vui lòng xác nhận để bắt đầu viết."
                   : agentState.current_step === "DRAFTING"
                   ? "Agent đang tự động viết từng chương mục..."
                   : agentState.current_step === "COMPLETED"
@@ -1543,8 +1618,31 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
               </span>
             </div>
             <p className="text-[11px] text-text-subtle leading-relaxed">
-              Hệ thống đang chạy tuần tự từng chương mục độc lập theo đề cương. Trạng thái mỗi mục sẽ liên tục cập nhật bên dưới.
+              {agentState.current_step === "WAIT_APPROVAL" || agentState.current_step === "OUTLINING"
+                ? "Kiểm tra danh sách các mục bên dưới và bấm nút Xác nhận dàn ý để kích hoạt quá trình tự động soạn thảo từng chương mục."
+                : "Hệ thống đang chạy tuần tự từng chương mục độc lập theo đề cương. Trạng thái mỗi mục sẽ liên tục cập nhật bên dưới."}
             </p>
+
+            {(agentState.current_step === "WAIT_APPROVAL" || agentState.current_step === "OUTLINING") && (
+              <button
+                onClick={() => confirmOutlineAndStartDrafting()}
+                disabled={agentLoading}
+                className="w-full py-2.5 px-4 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md active:scale-98 disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                <span>XÁC NHẬN DÀN Ý & BẮT ĐẦU TẠO BÁO CÁO</span>
+              </button>
+            )}
+
+            {agentState.current_step === "COMPLETED" && (
+              <button
+                onClick={() => openAgentProgressPreview(agentState, "Báo cáo hoàn chỉnh")}
+                className="w-full py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md active:scale-98"
+              >
+                <span className="material-symbols-outlined text-[18px]">visibility</span>
+                <span>XEM PREVIEW BÁO CÁO HOÀN CHỈNH</span>
+              </button>
+            )}
           </div>
 
           {/* Sections Progress List */}
