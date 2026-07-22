@@ -321,6 +321,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     reportWorkflowModelId,
     setReportWorkflowModelId,
     buildAgentReportContent,
+    runAgentInit,
   } = useAgentWorkflow({
     activeSessionId,
     setActiveSessionId,
@@ -498,6 +499,22 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     );
     setDraft("");
     setAttachedFiles([]);
+
+    // Nếu đang BẬT chế độ AI Agent (!assistantOnlyMode), tự động kích hoạt Multi-Agent Workflow
+    if (!assistantOnlyMode && typeof runAgentInit === "function") {
+      try {
+        await runAgentInit({
+          userPrompt: userText,
+          selectedReportModelId: activeModel?.id,
+          selectedOutlineSubject: selectedKnowledgeSubject !== "none" ? selectedKnowledgeSubject : "",
+        });
+      } catch (err) {
+        console.error("Lỗi kích hoạt AI Agent:", err);
+      } finally {
+        setIsSending(false);
+      }
+      return;
+    }
 
     try {
       let webSearchContext = "";
