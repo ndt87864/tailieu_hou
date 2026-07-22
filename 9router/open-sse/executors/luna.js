@@ -263,6 +263,7 @@ export class LunaExecutor extends DefaultExecutor {
       data: parentMessageId ? { id: parentMessageId } : undefined,
       messages: [
         {
+          id: null,
           fid,
           parentId: parentMessageId || null,
           childrenIds: [childId],
@@ -272,6 +273,7 @@ export class LunaExecutor extends DefaultExecutor {
           files: [],
           timestamp: ts,
           models: [cleanModel],
+          model: "",
           chat_type: chatType,
           feature_config: featureConfig,
           extra: { meta: { subChatType, size } },
@@ -473,7 +475,9 @@ export class LunaExecutor extends DefaultExecutor {
     if (!data) return;
     const isCaptcha = Array.isArray(data.ret) && data.ret.includes("FAIL_SYS_USER_VALIDATE");
     if (data.error || data.success === false || data.message === "Unauthorized" || data.message === "The chat is in progress" || isCaptcha) {
-      let errMsg = data.error?.message || data.error || data.message || "";
+      console.warn("[Luna] Qwen error response:", JSON.stringify(data).slice(0, 500));
+      const rawErr = data.error?.message || data.error || data.message || "";
+      let errMsg = typeof rawErr === "object" ? JSON.stringify(rawErr) : String(rawErr || "");
       if (isCaptcha) {
         errMsg = "Qwen captcha validation required (FAIL_SYS_USER_VALIDATE)";
       }

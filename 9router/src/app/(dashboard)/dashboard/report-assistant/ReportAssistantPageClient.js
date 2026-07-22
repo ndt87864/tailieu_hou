@@ -456,7 +456,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
   }, [filesOutlines, filesTemplates, isRestrictedUser]);
 
   const handleSendMessage = useCallback(async () => {
-    if (!activeSessionId || isSending) return;
+    if (!activeSessionId || isSending || (!draft.trim() && attachedFiles.length === 0)) return;
     setIsSending(true);
 
     const userText = draft;
@@ -510,42 +510,79 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
         }
       }
 
+      const activeSystemPrompt = systemPrompt.trim()
+        ? systemPrompt
+        : (isReportIntent(userText) ? defaultSystemPrompt : "");
+
       if (
         webSearchEnabled &&
-        (isReportIntent(userText) || userText.trim().length > 10)
+        isReportIntent(userText)
       ) {
         const searchQuery = cleanWebSearchQuery(userText);
-        setSearchStatus(
-          `Đang tìm kiếm thông tin mới nhất trên Google qua Tavily AI cho từ khoá "${searchQuery}"...`
-        );
-        showToast("Tavily AI đang tìm kiếm thông tin mới nhất...", "info");
-        try {
-          const res = await fetch("/api/report-assistant/web-search", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ query: searchQuery }),
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.results) {
-              showToast("Tavily AI đã tìm kiếm thông tin thành công!", "success");
-              let searchContent = `\n\n--- DỮ LIỆU TÌM KIẾM MỚI NHẤT TỪ TAVILY AI ---`;
-              if (data.results.answer) {
-                searchContent += `\n**Tóm tắt câu trả lời:** ${data.results.answer}`;
+        if (searchQuery) {
+          setSearchStatus(
+            `Đang tìm kiếm thông tin mới nhất trên Google qua Tavily AI cho từ khoá "${searchQuery}"...`
+          );
+          showToast("Tavily AI đang tìm kiếm thông tin mới nhất...", "info");
+          try {
+            const res = await fetch("/api/report-assistant/web-search", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ query: searchQuery }),
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.results) {
+                showToast("Tavily AI đã tìm kiếm thông tin thành công!", "success");
+                let searchContent = `\n\n--- DỮ LIỆU TÌM KIẾM MỚI NHẤT TỪ TAVILY AI ---`;
+                if (data.results.answer) {
+                  searchContent += `\n**Tóm tắt câu trả lời:** ${data.results.answer}`;
+                }
+                searchContent += `\n\n**Các nguồn tin cậy tìm thấy:**`;
+                for (const r of data.results.results || []) {
+                  searchContent += `\n\n- **[${r.title}](${r.url})**\n  *Nội dung trích dẫn:* ${r.content}`;
+                }
+                searchContent += `\n--------------------------------------------`;
+                webSearchContext += searchContent;
               }
-              searchContent += `\n\n**Các nguồn tin cậy tìm thấy:**`;
-              for (const r of data.results.results || []) {
-                searchContent += `\n\n- **[${r.title}](${r.url})**\n  *Nội dung trích dẫn:* ${r.content}`;
-              }
-              searchContent += `\n--------------------------------------------`;
-              webSearchContext += searchContent;
             }
+          } catch (e) {
+            console.error("Error fetching Tavily Search content", e);
           }
-        } catch (e) {
-          console.error("Error fetching Tavily Search content", e);
         }
       }
       setSearchStatus("");
+
+      const requestMessages = [];
+      if (activeSystemPrompt) {
+        requestMessages.push({ role: "system", content: activeSystemPrompt });
+      }
+      requestMessages.push({
+        role: "user",
+        content: await buildContentWithAttachments(userText + webSearchContext, filePayloads),
+      });
+
+      const asstMsgId = createId();
+      const initialAsstMsg = {
+        id: asstMsgId,
+        role: "assistant",
+        content: "",
+        status: "streaming",
+        createdAt: new Date().toISOString(),
+      };
+      setStreamingId(asstMsgId);
+
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.id === activeSessionId
+            ? {
+                ...s,
+                messages: [...(s.messages || []), initialAsstMsg],
+                updatedAt: new Date().toISOString(),
+              }
+            : s
+        )
+      );
 
       const response = await fetch("/api/v1/chat/completions", {
         method: "POST",
@@ -555,40 +592,100 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
         },
         body: JSON.stringify({
           model: activeModel?.id,
-          messages: [
-            { role: "system", content: systemPrompt || defaultSystemPrompt },
-            { role: "user", content: await buildContentWithAttachments(userText + webSearchContext, filePayloads) },
-          ],
+          messages: requestMessages,
+          stream: true,
           temperature,
         }),
       });
 
-      const resData = await response.json();
-      const content = resData?.choices?.[0]?.message?.content || "";
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({}));
+        const errMsg = errJson.error?.message || errJson.message || `Lỗi server (${response.status})`;
+        throw new Error(errMsg);
+      }
 
-      const assistMsg = {
-        id: createId(),
-        role: "assistant",
-        content,
-        createdAt: new Date().toISOString(),
-      };
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error("Trình duyệt không hỗ trợ đọc stream response.");
+      }
 
+      const decoder = new TextDecoder("utf-8");
+      let buffer = "";
+      let fullContent = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split(/\r?\n/);
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith("data:")) continue;
+          const payloadStr = trimmed.slice(5).trim();
+          if (!payloadStr || payloadStr === "[DONE]") continue;
+
+          try {
+            const chunk = JSON.parse(payloadStr);
+            const delta =
+              chunk.choices?.[0]?.delta?.content ||
+              chunk.choices?.[0]?.message?.content ||
+              "";
+            if (delta) {
+              fullContent += delta;
+              setSessions((prev) =>
+                prev.map((s) =>
+                  s.id === activeSessionId
+                    ? {
+                        ...s,
+                        messages: (s.messages || []).map((m) =>
+                          m.id === asstMsgId
+                            ? { ...m, content: fullContent, status: "streaming" }
+                            : m
+                        ),
+                        updatedAt: new Date().toISOString(),
+                      }
+                    : s
+                )
+              );
+            }
+          } catch (e) {
+            // Ignore parse errors on partial lines
+          }
+        }
+      }
+
+      // Mark message complete
       setSessions((prev) =>
         prev.map((s) =>
           s.id === activeSessionId
             ? {
                 ...s,
-                messages: [...(s.messages || []), assistMsg],
+                messages: (s.messages || []).map((m) =>
+                  m.id === asstMsgId
+                    ? { ...m, content: fullContent, status: "done" }
+                    : m
+                ),
                 updatedAt: new Date().toISOString(),
               }
             : s
         )
       );
+
+      if (!fullContent.trim()) {
+        throw new Error("Không nhận được phản hồi từ mô hình AI.");
+      }
     } catch (err) {
       console.error(err);
-      showToast("Lỗi gửi tin nhắn: " + err.message, "error");
+      const isFetchErr = err?.message === "Failed to fetch" || err?.name === "TypeError";
+      const displayMsg = isFetchErr
+        ? "Không thể kết nối đến máy chủ API. Vui lòng kiểm tra lại server hoặc thử lại sau giây lát."
+        : err.message;
+      showToast("Lỗi gửi tin nhắn: " + displayMsg, "error");
     } finally {
       setIsSending(false);
+      setStreamingId("");
       setSearchStatus("");
     }
   }, [
@@ -857,7 +954,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
               ))}
             </div>
           )}
-          {isSending && (
+          {isSending && (!activeSession?.messages?.some(m => m.id === streamingId && m.content.trim())) && (
             <div className="flex gap-4 max-w-3xl mr-auto">
               <AssistantAvatar />
               <TypingDots />
@@ -1111,8 +1208,11 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
+                  if (e.nativeEvent.isComposing) return;
                   e.preventDefault();
-                  handleSendMessage();
+                  if (draft.trim() || attachedFiles.length > 0) {
+                    handleSendMessage();
+                  }
                 }
               }}
               placeholder="Nhập tin nhắn..."
