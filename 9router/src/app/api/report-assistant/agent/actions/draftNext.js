@@ -387,6 +387,6 @@ export async function handleDraftNext(ctx) {
     } catch (releaseErr) {
       console.error("[executeDraftNext] lease release failed in unexpected error path:", releaseErr.message);
     }
-    throw err;
+    return NextResponse.json({ ok: false, error: err.message || "Lỗi soạn thảo mục báo cáo" }, { status: 200 });
   }
 }

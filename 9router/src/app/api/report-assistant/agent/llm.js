@@ -131,6 +131,8 @@ export async function buildInternalFetchHeaders(authToken = null, contentType = 
 
 // Call local completions API with Exponential Backoff Retries for Rate Limits (429/503)
 const BACKUP_MODELS = ["gemini-1.5-flash", "gemini-2.5-flash", "gpt-4o-mini", "gemini-1.5-pro"];
+const LUNA_BACKUP_MODELS = ["ln/qwen3.7-max", "ln/qwen3.6-plus", "gemini-1.5-flash", "gpt-4o-mini"];
+const ARENA_BACKUP_MODELS = ["ar/claude-3-5-sonnet-20241022", "gemini-1.5-flash", "gpt-4o-mini"];
 
 export function extractLLMText(data) {
   const choice = data?.choices?.[0] || {};
@@ -155,11 +157,17 @@ export function extractLLMText(data) {
 export async function callLLM(modelId, messages, temperature = 0.3, authToken = null, rawUsername = null, baseUrlOverride = null, sessionState = null, options = {}) {
   const authContext = rawUsername;
   const maxAttempts = Number.isFinite(REPORT_LLM_MAX_ATTEMPTS) && REPORT_LLM_MAX_ATTEMPTS > 0 ? REPORT_LLM_MAX_ATTEMPTS : 1;
-  const timeoutMs = Number.isFinite(options.timeout) && options.timeout > 0 ? options.timeout : (Number.isFinite(REPORT_LLM_TIMEOUT_MS) && REPORT_LLM_TIMEOUT_MS > 0 ? REPORT_LLM_TIMEOUT_MS : 600000);
+  const timeoutMs = Number.isFinite(options.timeout) && options.timeout > 0 ? options.timeout : (Number.isFinite(REPORT_LLM_TIMEOUT_MS) && REPORT_LLM_TIMEOUT_MS > 0 ? REPORT_LLM_TIMEOUT_MS : 60000);
 
   // Prepare a sequence of models to try if quota is hit
-  const isSpecialProvider = String(modelId || "").startsWith("ln/") || String(modelId || "").startsWith("ar/");
-  const modelsToTry = isSpecialProvider ? [modelId] : [modelId, ...BACKUP_MODELS.filter((m) => m !== modelId)];
+  let modelsToTry = [modelId];
+  if (isLunaModelId(modelId)) {
+    modelsToTry = [modelId, ...LUNA_BACKUP_MODELS.filter((m) => m !== modelId)];
+  } else if (isArenaModelId(modelId)) {
+    modelsToTry = [modelId, ...ARENA_BACKUP_MODELS.filter((m) => m !== modelId)];
+  } else {
+    modelsToTry = [modelId, ...BACKUP_MODELS.filter((m) => m !== modelId)];
+  }
   let currentModelIdx = 0;
   let attempt = 0;
   let backoffMs = 2000;

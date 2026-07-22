@@ -96,6 +96,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
   const abortRef = useRef(null);
+  const isSendingRef = useRef(false);
 
   const applyFullModelList = useCallback((models, uName) => {
     if (!Array.isArray(models) || models.length === 0) return;
@@ -157,6 +158,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     if (abortRef.current) {
       abortRef.current.abort();
     }
+    isSendingRef.current = false;
     setIsSending(false);
     setStreamingId("");
     setSearchStatus("");
@@ -483,7 +485,8 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
   }, [filesOutlines, filesTemplates, isRestrictedUser]);
 
   const handleSendMessage = useCallback(async () => {
-    if (!activeSessionId || isSending || (!draft.trim() && attachedFiles.length === 0)) return;
+    if (!activeSessionId || isSending || isSendingRef.current || (!draft.trim() && attachedFiles.length === 0)) return;
+    isSendingRef.current = true;
     setIsSending(true);
 
     const userText = draft;
@@ -500,15 +503,19 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     };
 
     setSessions((prev) =>
-      prev.map((s) =>
-        s.id === activeSessionId
-          ? {
-              ...s,
-              messages: [...(s.messages || []), userMsg],
-              updatedAt: new Date().toISOString(),
-            }
-          : s
-      )
+      prev.map((s) => {
+        if (s.id !== activeSessionId) return s;
+        const currentMsgs = s.messages || [];
+        const lastMsg = currentMsgs[currentMsgs.length - 1];
+        if (lastMsg && lastMsg.role === "user" && lastMsg.content === userText) {
+          return s;
+        }
+        return {
+          ...s,
+          messages: [...currentMsgs, userMsg],
+          updatedAt: new Date().toISOString(),
+        };
+      })
     );
     setDraft("");
     setAttachedFiles([]);
@@ -527,6 +534,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
         console.error("Lỗi kích hoạt AI Agent:", err);
         showToast("Lỗi khởi chạy AI Agent: " + err.message, "error");
       } finally {
+        isSendingRef.current = false;
         setIsSending(false);
       }
       return;
@@ -796,6 +804,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
         showToast("Lỗi gửi tin nhắn: " + displayMsg, "error");
       }
     } finally {
+      isSendingRef.current = false;
       setIsSending(false);
       setStreamingId("");
       setSearchStatus("");
@@ -1011,19 +1020,31 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
                       <div className="flex items-center justify-between gap-6 px-4 py-3 bg-surface border border-border/80 rounded-2xl shadow-sm hover:shadow transition-all min-w-[320px]">
                         <div className="flex items-center gap-3">
                           <div className="size-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold">
-                            <span className="material-symbols-outlined text-[20px]">format_list_bulleted</span>
+                            {msg.outlineStatus === "generating" ? (
+                              <span className="material-symbols-outlined text-[20px] animate-spin text-amber-500">sync</span>
+                            ) : msg.outlineStatus === "error" ? (
+                              <span className="material-symbols-outlined text-[20px] text-rose-500">error</span>
+                            ) : (
+                              <span className="material-symbols-outlined text-[20px]">format_list_bulleted</span>
+                            )}
                           </div>
                           <div>
                             <div className="text-xs font-bold text-text-main leading-tight">
                               Dàn ý báo cáo
                             </div>
                             <div className="text-[10px] text-text-subtle mt-0.5">
-                              {new Date(msg.createdAt || Date.now()).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
+                              {msg.outlineStatus === "generating" ? (
+                                <span className="text-amber-600 dark:text-amber-400 font-medium">Đang lập dàn ý...</span>
+                              ) : msg.outlineStatus === "error" ? (
+                                <span className="text-rose-500 font-medium">{msg.errorText || "Tạo dàn ý thất bại"}</span>
+                              ) : (
+                                msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : ""
+                              )}
                             </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          {agentState?.current_step === "WAIT_APPROVAL" && (
+                          {(msg.outlineStatus === "ready" || !msg.outlineStatus) && agentState?.current_step === "WAIT_APPROVAL" && (
                             <button
                               onClick={() => confirmOutlineAndStartDrafting()}
                               className="px-3 py-1.5 rounded-full bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs transition-all cursor-pointer shadow-sm active:scale-95"
@@ -1050,12 +1071,15 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
                               Báo cáo hoàn chỉnh
                             </div>
                             <div className="text-[10px] text-text-subtle mt-0.5">
-                              {new Date(msg.createdAt || Date.now()).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
+                              {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : ""}
                             </div>
                           </div>
                         </div>
                         <button
-                          onClick={() => openAgentProgressPreview(agentState, "Báo cáo hoàn chỉnh")}
+                          onClick={() => {
+                            setAgentActive(true);
+                            openAgentProgressPreview(agentState, "Báo cáo hoàn chỉnh");
+                          }}
                           className="px-3.5 py-1.5 rounded-full bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs transition-all cursor-pointer shadow-sm active:scale-95 flex items-center gap-1"
                         >
                           <span className="material-symbols-outlined text-[16px]">visibility</span>
@@ -1636,7 +1660,10 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
 
             {agentState.current_step === "COMPLETED" && (
               <button
-                onClick={() => openAgentProgressPreview(agentState, "Báo cáo hoàn chỉnh")}
+                onClick={() => {
+                  setAgentActive(true);
+                  openAgentProgressPreview(agentState, "Báo cáo hoàn chỉnh");
+                }}
                 className="w-full py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md active:scale-98"
               >
                 <span className="material-symbols-outlined text-[18px]">visibility</span>
@@ -1645,76 +1672,114 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
             )}
           </div>
 
-          {/* Sections Progress List */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-            <div className="flex items-center justify-between text-xs font-extrabold text-text-subtle uppercase tracking-wider">
-              <span>TIẾN ĐỘ CÁC CHƯƠNG MỤC ({agentState.sections_progress?.length || 0})</span>
-              <span>
-                {agentState.sections_progress?.filter((s) => s.status === "completed").length || 0}/
-                {agentState.sections_progress?.length || 0} Hoàn thành
-              </span>
-            </div>
-
-            {(agentState.sections_progress || []).map((sec, idx) => {
-              const isDone = sec.status === "completed";
-              const isDrafting = sec.status === "drafting" || sec.status === "in_progress";
-
-              return (
-                <div
-                  key={sec.id || idx}
-                  className={cn(
-                    "p-3.5 rounded-2xl border transition-all text-xs space-y-2",
-                    isDone
-                      ? "bg-emerald-500/5 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
-                      : isDrafting
-                      ? "bg-brand-500/5 border-brand-500/40 text-brand-600 dark:text-brand-400 shadow-sm ring-1 ring-brand-500/20"
-                      : "bg-bg/60 border-border text-text-main"
-                  )}
+          {/* Sections Progress List OR Preview Mode */}
+          {selectedReport ? (
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+              <div className="flex items-center justify-between gap-2 pb-3 border-b border-border">
+                <button
+                  onClick={() => setSelectedReport(null)}
+                  className="px-2.5 py-1 rounded-lg bg-surface-2 hover:bg-border text-text-main text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
                 >
-                  <div className="flex items-start justify-between gap-2 font-bold">
-                    <span className="leading-snug">{sec.title}</span>
-                    <span
-                      className={cn(
-                        "text-[9px] uppercase font-extrabold px-2 py-0.5 rounded-full border shrink-0",
-                        isDone
-                          ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600"
-                          : isDrafting
-                          ? "bg-amber-500/10 border-amber-500/30 text-amber-600 animate-pulse"
-                          : "bg-surface border-border text-text-subtle"
-                      )}
-                    >
-                      {isDone ? "Hoàn thành" : isDrafting ? "DRAFTING" : "TODO"}
-                    </span>
-                  </div>
+                  <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+                  <span>Quay lại tiến độ</span>
+                </button>
+                <span className="text-xs font-bold text-text-subtle truncate max-w-[200px]" title={selectedReport.title}>
+                  {selectedReport.title}
+                </span>
+              </div>
+              <div className="p-4 rounded-2xl bg-surface border border-border text-text-main text-xs leading-relaxed">
+                <div
+                  className="prose dark:prose-invert max-w-none space-y-3"
+                  dangerouslySetInnerHTML={{
+                    __html: renderMarkdownAndMath(selectedReport.content),
+                  }}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+              <div className="flex items-center justify-between text-xs font-extrabold text-text-subtle uppercase tracking-wider">
+                <span>TIẾN ĐỘ CÁC CHƯƠNG MỤC ({agentState.sections_progress?.length || 0})</span>
+                <span>
+                  {agentState.sections_progress?.filter((s) => s.status === "done").length || 0}/
+                  {agentState.sections_progress?.length || 0} Hoàn thành
+                </span>
+              </div>
 
-                  {sec.description && (
-                    <p className="text-[11px] text-text-subtle leading-relaxed">{sec.description}</p>
-                  )}
+              {(agentState.sections_progress || []).map((sec, idx) => {
+                const isDone = sec.status === "done";
+                const isDrafting = sec.status === "drafting" || sec.status === "in_progress";
 
-                  {/* Subsections list */}
-                  {Array.isArray(sec.subsections) && sec.subsections.length > 0 && (
-                    <div className="pt-1 space-y-1 border-t border-border/40">
-                      <div className="text-[10px] font-bold text-text-subtle uppercase">Mục con:</div>
-                      {sec.subsections.map((sub, sIdx) => (
-                        <div key={sIdx} className="text-[11px] text-text-muted flex items-start gap-1 pl-1">
-                          <span className="text-brand-500">•</span>
-                          <span>{sub}</span>
+                return (
+                  <div
+                    key={sec.id || idx}
+                    className={cn(
+                      "p-3.5 rounded-2xl border transition-all text-xs space-y-2",
+                      isDone
+                        ? "bg-emerald-500/5 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
+                        : isDrafting
+                        ? "bg-brand-500/5 border-brand-500/40 text-brand-600 dark:text-brand-400 shadow-sm ring-1 ring-brand-500/20"
+                        : "bg-bg/60 border-border text-text-main"
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-2 font-bold">
+                      <span className="leading-snug">{sec.title}</span>
+                      <span
+                        className={cn(
+                          "text-[9px] uppercase font-extrabold px-2 py-0.5 rounded-full border shrink-0",
+                          isDone
+                            ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600"
+                            : isDrafting
+                            ? "bg-amber-500/10 border-amber-500/30 text-amber-600 animate-pulse"
+                            : "bg-surface border-border text-text-subtle"
+                        )}
+                      >
+                        {isDone ? "Hoàn thành" : isDrafting ? "DRAFTING" : "TODO"}
+                      </span>
+                    </div>
+
+                    {sec.description && (
+                      <p className="text-[11px] text-text-subtle leading-relaxed">{sec.description}</p>
+                    )}
+
+                    {/* Subsections list */}
+                    {Array.isArray(sec.subsections) && sec.subsections.length > 0 && (
+                      <div className="pt-1 space-y-1 border-t border-border/40">
+                        <div className="text-[10px] font-bold text-text-subtle uppercase">Mục con:</div>
+                        {sec.subsections.map((sub, sIdx) => (
+                          <div key={sIdx} className="text-[11px] text-text-muted flex items-start gap-1 pl-1">
+                            <span className="text-brand-500">•</span>
+                            <span>{sub}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Completed Content Preview Snippet */}
+                    {isDone && sec.content && (
+                      <div className="pt-2 border-t border-emerald-500/20 space-y-1">
+                        <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[13px]">check_circle</span>
+                          <span>Nội dung đã hoàn thành:</span>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                        <div className="text-[11px] text-text-main/90 line-clamp-3 bg-emerald-500/5 p-2 rounded-xl leading-relaxed whitespace-pre-wrap font-sans border border-emerald-500/10">
+                          {sec.content.replace(/^#+\s*.*(\r?\n|$)/, "").trim().slice(0, 250)}...
+                        </div>
+                      </div>
+                    )}
 
-                  {/* Drafting progress indicator */}
-                  {isDrafting && (
-                    <div className="pt-2 flex items-center gap-2 text-[11px] font-medium text-amber-600 dark:text-amber-400">
-                      <span className="material-symbols-outlined text-[15px] animate-spin">sync</span>
-                      <span>Agent đang xử lý mục: {sec.title}</span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                    {/* Drafting progress indicator */}
+                    {isDrafting && (
+                      <div className="pt-2 flex items-center gap-2 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                        <span className="material-symbols-outlined text-[15px] animate-spin">sync</span>
+                        <span>Agent đang xử lý mục: {sec.title}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createId } from "../utils/helpers";
 import { fetchKnowledgeContentCached } from "../utils/knowledgeCache";
-import { prepareReportContent } from "../utils/reportFormatter";
+import { buildAgentReportContent } from "../utils/agentReportBuilder";
 
 export function useAgentWorkflow({
   activeSessionId,
@@ -34,116 +34,20 @@ export function useAgentWorkflow({
   const agentDraftingInProgressRef = useRef(false);
   const agentStateRef = useRef(null);
 
-  // Sync agentStateRef khi agentState thay đổi
   useEffect(() => {
     agentStateRef.current = agentState;
   }, [agentState]);
 
-  const isB49InternshipOpeningSection = (section) => {
-    if (!section?.reportContext?.internshipReport) return false;
-    const norm = String(section.title || "").toLowerCase();
-    return norm.includes("loi mo dau") || norm.includes("mo dau") || norm.includes("nhan xet kien tap") || norm.includes("xac nhan cua can bo");
-  };
-
-  const stripB49OpeningPreamble = (text) => {
-    if (!text) return "";
-    return text.replace(/^#+\s*(?:LỜI MỞ ĐẦU|MỞ ĐẦU|NHẬN XÉT KIẾN TẬP|XÁC NHẬN CỦA CÁN BỘ HƯỚNG DẪN)[\s\S]*?(\n|$)/i, "").trim();
-  };
-
-  const normalizeDisplayLineForDedup = (line) => {
-    if (!line) return "";
-    return String(line)
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9\s]/g, "")
-      .replace(/\s+/g, " ")
-      .trim();
-  };
-
-  const shouldExcludeReferences = (title) => {
-    const normTitle = String(title || "").toLowerCase();
-    return normTitle.includes("ba49") || normTitle.includes("b49") || normTitle.includes("kiến tập");
-  };
-
-  const buildAgentReportContent = useCallback((state) => {
-    const sections = state?.sections_progress || [];
-    const hasInternshipReport = sections.some((s) => s?.reportContext?.internshipReport);
-    const hasCareerReport = sections.some((s) => s?.reportContext?.careerOrientationReport);
-    
-    const reportBody = sections
-      .filter((section) => String(section?.content || "").trim() || isB49InternshipOpeningSection(section))
-      .map((section) => {
-        const rawContent = String(section.content || "").trim();
-        const content = isB49InternshipOpeningSection(section) ? stripB49OpeningPreamble(rawContent) : rawContent;
-        const firstLine = content.split(/\r?\n/).map((l) => l.trim()).find(Boolean) || "";
-        const fNorm = normalizeDisplayLineForDedup(firstLine);
-        const sNorm = normalizeDisplayLineForDedup(section.title);
-        let sameTitle = false;
-        if (fNorm) {
-          if (fNorm === sNorm || (fNorm.length >= 4 && (sNorm.includes(fNorm) || fNorm.includes(sNorm)))) {
-            sameTitle = true;
-          } else if (sNorm.includes("ket luan") && fNorm.includes("ket luan")) {
-            sameTitle = true;
-          } else if (sNorm.includes("tai lieu tham khao") && fNorm.includes("tai lieu tham khao")) {
-            sameTitle = true;
-          } else if (sNorm.includes("mo dau") && fNorm.includes("mo dau")) {
-            sameTitle = true;
-          }
-        }
-        if (sameTitle) {
-          const lines = content.split(/\r?\n/);
-          const firstIdx = lines.findIndex((l) => l.trim());
-          if (firstIdx >= 0 && !lines[firstIdx].trim().startsWith("#")) {
-            lines[firstIdx] = `# ${lines[firstIdx].trim()}`;
-            return lines.join("\n");
-          }
-          return content;
-        }
-        return `# ${section.title}\n\n${content}`;
-      })
-      .join("\n\n[PAGE_BREAK]\n\n");
-
-    const webSources = [];
-    const seen = new Set();
-    for (const section of sections) {
-      for (const source of section?.web_sources || []) {
-        const url = String(source?.url || "").trim();
-        if (!url || seen.has(url)) continue;
-        seen.add(url);
-        webSources.push({ title: String(source?.title || url).trim(), url });
-      }
-    }
-
-    let finalBody = reportBody;
-    if (hasInternshipReport && !/^\s*#\s*l[oơ]i m[oơ] d[aâ]u\b/i.test(reportBody)) {
-      finalBody = `# LỜI MỞ ĐẦU\n\n[PAGE_BREAK]\n\n${reportBody}`;
-    } else if (hasCareerReport && !/^\s*#\s*(?:i\b|i\.\s*ph[aâ]n m[oơ] d[aâ]u)/i.test(reportBody)) {
-      finalBody = `# I. PHẦN MỞ ĐẦU\n\n[PAGE_BREAK]\n\n${reportBody}`;
-    }
-
-    const reportTitle = sections[0]?.reportContext?.reportTitle || state?.title || "";
-    const isNoRefReport = hasCareerReport || hasInternshipReport || shouldExcludeReferences(reportTitle);
-    if (isNoRefReport || !webSources.length) return prepareReportContent(finalBody, reportTitle);
-
-    const references = [
-      "[PAGE_BREAK]",
-      "## DANH MỤC TÀI LIỆU THAM KHẢO",
-      ...webSources.map((source, index) => `${index + 1}. ${source.title}. Truy cập tại: ${source.url}`),
-    ].join("\n");
-
-    return prepareReportContent(finalBody ? `${finalBody}\n\n${references}` : references, reportTitle);
-  }, []);
-
   const openAgentProgressPreview = useCallback((state, titlePrefix = "Báo cáo") => {
-    const content = buildAgentReportContent(state);
+    const targetState = state || agentStateRef.current;
+    const content = buildAgentReportContent(targetState);
     if (!content) return false;
     setSelectedReport({
       title: `${titlePrefix} - ${new Date().toLocaleDateString("vi-VN")}`,
       content,
     });
     return true;
-  }, [buildAgentReportContent]);
+  }, []);
 
   const loadAgentStatus = useCallback(async (chatId = activeSessionId, forceActive = false) => {
     if (!chatId) return null;
@@ -159,8 +63,12 @@ export function useAgentWorkflow({
       const data = await res.json().catch(() => null);
       if (data?.ok && data.state) {
         setAgentState(data.state);
-        const isEnded = data.state.current_step === "COMPLETED" || data.state.current_step === "CANCELLED";
-        setAgentActive(forceActive ? true : !isEnded);
+        if (forceActive) {
+          setAgentActive(true);
+        } else {
+          const isEnded = data.state.current_step === "COMPLETED" || data.state.current_step === "CANCELLED";
+          if (!isEnded) setAgentActive(true);
+        }
         return data.state;
       }
       setAgentState(null);
@@ -179,7 +87,6 @@ export function useAgentWorkflow({
   useEffect(() => {
     if (!agentActive || !activeSessionId) return;
     const isEnded = agentState?.current_step === "COMPLETED" || agentState?.current_step === "CANCELLED";
-    // Dừng polling khi chờ xác nhận dàn ý (người dùng cần bấm nút)
     const isWaitingApproval = agentState?.current_step === "WAIT_APPROVAL";
     if (isEnded || isWaitingApproval) return;
 
@@ -236,7 +143,23 @@ export function useAgentWorkflow({
     });
   }, [setSessions]);
 
-  // B1 & B2: Khởi tạo quy trình -> Tạo dàn ý -> Chuyển sang chờ xác nhận dàn ý
+  const updateChatMessage = useCallback((chatId, messageId, patch) => {
+    if (!setSessions || !chatId || !messageId) return;
+    setSessions((prev) =>
+      prev.map((s) => {
+        if (s.id !== chatId) return s;
+        return {
+          ...s,
+          messages: (s.messages || []).map((m) =>
+            m.id === messageId ? { ...m, ...patch } : m
+          ),
+          updatedAt: new Date().toISOString(),
+        };
+      })
+    );
+  }, [setSessions]);
+
+  // B1 & B2: Khởi tạo quy trình -> Tạo dàn ý ngay lập tức với loading card
   const runAgentInit = useCallback(async (userPromptArg, modelIdArg, chatIdArg, subjectOverrideArg = "") => {
     let userPrompt = userPromptArg;
     let modelId = modelIdArg;
@@ -273,9 +196,17 @@ export function useAgentWorkflow({
       ],
     });
 
-    if (userPrompt) {
-      appendChatMessage(chatId, userPrompt, null);
-    }
+    // B2: Thêm Card "Dàn ý báo cáo" ở trạng thái đang tạo (loading) ngay từ đầu
+    // userPrompt = null để không bị duplicate tin nhắn user (đã thêm tại handleSendMessage)
+    const outlineCardId = createId();
+    appendChatMessage(chatId, null, {
+      id: outlineCardId,
+      role: "assistant",
+      isOutlineCard: true,
+      outlineStatus: "generating",
+      content: "Dàn ý báo cáo",
+      createdAt: new Date().toISOString(),
+    });
 
     try {
       let outlineKnowledge = "";
@@ -334,27 +265,25 @@ export function useAgentWorkflow({
         setAgentActive(true);
         showToast("Agent đã tạo xong dàn ý báo cáo! Vui lòng xác nhận dàn ý để bắt đầu viết.", "success");
 
-        const agentInitMessage = {
-          id: createId(),
-          role: "assistant",
-          isOutlineCard: true,
-          content: `Dàn ý báo cáo`,
-          createdAt: new Date().toISOString(),
-        };
-
-        appendChatMessage(chatId, null, agentInitMessage);
+        updateChatMessage(chatId, outlineCardId, {
+          outlineStatus: "ready",
+        });
       }
     } catch (err) {
       console.error(err);
       setAgentActive(false);
       setAgentState(null);
+      updateChatMessage(chatId, outlineCardId, {
+        outlineStatus: "error",
+        errorText: err.message || "Tạo dàn ý thất bại",
+      });
       showToast(err.message, "error");
     } finally {
       setAgentLoading(false);
     }
-  }, [activeSessionId, username, showToast, appendChatMessage]);
+  }, [activeSessionId, username, showToast, appendChatMessage, updateChatMessage]);
 
-  // B3 & B4: Ấn xác nhận dàn ý -> Tạo nội dung báo cáo từng mục 1->hết -> Chuyển Preview & thêm Card báo cáo hoàn chỉnh
+  // B3 & B4: Xác nhận dàn ý -> Soạn thảo từng mục -> Xem Preview trong Drawer
   const confirmOutlineAndStartDrafting = useCallback(async (chatIdArg, modelIdArg) => {
     const chatId = chatIdArg || activeSessionId;
     const currentState = agentStateRef.current;
@@ -362,7 +291,6 @@ export function useAgentWorkflow({
 
     if (!chatId) return;
 
-    // Nếu chưa có outline từ local state, gọi API status để lấy lại
     let outline = currentState?.outline;
     if (!outline || outline.length === 0) {
       try {
@@ -411,7 +339,6 @@ export function useAgentWorkflow({
       agentStateRef.current = approveData.state;
       showToast("Đã xác nhận dàn ý! Hệ thống bắt đầu tạo nội dung các mục...", "info");
 
-      // Hàm vòng lặp tự động soạn thảo từng mục
       const runNextDraftStep = async () => {
         if (agentCancelRequestedRef.current) return;
         try {
@@ -424,6 +351,14 @@ export function useAgentWorkflow({
           if (draftData?.ok && draftData.state) {
             setAgentState(draftData.state);
             agentStateRef.current = draftData.state;
+
+            // Đồng bộ nội dung preview real-time nếu người dùng đang ở màn hình xem preview
+            setSelectedReport((prevSelected) => {
+              if (!prevSelected) return null;
+              const content = buildAgentReportContent(draftData.state);
+              return content ? { ...prevSelected, content } : prevSelected;
+            });
+
             const isCompleted = draftData.state.current_step === "COMPLETED";
             const isCancelled = draftData.state.current_step === "CANCELLED";
             const hasMoreTodo = (draftData.state.sections_progress || []).some(
@@ -439,13 +374,14 @@ export function useAgentWorkflow({
               setTimeout(runNextDraftStep, 500);
             } else if (isCompleted) {
               showToast("AI Agent đã hoàn thành toàn bộ nội dung báo cáo!", "success");
-              // B4: Tự động chuyển sang Preview và thêm Card báo cáo hoàn chỉnh vào chat
+              // B4: Mở drawer + chuyển Preview báo cáo hoàn chỉnh
+              setAgentActive(true);
               openAgentProgressPreview(draftData.state, "Báo cáo hoàn chỉnh");
               const reportCardMsg = {
                 id: createId(),
                 role: "assistant",
                 isReportCard: true,
-                content: `Báo cáo hoàn chỉnh`,
+                content: "Báo cáo hoàn chỉnh",
                 createdAt: new Date().toISOString(),
               };
               appendChatMessage(chatId, null, reportCardMsg);

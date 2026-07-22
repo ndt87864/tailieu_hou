@@ -190,7 +190,13 @@ export async function handleInit(ctx) {
       { role: "user", content: promptMsg }
     ];
 
-    const llmResult = await callLLM(targetModelId, messages, 0.4, authToken, username, requestBaseUrl, reportSession);
+    let llmResult = "";
+    try {
+      llmResult = await callLLM(targetModelId, messages, 0.4, authToken, username, requestBaseUrl, reportSession);
+    } catch (llmErr) {
+      console.warn("[init] Failed to generate outline with LLM, falling back to template outline:", llmErr.message);
+    }
+
     parsedOutline = safeParseJson(llmResult, reportContext.internshipReport
       ? buildInternshipB49Outline(reportContext)
       : (reportContext.careerOrientationReport
