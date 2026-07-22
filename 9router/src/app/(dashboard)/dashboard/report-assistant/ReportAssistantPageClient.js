@@ -87,6 +87,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
   const [searchStatus, setSearchStatus] = useState("");
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [subjectDropdownOpen, setSubjectDropdownOpen] = useState(false);
+  const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState(null);
 
   const [streamEnabled, setStreamEnabled] = useState(true);
@@ -559,33 +560,62 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
         const searchQuery = cleanWebSearchQuery(userText);
         if (searchQuery) {
           setSearchStatus(
-            `Đang tìm kiếm thông tin mới nhất trên Google qua Tavily AI cho từ khoá "${searchQuery}"...`
+            `Đang đọc và thu thập dữ liệu web qua Web Fetch (fetch-combo) cho: "${searchQuery}"...`
           );
-          showToast("Tavily AI đang tìm kiếm thông tin mới nhất...", "info");
+          showToast("Đang tìm kiếm & bóc tách dữ liệu web (fetch-combo)...", "info");
           try {
-            const res = await fetch("/api/report-assistant/web-search", {
+            // Trường hợp 1: Nếu từ khóa chứa URL, gọi trực tiếp fetch-combo cho URL đó
+            const matchUrl = searchQuery.match(/(https?:\/\/[^\s]+)/g)?.[0];
+            const targetFetchUrl = matchUrl || `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`;
+
+            const res = await fetch("/api/v1/web/fetch", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ query: searchQuery }),
+              headers: {
+                "Content-Type": "application/json",
+                ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+              },
+              body: JSON.stringify({
+                model: "fetch-combo",
+                url: targetFetchUrl,
+              }),
             });
+
             if (res.ok) {
               const data = await res.json();
-              if (data.results) {
-                showToast("Tavily AI đã tìm kiếm thông tin thành công!", "success");
-                let searchContent = `\n\n--- DỮ LIỆU TÌM KIẾM MỚI NHẤT TỪ TAVILY AI ---`;
-                if (data.results.answer) {
-                  searchContent += `\n**Tóm tắt câu trả lời:** ${data.results.answer}`;
-                }
-                searchContent += `\n\n**Các nguồn tin cậy tìm thấy:**`;
-                for (const r of data.results.results || []) {
-                  searchContent += `\n\n- **[${r.title}](${r.url})**\n  *Nội dung trích dẫn:* ${r.content}`;
-                }
-                searchContent += `\n--------------------------------------------`;
+              const extractedText = data.content || data.text || data.markdown || "";
+              if (extractedText) {
+                showToast("Thu thập dữ liệu Web Fetch thành công!", "success");
+                let searchContent = `\n\n--- DỮ LIỆU TÌM KIẾM & BÓC TÁCH MỚI NHẤT TỪ WEB FETCH (fetch-combo) ---`;
+                searchContent += `\n**Nguồn / URL:** ${targetFetchUrl}`;
+                searchContent += `\n**Nội dung trích xuất:**\n${extractedText.slice(0, 15000)}`;
+                searchContent += `\n------------------------------------------------`;
                 webSearchContext += searchContent;
+              }
+            } else {
+              // Fallback qua /api/report-assistant/web-search nếu /v1/web/fetch trả về lỗi
+              const fallbackRes = await fetch("/api/report-assistant/web-search", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ query: searchQuery }),
+              });
+              if (fallbackRes.ok) {
+                const data = await fallbackRes.json();
+                if (data.results) {
+                  let searchContent = `\n\n--- DỮ LIỆU TÌM KIẾM MỚI NHẤT TỪ WEB SEARCH ---`;
+                  if (data.results.answer) {
+                    searchContent += `\n**Tóm tắt câu trả lời:** ${data.results.answer}`;
+                  }
+                  searchContent += `\n\n**Các nguồn tin cậy:**`;
+                  for (const r of data.results.results || []) {
+                    searchContent += `\n\n- **[${r.title}](${r.url})**\n  *Nội dung:* ${r.content}`;
+                  }
+                  searchContent += `\n--------------------------------------------`;
+                  webSearchContext += searchContent;
+                }
               }
             }
           } catch (e) {
-            console.error("Error fetching Tavily Search content", e);
+            console.error("Error fetching Web search content via /v1/web/fetch", e);
           }
         }
       }
@@ -1108,211 +1138,197 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
           )}
 
           <div className="flex items-end gap-3 bg-bg border border-border rounded-2xl px-4 py-2">
-            <button
-              type="button"
-              onClick={() => setWebSearchEnabled((prev) => !prev)}
-              className={cn(
-                "size-8 rounded-[8px] flex items-center justify-center transition-colors cursor-pointer shrink-0 mb-0.5",
-                webSearchEnabled
-                  ? "bg-brand-500/10 text-brand-500 hover:bg-brand-500/20"
-                  : "text-text-muted hover:text-text-main hover:bg-surface-2"
-              )}
-              title={
-                webSearchEnabled
-                  ? "Tắt Tìm kiếm Web (đang Bật)"
-                  : "Bật Tìm kiếm Web (Tavily AI)"
-              }
-            >
-              <span className="material-symbols-outlined text-[18px]">
-                language
-              </span>
-            </button>
+            {/* Main Combined "+" Menu */}
+            <div className="relative mb-0.5">
+              <button
+                type="button"
+                onClick={() => setPlusMenuOpen((prev) => !prev)}
+                className={cn(
+                  "size-8 rounded-[8px] flex items-center justify-center transition-all cursor-pointer shrink-0 border border-border/60 hover:bg-surface-2",
+                  plusMenuOpen ? "bg-surface-2 text-brand-500 border-brand-500/40" : "bg-surface text-text-muted hover:text-text-main"
+                )}
+                title="Mở menu công cụ hỗ trợ (+)"
+              >
+                <span className="material-symbols-outlined text-[20px] transition-transform duration-200" style={{ transform: plusMenuOpen ? "rotate(45deg)" : "none" }}>
+                  add
+                </span>
+              </button>
 
-            <button
-              type="button"
-              onClick={triggerFileInput}
-              disabled={isSending || !activeModel}
-              className="size-8 rounded-[8px] flex items-center justify-center text-text-muted hover:text-text-main hover:bg-surface-2 cursor-pointer disabled:opacity-50 shrink-0 mb-0.5"
-              title="Tải lên tài liệu (.pdf, .txt, .docx, hình ảnh...)"
-            >
-              <span className="material-symbols-outlined text-[18px]">
-                attach_file
-              </span>
-            </button>
+              {plusMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setPlusMenuOpen(false)} />
+                  <div className="absolute left-0 bottom-full mb-2 z-40 w-64 bg-surface border border-border rounded-2xl shadow-xl overflow-hidden py-1.5 backdrop-blur-md">
+                    <div className="px-3 py-1.5 border-b border-border/50 text-[11px] font-semibold text-text-subtle uppercase tracking-wider">
+                      Công cụ & Chế độ
+                    </div>
 
-            <button
-              type="button"
-              onClick={() => setAssistantOnlyMode((prev) => !prev)}
-              className={cn(
-                "size-8 rounded-[8px] flex items-center justify-center transition-colors cursor-pointer shrink-0 mb-0.5",
-                !assistantOnlyMode
-                  ? "bg-brand-500/10 text-brand-500 hover:bg-brand-500/20"
-                  : "text-text-muted hover:text-text-main hover:bg-surface-2"
-              )}
-              title={
-                !assistantOnlyMode
-                  ? "Tắt Chế độ AI Agent (đang Bật)"
-                  : "Bật Chế độ AI Agent (Planning & execution)"
-              }
-            >
-              <span className="material-symbols-outlined text-[18px]">
-                support_agent
-              </span>
-            </button>
+                    <div className="p-1 space-y-0.5">
+                      {/* 1. Web Search / Fetch */}
+                      <button
+                        type="button"
+                        onClick={() => setWebSearchEnabled((prev) => !prev)}
+                        className={cn(
+                          "w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs font-medium transition-colors",
+                          webSearchEnabled ? "bg-brand-500/10 text-brand-600 font-semibold" : "text-text-main hover:bg-surface-2"
+                        )}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span className="material-symbols-outlined text-[18px] text-brand-500">language</span>
+                          <span>Tìm kiếm & Thu thập Web (fetch-combo)</span>
+                        </div>
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-surface border border-border text-text-subtle">
+                          {webSearchEnabled ? "BẬT" : "TẮT"}
+                        </span>
+                      </button>
 
-            {/* Stream Toggle Button */}
-            <button
-              type="button"
-              onClick={() => setStreamEnabled((prev) => !prev)}
-              className={cn(
-                "size-8 rounded-[8px] flex items-center justify-center transition-colors cursor-pointer shrink-0 mb-0.5",
-                streamEnabled
-                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20"
-                  : "text-text-muted hover:text-text-main hover:bg-surface-2"
-              )}
-              title={streamEnabled ? "Stream Mode: Đang BẬT (Real-time)" : "Stream Mode: Đang TẮT"}
-            >
-              <span className="material-symbols-outlined text-[18px]">
-                {streamEnabled ? "stream" : "pause_circle"}
-              </span>
-            </button>
+                      {/* 2. Upload File */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          triggerFileInput();
+                          setPlusMenuOpen(false);
+                        }}
+                        disabled={isSending || !activeModel}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-medium text-text-main hover:bg-surface-2 transition-colors disabled:opacity-50"
+                      >
+                        <span className="material-symbols-outlined text-[18px] text-brand-500">attach_file</span>
+                        <span>Đính kèm tài liệu / file</span>
+                      </button>
 
-            {/* Thinking Mode Switcher (Auto, Fast, Thinking) */}
-            {(() => {
-              const isModel38 = !!(activeModel?.id && (activeModel.id.includes("3.8") || activeModel.id.includes("qwen3.8") || activeModel.id.includes("qwen-3.8")));
-              const currentThinkingMode = isModel38 ? "thinking" : thinkingMode;
+                      {/* 3. AI Agent */}
+                      <button
+                        type="button"
+                        onClick={() => setAssistantOnlyMode((prev) => !prev)}
+                        className={cn(
+                          "w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs font-medium transition-colors",
+                          !assistantOnlyMode ? "bg-brand-500/10 text-brand-600 font-semibold" : "text-text-main hover:bg-surface-2"
+                        )}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span className="material-symbols-outlined text-[18px] text-brand-500">support_agent</span>
+                          <span>Chế độ AI Agent</span>
+                        </div>
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-surface border border-border text-text-subtle">
+                          {!assistantOnlyMode ? "BẬT" : "TẮT"}
+                        </span>
+                      </button>
 
-              return (
-                <button
-                  type="button"
-                  disabled={isModel38}
-                  onClick={() => {
-                    if (isModel38) return;
-                    const modes = ["auto", "fast", "thinking"];
-                    const nextIdx = (modes.indexOf(thinkingMode) + 1) % modes.length;
-                    setThinkingMode(modes[nextIdx]);
-                  }}
-                  className={cn(
-                    "h-8 px-2.5 rounded-[8px] border flex items-center gap-1.5 transition-all shrink-0 mb-0.5 text-xs font-semibold",
-                    isModel38 ? "cursor-not-allowed opacity-90" : "cursor-pointer",
-                    currentThinkingMode === "thinking"
-                      ? "bg-purple-500/10 border-purple-300 dark:border-purple-800 text-purple-600 dark:text-purple-400"
-                      : currentThinkingMode === "fast"
-                      ? "bg-amber-500/10 border-amber-300 dark:border-amber-800 text-amber-600 dark:text-amber-400"
-                      : "bg-surface border-border text-text-main hover:bg-surface-2"
-                  )}
-                  title={
-                    isModel38
-                      ? "Model Qwen 3.8 Max Preview cố định chế độ Thinking"
-                      : `Chế độ Thinking: ${currentThinkingMode.toUpperCase()} (Click để đổi: Auto -> Fast -> Thinking)`
-                  }
-                >
-                  <span className="material-symbols-outlined text-[15px]">
-                    {currentThinkingMode === "thinking" ? "psychology" : currentThinkingMode === "fast" ? "bolt" : "tune"}
-                  </span>
-                  <span className="capitalize">{currentThinkingMode}</span>
-                </button>
-              );
-            })()}
+                      {/* 4. Stream Toggle */}
+                      <button
+                        type="button"
+                        onClick={() => setStreamEnabled((prev) => !prev)}
+                        className={cn(
+                          "w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs font-medium transition-colors",
+                          streamEnabled ? "bg-emerald-500/10 text-emerald-600 font-semibold" : "text-text-main hover:bg-surface-2"
+                        )}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span className="material-symbols-outlined text-[18px] text-emerald-500">{streamEnabled ? "stream" : "pause_circle"}</span>
+                          <span>Stream Real-time</span>
+                        </div>
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-surface border border-border text-text-subtle">
+                          {streamEnabled ? "BẬT" : "TẮT"}
+                        </span>
+                      </button>
 
-            {/* Custom Subject Selector */}
-            {allSubjects.length > 0 && (
-              <div className="relative mb-0.5">
-                <button
-                  type="button"
-                  onClick={() => setSubjectDropdownOpen((prev) => !prev)}
-                  className="flex items-center gap-1.5 h-8 px-2.5 rounded-[8px] border border-border bg-surface hover:bg-surface-2 transition-all text-xs font-semibold text-text-main cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[15px] text-brand-500">
-                    menu_book
-                  </span>
-                  <span className="max-w-[130px] truncate">
-                    {selectedKnowledgeSubject === "none"
-                      ? "Chủ đề báo cáo"
-                      : selectedKnowledgeSubject}
-                  </span>
-                  <span className="material-symbols-outlined text-[16px] text-text-subtle">
-                    expand_more
-                  </span>
-                </button>
+                      {/* 5. Thinking Mode */}
+                      {(() => {
+                        const isModel38 = !!(activeModel?.id && (activeModel.id.includes("3.8") || activeModel.id.includes("qwen3.8") || activeModel.id.includes("qwen-3.8")));
+                        const currentThinkingMode = isModel38 ? "thinking" : thinkingMode;
+                        return (
+                          <button
+                            type="button"
+                            disabled={isModel38}
+                            onClick={() => {
+                              if (isModel38) return;
+                              const modes = ["auto", "fast", "thinking"];
+                              const nextIdx = (modes.indexOf(thinkingMode) + 1) % modes.length;
+                              setThinkingMode(modes[nextIdx]);
+                            }}
+                            className={cn(
+                              "w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs font-medium transition-colors",
+                              isModel38 ? "opacity-80 cursor-not-allowed" : "hover:bg-surface-2 cursor-pointer"
+                            )}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <span className="material-symbols-outlined text-[18px] text-purple-500">
+                                {currentThinkingMode === "thinking" ? "psychology" : currentThinkingMode === "fast" ? "bolt" : "tune"}
+                              </span>
+                              <span>Chế độ Suy nghĩ</span>
+                            </div>
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 capitalize">
+                              {currentThinkingMode}
+                            </span>
+                          </button>
+                        );
+                      })()}
 
-                {subjectDropdownOpen && (
-                  <>
-                    <div className="fixed inset-0 z-30" onClick={() => setSubjectDropdownOpen(false)} />
-                    <div className="absolute left-0 bottom-full mb-1.5 z-40 w-56 bg-surface border border-border rounded-xl shadow-lg overflow-hidden py-1">
-                      <div className="max-h-60 overflow-y-auto custom-scrollbar">
-                        <button
-                          onClick={() => {
-                            setSelectedKnowledgeSubject("none");
-                            if (activeSessionId) {
-                              setSessions((prev) =>
-                                prev.map((s) =>
-                                  s.id === activeSessionId
-                                    ? {
-                                        ...s,
-                                        subject: "none",
-                                        updatedAt: new Date().toISOString(),
-                                      }
-                                    : s
-                                )
-                              );
-                            }
-                            setSubjectDropdownOpen(false);
-                          }}
-                          className={cn(
-                            "w-full flex items-center gap-2 px-3 py-2 text-left text-xs transition-colors",
-                            selectedKnowledgeSubject === "none"
-                              ? "bg-brand-500/10 text-brand-600 font-semibold"
-                              : "text-text-main hover:bg-surface-2"
-                          )}
-                        >
-                          <span className="material-symbols-outlined text-[15px] text-text-subtle">
-                            layers_clear
-                          </span>
-                          <span>-- Chủ đề báo cáo --</span>
-                        </button>
-                        {allSubjects.map((s) => {
-                          const active = s === selectedKnowledgeSubject;
-                          return (
+                      {/* 6. Subject Selector */}
+                      {allSubjects.length > 0 && (
+                        <div className="pt-1.5 border-t border-border/50">
+                          <div className="px-3 py-1 text-[11px] font-semibold text-text-subtle uppercase tracking-wider">
+                            Chủ đề Báo cáo
+                          </div>
+                          <div className="max-h-40 overflow-y-auto custom-scrollbar p-0.5">
                             <button
-                              key={s}
                               onClick={() => {
-                                setSelectedKnowledgeSubject(s);
+                                setSelectedKnowledgeSubject("none");
                                 if (activeSessionId) {
                                   setSessions((prev) =>
-                                    prev.map((sItem) =>
-                                      sItem.id === activeSessionId
-                                        ? {
-                                            ...sItem,
-                                            subject: s,
-                                            updatedAt: new Date().toISOString(),
-                                          }
-                                        : sItem
+                                    prev.map((s) =>
+                                      s.id === activeSessionId
+                                        ? { ...s, subject: "none", updatedAt: new Date().toISOString() }
+                                        : s
                                     )
                                   );
                                 }
-                                setSubjectDropdownOpen(false);
+                                setPlusMenuOpen(false);
                               }}
                               className={cn(
-                                "w-full flex items-center gap-2 px-3 py-2 text-left text-xs transition-colors",
-                                active
-                                  ? "bg-brand-500/10 text-brand-600 font-semibold"
-                                  : "text-text-main hover:bg-surface-2"
+                                "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-xs transition-colors",
+                                selectedKnowledgeSubject === "none" ? "bg-brand-500/10 text-brand-600 font-semibold" : "text-text-main hover:bg-surface-2"
                               )}
                             >
-                              <span className="material-symbols-outlined text-[15px] text-brand-500">
-                                library_books
-                              </span>
-                              <span className="truncate">{s}</span>
+                              <span className="material-symbols-outlined text-[15px] text-text-subtle">layers_clear</span>
+                              <span>-- Không chọn --</span>
                             </button>
-                          );
-                        })}
-                      </div>
+
+                            {allSubjects.map((s) => {
+                              const active = s === selectedKnowledgeSubject;
+                              return (
+                                <button
+                                  key={s}
+                                  onClick={() => {
+                                    setSelectedKnowledgeSubject(s);
+                                    if (activeSessionId) {
+                                      setSessions((prev) =>
+                                        prev.map((sItem) =>
+                                          sItem.id === activeSessionId
+                                            ? { ...sItem, subject: s, updatedAt: new Date().toISOString() }
+                                            : sItem
+                                        )
+                                      );
+                                    }
+                                    setPlusMenuOpen(false);
+                                  }}
+                                  className={cn(
+                                    "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-xs transition-colors",
+                                    active ? "bg-brand-500/10 text-brand-600 font-semibold" : "text-text-main hover:bg-surface-2"
+                                  )}
+                                >
+                                  <span className="material-symbols-outlined text-[15px] text-brand-500">library_books</span>
+                                  <span className="truncate">{s}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </>
-                )}
-              </div>
-            )}
+                  </div>
+                </>
+              )}
+            </div>
 
             <input
               ref={fileInputRef}
