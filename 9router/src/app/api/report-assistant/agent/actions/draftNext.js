@@ -379,6 +379,9 @@ export async function handleDraftNext(ctx) {
           });
         }
       } catch (err) {
+        if (err?.code === "AGENT_CANCELLED" || String(err?.message || "").includes("CANCELLED")) {
+          throw err;
+        }
         console.error(`[executeDraftNext] Attempt ${attempts} failed:`, err.message);
         if (attempts >= maxDraftAttempts) {
           throw err;
@@ -394,12 +397,16 @@ export async function handleDraftNext(ctx) {
       leaseManager
     });
   } catch (err) {
-    console.error("[executeDraftNext] Unexpected error in draftNext workflow:", err);
     try {
       await leaseManager.release();
-    } catch (releaseErr) {
-      console.error("[executeDraftNext] lease release failed in unexpected error path:", releaseErr.message);
+    } catch (releaseErr) {}
+
+    if (err?.code === "AGENT_CANCELLED" || String(err?.message || "").includes("CANCELLED")) {
+      const { data: latestState } = await getAgentState(chatId, username);
+      return NextResponse.json({ ok: true, state: latestState, message: "Worker aborted: workflow cancelled by user." });
     }
+
+    console.error("[executeDraftNext] Unexpected error in draftNext workflow:", err);
     return NextResponse.json({ ok: false, error: err.message || "Lỗi soạn thảo mục báo cáo" }, { status: 200 });
   }
 }

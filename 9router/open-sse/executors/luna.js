@@ -458,45 +458,180 @@ export class LunaExecutor extends DefaultExecutor {
   }
 
   /**
+   * Fetch current user settings from Qwen Web via GET https://chat.qwen.ai/api/v2/users/user/settings
+   */
+  async getUserSettings(credentials, proxyOptions) {
+    try {
+      const url = "https://chat.qwen.ai/api/v2/users/user/settings";
+      const headers = this.buildHeaders(credentials, false, null);
+      const response = await proxyAwareFetch(
+        url,
+        {
+          method: "GET",
+          headers,
+        },
+        proxyOptions
+      );
+
+      if (!response.ok) return null;
+      const resJson = await response.json().catch(() => null);
+      if (resJson?.success === false || resJson?.data?.code === "unauthorized") {
+        return {
+          error: resJson?.data?.details || resJson?.data?.code || "Unauthorized",
+          isUnauthorized: true,
+        };
+      }
+      return resJson?.data || null;
+    } catch (err) {
+      console.warn("[Luna] getUserSettings error:", err?.message || err);
+      return null;
+    }
+  }
+
+  /**
    * Update system_prompt / personalization instruction on Qwen Web via POST https://chat.qwen.ai/api/v2/users/user/settings/update
    */
   async updateSystemPrompt(systemPrompt, credentials, proxyOptions, chatId = null) {
-    if (!systemPrompt || !systemPrompt.trim()) return;
+    if (!systemPrompt || !systemPrompt.trim()) return { success: false, error: "Empty system prompt" };
     const promptText = systemPrompt.trim();
-    try {
-      const url = "https://chat.qwen.ai/api/v2/users/user/settings/update";
-      const headers = this.buildHeaders(credentials, false, chatId);
-      headers["content-type"] = "application/json";
 
-      const payload = {
+    // 1. Fetch current full settings object to check authorization and satisfy Qwen Pydantic schema validation
+    const currentSettings = await this.getUserSettings(credentials, proxyOptions);
+
+    if (currentSettings?.isUnauthorized) {
+      return {
+        success: false,
+        error: `Phiên đăng nhập Luna/Qwen đã hết hạn (Token Expired): ${currentSettings.error}. Vui lòng cập nhật Token/Cookie mới cho tài khoản Luna trong Settings Provider.`,
+      };
+    }
+
+    const validSettings = (currentSettings && !currentSettings.isUnauthorized) ? currentSettings : null;
+
+    const candidates = [
+      {
+        personalization: {
+          name: validSettings?.personalization?.name || "",
+          description: validSettings?.personalization?.description || "",
+          style: validSettings?.personalization?.style || null,
+          instruction: promptText,
+        },
+      },
+      {
         personalization: {
           name: "",
           description: "",
           style: null,
           instruction: promptText,
+          enable_for_new_chat: true,
         },
-      };
+      },
+    ];
 
-      const response = await proxyAwareFetch(url, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(payload),
-      }, proxyOptions);
+    if (validSettings && validSettings.personalization) {
+      candidates.unshift({
+        ...validSettings,
+        personalization: {
+          ...validSettings.personalization,
+          instruction: promptText,
+        },
+      });
+    }
 
-      if (response.ok) {
-        console.log("[Luna] personalization instruction updated successfully via /api/v2/users/user/settings/update");
-      } else {
-        console.warn(`[Luna] /api/v2/users/user/settings/update failed: ${response.status}. Trying fallback /settings/update...`);
-        const fallbackUrl = "https://chat.qwen.ai/api/v2/settings/update";
-        await proxyAwareFetch(fallbackUrl, {
+    const url = "https://chat.qwen.ai/api/v2/users/user/settings/update";
+    const headers = this.buildHeaders(credentials, false, chatId);
+    headers["content-type"] = "application/json";
+    headers["Referer"] = "https://chat.qwen.ai/settings/personalization";
+
+    let lastError = "";
+    let lastResJson = null;
+
+    for (let i = 0; i < candidates.length; i++) {
+      const payload = candidates[i];
+      try {
+        console.log(`[Luna] Trying settings update candidate #${i + 1}...`);
+        const response = await proxyAwareFetch(
+          url,
+          {
+            method: "POST",
+            headers,
+            body: JSON.stringify(payload),
+          },
+          proxyOptions
+        );
+
+        const resText = await response.text().catch(() => "");
+        let resJson = null;
+        try { resJson = JSON.parse(resText); } catch {}
+        lastResJson = resJson;
+
+        console.log(`[Luna] Candidate #${i + 1} status=${response.status} body=${resText.slice(0, 300)}`);
+
+        if (resJson?.data?.code === "unauthorized" || resJson?.data?.details?.includes("session has expired")) {
+          return {
+            success: false,
+            error: `Phiên đăng nhập Luna/Qwen đã hết hạn: ${resJson.data.details || "Token expired"}. Vui lòng cập nhật Token mới trong Provider Settings.`,
+          };
+        }
+
+        if (response.ok && resJson?.success !== false) {
+          // Verify via GET /api/v2/users/user/settings
+          const verifiedSettings = await this.getUserSettings(credentials, proxyOptions);
+          const updatedInstruction = verifiedSettings?.personalization?.instruction;
+
+          if (typeof updatedInstruction === "string" && updatedInstruction.trim() === promptText) {
+            console.log(`[Luna] SUCCESS! Settings instruction verified on candidate #${i + 1}`);
+            return {
+              success: true,
+              status: response.status,
+              verified: true,
+              currentInstruction: updatedInstruction,
+              settings: verifiedSettings,
+              data: resJson,
+            };
+          }
+        } else {
+          lastError = resJson?.data?.details || resJson?.error || resText || `HTTP ${response.status}`;
+        }
+      } catch (err) {
+        lastError = err?.message || String(err);
+      }
+    }
+
+    // Try fallback endpoint /api/v2/settings/update if main URL failed
+    try {
+      const fallbackUrl = "https://chat.qwen.ai/api/v2/settings/update";
+      const response = await proxyAwareFetch(
+        fallbackUrl,
+        {
           method: "POST",
           headers,
           body: JSON.stringify({ system_prompt: promptText }),
-        }, proxyOptions).catch(() => {});
+        },
+        proxyOptions
+      );
+      const resText = await response.text().catch(() => "");
+      console.log(`[Luna] Fallback /settings/update status=${response.status} body=${resText.slice(0, 300)}`);
+      
+      const verifiedSettings = await this.getUserSettings(credentials, proxyOptions);
+      const updatedInstruction = verifiedSettings?.personalization?.instruction;
+      const isVerified = typeof updatedInstruction === "string" && updatedInstruction.trim() === promptText;
+
+      if (isVerified) {
+        return {
+          success: true,
+          status: response.status,
+          verified: true,
+          currentInstruction: updatedInstruction,
+          settings: verifiedSettings,
+        };
       }
-    } catch (err) {
-      console.warn("[Luna] updateSystemPrompt error:", err?.message || err);
-    }
+    } catch {}
+
+    return {
+      success: false,
+      error: lastError || "Không thể cập nhật instruction lên Qwen Web.",
+      lastData: lastResJson,
+    };
   }
 
   async execute({ model, body, stream, credentials, signal, log, proxyOptions = null, retryOverrides = null }) {

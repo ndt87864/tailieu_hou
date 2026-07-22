@@ -9,6 +9,8 @@ export function SettingsModal({
   systemPrompt,
   onSystemPrompt,
   defaultSystemPrompt,
+  showToast,
+  activeModel,
   temperature,
   onTemperature,
   assistantOnlyMode,
@@ -29,6 +31,36 @@ export function SettingsModal({
 }) {
   const [activeTab, setActiveTab] = useState("general"); // 'general' or 'knowledge'
   const [search, setSearch] = useState("");
+  const [updatingQwenPrompt, setUpdatingQwenPrompt] = useState(false);
+
+  const handleSyncQwenInstruction = async () => {
+    const activePrompt = systemPrompt.trim() || defaultSystemPrompt || "";
+    if (!activePrompt) return;
+    setUpdatingQwenPrompt(true);
+    try {
+      const res = await fetch("/api/report-assistant/settings/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ systemPrompt: activePrompt }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        showToast?.(
+          "Đã cập nhật System Prompt sang Qwen Web (/api/v2/users/user/settings/update) thành công!",
+          "success"
+        );
+      } else {
+        showToast?.(
+          data.error || `Lỗi cập nhật Qwen Instruction: HTTP ${res.status}`,
+          "error"
+        );
+      }
+    } catch (err) {
+      showToast?.("Lỗi đồng bộ Qwen Instruction: " + (err.message || err), "error");
+    } finally {
+      setUpdatingQwenPrompt(false);
+    }
+  };
 
   const totalOutlinesFiles = useMemo(() => {
     let count = 0;
@@ -122,6 +154,19 @@ export function SettingsModal({
                     System Prompt
                   </label>
                   <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={updatingQwenPrompt}
+                      onClick={handleSyncQwenInstruction}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-brand-500 hover:bg-brand-600 text-white shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                      title="Đồng bộ System Prompt sang Qwen Web"
+                    >
+                      <span className={cn("material-symbols-outlined text-[15px]", updatingQwenPrompt && "animate-spin")}>
+                        {updatingQwenPrompt ? "sync" : "cloud_upload"}
+                      </span>
+                      <span>{updatingQwenPrompt ? "Đang đồng bộ..." : "Cập nhật sang Qwen Web"}</span>
+                    </button>
+
                     {systemPrompt.trim() ? (
                       <>
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-brand-500/10 text-brand-600 dark:text-brand-300 border border-brand-500/20">
@@ -160,11 +205,24 @@ export function SettingsModal({
                     className="w-full px-3 py-2.5 text-sm bg-surface border border-border rounded-[10px] placeholder:text-text-subtle resize-y outline-none focus:border-brand-500/50 focus:ring-2 focus:ring-brand-500/10 transition-all font-sans leading-relaxed"
                   />
                 </div>
-                <p className="text-[11px] text-text-subtle mt-1.5">
-                  {systemPrompt.trim()
-                    ? "Prompt tuỳ chỉnh đang được sử dụng."
-                    : "Đang dùng prompt mặc định (trợ lí học tập tiếng Việt). Nhập để ghi đè."}
-                </p>
+                <div className="mt-2.5 flex items-center justify-between gap-2 flex-wrap bg-brand-500/5 p-2.5 rounded-xl border border-brand-500/20">
+                  <p className="text-[11px] text-text-subtle flex-1 min-w-[200px] leading-normal">
+                    {systemPrompt.trim()
+                      ? "Prompt tuỳ chỉnh đang được sử dụng."
+                      : "Đang dùng prompt mặc định (trợ lí học tập tiếng Việt). Nhập để ghi đè."}
+                  </p>
+                  <button
+                    type="button"
+                    disabled={updatingQwenPrompt}
+                    onClick={handleSyncQwenInstruction}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-brand-500 hover:bg-brand-600 text-white shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <span className={cn("material-symbols-outlined text-[16px]", updatingQwenPrompt && "animate-spin")}>
+                      {updatingQwenPrompt ? "sync" : "cloud_upload"}
+                    </span>
+                    <span>{updatingQwenPrompt ? "Đang đồng bộ..." : "Cập nhật sang Qwen Web"}</span>
+                  </button>
+                </div>
               </div>
 
               {/* Temperature */}

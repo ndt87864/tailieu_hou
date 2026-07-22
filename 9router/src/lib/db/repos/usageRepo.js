@@ -315,22 +315,26 @@ export async function saveRequestUsage(entry) {
     let inserted = false;
 
     await db.transaction(async () => {
-      const existing = await db.get(
-        `SELECT id, endpoint FROM usageHistory
-         WHERE timestamp = ?
-           AND COALESCE(provider, '') = COALESCE(?, '')
-           AND COALESCE(model, '') = COALESCE(?, '')
-           AND COALESCE(connectionId, '') = COALESCE(?, '')
-           AND COALESCE(apiKey, '') = COALESCE(?, '')
-           AND promptTokens = ?
-           AND completionTokens = ?
-         ORDER BY id DESC LIMIT 1`,
-        [
-          entry.timestamp, entry.provider || null, entry.model || null,
-          entry.connectionId || null, entry.apiKey || null,
-          promptTokens, completionTokens,
-        ]
-      );
+      const providerVal = entry.provider || "";
+      const modelVal = entry.model || "";
+      const connectionIdVal = entry.connectionId || "";
+      const apiKeyVal = entry.apiKey || "";
+
+      let existing = null;
+      try {
+        const rows = await db.all(
+          `SELECT id, endpoint, provider, model, connectionId, apiKey, promptTokens, completionTokens FROM usageHistory WHERE timestamp = ?`,
+          [entry.timestamp]
+        );
+        existing = (rows || []).find((r) =>
+          (r.provider || "") === providerVal &&
+          (r.model || "") === modelVal &&
+          (r.connectionId || "") === connectionIdVal &&
+          (r.apiKey || "") === apiKeyVal &&
+          Number(r.promptTokens || 0) === promptTokens &&
+          Number(r.completionTokens || 0) === completionTokens
+        ) || null;
+      } catch {}
 
       if (existing) {
         if (!existing.endpoint && entry.endpoint) {

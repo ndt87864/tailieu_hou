@@ -2307,6 +2307,8 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
         systemPrompt={systemPrompt}
         onSystemPrompt={setSystemPrompt}
         defaultSystemPrompt={defaultSystemPrompt}
+        showToast={showToast}
+        activeModel={activeModel}
         temperature={temperature}
         onTemperature={setTemperature}
         assistantOnlyMode={assistantOnlyMode}
