@@ -330,6 +330,9 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     confirmOutlineAndStartDrafting,
     loadAgentStatus,
     cancelAgentWorkflow,
+    agentErrorDialog,
+    setAgentErrorDialog,
+    reloadSection,
   } = useAgentWorkflow({
     activeSessionId,
     setActiveSessionId,
@@ -1815,6 +1818,52 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
         loadingTemplates={loadingTemplates}
         loadTemplates={loadTemplates}
       />
+
+      {agentErrorDialog && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/45 backdrop-blur-sm px-4">
+          <div className="w-full max-w-md rounded-[16px] border border-red-500/25 bg-surface shadow-lg overflow-hidden bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+            <div className="px-5 py-4 border-b border-border/60 flex items-start gap-3">
+              <span className="material-symbols-outlined text-[24px] text-red-500 shrink-0">
+                error
+              </span>
+              <div className="min-w-0">
+                <h3 className="text-sm font-extrabold text-text-main text-slate-900 dark:text-slate-100">
+                  {agentErrorDialog.title}
+                </h3>
+                <p className="mt-1 text-xs leading-relaxed text-text-muted text-slate-500 dark:text-slate-400">
+                  {agentErrorDialog.message}
+                </p>
+              </div>
+            </div>
+            {agentErrorDialog.detail && (
+              <div className="mx-5 mt-4 max-h-32 overflow-y-auto custom-scrollbar rounded-[10px] border border-border/60 bg-bg/70 px-3 py-2 text-[11px] leading-relaxed text-text-subtle whitespace-pre-wrap bg-slate-50 dark:bg-slate-950/50 text-slate-600 dark:text-slate-300 border-slate-100 dark:border-slate-800">
+                {agentErrorDialog.detail}
+              </div>
+            )}
+            <div className="px-5 py-4 flex justify-end gap-2">
+              {agentErrorDialog.sectionId && (
+                <button
+                  onClick={() => {
+                    const secId = agentErrorDialog.sectionId;
+                    const cId = agentErrorDialog.chatId;
+                    setAgentErrorDialog(null);
+                    reloadSection(secId, cId);
+                  }}
+                  className="px-4 py-2 rounded-[10px] bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Soạn lại mục này
+                </button>
+              )}
+              <button
+                onClick={() => setAgentErrorDialog(null)}
+                className="px-4 py-2 rounded-[10px] bg-red-500 hover:bg-red-600 text-white text-xs font-bold transition-colors cursor-pointer"
+              >
+                Đã hiểu
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {toast.show && (
         <div className={cn(

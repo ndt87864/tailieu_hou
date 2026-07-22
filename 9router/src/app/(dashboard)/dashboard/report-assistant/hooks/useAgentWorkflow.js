@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { createId } from "../utils/helpers";
 import { fetchKnowledgeContentCached } from "../utils/knowledgeCache";
 import { buildAgentReportContent } from "../utils/agentReportBuilder";
+import { classifyAgentDraftError } from "../utils/agentErrorHandler";
 
 export function useAgentWorkflow({
   activeSessionId,
@@ -348,6 +349,24 @@ export function useAgentWorkflow({
             body: JSON.stringify({ action: "draftNext", chatId, username, modelId }),
           });
           const draftData = await draftRes.json().catch(() => ({}));
+          
+          if (!draftRes.ok || draftData?.ok === false) {
+            const errClass = classifyAgentDraftError(
+              draftRes.status,
+              typeof draftData?.error === "string" ? draftData.error : "",
+              new Error(draftData?.error || "Lỗi không xác định khi soạn thảo")
+            );
+            setAgentErrorDialog({
+              title: errClass.title,
+              message: errClass.message,
+              detail: errClass.detail,
+              chatId,
+              sectionId: draftData?.activeSectionId || null,
+            });
+            setAgentActive(false);
+            return;
+          }
+
           if (draftData?.ok && draftData.state) {
             setAgentState(draftData.state);
             agentStateRef.current = draftData.state;
@@ -389,6 +408,14 @@ export function useAgentWorkflow({
           }
         } catch (err) {
           console.error("Lỗi trong vòng lặp soạn thảo AI Agent:", err);
+          const errClass = classifyAgentDraftError(0, err.message, err);
+          setAgentErrorDialog({
+            title: errClass.title,
+            message: errClass.message,
+            detail: errClass.detail,
+            chatId,
+          });
+          setAgentActive(false);
         }
       };
 
@@ -400,6 +427,32 @@ export function useAgentWorkflow({
       setAgentLoading(false);
     }
   }, [activeSessionId, selectedReportModelId, activeModel?.id, username, showToast, openAgentProgressPreview, appendChatMessage]);
+
+  const reloadSection = useCallback(async (sectionId, chatIdArg = activeSessionId) => {
+    const chatId = chatIdArg || activeSessionId;
+    if (!chatId || !sectionId) return;
+    setAgentLoading(true);
+    try {
+      const res = await fetch("/api/report-assistant/agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reloadSection", chatId, sectionId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data?.ok && data.state) {
+        setAgentState(data.state);
+        agentStateRef.current = data.state;
+        setAgentActive(true);
+        showToast("Đã thiết lập lại mục báo cáo để soạn lại!", "info");
+        confirmOutlineAndStartDrafting(chatId);
+      }
+    } catch (err) {
+      console.error("Reload section error:", err);
+      showToast("Lỗi khi tải lại mục: " + err.message, "error");
+    } finally {
+      setAgentLoading(false);
+    }
+  }, [activeSessionId, showToast, confirmOutlineAndStartDrafting]);
 
   const cancelAgentWorkflow = useCallback(async () => {
     agentCancelRequestedRef.current = true;
@@ -449,6 +502,7 @@ export function useAgentWorkflow({
     loadAgentStatus,
     runAgentInit,
     confirmOutlineAndStartDrafting,
+    reloadSection,
     cancelAgentWorkflow,
   };
 }
