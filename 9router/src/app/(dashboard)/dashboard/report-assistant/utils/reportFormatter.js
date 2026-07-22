@@ -309,7 +309,15 @@ export function injectSectionPageBreaks(content) {
         .reverse()
         .map((l) => textValue(l).trim().toUpperCase())
         .find((l) => l !== "") || "";
-      if (out.length > 0 && lastMeaningful !== "[PAGE_BREAK]") {
+      let skipPageBreak = false;
+      if (normalizedHeading === "nhan xet kien tap" || normalizedHeading === "nhan xet kien tap cua co quan" || normalizedHeading === "xac nhan cua can bo huong dan" || normalizedHeading === "nhan xet cua can bo huong dan" || normalizedHeading === "xac nhan cua don vi tiep nhan kien tap") {
+        const lastPageBreakIdx = out.lastIndexOf("[PAGE_BREAK]");
+        const currentPageContent = out.slice(lastPageBreakIdx + 1).join("\n").toLowerCase();
+        if (currentPageContent.includes("cộng hòa xã hội") || currentPageContent.includes("cong hoa xa hoi")) {
+          skipPageBreak = true;
+        }
+      }
+      if (out.length > 0 && lastMeaningful !== "[PAGE_BREAK]" && !skipPageBreak) {
         out.push("[PAGE_BREAK]");
       }
 
@@ -832,7 +840,18 @@ export function prepareReportContent(content, title = "", isDocx = false) {
   }
 
   const coverHtml = injectCoverPageFull(cleanedContent, title);
-  let finalContent = coverHtml.trim() + "\n\n" + cleanedContent;
+  let finalContent;
+  if (cleanedContent.includes("TRƯỜNG ĐẠI HỌC MỞ HÀ NỘI") || cleanedContent.includes("[LOGO_HOU]") || cleanedContent.includes("logo-hou.png") || cleanedContent.includes("cover-page-container")) {
+    if (isBa49 && (cleanedContent.includes("TRUNG TÂM ĐÀO TẠO TRỰC TUYẾN") || !cleanedContent.includes("VIỆN ĐÀO TẠO VÀ PHÁT TRIỂN HỌC TẬP SUỐT ĐỜI"))) {
+      const parts = cleanedContent.split("[PAGE_BREAK]");
+      const remainingPart = parts.slice(1).join("[PAGE_BREAK]");
+      finalContent = coverHtml.trim() + "\n\n" + remainingPart.trim();
+    } else {
+      finalContent = cleanedContent;
+    }
+  } else {
+    finalContent = coverHtml.trim() ? (coverHtml.trim() + "\n\n" + cleanedContent) : cleanedContent;
+  }
 
   finalContent = ensurePageBreakBeforeReferences(
     ensurePageBreakBeforeConclusion(

@@ -52,6 +52,19 @@ export function renderMarkdownAndMath(content) {
   let text = String(content);
   text = text.replace(/\[LOGO_HOU\]/g, '<div style="display:flex;justify-content:center;align-items:center;width:100%;margin:1.5cm 0;"><img src="/logo-hou.png" style="width:110px;height:auto;" alt="HOU Logo" /></div>');
 
+  // Pre-render <center>...</center> so marked doesn't ignore markdown inside it
+  text = text.replace(/<center>([\s\S]*?)<\/center>/gi, (match, p1) => {
+    try {
+      const innerHtml = marked.parse(p1.trim(), { gfm: true, breaks: true });
+      const centeredHtml = innerHtml
+        .replace(/<p>/g, '<p style="text-align: center; text-indent: 0;" class="cover-line">')
+        .replace(/<p style="/g, '<p class="cover-line" style="text-align: center; text-indent: 0; ');
+      return `<div style="text-align: center;" class="cover-line">${centeredHtml}</div>`;
+    } catch (err) {
+      return `<div style="text-align: center;" class="cover-line"><p style="text-align: center; text-indent: 0;" class="cover-line">${p1}</p></div>`;
+    }
+  });
+
   // 1. Process block math: $$equation$$ -> temporary placeholder
   const blockMathPlaceholder = [];
   let processed = text.replace(/\$\$(.+?)\$\$/gs, (match, equation) => {

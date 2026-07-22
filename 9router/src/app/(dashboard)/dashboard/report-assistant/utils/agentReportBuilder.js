@@ -41,6 +41,17 @@ export function buildAgentReportContent(state) {
       const firstLine = content.split(/\r?\n/).map((l) => l.trim()).find(Boolean) || "";
       const fNorm = normalizeDisplayLineForDedup(firstLine);
       const sNorm = normalizeDisplayLineForDedup(section.title);
+      const cleanContentForMatch = String(content)
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/đ/g, "d");
+      const hasMotto = cleanContentForMatch.includes("cong hoa xa hoi") || 
+                       cleanContentForMatch.includes("doc lap - tu do - hanh phuc") ||
+                       cleanContentForMatch.includes("doc lap tu do hanh phuc");
+      if (hasMotto || sNorm === "nhan xet kien tap" || sNorm === "nhan xet kien tap cua co quan" || sNorm === "xac nhan cua can bo huong dan" || sNorm === "nhan xet cua can bo huong dan" || sNorm === "xac nhan cua don vi tiep nhan kien tap") {
+        return content;
+      }
       let sameTitle = false;
       if (fNorm) {
         if (fNorm === sNorm || (fNorm.length >= 4 && (sNorm.includes(fNorm) || fNorm.includes(sNorm)))) {

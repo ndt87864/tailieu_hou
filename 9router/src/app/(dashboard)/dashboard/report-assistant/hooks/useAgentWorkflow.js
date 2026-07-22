@@ -35,68 +35,7 @@ export function useAgentWorkflow({
   const agentDraftingInProgressRef = useRef(false);
   const agentStateRef = useRef(null);
 
-  useEffect(() => {
-    agentStateRef.current = agentState;
-  }, [agentState]);
-
-  const openAgentProgressPreview = useCallback((state, titlePrefix = "Báo cáo") => {
-    const targetState = state || agentStateRef.current;
-    const content = buildAgentReportContent(targetState);
-    if (!content) return false;
-    setSelectedReport({
-      title: `${titlePrefix} - ${new Date().toLocaleDateString("vi-VN")}`,
-      content,
-    });
-    return true;
-  }, []);
-
-  const loadAgentStatus = useCallback(async (chatId = activeSessionId, forceActive = false) => {
-    if (!chatId) return null;
-    agentCancelRequestedRef.current = false;
-    setAgentLoading(true);
-    try {
-      const res = await fetch("/api/report-assistant/agent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "status", chatId }),
-      });
-      if (!res.ok) throw new Error("Không thể tải trạng thái quy trình báo cáo.");
-      const data = await res.json().catch(() => null);
-      if (data?.ok && data.state) {
-        setAgentState(data.state);
-        if (forceActive) {
-          setAgentActive(true);
-        } else {
-          const isEnded = data.state.current_step === "COMPLETED" || data.state.current_step === "CANCELLED";
-          if (!isEnded) setAgentActive(true);
-        }
-        return data.state;
-      }
-      setAgentState(null);
-      setAgentActive(false);
-      return null;
-    } catch (err) {
-      console.error(err);
-      setAgentState(null);
-      setAgentActive(false);
-      return null;
-    } finally {
-      setAgentLoading(false);
-    }
-  }, [activeSessionId]);
-
-  useEffect(() => {
-    if (!agentActive || !activeSessionId) return;
-    const isEnded = agentState?.current_step === "COMPLETED" || agentState?.current_step === "CANCELLED";
-    const isWaitingApproval = agentState?.current_step === "WAIT_APPROVAL";
-    if (isEnded || isWaitingApproval) return;
-
-    const timer = setInterval(() => {
-      loadAgentStatus(activeSessionId);
-    }, 2500);
-
-    return () => clearInterval(timer);
-  }, [agentActive, activeSessionId, agentState?.current_step, loadAgentStatus]);
+  useEffect(() => { agentStateRef.current = agentState; }, [agentState]);
 
   const appendChatMessage = useCallback((chatId, userPrompt, assistantMsg) => {
     if (!setSessions || !chatId) return;
@@ -133,7 +72,12 @@ export function useAgentWorkflow({
           newMsgs.push(userMsgObj);
         }
         if (assistantMsg) {
-          newMsgs.push(assistantMsg);
+          const isDuplicate =
+            (assistantMsg.isReportCard && currentMsgs.some((m) => m.isReportCard)) ||
+            (assistantMsg.isOutlineCard && currentMsgs.some((m) => m.isOutlineCard));
+          if (!isDuplicate) {
+            newMsgs.push(assistantMsg);
+          }
         }
         return {
           ...s,
@@ -151,31 +95,87 @@ export function useAgentWorkflow({
         if (s.id !== chatId) return s;
         return {
           ...s,
-          messages: (s.messages || []).map((m) =>
-            m.id === messageId ? { ...m, ...patch } : m
-          ),
+          messages: (s.messages || []).map((m) => m.id === messageId ? { ...m, ...patch } : m),
           updatedAt: new Date().toISOString(),
         };
       })
     );
   }, [setSessions]);
 
-  // B1 & B2: Khởi tạo quy trình -> Tạo dàn ý ngay lập tức với loading card
-  const runAgentInit = useCallback(async (userPromptArg, modelIdArg, chatIdArg, subjectOverrideArg = "") => {
-    let userPrompt = userPromptArg;
-    let modelId = modelIdArg;
-    let chatId = chatIdArg;
-    let subjectOverride = subjectOverrideArg;
+  const openAgentProgressPreview = useCallback((state, titlePrefix = "Báo cáo") => {
+    const targetState = state || agentStateRef.current;
+    const content = buildAgentReportContent(targetState);
+    if (!content) return false;
+    setSelectedReport({
+      title: `${titlePrefix} - ${new Date().toLocaleDateString("vi-VN")}`,
+      content,
+    });
+    return true;
+  }, []);
 
+  const loadAgentStatus = useCallback(async (chatId = activeSessionId, forceActive = false) => {
+    if (!chatId) return null;
+    agentCancelRequestedRef.current = false;
+    setAgentLoading(true);
+    try {
+      const res = await fetch("/api/report-assistant/agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "status", chatId }),
+      });
+      if (!res.ok) throw new Error("Không thể tải trạng thái quy trình báo cáo.");
+      const data = await res.json().catch(() => null);
+      if (data?.ok && data.state) {
+        setAgentState(data.state);
+        if (forceActive) {
+          setAgentActive(true);
+        } else {
+          const isEnded = data.state.current_step === "COMPLETED" || data.state.current_step === "CANCELLED";
+          if (!isEnded) setAgentActive(true);
+        }
+        if (data.state.current_step === "COMPLETED") {
+          const reportCardMsg = {
+            id: createId(),
+            role: "assistant",
+            isReportCard: true,
+            content: "Báo cáo hoàn chỉnh",
+            createdAt: new Date().toISOString(),
+          };
+          appendChatMessage(chatId, null, reportCardMsg);
+        }
+        return data.state;
+      }
+      setAgentState(null);
+      setAgentActive(false);
+      return null;
+    } catch (err) {
+      console.error(err);
+      setAgentState(null);
+      setAgentActive(false);
+      return null;
+    } finally {
+      setAgentLoading(false);
+    }
+  }, [activeSessionId, appendChatMessage]);
+
+  useEffect(() => {
+    if (!agentActive || !activeSessionId) return;
+    const isEnded = agentState?.current_step === "COMPLETED" || agentState?.current_step === "CANCELLED";
+    const isWaitingApproval = agentState?.current_step === "WAIT_APPROVAL";
+    if (isEnded || isWaitingApproval) return;
+    const timer = setInterval(() => { loadAgentStatus(activeSessionId); }, 2500);
+    return () => clearInterval(timer);
+  }, [agentActive, activeSessionId, agentState?.current_step, loadAgentStatus]);
+
+  const runAgentInit = useCallback(async (userPromptArg, modelIdArg, chatIdArg, subjectOverrideArg = "") => {
+    let userPrompt = userPromptArg, modelId = modelIdArg, chatId = chatIdArg, subjectOverride = subjectOverrideArg;
     if (userPromptArg && typeof userPromptArg === "object") {
       userPrompt = userPromptArg.userPrompt;
       modelId = userPromptArg.selectedReportModelId || userPromptArg.modelId;
       chatId = userPromptArg.chatId || activeSessionId;
       subjectOverride = userPromptArg.selectedOutlineSubject || userPromptArg.subjectOverride || "";
     }
-
     if (!chatId) chatId = activeSessionId;
-
     const runId = `run_${createId()}`;
     agentCancelRequestedRef.current = false;
     setAgentLoading(true);
@@ -196,9 +196,6 @@ export function useAgentWorkflow({
         },
       ],
     });
-
-    // B2: Thêm Card "Dàn ý báo cáo" ở trạng thái đang tạo (loading) ngay từ đầu
-    // userPrompt = null để không bị duplicate tin nhắn user (đã thêm tại handleSendMessage)
     const outlineCardId = createId();
     appendChatMessage(chatId, null, {
       id: outlineCardId,
@@ -208,7 +205,6 @@ export function useAgentWorkflow({
       content: "Dàn ý báo cáo",
       createdAt: new Date().toISOString(),
     });
-
     try {
       let outlineKnowledge = "";
       let templateKnowledge = "";
@@ -449,9 +445,7 @@ export function useAgentWorkflow({
     } catch (err) {
       console.error("Reload section error:", err);
       showToast("Lỗi khi tải lại mục: " + err.message, "error");
-    } finally {
-      setAgentLoading(false);
-    }
+    } finally { setAgentLoading(false); }
   }, [activeSessionId, showToast, confirmOutlineAndStartDrafting]);
 
   const cancelAgentWorkflow = useCallback(async () => {
@@ -477,32 +471,12 @@ export function useAgentWorkflow({
   }, [activeSessionId, username, showToast]);
 
   return {
-    agentActive,
-    setAgentActive,
-    agentState,
-    setAgentState,
-    agentLoading,
-    setAgentLoading,
-    pendingReportRequest,
-    setPendingReportRequest,
-    selectedReportModelId,
-    setSelectedReportModelId,
-    reportWorkflowModelId,
-    setReportWorkflowModelId,
-    selectedReport,
-    setSelectedReport,
-    selectedOutline,
-    setSelectedOutline,
-    agentErrorDialog,
-    setAgentErrorDialog,
-    agentCancelRequestedRef,
-    agentDraftingInProgressRef,
-    buildAgentReportContent,
-    openAgentProgressPreview,
-    loadAgentStatus,
-    runAgentInit,
-    confirmOutlineAndStartDrafting,
-    reloadSection,
-    cancelAgentWorkflow,
+    agentActive, setAgentActive, agentState, setAgentState, agentLoading, setAgentLoading,
+    pendingReportRequest, setPendingReportRequest, selectedReportModelId, setSelectedReportModelId,
+    reportWorkflowModelId, setReportWorkflowModelId, selectedReport, setSelectedReport,
+    selectedOutline, setSelectedOutline, agentErrorDialog, setAgentErrorDialog,
+    agentCancelRequestedRef, agentDraftingInProgressRef, buildAgentReportContent,
+    openAgentProgressPreview, loadAgentStatus, runAgentInit, confirmOutlineAndStartDrafting,
+    reloadSection, cancelAgentWorkflow
   };
 }

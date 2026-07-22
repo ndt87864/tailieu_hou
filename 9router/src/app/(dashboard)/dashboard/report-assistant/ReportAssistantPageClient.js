@@ -332,7 +332,9 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
       }
       /* Lọc bỏ indent cho đoạn căn giữa (trang bìa) */
       .report-view p[style*="center"],
-      .report-view .cover-line {
+      .report-view .cover-line,
+      .report-view .cover-line p,
+      .report-view div[style*="center"] p {
         text-align: center !important;
         text-indent: 0 !important;
       }
@@ -1216,7 +1218,20 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
             </div>
           ) : (
             <div className="space-y-6">
-              {activeSession?.messages?.map((msg) => (
+              {(() => {
+                const rawMsgs = activeSession?.messages || [];
+                const hasReportCard = rawMsgs.some((m) => m.isReportCard);
+                const finalMsgs = [...rawMsgs];
+                if (agentState?.current_step === "COMPLETED" && !hasReportCard) {
+                  finalMsgs.push({
+                    id: "virtual-completed-report-card",
+                    role: "assistant",
+                    isReportCard: true,
+                    content: "Báo cáo hoàn chỉnh",
+                    createdAt: new Date().toISOString(),
+                  });
+                }
+                return finalMsgs.map((msg) => (
                 <div
                   key={msg.id}
                   className={cn(
@@ -1355,7 +1370,8 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
                     </div>
                   </div>
                 </div>
-              ))}
+                ));
+              })()}
             </div>
           )}
 
@@ -1991,14 +2007,16 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={cancelAgentWorkflow}
-                  className="px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
-                  title="Dừng khẩn cấp quy trình AI Agent"
-                >
-                  <span className="material-symbols-outlined text-[15px]">stop_circle</span>
-                  <span>HỦY</span>
-                </button>
+                {(agentState.current_step === "OUTLINING" || agentState.current_step === "DRAFTING") && (
+                  <button
+                    onClick={cancelAgentWorkflow}
+                    className="px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                    title="Dừng khẩn cấp quy trình AI Agent"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">stop_circle</span>
+                    <span>HỦY</span>
+                  </button>
+                )}
 
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20 uppercase">
                   {agentState.current_step || "DRAFTING"}
