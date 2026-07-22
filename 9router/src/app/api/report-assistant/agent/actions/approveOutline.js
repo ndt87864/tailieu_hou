@@ -31,7 +31,7 @@ export async function handleApproveOutline(ctx) {
     const reportContext = item.reportContext || existing?.reportContext || currentState.outline?.[0]?.reportContext || null;
     const isRefSection = isReferenceOnlySection(item);
     let sectionStatus = existing ? existing.status : "todo";
-    if (sectionStatus === "drafting" && !existing?.content) {
+    if ((sectionStatus === "drafting" || sectionStatus === "stream_drafting") && !existing?.content) {
       sectionStatus = "todo";
     }
     return {

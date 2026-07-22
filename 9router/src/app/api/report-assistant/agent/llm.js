@@ -203,6 +203,8 @@ export async function callLLM(modelId, messages, temperature = 0.3, authToken = 
         headers["Cookie"] = `auth_token=${authToken}`;
       }
 
+      const isStream = typeof options.onChunk === "function";
+
       const res = await fetch(`${baseUrl}/api/v1/chat/completions`, {
         method: "POST",
         headers,
@@ -210,7 +212,7 @@ export async function callLLM(modelId, messages, temperature = 0.3, authToken = 
           model: currentModelId,
           messages,
           temperature,
-          stream: false,
+          stream: isStream,
           auto_search: false,
           ...(sessionState ? {
             lunaChatId: sessionState.lunaChatId || "",
@@ -221,7 +223,7 @@ export async function callLLM(modelId, messages, temperature = 0.3, authToken = 
       });
 
       if (process.env.NODE_ENV !== "production") {
-        console.log(`[agent/route] LLM response model=${currentModelId} status=${res.status} attempt=${attempt + 1}/${maxAttempts}`);
+        console.log(`[agent/route] LLM response model=${currentModelId} status=${res.status} attempt=${attempt + 1}/${maxAttempts} stream=${isStream}`);
       }
 
       // Handle Rate Limiting / Quota Exceeded (429) -> immediately switch to next model
@@ -258,7 +260,6 @@ export async function callLLM(modelId, messages, temperature = 0.3, authToken = 
         throw new Error(`LLM Error: ${res.status} - ${errText}`);
       }
 
-      const data = await res.json();
       const lunaChatId = res.headers.get("x-luna-chat-id") || "";
       const lunaMessageId = res.headers.get("x-luna-message-id") || "";
       if (sessionState && lunaChatId) {
@@ -267,6 +268,47 @@ export async function callLLM(modelId, messages, temperature = 0.3, authToken = 
       if (sessionState && lunaMessageId) {
         sessionState.lunaMessageId = lunaMessageId;
       }
+
+      if (isStream && res.body) {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let buffer = "";
+        let fullText = "";
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed || trimmed.startsWith(":")) continue;
+              if (trimmed === "data: [DONE]") break;
+              if (trimmed.startsWith("data: ")) {
+                try {
+                  const json = JSON.parse(trimmed.slice(6));
+                  const delta = json.choices?.[0]?.delta?.content || json.choices?.[0]?.text || "";
+                  if (delta) {
+                    fullText += delta;
+                    options.onChunk(fullText);
+                  }
+                } catch (e) {}
+              }
+            }
+          }
+          if (fullText.trim()) {
+            return fullText;
+          }
+        } catch (streamErr) {
+          console.warn("[callLLM] Streaming error, falling back if fullText exists:", streamErr.message);
+          if (fullText.trim()) return fullText;
+        }
+      }
+
+      const data = await res.json();
       return extractLLMText(data);
     } catch (err) {
       attempt++;

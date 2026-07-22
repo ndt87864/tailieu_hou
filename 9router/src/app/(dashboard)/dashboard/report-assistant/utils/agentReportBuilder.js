@@ -34,9 +34,12 @@ export function buildAgentReportContent(state) {
   const hasCareerReport = sections.some((s) => s?.reportContext?.careerOrientationReport);
   
   const reportBody = sections
-    .filter((section) => String(section?.content || "").trim() || isB49InternshipOpeningSection(section))
+    .filter((section) => String(section?.content || "").trim() || isB49InternshipOpeningSection(section) || section?.status === "stream_drafting" || section?.status === "drafting")
     .map((section) => {
-      const rawContent = String(section.content || "").trim();
+      let rawContent = String(section.content || "").trim();
+      if ((section?.status === "stream_drafting" || section?.status === "drafting") && rawContent) {
+        rawContent = `${rawContent} ▌`;
+      }
       const content = isB49InternshipOpeningSection(section) ? stripB49OpeningPreamble(rawContent) : rawContent;
       const firstLine = content.split(/\r?\n/).map((l) => l.trim()).find(Boolean) || "";
       const fNorm = normalizeDisplayLineForDedup(firstLine);

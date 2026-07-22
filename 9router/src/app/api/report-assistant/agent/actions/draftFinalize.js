@@ -63,7 +63,7 @@ export async function handleDraftFinalize(ctx, {
       });
 
       const reportTitle = activeReportContext?.subject || "Unknown Report";
-      const stillTodo = stateToSave.sections_progress.find((p) => p.status === "todo" || p.status === "drafting");
+      const stillTodo = stateToSave.sections_progress.find((p) => p.status === "todo" || p.status === "drafting" || p.status === "stream_drafting");
       if (!stillTodo) {
         stateToSave.current_step = "COMPLETED";
         setAgentActivity(stateToSave, null, "report_completed", "Tất cả mục trong báo cáo đã hoàn tất.", {

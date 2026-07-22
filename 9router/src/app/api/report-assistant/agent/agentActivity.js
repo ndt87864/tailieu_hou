@@ -34,7 +34,7 @@ export function normalizeAgentState(state) {
       }
     }
 
-    if (section.status === "drafting") {
+    if (section.status === "drafting" || section.status === "stream_drafting") {
       recoverInterruptedDraft(section, { stale: isStaleQueuedDraft(section) });
     }
   }

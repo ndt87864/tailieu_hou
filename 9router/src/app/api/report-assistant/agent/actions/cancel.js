@@ -24,7 +24,7 @@ export async function handleCancel(ctx) {
 
   const progress = currentState.sections_progress || [];
   for (const section of progress) {
-    if (section.status === "drafting") {
+    if (section.status === "drafting" || section.status === "stream_drafting") {
       if (String(section.content || "").trim()) {
         recoverInterruptedDraft(section, { stale: true });
       } else {

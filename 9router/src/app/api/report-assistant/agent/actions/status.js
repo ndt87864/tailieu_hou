@@ -16,7 +16,11 @@ export async function handleStatus(ctx) {
   const beforeNormalize = JSON.parse(JSON.stringify(currentState));
   normalizeAgentState(currentState);
   if (hasStateChanged(beforeNormalize, currentState)) {
-    await saveAgentState(chatId, currentState.username || username, currentState, currentState.updated_at);
+    try {
+      await saveAgentState(chatId, currentState.username || username, currentState);
+    } catch (err) {
+      console.warn("[status.js] Concurrency conflict during status check ignored:", err.message);
+    }
   }
   return NextResponse.json({ ok: true, state: currentState });
 }

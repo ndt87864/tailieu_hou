@@ -59,7 +59,7 @@ export async function handleDraftNext(ctx) {
 
   normalizeAgentState(currentState);
   const progress = currentState.sections_progress || [];
-  const nextToDraft = progress.find((p) => p.status === "todo" || p.status === "drafting");
+  const nextToDraft = progress.find((p) => p.status === "todo" || p.status === "drafting" || p.status === "stream_drafting");
   const activeReportContext =
     nextToDraft?.reportContext ||
     currentState.outline?.[0]?.reportContext ||
@@ -97,8 +97,8 @@ export async function handleDraftNext(ctx) {
   // Create lease manager instance
   const leaseManager = new LeaseManager(turso, chatId, username, lockId);
 
-  // Mark section as drafting
-  nextToDraft.status = "drafting";
+  // Mark section as stream_drafting
+  nextToDraft.status = "stream_drafting";
   setAgentActivity(currentState, nextToDraft, "section_started", `Agent bắt đầu xử lý mục: ${nextToDraft.title}`, {
     actor: "Report Agent",
     sectionId: nextToDraft.id,
@@ -322,10 +322,23 @@ export async function handleDraftNext(ctx) {
         }
 
         await throwIfCancelled(getAgentState, chatId, username);
+        let lastSaveTime = 0;
+        const onChunk = async (partialText) => {
+          if (!partialText) return;
+          nextToDraft.content = partialText;
+          const now = Date.now();
+          if (now - lastSaveTime > 600) {
+            lastSaveTime = now;
+            try {
+              await saveAgentState(chatId, username, currentState, null, lockId);
+            } catch (err) {}
+          }
+        };
+
         const rawDraft = await callLLM(targetModelId, [
           { role: "system", content: systemPrompt },
           { role: "user", content: dynamicUserPrompt }
-        ], draftTemperature, authToken, username, requestBaseUrl, reportSession, { timeout: 120000 });
+        ], draftTemperature, authToken, username, requestBaseUrl, reportSession, { timeout: 120000, onChunk });
         draftResult = sanitizeReportDraftContent(rawDraft);
         if (isB49OpeningSection(nextToDraft)) {
           draftResult = sanitizeB49OpeningDraftContent(draftResult);

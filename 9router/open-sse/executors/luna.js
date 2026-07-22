@@ -458,27 +458,41 @@ export class LunaExecutor extends DefaultExecutor {
   }
 
   /**
-   * Update system_prompt on Qwen Web via POST https://chat.qwen.ai/api/v2/settings/update
+   * Update system_prompt / personalization instruction on Qwen Web via POST https://chat.qwen.ai/api/v2/users/user/settings/update
    */
   async updateSystemPrompt(systemPrompt, credentials, proxyOptions, chatId = null) {
     if (!systemPrompt || !systemPrompt.trim()) return;
+    const promptText = systemPrompt.trim();
     try {
-      const url = "https://chat.qwen.ai/api/v2/settings/update";
+      const url = "https://chat.qwen.ai/api/v2/users/user/settings/update";
       const headers = this.buildHeaders(credentials, false, chatId);
       headers["content-type"] = "application/json";
+
+      const payload = {
+        personalization: {
+          name: "",
+          description: "",
+          style: null,
+          instruction: promptText,
+        },
+      };
 
       const response = await proxyAwareFetch(url, {
         method: "POST",
         headers,
-        body: JSON.stringify({
-          system_prompt: systemPrompt.trim(),
-        }),
+        body: JSON.stringify(payload),
       }, proxyOptions);
 
       if (response.ok) {
-        console.log("[Luna] system_prompt updated successfully via /api/v2/settings/update");
+        console.log("[Luna] personalization instruction updated successfully via /api/v2/users/user/settings/update");
       } else {
-        console.warn(`[Luna] /api/v2/settings/update failed: ${response.status}`);
+        console.warn(`[Luna] /api/v2/users/user/settings/update failed: ${response.status}. Trying fallback /settings/update...`);
+        const fallbackUrl = "https://chat.qwen.ai/api/v2/settings/update";
+        await proxyAwareFetch(fallbackUrl, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ system_prompt: promptText }),
+        }, proxyOptions).catch(() => {});
       }
     } catch (err) {
       console.warn("[Luna] updateSystemPrompt error:", err?.message || err);

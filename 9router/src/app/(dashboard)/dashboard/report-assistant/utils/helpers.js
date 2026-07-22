@@ -116,7 +116,7 @@ export function isAgentFinishedState(state) {
   if (progress.length === 0) return false;
 
   return !progress.some(
-    (section) => section?.status === "todo" || section?.status === "drafting",
+    (section) => section?.status === "todo" || section?.status === "drafting" || section?.status === "stream_drafting",
   );
 }
 

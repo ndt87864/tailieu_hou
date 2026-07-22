@@ -374,13 +374,13 @@ export function useAgentWorkflow({
             setAgentState(draftData.state);
             agentStateRef.current = draftData.state;
 
-            // Đồng bộ nội dung preview real-time nếu người dùng đang ở màn hình xem preview
+            // Đồng bộ nội dung preview real-time vào vùng hiển thị báo cáo
             setSelectedReport((prevSelected) => {
-              if (!prevSelected) return null;
               const content = buildAgentReportContent(draftData.state);
-              return content ? { ...prevSelected, content } : prevSelected;
+              if (!content) return prevSelected;
+              const title = prevSelected?.title || `Báo cáo tự động - ${new Date().toLocaleDateString("vi-VN")}`;
+              return { title, content };
             });
-
             const isCompleted = draftData.state.current_step === "COMPLETED";
             const isCancelled = draftData.state.current_step === "CANCELLED";
 
@@ -390,8 +390,8 @@ export function useAgentWorkflow({
             }
 
             if (draftData.workerAlreadyRunning) {
-              // Nếu worker phía backend đang chạy hoặc giữ lease, chờ 2.5 giây trước khi gửi yêu cầu tiếp
-              setTimeout(runNextDraftStep, 2500);
+              // Worker đang soạn thảo ở backend, poll lại mỗi 1.2s để nhận nội dung stream real-time mới nhất
+              setTimeout(runNextDraftStep, 1200);
               return;
             }
 

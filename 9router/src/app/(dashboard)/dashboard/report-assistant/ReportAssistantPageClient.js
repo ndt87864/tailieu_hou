@@ -2197,7 +2197,8 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
 
               {(agentState.sections_progress || []).map((sec, idx) => {
                 const isDone = sec.status === "done";
-                const isDrafting = sec.status === "drafting" || sec.status === "in_progress";
+                const isStreamDrafting = sec.status === "stream_drafting";
+                const isDrafting = sec.status === "drafting" || sec.status === "in_progress" || isStreamDrafting;
 
                 return (
                   <div
@@ -2206,6 +2207,8 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
                       "p-3.5 rounded-2xl border transition-all text-xs space-y-2",
                       isDone
                         ? "bg-emerald-500/5 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
+                        : isStreamDrafting
+                        ? "bg-purple-500/5 border-purple-500/40 text-purple-700 dark:text-purple-300 shadow-sm ring-1 ring-purple-500/20"
                         : isDrafting
                         ? "bg-brand-500/5 border-brand-500/40 text-brand-600 dark:text-brand-400 shadow-sm ring-1 ring-brand-500/20"
                         : "bg-bg/60 border-border text-text-main"
@@ -2286,27 +2289,6 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
                           <div className="flex items-center gap-2 p-2 rounded-xl bg-amber-500/5 border border-amber-500/10 text-[11px] text-amber-600/80 dark:text-amber-400/80 italic">
                             <span className="material-symbols-outlined text-[14px] animate-bounce">edit_note</span>
                             <span>Đang đọc tài liệu RAG & tổng hợp nội dung...</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Drafting progress indicator */}
-                    {isDrafting && (
-                      <div className="pt-2 space-y-2">
-                        <div className="flex items-center gap-2 text-[11px] font-medium text-amber-600 dark:text-amber-400">
-                          <span className="material-symbols-outlined text-[15px] animate-spin">sync</span>
-                          <span>Agent đang xử lý mục: {sec.title}</span>
-                        </div>
-                        {sec.content && (
-                          <div className="pt-1.5 border-t border-amber-500/20 space-y-1">
-                            <div className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                              <span className="material-symbols-outlined text-[13px] animate-pulse">edit_note</span>
-                              <span>Nội dung báo cáo:</span>
-                            </div>
-                            <div className="text-[11px] text-text-main/90 max-h-48 overflow-y-auto custom-scrollbar bg-amber-500/5 p-2 rounded-xl leading-relaxed whitespace-pre-wrap font-sans border border-amber-500/10">
-                              {sec.content.replace(/^#+\s*.*(\r?\n|$)/, "").trim()}
-                            </div>
                           </div>
                         )}
                       </div>
