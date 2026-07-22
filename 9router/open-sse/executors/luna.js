@@ -230,6 +230,10 @@ export class LunaExecutor extends DefaultExecutor {
       qwenThinkingMode = "Fast";
     }
 
+    if (modelLower.includes("3.8") || modelLower.includes("qwen3.8") || modelLower.includes("qwen-3.8")) {
+      qwenThinkingMode = "Thinking";
+    }
+
     const shouldEnableThinking = qwenThinkingMode !== "Fast";
     const shouldAutoThink = qwenThinkingMode === "Auto";
 
@@ -416,10 +420,33 @@ export class LunaExecutor extends DefaultExecutor {
     try {
       const url = "https://chat.qwen.ai/api/v2/users/status";
       const headers = this.buildHeaders(credentials, false, chatId);
+      headers["content-type"] = "application/json";
+
+      const payload = {
+        typarms: {
+          typarm1: "web",
+          typarm2: "e0e0278b-638a-4b7e-b15b-8d5851fab963",
+          typarm3: "prod",
+          typarm4: "qwen_chat",
+          typarm5: "product",
+          typarm6: "",
+          orgid: "tongyi",
+          share_id: "",
+          project_id: "",
+          channel_type: "",
+          community_type: "",
+          from_id: "",
+          cdn_version: "0.2.75",
+          spmId: "a2ty_o01.29997173",
+          aemPageId: "//chat.qwen.ai/c/",
+          domain: "chat.qwen.ai",
+        },
+      };
+
       const response = await proxyAwareFetch(url, {
         method: "POST",
         headers,
-        body: JSON.stringify({ status: true }),
+        body: JSON.stringify(payload),
       }, proxyOptions);
 
       if (!response.ok) {
@@ -427,6 +454,34 @@ export class LunaExecutor extends DefaultExecutor {
       }
     } catch (err) {
       console.warn("[Luna] users/status ping error:", err?.message || err);
+    }
+  }
+
+  /**
+   * Update system_prompt on Qwen Web via POST https://chat.qwen.ai/api/v2/settings/update
+   */
+  async updateSystemPrompt(systemPrompt, credentials, proxyOptions, chatId = null) {
+    if (!systemPrompt || !systemPrompt.trim()) return;
+    try {
+      const url = "https://chat.qwen.ai/api/v2/settings/update";
+      const headers = this.buildHeaders(credentials, false, chatId);
+      headers["content-type"] = "application/json";
+
+      const response = await proxyAwareFetch(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          system_prompt: systemPrompt.trim(),
+        }),
+      }, proxyOptions);
+
+      if (response.ok) {
+        console.log("[Luna] system_prompt updated successfully via /api/v2/settings/update");
+      } else {
+        console.warn(`[Luna] /api/v2/settings/update failed: ${response.status}`);
+      }
+    } catch (err) {
+      console.warn("[Luna] updateSystemPrompt error:", err?.message || err);
     }
   }
 
@@ -438,6 +493,12 @@ export class LunaExecutor extends DefaultExecutor {
       // 1. Pre-flight: clear old memories if launching a new chat room
       if (!existingChatId) {
         await this.clearMemories(credentials, proxyOptions);
+      }
+
+      // Extract system prompt if present and update web settings
+      const systemMessage = (body?.messages || []).find((m) => m?.role === "system");
+      if (systemMessage && typeof systemMessage.content === "string") {
+        await this.updateSystemPrompt(systemMessage.content, credentials, proxyOptions, existingChatId);
       }
 
       // 2. Pre-flight: activate the session (required to avoid Bad_Request)
@@ -716,7 +777,8 @@ export class LunaExecutor extends DefaultExecutor {
 
       const finalResponseId = responseId || activeResponseId || `chatcmpl-${Date.now()}`;
 
-      if ((phase === "answer" || phase === "image_gen" || phase == null) && content) {
+      if (content) {
+        const isThinking = phase === "think" || phase === "thinking_summary";
         const openaiChunk = {
           id: finalResponseId,
           object: "chat.completion.chunk",
@@ -724,7 +786,9 @@ export class LunaExecutor extends DefaultExecutor {
           model: model,
           choices: [{
             index: choice.index || 0,
-            delta: { content },
+            delta: isThinking
+              ? { reasoning_content: content, content: content }
+              : { content },
             finish_reason: null,
           }],
         };

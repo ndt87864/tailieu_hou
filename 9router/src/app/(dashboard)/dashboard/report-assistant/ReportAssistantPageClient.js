@@ -89,6 +89,9 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
   const [subjectDropdownOpen, setSubjectDropdownOpen] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState(null);
 
+  const [streamEnabled, setStreamEnabled] = useState(true);
+  const [thinkingMode, setThinkingMode] = useState("auto"); // "auto", "fast", "thinking"
+
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
   const abortRef = useRef(null);
@@ -488,6 +491,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     const filePayloads = attachedFiles.filter((f) => f.status === "success");
 
     const userMsgId = createId();
+    const asstMsgId = createId();
     const userMsg = {
       id: userMsgId,
       role: "user",
@@ -594,7 +598,6 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
         content: await buildContentWithAttachments(userText + webSearchContext, filePayloads),
       });
 
-      const asstMsgId = createId();
       const initialAsstMsg = {
         id: asstMsgId,
         role: "assistant",
@@ -627,7 +630,8 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
         body: JSON.stringify({
           model: activeModel?.id,
           messages: requestMessages,
-          stream: true,
+          stream: streamEnabled,
+          thinking_mode: thinkingMode,
           temperature,
         }),
         signal: abortRef.current.signal,
@@ -639,54 +643,60 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
         throw new Error(errMsg);
       }
 
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error("Trình duyệt không hỗ trợ đọc stream response.");
-      }
-
-      const decoder = new TextDecoder("utf-8");
-      let buffer = "";
       let fullContent = "";
 
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split(/\r?\n/);
-        buffer = lines.pop() || "";
+      if (!streamEnabled) {
+        const data = await response.json();
+        fullContent = data.choices?.[0]?.message?.content || "";
+      } else {
+        const reader = response.body?.getReader();
+        if (!reader) {
+          throw new Error("Trình duyệt không hỗ trợ đọc stream response.");
+        }
 
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed.startsWith("data:")) continue;
-          const payloadStr = trimmed.slice(5).trim();
-          if (!payloadStr || payloadStr === "[DONE]") continue;
+        const decoder = new TextDecoder("utf-8");
+        let buffer = "";
 
-          try {
-            const chunk = JSON.parse(payloadStr);
-            const delta =
-              chunk.choices?.[0]?.delta?.content ||
-              chunk.choices?.[0]?.message?.content ||
-              "";
-            if (delta) {
-              fullContent += delta;
-              setSessions((prev) =>
-                prev.map((s) =>
-                  s.id === activeSessionId
-                    ? {
-                        ...s,
-                        messages: (s.messages || []).map((m) =>
-                          m.id === asstMsgId
-                            ? { ...m, content: fullContent, status: "streaming" }
-                            : m
-                        ),
-                        updatedAt: new Date().toISOString(),
-                      }
-                    : s
-                )
-              );
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split(/\r?\n/);
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith("data:")) continue;
+            const payloadStr = trimmed.slice(5).trim();
+            if (!payloadStr || payloadStr === "[DONE]") continue;
+
+            try {
+              const chunk = JSON.parse(payloadStr);
+              const delta =
+                chunk.choices?.[0]?.delta?.content ||
+                chunk.choices?.[0]?.message?.content ||
+                "";
+              if (delta) {
+                fullContent += delta;
+                setSessions((prev) =>
+                  prev.map((s) =>
+                    s.id === activeSessionId
+                      ? {
+                          ...s,
+                          messages: (s.messages || []).map((m) =>
+                            m.id === asstMsgId
+                              ? { ...m, content: fullContent, status: "streaming" }
+                              : m
+                          ),
+                          updatedAt: new Date().toISOString(),
+                        }
+                      : s
+                  )
+                );
+              }
+            } catch (e) {
+              // Ignore parse errors on partial lines
             }
-          } catch (e) {
-            // Ignore parse errors on partial lines
           }
         }
       }
@@ -1144,6 +1154,61 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
                 support_agent
               </span>
             </button>
+
+            {/* Stream Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setStreamEnabled((prev) => !prev)}
+              className={cn(
+                "size-8 rounded-[8px] flex items-center justify-center transition-colors cursor-pointer shrink-0 mb-0.5",
+                streamEnabled
+                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20"
+                  : "text-text-muted hover:text-text-main hover:bg-surface-2"
+              )}
+              title={streamEnabled ? "Stream Mode: Đang BẬT (Real-time)" : "Stream Mode: Đang TẮT"}
+            >
+              <span className="material-symbols-outlined text-[18px]">
+                {streamEnabled ? "stream" : "pause_circle"}
+              </span>
+            </button>
+
+            {/* Thinking Mode Switcher (Auto, Fast, Thinking) */}
+            {(() => {
+              const isModel38 = !!(activeModel?.id && (activeModel.id.includes("3.8") || activeModel.id.includes("qwen3.8") || activeModel.id.includes("qwen-3.8")));
+              const currentThinkingMode = isModel38 ? "thinking" : thinkingMode;
+
+              return (
+                <button
+                  type="button"
+                  disabled={isModel38}
+                  onClick={() => {
+                    if (isModel38) return;
+                    const modes = ["auto", "fast", "thinking"];
+                    const nextIdx = (modes.indexOf(thinkingMode) + 1) % modes.length;
+                    setThinkingMode(modes[nextIdx]);
+                  }}
+                  className={cn(
+                    "h-8 px-2.5 rounded-[8px] border flex items-center gap-1.5 transition-all shrink-0 mb-0.5 text-xs font-semibold",
+                    isModel38 ? "cursor-not-allowed opacity-90" : "cursor-pointer",
+                    currentThinkingMode === "thinking"
+                      ? "bg-purple-500/10 border-purple-300 dark:border-purple-800 text-purple-600 dark:text-purple-400"
+                      : currentThinkingMode === "fast"
+                      ? "bg-amber-500/10 border-amber-300 dark:border-amber-800 text-amber-600 dark:text-amber-400"
+                      : "bg-surface border-border text-text-main hover:bg-surface-2"
+                  )}
+                  title={
+                    isModel38
+                      ? "Model Qwen 3.8 Max Preview cố định chế độ Thinking"
+                      : `Chế độ Thinking: ${currentThinkingMode.toUpperCase()} (Click để đổi: Auto -> Fast -> Thinking)`
+                  }
+                >
+                  <span className="material-symbols-outlined text-[15px]">
+                    {currentThinkingMode === "thinking" ? "psychology" : currentThinkingMode === "fast" ? "bolt" : "tune"}
+                  </span>
+                  <span className="capitalize">{currentThinkingMode}</span>
+                </button>
+              );
+            })()}
 
             {/* Custom Subject Selector */}
             {allSubjects.length > 0 && (
