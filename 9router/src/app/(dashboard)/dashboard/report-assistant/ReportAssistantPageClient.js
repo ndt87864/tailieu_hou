@@ -514,23 +514,30 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
       let webSearchContext = "";
       const urls = userText.match(/(https?:\/\/[^\s]+)/g);
       if (webSearchEnabled && urls && urls.length > 0) {
-        setSearchStatus("Đang đọc nội dung liên kết qua Jina Reader...");
-        showToast("Jina Reader đang đọc nội dung liên kết...", "info");
+        setSearchStatus("Đang đọc nội dung liên kết qua Web Fetch (fetch-combo)...");
+        showToast("Hệ thống đang đọc nội dung liên kết qua Web Fetch...", "info");
         for (const u of urls) {
           try {
-            const res = await fetch("/api/report-assistant/web-search", {
+            const res = await fetch("/api/v1/web/fetch", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ url: u }),
+              headers: {
+                "Content-Type": "application/json",
+                ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+              },
+              body: JSON.stringify({
+                model: "fetch-combo",
+                url: u,
+              }),
             });
             if (res.ok) {
               const data = await res.json();
-              if (data.content) {
-                webSearchContext += `\n\n--- NỘI DUNG TÀI LIỆU CHI TIẾT TỪ LIÊN KẾT [${u}] ---\n${data.content.slice(0, 15000)}\n------------------------------------------------`;
+              const extractedText = data.content || data.text || data.markdown || "";
+              if (extractedText) {
+                webSearchContext += `\n\n--- NỘI DUNG TÀI LIỆU CHI TIẾT TỪ LIÊN KẾT [${u}] ---\n${extractedText.slice(0, 15000)}\n------------------------------------------------`;
               }
             }
           } catch (e) {
-            console.error("Error fetching Jina Reader content", e);
+            console.error("Lỗi khi đọc liên kết qua /api/v1/web/fetch", e);
           }
         }
       }

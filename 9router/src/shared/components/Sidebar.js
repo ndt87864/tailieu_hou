@@ -83,17 +83,11 @@ export default function Sidebar({ onClose }) {
           isMobile
             ? "w-72"
             : cn(
-                "fixed top-0 bottom-0 left-0 z-40",
-                isHovered ? "w-72 shadow-[0_0_30px_rgba(0,0,0,0.3)]" : "w-16"
-              )
+              "fixed top-0 bottom-0 left-0 z-40",
+              isHovered ? "w-72 shadow-[0_0_30px_rgba(0,0,0,0.3)]" : "w-16"
+            )
         )}
       >
-        {/* Traffic lights */}
-        <div className={cn("flex items-center gap-2 px-6 pt-5 pb-2 transition-all duration-300 shrink-0", !isExpanded && "opacity-0 h-0 pt-0 pb-0 overflow-hidden")}>
-          <div className="w-3 h-3 rounded-full bg-[#FF5F56]" />
-          <div className="w-3 h-3 rounded-full bg-[#FFBD2E]" />
-          <div className="w-3 h-3 rounded-full bg-[#27C93F]" />
-        </div>
 
         {/* Logo */}
         <div className={cn("px-6 py-4 transition-all duration-300 shrink-0", !isExpanded && "flex justify-center px-0 py-5")}>
