@@ -49,9 +49,12 @@ export function formatRelativeDate(dateStr) {
 export function renderMarkdownAndMath(content) {
   if (!content) return "";
   
+  let text = String(content);
+  text = text.replace(/\[LOGO_HOU\]/g, '<div style="display:flex;justify-content:center;align-items:center;width:100%;margin:1.5cm 0;"><img src="/logo-hou.png" style="width:110px;height:auto;" alt="HOU Logo" /></div>');
+
   // 1. Process block math: $$equation$$ -> temporary placeholder
   const blockMathPlaceholder = [];
-  let processed = String(content).replace(/\$\$(.+?)\$\$/gs, (match, equation) => {
+  let processed = text.replace(/\$\$(.+?)\$\$/gs, (match, equation) => {
     try {
       const rendered = katex.renderToString(equation.trim(), { displayMode: true, throwOnError: false });
       blockMathPlaceholder.push(rendered);

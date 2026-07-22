@@ -33,6 +33,12 @@ import {
   prepareReportContent,
   getReportTitleWithDownloadCounter,
 } from "./utils/reportFormatter";
+import {
+  copyReportRichText,
+  handlePrintReport,
+  paginateReportContent,
+} from "./utils/reportExporter";
+import { dlDocx } from "./utils/docxGenerator";
 
 import { buildContentWithAttachments } from "./utils/attachmentExtractor";
 
@@ -262,6 +268,170 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     setHydrated(true);
   }, []);
 
+  // ── Inject CSS ──
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    let s = document.getElementById("asst-styles");
+    if (!s) {
+      s = document.createElement("style");
+      s.id = "asst-styles";
+      document.head.appendChild(s);
+    }
+    s.textContent = `
+      @keyframes asstSlideUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+      @keyframes asstFadeIn  { from { opacity:0; } to { opacity:1; } }
+      @keyframes asstBlink   { 0%,100% { opacity:1; } 50% { opacity:0; } }
+      @keyframes asstDot     { 0%,80%,100% { transform:scale(.6); opacity:.4; } 40% { transform:scale(1); opacity:1; } }
+      @keyframes asstSlideLeft { from { opacity:0; transform:translateX(30px); } to { opacity:1; transform:translateX(0); } }
+      
+      .asst-slide-left { animation: asstSlideLeft 0.35s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+      .asst-md p { margin: 0.5em 0 !important; line-height: 1.6 !important; }
+      .asst-md h1 { font-size: 1.4em !important; font-weight: 700 !important; margin: 0.8em 0 0.4em !important; display: block !important; }
+      .asst-md h2 { font-size: 1.25em !important; font-weight: 700 !important; margin: 0.7em 0 0.3em !important; display: block !important; }
+      .asst-md h3 { font-size: 1.1em !important; font-weight: 600 !important; margin: 0.6em 0 0.3em !important; display: block !important; }
+      .asst-md ul { list-style-type: disc !important; list-style-position: outside !important; padding-left: 1.5em !important; margin: 0.5em 0 !important; display: block !important; }
+      .asst-md ol { list-style-type: decimal !important; list-style-position: outside !important; padding-left: 1.5em !important; margin: 0.5em 0 !important; display: block !important; }
+      .asst-md li { display: list-item !important; margin: 0.2em 0 !important; }
+      .asst-md blockquote { border-left: 3px solid var(--color-brand-500) !important; padding-left: 0.8em !important; color: var(--color-text-muted) !important; font-style: italic !important; margin: 0.5em 0 !important; display: block !important; }
+      .asst-md hr { border: none !important; border-top: 1px solid var(--color-border) !important; margin: 1em 0 !important; display: block !important; }
+      .asst-md code { font-family: ui-monospace, monospace !important; background: var(--color-bg-alt) !important; padding: 2px 5px !important; border-radius: 4px !important; font-size: 0.875em !important; color: var(--color-primary) !important; display: inline-block !important; }
+      .asst-md table { border-collapse: collapse !important; width: 100% !important; margin: 0.8em 0 !important; font-size: 0.9em !important; display: table !important; }
+      .asst-md th, .asst-md td { border: 1px solid var(--color-border) !important; padding: 6px 10px !important; text-align: left !important; }
+      .asst-md th { background: var(--color-bg-alt) !important; font-weight: 600 !important; }
+      .asst-md a { color: var(--color-brand-500) !important; text-decoration: underline !important; }
+
+      .asst-md-user p { margin: 0.4em 0 !important; line-height: 1.5 !important; }
+      .asst-md-user ul { list-style-type: disc !important; list-style-position: outside !important; padding-left: 1.4em !important; margin: 0.4em 0 !important; display: block !important; }
+      .asst-md-user ol { list-style-type: decimal !important; list-style-position: outside !important; padding-left: 1.4em !important; margin: 0.4em 0 !important; display: block !important; }
+      .asst-md-user li { display: list-item !important; margin: 0.15em 0 !important; }
+      .asst-md-user code { font-family: ui-monospace, monospace !important; background: rgba(255, 255, 255, 0.2) !important; padding: 1px 4px !important; border-radius: 4px !important; font-size: 0.875em !important; color: #fff !important; display: inline-block !important; }
+      .asst-md-user a { color: #fff !important; text-decoration: underline !important; font-weight: 500 !important; font-weight: 500 !important; }
+      .asst-md-user blockquote { border-left: 3px solid rgba(255, 255, 255, 0.5) !important; padding-left: 0.8em !important; color: rgba(255, 255, 255, 0.8) !important; font-style: italic !important; margin: 0.5em 0 !important; display: block !important; }
+
+      .report-view {
+        font-family: "Times New Roman", Times, serif !important;
+        color: var(--color-text-main) !important;
+        font-size: 13pt !important;
+        line-height: 1.5 !important;
+      }
+      .report-view p {
+        font-family: "Times New Roman", Times, serif !important;
+        font-size: 13pt !important;
+        line-height: 1.5 !important;
+        margin: 0.8em 0 !important;
+        text-align: justify !important;
+        text-indent: 1.25cm !important;
+      }
+      .report-view p:has(> strong:first-child) {
+        text-indent: 0 !important;
+      }
+      .report-view p > strong:only-child {
+        display: inline !important;
+        text-align: inherit !important;
+      }
+      /* Lọc bỏ indent cho đoạn căn giữa (trang bìa) */
+      .report-view p[style*="center"],
+      .report-view .cover-line {
+        text-align: center !important;
+        text-indent: 0 !important;
+      }
+      .report-view h1 {
+        font-family: "Times New Roman", Times, serif !important;
+        font-weight: bold !important;
+        color: var(--color-text-main) !important;
+        margin: 1.2em 0 0.6em !important;
+        text-indent: 0 !important;
+        font-size: 1.75em !important;
+        text-align: center !important;
+        text-transform: uppercase !important;
+      }
+      .report-view h2, .report-view h3, .report-view h4 {
+        font-family: "Times New Roman", Times, serif !important;
+        font-size: 13pt !important;
+        line-height: 1.5 !important;
+        color: var(--color-text-main) !important;
+        margin: 1.2em 0 0.6em !important;
+        text-indent: 0 !important;
+      }
+      .report-view h2, .report-view h4 {
+        font-weight: bold !important;
+      }
+      .report-view h3 {
+        font-weight: normal !important;
+        font-style: italic !important;
+      }
+      .report-view ul {
+        list-style-type: disc !important;
+        padding-left: 2em !important;
+        margin: 0.6em 0 !important;
+      }
+      .report-view ol {
+        list-style-type: decimal !important;
+        padding-left: 2em !important;
+        margin: 0.6em 0 !important;
+      }
+      .report-view li {
+        font-family: "Times New Roman", Times, serif !important;
+        font-size: 13pt !important;
+        line-height: 1.5 !important;
+        margin: 0.3em 0 !important;
+      }
+      .report-view li p {
+        text-indent: 0 !important;
+        margin: 0 !important;
+      }
+      .report-view hr {
+        border: none !important;
+        border-top: 1px solid var(--color-border) !important;
+        margin: 1.5em 0 !important;
+      }
+      .report-view em, .report-view i {
+        font-style: italic !important;
+      }
+      .report-view strong, .report-view b {
+        font-weight: bold !important;
+      }
+      .report-view blockquote {
+        border-left: 3px solid var(--color-border) !important;
+        padding-left: 1em !important;
+        margin: 1em 0 !important;
+        font-style: italic !important;
+        color: var(--color-text-muted) !important;
+      }
+      .report-view table {
+        font-family: "Times New Roman", Times, serif !important;
+        border-collapse: collapse !important;
+        width: 100% !important;
+        margin: 1.2em 0 !important;
+      }
+      .report-view th, .report-view td {
+        border: 1px solid var(--color-border) !important;
+        padding: 8px 12px !important;
+        font-family: "Times New Roman", Times, serif !important;
+        font-size: 12pt !important;
+        line-height: 1.5 !important;
+      }
+      .report-view th {
+        background: var(--color-bg-alt) !important;
+        font-weight: bold !important;
+        text-align: center !important;
+      }
+      .report-view table.borderless {
+        border: none !important;
+      }
+      .report-view table.borderless th, .report-view table.borderless td {
+        border: none !important;
+        background: transparent !important;
+        background-color: transparent !important;
+      }
+      .report-view table.borderless th {
+        background: transparent !important;
+        background-color: transparent !important;
+      }
+    `;
+  }, [hydrated]);
+
   useEffect(() => {
     async function initUser() {
       try {
@@ -350,6 +520,34 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     setDraft,
     setAttachedFiles,
   });
+
+  const activeDoc = selectedReport || selectedOutline;
+  const [isRenderingPreview, setIsRenderingPreview] = useState(false);
+  const previewPanelRef = useRef(null);
+
+  useEffect(() => {
+    if (activeDoc) {
+      setIsRenderingPreview(false);
+      const timer = setTimeout(() => {
+        setIsRenderingPreview(true);
+      }, 400);
+      return () => clearTimeout(timer);
+    } else {
+      setIsRenderingPreview(false);
+    }
+  }, [activeDoc?.id || activeDoc?.title || activeDoc?.name]);
+
+  const activeDocType = selectedReport ? "report" : selectedOutline ? "outline" : null;
+  let activeDocTitle = activeDoc?.title || activeDoc?.name || "Preview";
+  if (activeDocTitle.includes("Báo cáo hoàn chỉnh")) {
+    activeDocTitle = getReportTitleWithDownloadCounter();
+  }
+  const activeDocFileName = `${activeDocTitle.replace(/[\\/:*?"<>|]/g, "_")}.docx`;
+
+  const closeDoc = useCallback(() => {
+    setSelectedOutline(null);
+    setSelectedReport(null);
+  }, [setSelectedOutline, setSelectedReport]);
 
   const activeSession = useMemo(() => {
     return sessions.find((s) => s.id === activeSessionId) || null;
@@ -900,7 +1098,16 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
       </div>
 
       {/* Main Chat Container */}
-      <div className="flex-1 flex flex-col h-full bg-bg relative">
+      <div
+        className={cn(
+          "flex flex-col min-w-0 min-h-0 h-full bg-bg relative transition-all duration-300",
+          activeDoc
+            ? "hidden md:flex md:w-[50%] xl:w-[45%] border-r border-border"
+            : (agentActive && agentState)
+            ? "hidden md:flex flex-1"
+            : "flex-1"
+        )}
+      >
         {/* Top Header */}
         <div className="h-14 border-b border-border px-6 flex items-center justify-between bg-surface">
           <div className="flex items-center gap-3">
@@ -1579,127 +1786,286 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
             )}
           </div>
         </div>
-      </div>
-
-      {/* Right Drawer: AI Agent Progress Panel (Khi agentActive/agentState BẬT) */}
-      {agentActive && agentState && (
-        <div className="w-[420px] border-l border-border bg-surface flex flex-col h-full shrink-0 shadow-lg z-20 transition-all">
-          {/* Header */}
-          <div className="p-4 border-b border-border flex items-center justify-between bg-surface-2/50">
+      </div>      {/* Right Panel: Preview or Agent view */}
+      {activeDoc ? (
+        <div
+          ref={previewPanelRef}
+          className="flex-1 flex flex-col min-w-0 min-h-0 h-full bg-surface border-l border-border relative overflow-hidden z-20"
+        >
+          {/* Preview Header */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-surface flex-shrink-0">
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="size-9 rounded-xl bg-brand-500/10 text-brand-500 flex items-center justify-center font-bold shrink-0">
-                <span className="material-symbols-outlined text-[22px] animate-spin">sync</span>
-              </div>
-              <div className="min-w-0">
-                <h3 className="text-sm font-extrabold text-brand-600 dark:text-brand-400 truncate">
-                  AI Agent - Báo cáo tự động
-                </h3>
-                <p className="text-[11px] text-text-subtle truncate">
-                  Quy trình RAG tự động đa bước
-                </p>
-              </div>
+              <span className="material-symbols-outlined text-brand-500 text-[20px]">
+                article
+              </span>
+              <span className="font-semibold text-text-main truncate text-sm">
+                {activeDocTitle}
+              </span>
+              {activeDocType === "report" && (
+                <span className="material-symbols-outlined text-[16px] text-emerald-500 flex-shrink-0">
+                  cloud_done
+                </span>
+              )}
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 flex-shrink-0">
               <button
-                onClick={cancelAgentWorkflow}
-                className="px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
-                title="Dừng khẩn cấp quy trình AI Agent"
+                onClick={() =>
+                  handlePrintReport(activeDocTitle, activeDoc.content || "")
+                }
+                className="size-8 rounded-lg hover:bg-surface-2 flex items-center justify-center text-text-muted hover:text-text-main transition-colors cursor-pointer"
+                title="In tài liệu"
               >
-                <span className="material-symbols-outlined text-[15px]">stop_circle</span>
-                <span>HỦY</span>
+                <span className="material-symbols-outlined text-[18px]">
+                  print
+                </span>
               </button>
-
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20 uppercase">
-                {agentState.current_step || "DRAFTING"}
-              </span>
-
               <button
-                onClick={() => setAgentActive(false)}
-                className="size-7 rounded-lg hover:bg-surface-2 text-text-muted hover:text-text-main flex items-center justify-center transition-colors cursor-pointer"
-                title="Đóng bảng Agent"
-              >
-                <span className="material-symbols-outlined text-[18px]">close</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Banner Status */}
-          <div className="p-4 border-b border-border/50 bg-amber-500/5 space-y-3">
-            <div className="flex items-center gap-2 text-xs font-bold text-amber-700 dark:text-amber-400">
-              <span className="material-symbols-outlined text-[18px]">
-                {agentState.current_step === "WAIT_APPROVAL" || agentState.current_step === "OUTLINING"
-                  ? "fact_check"
-                  : agentState.current_step === "COMPLETED"
-                  ? "check_circle"
-                  : "sync"}
-              </span>
-              <span>
-                {agentState.current_step === "WAIT_APPROVAL" || agentState.current_step === "OUTLINING"
-                  ? "Đã tạo xong dàn ý báo cáo! Vui lòng xác nhận để bắt đầu viết."
-                  : agentState.current_step === "DRAFTING"
-                  ? "Agent đang tự động viết từng chương mục..."
-                  : agentState.current_step === "COMPLETED"
-                  ? "Đã hoàn thành toàn bộ báo cáo!"
-                  : "Agent đang thực thi quy trình..."}
-              </span>
-            </div>
-            <p className="text-[11px] text-text-subtle leading-relaxed">
-              {agentState.current_step === "WAIT_APPROVAL" || agentState.current_step === "OUTLINING"
-                ? "Kiểm tra danh sách các mục bên dưới và bấm nút Xác nhận dàn ý để kích hoạt quá trình tự động soạn thảo từng chương mục."
-                : "Hệ thống đang chạy tuần tự từng chương mục độc lập theo đề cương. Trạng thái mỗi mục sẽ liên tục cập nhật bên dưới."}
-            </p>
-
-            {(agentState.current_step === "WAIT_APPROVAL" || agentState.current_step === "OUTLINING") && (
-              <button
-                onClick={() => confirmOutlineAndStartDrafting()}
-                disabled={agentLoading}
-                className="w-full py-2.5 px-4 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md active:scale-98 disabled:opacity-50"
-              >
-                <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                <span>XÁC NHẬN DÀN Ý & BẮT ĐẦU TẠO BÁO CÁO</span>
-              </button>
-            )}
-
-            {agentState.current_step === "COMPLETED" && (
-              <button
-                onClick={() => {
-                  setAgentActive(true);
-                  openAgentProgressPreview(agentState, "Báo cáo hoàn chỉnh");
+                onClick={async () => {
+                  const copied = await copyReportRichText(
+                    activeDoc.content || "",
+                    activeDocTitle,
+                  );
+                  showToast(
+                    copied
+                      ? "Đã sao chép nội dung sang clipboard."
+                      : "Đã sao chép dạng văn bản thuần.",
+                    "success",
+                  );
                 }}
-                className="w-full py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md active:scale-98"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-bg text-text-muted hover:text-text-main hover:bg-surface-2 transition-all text-xs font-medium select-none cursor-pointer"
+                title="Sao chép"
               >
-                <span className="material-symbols-outlined text-[18px]">visibility</span>
-                <span>XEM PREVIEW BÁO CÁO HOÀN CHỈNH</span>
+                <span className="material-symbols-outlined text-[16px]">
+                  content_copy
+                </span>
+                <span>Sao chép</span>
               </button>
-            )}
+              <button
+                onClick={async () => {
+                  const ok = await dlDocx(
+                    activeDoc.content || "",
+                    activeDocFileName,
+                  );
+                  showToast(
+                    ok
+                      ? "Đã tạo file Word (.docx)."
+                      : "Không thể tạo file Word (.docx).",
+                    ok ? "success" : "error",
+                  );
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold transition-all shrink-0 select-none shadow-sm cursor-pointer"
+                title="Tải xuống định dạng Word (.docx)"
+              >
+                <span className="material-symbols-outlined text-[15px]">
+                  download
+                </span>
+                <span>Tải Word (.docx)</span>
+              </button>
+              <button
+                onClick={closeDoc}
+                className="p-1.5 rounded-lg hover:bg-surface-2 text-text-muted hover:text-text-main transition-colors shrink-0 cursor-pointer"
+                title="Đóng bảng xem chi tiết"
+              >
+                <span className="material-symbols-outlined text-[18px]">
+                  close
+                </span>
+              </button>
+            </div>
           </div>
 
-          {/* Sections Progress List OR Preview Mode */}
-          {selectedReport ? (
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-              <div className="flex items-center justify-between gap-2 pb-3 border-b border-border">
+          {/* Preview Pages */}
+          <div className="flex-1 overflow-y-auto custom-scrollbar px-0 py-6 bg-surface-2 dark:bg-bg min-h-0">
+            {!isRenderingPreview ? (
+              <div className="w-full h-full flex flex-col items-center justify-center text-text-muted gap-3">
+                <div className="w-8 h-8 rounded-full border-2 border-brand-500 border-t-transparent animate-spin" />
+                <span className="text-sm">Đang tải tài liệu...</span>
+              </div>
+            ) : (() => {
+              const isBa49 = activeDocTitle.toLowerCase().includes("ba49") ||
+                activeDocTitle.toLowerCase().includes("b49") ||
+                activeDocTitle.toLowerCase().includes("kiến tập") ||
+                (activeDoc.content || "").toLowerCase().includes("ba49") ||
+                (activeDoc.content || "").toLowerCase().includes("b49") ||
+                (activeDoc.content || "").toLowerCase().includes("kiến tập");
+
+              const pages = paginateReportContent(
+                prepareReportContent(activeDoc.content || "", activeDocTitle),
+              );
+              const pageMeta = pages.map((pageContent) => {
+                const isCover = pageContent.includes("cover-page-container") ||
+                  pageContent.includes("TRƯỜNG ĐẠI HỌC MỞ HÀ NỘI") ||
+                  pageContent.includes("[LOGO_HOU]");
+                const isAbbrev = pageContent.includes("DANH MỤC TỪ VIẾT TẮT") ||
+                  pageContent.includes("DANH MUC TU VIET TAT");
+                const isAfterConc = pageContent.includes("NHẬN XÉT KIẾN TẬP") ||
+                  pageContent.includes("NHAN XET KIEN TAP") ||
+                  pageContent.includes("DANH MỤC TÀI LIỆU THAM KHẢO") ||
+                  pageContent.includes("DANH MUC TAI LIEU THAM KHAO") ||
+                  pageContent.includes("XÁC NHẬN CỦA CÁN BỘ HƯỚNG DẪN THỰC TẬP") ||
+                  pageContent.includes("XAC NHAN CUA CAN BO HUONG DAN THUC TAP");
+                const isActive = !isCover && !isAbbrev && !isAfterConc;
+                return { isActive };
+              });
+
+              let runningPageNum = 0;
+              const pageNumbers = pageMeta.map((meta) => {
+                if (meta.isActive) {
+                  runningPageNum++;
+                  return runningPageNum;
+                }
+                return null;
+              });
+
+              return (
+                <div className="flex flex-col items-center gap-6 w-full">
+                  <style>{`
+                    .report-view h3 {
+                      font-weight: normal !important;
+                      font-style: italic !important;
+                    }
+                  `}</style>
+                  {pages.map((pageContent, idx) => (
+                    <div
+                      key={idx}
+                      className={cn(
+                        "relative w-[90%] min-h-[297mm] bg-white dark:bg-bg border border-border/40 rounded-[4px] shadow-[0_4px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.22)] overflow-hidden report-view select-text text-text-main",
+                        isBa49 && "is-ba49-report"
+                      )}
+                      style={{
+                        paddingTop: "2.5cm",
+                        paddingRight: "2cm",
+                        paddingBottom: "3.2cm",
+                        paddingLeft: "3cm",
+                        animation: "asstFadeIn 0.3s ease both",
+                      }}
+                    >
+                      {idx === 0 && (
+                        <div
+                          className="absolute pointer-events-none"
+                          style={{
+                            top: "0.4cm",
+                            bottom: "0.4cm",
+                            left: "0.4cm",
+                            right: "0.4cm",
+                            border: "4px double currentColor",
+                            zIndex: 10
+                          }}
+                        />
+                      )}
+                      <div
+                        className="w-full h-full overflow-visible"
+                        dangerouslySetInnerHTML={{
+                          __html: renderMarkdownAndMath(pageContent),
+                        }}
+                      />
+                      {pageNumbers[idx] !== null && (
+                        <div className="absolute bottom-4 left-0 right-0 text-center text-[11px] text-text-subtle select-none font-sans pointer-events-none">
+                          Trang {pageNumbers[idx]}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      ) : (
+        agentActive && agentState && (
+          <div className="w-[420px] border-l border-border bg-surface flex flex-col h-full shrink-0 shadow-lg z-20 transition-all">
+            {/* Header */}
+            <div className="p-4 border-b border-border flex items-center justify-between bg-surface-2/50">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="size-9 rounded-xl bg-brand-500/10 text-brand-500 flex items-center justify-center font-bold shrink-0">
+                  <span className="material-symbols-outlined text-[22px] animate-spin">sync</span>
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-extrabold text-brand-600 dark:text-brand-400 truncate">
+                    AI Agent - Báo cáo tự động
+                  </h3>
+                  <p className="text-[11px] text-text-subtle truncate">
+                    Quy trình RAG tự động đa bước
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
                 <button
-                  onClick={() => setSelectedReport(null)}
-                  className="px-2.5 py-1 rounded-lg bg-surface-2 hover:bg-border text-text-main text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                  onClick={cancelAgentWorkflow}
+                  className="px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                  title="Dừng khẩn cấp quy trình AI Agent"
                 >
-                  <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-                  <span>Quay lại tiến độ</span>
+                  <span className="material-symbols-outlined text-[15px]">stop_circle</span>
+                  <span>HỦY</span>
                 </button>
-                <span className="text-xs font-bold text-text-subtle truncate max-w-[200px]" title={selectedReport.title}>
-                  {selectedReport.title}
+
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20 uppercase">
+                  {agentState.current_step || "DRAFTING"}
+                </span>
+
+                <button
+                  onClick={() => setAgentActive(false)}
+                  className="size-7 rounded-lg hover:bg-surface-2 text-text-muted hover:text-text-main flex items-center justify-center transition-colors cursor-pointer"
+                  title="Đóng bảng Agent"
+                >
+                  <span className="material-symbols-outlined text-[18px]">close</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Banner Status */}
+            <div className="p-4 border-b border-border/50 bg-amber-500/5 space-y-3">
+              <div className="flex items-center gap-2 text-xs font-bold text-amber-700 dark:text-amber-400">
+                <span className="material-symbols-outlined text-[18px]">
+                  {agentState.current_step === "WAIT_APPROVAL" || agentState.current_step === "OUTLINING"
+                    ? "fact_check"
+                    : agentState.current_step === "COMPLETED"
+                    ? "check_circle"
+                    : "sync"}
+                </span>
+                <span>
+                  {agentState.current_step === "WAIT_APPROVAL" || agentState.current_step === "OUTLINING"
+                    ? "Đã tạo xong dàn ý báo cáo! Vui lòng xác nhận để bắt đầu viết."
+                    : agentState.current_step === "DRAFTING"
+                    ? "Agent đang tự động viết từng chương mục..."
+                    : agentState.current_step === "COMPLETED"
+                    ? "Đã hoàn thành toàn bộ báo cáo!"
+                    : "Agent đang thực thi quy trình..."}
                 </span>
               </div>
-              <div className="p-4 rounded-2xl bg-surface border border-border text-text-main text-xs leading-relaxed">
-                <div
-                  className="prose dark:prose-invert max-w-none space-y-3"
-                  dangerouslySetInnerHTML={{
-                    __html: renderMarkdownAndMath(selectedReport.content),
+              <p className="text-[11px] text-text-subtle leading-relaxed">
+                {agentState.current_step === "WAIT_APPROVAL" || agentState.current_step === "OUTLINING"
+                  ? "Kiểm tra danh sách các mục bên dưới và bấm nút Xác nhận dàn ý để kích hoạt quá trình tự động soạn thảo từng chương mục."
+                  : "Hệ thống đang chạy tuần tự từng chương mục độc lập theo đề cương. Trạng thái mỗi mục sẽ liên tục cập nhật bên dưới."}
+              </p>
+
+              {(agentState.current_step === "WAIT_APPROVAL" || agentState.current_step === "OUTLINING") && (
+                <button
+                  onClick={() => confirmOutlineAndStartDrafting()}
+                  disabled={agentLoading}
+                  className="w-full py-2.5 px-4 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md active:scale-98 disabled:opacity-50"
+                >
+                  <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                  <span>XÁC NHẬN DÀN Ý & BẮT ĐẦU TẠO BÁO CÁO</span>
+                </button>
+              )}
+
+              {agentState.current_step === "COMPLETED" && (
+                <button
+                  onClick={() => {
+                    setAgentActive(true);
+                    openAgentProgressPreview(agentState, "Báo cáo hoàn chỉnh");
                   }}
-                />
-              </div>
+                  className="w-full py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md active:scale-98"
+                >
+                  <span className="material-symbols-outlined text-[18px]">visibility</span>
+                  <span>XEM PREVIEW BÁO CÁO HOÀN CHỈNH</span>
+                </button>
+              )}
             </div>
-          ) : (
+
+            {/* Sections Progress List */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
               <div className="flex items-center justify-between text-xs font-extrabold text-text-subtle uppercase tracking-wider">
                 <span>TIẾN ĐỘ CÁC CHƯƠNG MỤC ({agentState.sections_progress?.length || 0})</span>
@@ -1782,10 +2148,9 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
                 );
               })}
             </div>
-          )}
-        </div>
+          </div>
+        )
       )}
-
       {/* Settings Modal */}
       <SettingsModal
         isOpen={settingsOpen}
