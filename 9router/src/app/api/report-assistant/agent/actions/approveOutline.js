@@ -30,6 +30,10 @@ export async function handleApproveOutline(ctx) {
     const existing = (currentState.sections_progress || []).find((p) => String(p.id) === String(item.id));
     const reportContext = item.reportContext || existing?.reportContext || currentState.outline?.[0]?.reportContext || null;
     const isRefSection = isReferenceOnlySection(item);
+    let sectionStatus = existing ? existing.status : "todo";
+    if (sectionStatus === "drafting" && !existing?.content) {
+      sectionStatus = "todo";
+    }
     return {
       id: item.id,
       title: adaptOutlineTitleToContext(item.title, reportContext),
@@ -44,7 +48,7 @@ export async function handleApproveOutline(ctx) {
       target_words: isRefSection
         ? 0
         : (existing?.target_words || calculateTargetWordsForSection(item, reportContext?.targetWords, contentSectionsApproved)),
-      status: existing ? existing.status : "todo",
+      status: sectionStatus,
       content: existing ? existing.content : "",
       feedback: existing ? existing.feedback : "",
     };

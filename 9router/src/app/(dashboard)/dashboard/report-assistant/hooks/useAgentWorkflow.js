@@ -20,6 +20,8 @@ export function useAgentWorkflow({
   filesTemplates,
   setDraft,
   setAttachedFiles,
+  streamEnabled,
+  apiKey,
 }) {
   const [agentActive, setAgentActive] = useState(false);
   const [agentState, setAgentState] = useState(null);
@@ -338,6 +340,11 @@ export function useAgentWorkflow({
 
       const runNextDraftStep = async () => {
         if (agentCancelRequestedRef.current) return;
+
+        const currentSt = agentStateRef.current;
+        const progress = currentSt?.sections_progress || [];
+        const nextToDraft = progress.find((p) => p.status === "todo" || p.status === "drafting");
+
         try {
           const draftRes = await fetch("/api/report-assistant/agent", {
             method: "POST",
@@ -376,17 +383,24 @@ export function useAgentWorkflow({
 
             const isCompleted = draftData.state.current_step === "COMPLETED";
             const isCancelled = draftData.state.current_step === "CANCELLED";
-            const hasMoreTodo = (draftData.state.sections_progress || []).some(
-              (s) => s.status === "todo" || s.status === "drafting"
-            );
 
             if (isCancelled || agentCancelRequestedRef.current) {
               setAgentActive(false);
               return;
             }
 
+            if (draftData.workerAlreadyRunning) {
+              // Nếu worker phía backend đang chạy hoặc giữ lease, chờ 2.5 giây trước khi gửi yêu cầu tiếp
+              setTimeout(runNextDraftStep, 2500);
+              return;
+            }
+
+            const hasMoreTodo = (draftData.state.sections_progress || []).some(
+              (s) => s.status === "todo" || s.status === "drafting"
+            );
+
             if (!isCompleted && hasMoreTodo) {
-              setTimeout(runNextDraftStep, 500);
+              setTimeout(runNextDraftStep, 800);
             } else if (isCompleted) {
               showToast("AI Agent đã hoàn thành toàn bộ nội dung báo cáo!", "success");
               // B4: Mở drawer + chuyển Preview báo cáo hoàn chỉnh
@@ -422,7 +436,7 @@ export function useAgentWorkflow({
     } finally {
       setAgentLoading(false);
     }
-  }, [activeSessionId, selectedReportModelId, activeModel?.id, username, showToast, openAgentProgressPreview, appendChatMessage]);
+  }, [activeSessionId, selectedReportModelId, activeModel?.id, username, showToast, openAgentProgressPreview, appendChatMessage, streamEnabled, apiKey]);
 
   const reloadSection = useCallback(async (sectionId, chatIdArg = activeSessionId) => {
     const chatId = chatIdArg || activeSessionId;

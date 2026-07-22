@@ -59,7 +59,11 @@ export function useChatSession({
                 // Merge database sessions and local sessions without losing newly created local sessions
                 const dbIds = new Set(data.sessions.map((s) => s.id));
                 const localOnly = (prevSessions || []).filter((s) => !dbIds.has(s.id));
-                const merged = [...data.sessions, ...localOnly];
+                const merged = [...data.sessions, ...localOnly].sort((a, b) => {
+                  const timeA = new Date(a?.updatedAt || a?.updated_at || a?.createdAt || a?.created_at || 0).getTime();
+                  const timeB = new Date(b?.updatedAt || b?.updated_at || b?.createdAt || b?.created_at || 0).getTime();
+                  return timeB - timeA;
+                });
 
                 lastHistorySyncSignatureRef.current = historySyncSignature(
                   username,

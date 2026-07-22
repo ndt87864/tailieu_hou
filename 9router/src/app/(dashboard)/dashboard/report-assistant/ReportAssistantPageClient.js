@@ -521,6 +521,8 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     filesTemplates,
     setDraft,
     setAttachedFiles,
+    streamEnabled,
+    apiKey,
   });
 
   const activeDoc = selectedReport || selectedOutline;
@@ -1073,7 +1075,11 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
           </Button>
         </div>
         <div className="flex-1 overflow-y-auto p-2 space-y-1.5 custom-scrollbar">
-          {sessions.map((s) => (
+          {([...(sessions || [])].sort((a, b) => {
+            const timeA = new Date(a?.updatedAt || a?.updated_at || a?.createdAt || a?.created_at || 0).getTime();
+            const timeB = new Date(b?.updatedAt || b?.updated_at || b?.createdAt || b?.created_at || 0).getTime();
+            return timeB - timeA;
+          })).map((s) => (
             <div
               key={s.id}
               onClick={() => setActiveSessionId(s.id)}
@@ -1993,9 +1999,32 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
             {/* Header */}
             <div className="p-4 border-b border-border flex items-center justify-between bg-surface-2/50">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="size-9 rounded-xl bg-brand-500/10 text-brand-500 flex items-center justify-center font-bold shrink-0">
-                  <span className="material-symbols-outlined text-[22px] animate-spin">sync</span>
-                </div>
+                {(() => {
+                  const isCompleted = agentState?.current_step === "COMPLETED";
+                  const isCancelled = agentState?.current_step === "CANCELLED";
+                  const isRunning = agentState?.current_step === "OUTLINING" || agentState?.current_step === "DRAFTING";
+                  return (
+                    <div
+                      className={cn(
+                        "size-9 rounded-xl flex items-center justify-center font-bold shrink-0",
+                        isCompleted
+                          ? "bg-emerald-500/10 text-emerald-500"
+                          : isCancelled
+                          ? "bg-red-500/10 text-red-500"
+                          : "bg-brand-500/10 text-brand-500"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "material-symbols-outlined text-[22px]",
+                          isRunning && "animate-spin"
+                        )}
+                      >
+                        {isCompleted ? "check_circle" : isCancelled ? "cancel" : "sync"}
+                      </span>
+                    </div>
+                  );
+                })()}
                 <div className="min-w-0">
                   <h3 className="text-sm font-extrabold text-brand-600 dark:text-brand-400 truncate">
                     AI Agent - Báo cáo tự động
@@ -2187,11 +2216,45 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
                       </div>
                     )}
 
+                    {/* Active Drafting Live Progress Box */}
+                    {isDrafting && (
+                      <div className="pt-2 border-t border-amber-500/20 space-y-1.5">
+                        <div className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5 animate-pulse">
+                          <span className="material-symbols-outlined text-[14px] animate-spin">progress_activity</span>
+                          <span>{agentState.current_activity?.message || "Agent đang phân tích & soạn thảo nội dung..."}</span>
+                        </div>
+                        {sec.content ? (
+                          <div className="text-[11px] text-text-main/90 max-h-48 overflow-y-auto custom-scrollbar bg-amber-500/5 p-2 rounded-xl leading-relaxed whitespace-pre-wrap font-sans border border-amber-500/10 relative">
+                            {sec.content.replace(/^#+\s*.*(\r?\n|$)/, "").trim()}
+                            <span className="inline-block w-1.5 h-3.5 bg-amber-500 ml-1 animate-pulse" />
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 p-2 rounded-xl bg-amber-500/5 border border-amber-500/10 text-[11px] text-amber-600/80 dark:text-amber-400/80 italic">
+                            <span className="material-symbols-outlined text-[14px] animate-bounce">edit_note</span>
+                            <span>Đang đọc tài liệu RAG & tổng hợp nội dung...</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* Drafting progress indicator */}
                     {isDrafting && (
-                      <div className="pt-2 flex items-center gap-2 text-[11px] font-medium text-amber-600 dark:text-amber-400">
-                        <span className="material-symbols-outlined text-[15px] animate-spin">sync</span>
-                        <span>Agent đang xử lý mục: {sec.title}</span>
+                      <div className="pt-2 space-y-2">
+                        <div className="flex items-center gap-2 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                          <span className="material-symbols-outlined text-[15px] animate-spin">sync</span>
+                          <span>Agent đang xử lý mục: {sec.title}</span>
+                        </div>
+                        {sec.content && (
+                          <div className="pt-1.5 border-t border-amber-500/20 space-y-1">
+                            <div className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[13px] animate-pulse">edit_note</span>
+                              <span>Nội dung báo cáo:</span>
+                            </div>
+                            <div className="text-[11px] text-text-main/90 max-h-48 overflow-y-auto custom-scrollbar bg-amber-500/5 p-2 rounded-xl leading-relaxed whitespace-pre-wrap font-sans border border-amber-500/10">
+                              {sec.content.replace(/^#+\s*.*(\r?\n|$)/, "").trim()}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
