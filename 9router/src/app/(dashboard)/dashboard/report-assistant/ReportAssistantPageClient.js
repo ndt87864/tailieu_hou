@@ -512,7 +512,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
 
       const activeSystemPrompt = systemPrompt.trim()
         ? systemPrompt
-        : (isReportIntent(userText) ? defaultSystemPrompt : "");
+        : (isReportIntent(userText) || !assistantOnlyMode ? defaultSystemPrompt : defaultSystemPrompt);
 
       if (
         webSearchEnabled &&

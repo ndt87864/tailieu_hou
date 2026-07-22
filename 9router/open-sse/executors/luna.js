@@ -386,6 +386,29 @@ export class LunaExecutor extends DefaultExecutor {
   }
 
   /**
+   * Clear user memory on chat.qwen.ai before starting a new report session.
+   * Calls DELETE https://chat.qwen.ai/api/v2/user/memories
+   */
+  async clearMemories(credentials, proxyOptions, chatId = null) {
+    try {
+      const url = "https://chat.qwen.ai/api/v2/user/memories";
+      const headers = this.buildHeaders(credentials, false, chatId);
+      const response = await proxyAwareFetch(url, {
+        method: "DELETE",
+        headers,
+      }, proxyOptions);
+
+      if (response.ok) {
+        console.log("[Luna] User memories cleared successfully before new session.");
+      } else {
+        console.warn(`[Luna] Clear memories response status: ${response.status}`);
+      }
+    } catch (err) {
+      console.warn("[Luna] Clear memories error:", err?.message || err);
+    }
+  }
+
+  /**
    * Ping /api/v2/users/status to activate the session before sending a completion.
    * Reference: qwen-ai.ts chatCompletion() pre-flight status call.
    */
@@ -412,7 +435,12 @@ export class LunaExecutor extends DefaultExecutor {
       const existingChatId = this.resolveChatId(body, credentials);
       const parentMessageId = this.resolveParentMessageId(body, credentials);
 
-      // 1. Pre-flight: activate the session (required to avoid Bad_Request)
+      // 1. Pre-flight: clear old memories if launching a new chat room
+      if (!existingChatId) {
+        await this.clearMemories(credentials, proxyOptions);
+      }
+
+      // 2. Pre-flight: activate the session (required to avoid Bad_Request)
       await this.postUserStatus(credentials, proxyOptions, existingChatId);
 
       // 2. Reuse the same chat room when a chat id is already known.
