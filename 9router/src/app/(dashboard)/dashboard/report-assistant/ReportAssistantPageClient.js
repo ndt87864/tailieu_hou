@@ -91,6 +91,87 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
 
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
+  const abortRef = useRef(null);
+
+  const applyFullModelList = useCallback((models, uName) => {
+    if (!Array.isArray(models) || models.length === 0) return;
+    const uSK = getSK(uName);
+    const rawEnabledModels = localStorage.getItem(uSK.enabledModels);
+    const enabledSet = new Set(safeParse(rawEnabledModels, []) || []);
+    models.forEach((m) => enabledSet.add(m.id));
+    setAllModels(models);
+    setEnabledModelIds(enabledSet);
+  }, []);
+
+  const { fetchUser } = useUserStore();
+
+  const loadFullModels = useCallback(async (uName = username) => {
+    setLoadingModels(true);
+    try {
+      const res = await fetch("/api/v1/models", { cache: "no-store" });
+      const data = await res.json();
+      const rawModels = Array.isArray(data?.data) ? data.data : [];
+      applyFullModelList(getReportAssistantChatModels(rawModels), uName);
+      setFullModelsLoaded(true);
+    } catch (err) {
+      setLoadError(err.message || "Failed to load models.");
+    } finally {
+      setLoadingModels(false);
+    }
+  }, [applyFullModelList, username]);
+
+  const {
+    sessions,
+    setSessions,
+    activeSessionId,
+    setActiveSessionId,
+  } = useChatSession({
+    initialChatId,
+    username,
+    usernameLoaded,
+    hydrated,
+    activeModelId: allModels[0]?.id || "",
+    setActiveModelId: () => {},
+    systemPrompt,
+    setSystemPrompt,
+    temperature,
+    setTemperature,
+    setAssistantOnlyMode,
+    selectedKnowledgeSubject,
+    setSelectedKnowledgeSubject,
+    allModels,
+    enabledModelIds,
+    setEnabledModelIds,
+    fullModelsLoaded,
+    setReportModels,
+    applyFullModelList,
+    fetchUser,
+    loadFullModels,
+  });
+
+  const handleStopStreaming = useCallback(async () => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+    }
+    // Gửi lệnh stop tới Qwen web nếu có activeSessionId
+    if (activeSessionId) {
+      try {
+        await fetch(`https://chat.qwen.ai/api/v2/chat/completions/stop?chat_id=${activeSessionId}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({ chat_id: activeSessionId }),
+        }).catch(() => {});
+      } catch (e) {
+        // Ignore cross-origin / network error if direct call fails
+      }
+    }
+    setIsSending(false);
+    setStreamingId("");
+    setSearchStatus("");
+  }, [activeSessionId, apiKey]);
 
   // Auto-resize textarea height
   useEffect(() => {
@@ -186,33 +267,6 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     }
   }, []);
 
-  const applyFullModelList = useCallback((models, uName) => {
-    if (!Array.isArray(models) || models.length === 0) return;
-    const uSK = getSK(uName);
-    const rawEnabledModels = localStorage.getItem(uSK.enabledModels);
-    const enabledSet = new Set(safeParse(rawEnabledModels, []) || []);
-    models.forEach((m) => enabledSet.add(m.id));
-    setAllModels(models);
-    setEnabledModelIds(enabledSet);
-  }, []);
-
-  const { fetchUser } = useUserStore();
-
-  const loadFullModels = useCallback(async (uName = username) => {
-    setLoadingModels(true);
-    try {
-      const res = await fetch("/api/v1/models", { cache: "no-store" });
-      const data = await res.json();
-      const rawModels = Array.isArray(data?.data) ? data.data : [];
-      applyFullModelList(getReportAssistantChatModels(rawModels), uName);
-      setFullModelsLoaded(true);
-    } catch (err) {
-      setLoadError(err.message || "Failed to load models.");
-    } finally {
-      setLoadingModels(false);
-    }
-  }, [applyFullModelList, username]);
-
   useEffect(() => {
     setHydrated(true);
   }, []);
@@ -255,35 +309,6 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
       loadTemplates();
     }
   }, [hydrated, usernameLoaded, isSupabaseConfigured, loadOutlines, loadTemplates]);
-
-  const {
-    sessions,
-    setSessions,
-    activeSessionId,
-    setActiveSessionId,
-  } = useChatSession({
-    initialChatId,
-    username,
-    usernameLoaded,
-    hydrated,
-    activeModelId: allModels[0]?.id || "",
-    setActiveModelId: () => {},
-    systemPrompt,
-    setSystemPrompt,
-    temperature,
-    setTemperature,
-    setAssistantOnlyMode,
-    selectedKnowledgeSubject,
-    setSelectedKnowledgeSubject,
-    allModels,
-    enabledModelIds,
-    setEnabledModelIds,
-    fullModelsLoaded,
-    setReportModels,
-    applyFullModelList,
-    fetchUser,
-    loadFullModels,
-  });
 
   const createSession = useCallback((model, subject = selectedKnowledgeSubject) => ({
     id: createId(),
@@ -584,6 +609,8 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
         )
       );
 
+      abortRef.current = new AbortController();
+
       const response = await fetch("/api/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -596,6 +623,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
           stream: true,
           temperature,
         }),
+        signal: abortRef.current.signal,
       });
 
       if (!response.ok) {
@@ -677,16 +705,33 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
         throw new Error("Không nhận được phản hồi từ mô hình AI.");
       }
     } catch (err) {
-      console.error(err);
-      const isFetchErr = err?.message === "Failed to fetch" || err?.name === "TypeError";
-      const displayMsg = isFetchErr
-        ? "Không thể kết nối đến máy chủ API. Vui lòng kiểm tra lại server hoặc thử lại sau giây lát."
-        : err.message;
-      showToast("Lỗi gửi tin nhắn: " + displayMsg, "error");
+      if (err?.name === "AbortError") {
+        // Dừng thủ công bởi người dùng, đánh dấu tin nhắn dừng
+        setSessions((prev) =>
+          prev.map((s) =>
+            s.id === activeSessionId
+              ? {
+                  ...s,
+                  messages: (s.messages || []).map((m) =>
+                    m.id === asstMsgId ? { ...m, status: "done" } : m
+                  ),
+                }
+              : s
+          )
+        );
+      } else {
+        console.error(err);
+        const isFetchErr = err?.message === "Failed to fetch" || err?.name === "TypeError";
+        const displayMsg = isFetchErr
+          ? "Không thể kết nối đến máy chủ API. Vui lòng kiểm tra lại server hoặc thử lại sau giây lát."
+          : err.message;
+        showToast("Lỗi gửi tin nhắn: " + displayMsg, "error");
+      }
     } finally {
       setIsSending(false);
       setStreamingId("");
       setSearchStatus("");
+      abortRef.current = null;
     }
   }, [
     activeSessionId,
@@ -1218,9 +1263,31 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
               placeholder="Nhập tin nhắn..."
               className="flex-1 bg-transparent border-0 outline-none text-sm resize-none text-text-main placeholder:text-text-subtle py-1.5 max-h-40 overflow-y-auto"
             />
-            <Button size="sm" onClick={handleSendMessage} disabled={isSending || !draft.trim()} className="mb-0.5">
-              Gửi
-            </Button>
+            {isSending ? (
+              <button
+                type="button"
+                onClick={handleStopStreaming}
+                className="flex-shrink-0 size-8 rounded-[8px] flex items-center justify-center bg-red-50 dark:bg-red-950/30 text-danger border border-red-200 dark:border-red-900/50 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors mb-0.5"
+                title="Dừng phản hồi"
+              >
+                <span className="material-symbols-outlined text-[18px]">stop</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSendMessage}
+                disabled={!draft.trim() && attachedFiles.length === 0}
+                className={cn(
+                  "flex-shrink-0 size-8 rounded-[8px] flex items-center justify-center transition-all mb-0.5",
+                  (draft.trim() || attachedFiles.length > 0)
+                    ? "bg-brand-500 hover:bg-brand-600 text-white shadow-sm active:scale-95 cursor-pointer"
+                    : "bg-surface-2 text-text-muted cursor-not-allowed opacity-50"
+                )}
+                title="Gửi tin nhắn"
+              >
+                <span className="material-symbols-outlined text-[18px] rotate-[-30px]">send</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
