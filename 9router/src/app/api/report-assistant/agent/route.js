@@ -111,7 +111,7 @@ export async function POST(request) {
       return handleInit(ctx);
     }
 
-    if (action === "approve_outline") {
+    if (action === "approve_outline" || action === "approveOutline") {
       return handleApproveOutline(ctx);
     }
 
@@ -119,7 +119,7 @@ export async function POST(request) {
       return handleCancel(ctx);
     }
 
-    if (action === "reload_section") {
+    if (action === "reload_section" || action === "reloadSection") {
       return handleReloadSection(ctx);
     }
 
@@ -127,7 +127,7 @@ export async function POST(request) {
       return handleStatus(ctx);
     }
 
-    if (action === "draft_next" || action === "draft_next_worker") {
+    if (action === "draft_next" || action === "draft_next_worker" || action === "draftNext") {
       return handleDraftNext(ctx);
     }
 

@@ -164,7 +164,8 @@ export function useAgentWorkflow({
       const data = await res.json().catch(() => null);
       if (data?.ok && data.state) {
         setAgentState(data.state);
-        setAgentActive(forceActive ? true : data.state.current_step !== "COMPLETED");
+        const isEnded = data.state.current_step === "COMPLETED" || data.state.current_step === "CANCELLED";
+        setAgentActive(forceActive ? true : !isEnded);
         return data.state;
       }
       setAgentState(null);
@@ -309,21 +310,48 @@ export function useAgentWorkflow({
           const approveData = await approveRes.json().catch(() => ({}));
           if (approveData?.ok && approveData.state) {
             setAgentState(approveData.state);
-            
-            // Kích hoạt worker chạy ngầm draftNext đầu tiên
-            fetch("/api/report-assistant/agent", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                action: "draftNext",
-                chatId,
-                username,
-                modelId,
-              }),
-            }).then(async (r) => {
-              const d = await r.json().catch(() => ({}));
-              if (d?.ok && d.state) setAgentState(d.state);
-            }).catch((err) => console.warn("Background draftNext trigger warning:", err));
+
+            // Hàm vòng lặp tự động gọi draftNext để liên tục viết các mục cho đến khi hoàn thành
+            const runNextDraftStep = async () => {
+              if (agentCancelRequestedRef.current) return;
+              try {
+                const draftRes = await fetch("/api/report-assistant/agent", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    action: "draftNext",
+                    chatId,
+                    username,
+                    modelId,
+                  }),
+                });
+                const draftData = await draftRes.json().catch(() => ({}));
+                if (draftData?.ok && draftData.state) {
+                  setAgentState(draftData.state);
+                  const isCompleted = draftData.state.current_step === "COMPLETED";
+                  const isCancelled = draftData.state.current_step === "CANCELLED";
+                  const hasMoreTodo = (draftData.state.sections_progress || []).some(
+                    (s) => s.status === "todo" || s.status === "drafting"
+                  );
+
+                  if (isCancelled || agentCancelRequestedRef.current) {
+                    setAgentActive(false);
+                    return;
+                  }
+
+                  if (!isCompleted && hasMoreTodo) {
+                    setTimeout(runNextDraftStep, 1500);
+                  } else if (isCompleted) {
+                    showToast("AI Agent đã hoàn thành toàn bộ nội dung báo cáo!", "success");
+                  }
+                }
+              } catch (err) {
+                console.error("Lỗi trong vòng lặp soạn thảo AI Agent:", err);
+              }
+            };
+
+            // Kích hoạt vòng lặp soạn thảo ngay
+            runNextDraftStep();
           }
         } catch (e) {
           console.error("Lỗi tự động phê duyệt đề cương & kích hoạt soạn thảo:", e);
@@ -338,6 +366,28 @@ export function useAgentWorkflow({
       setAgentLoading(false);
     }
   }, [username, showToast]);
+
+  const cancelAgentWorkflow = useCallback(async () => {
+    agentCancelRequestedRef.current = true;
+    setAgentLoading(true);
+    try {
+      const res = await fetch("/api/report-assistant/agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cancel", chatId: activeSessionId, username }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data?.ok && data.state) {
+        setAgentState(data.state);
+        showToast("Đã dừng quy trình AI Agent thành công!", "info");
+      }
+    } catch (err) {
+      console.error("Lỗi khi hủy AI Agent:", err);
+    } finally {
+      setAgentLoading(false);
+      setAgentActive(false);
+    }
+  }, [activeSessionId, username, showToast]);
 
   return {
     agentActive,
@@ -364,5 +414,6 @@ export function useAgentWorkflow({
     openAgentProgressPreview,
     loadAgentStatus,
     runAgentInit,
+    cancelAgentWorkflow,
   };
 }

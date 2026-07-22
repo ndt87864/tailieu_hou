@@ -324,6 +324,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     buildAgentReportContent,
     runAgentInit,
     loadAgentStatus,
+    cancelAgentWorkflow,
   } = useAgentWorkflow({
     activeSessionId,
     setActiveSessionId,
@@ -1504,12 +1505,22 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={cancelAgentWorkflow}
+                className="px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                title="Dừng khẩn cấp quy trình AI Agent"
+              >
+                <span className="material-symbols-outlined text-[15px]">stop_circle</span>
+                <span>HỦY</span>
+              </button>
+
               <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20 uppercase">
                 {agentState.current_step || "DRAFTING"}
               </span>
+
               <button
                 onClick={() => setAgentActive(false)}
-                className="size-7 rounded-lg hover:bg-surface-2 text-text-muted hover:text-text-main flex items-center justify-center transition-colors"
+                className="size-7 rounded-lg hover:bg-surface-2 text-text-muted hover:text-text-main flex items-center justify-center transition-colors cursor-pointer"
                 title="Đóng bảng Agent"
               >
                 <span className="material-symbols-outlined text-[18px]">close</span>
@@ -1520,11 +1531,19 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
           {/* Banner Status */}
           <div className="p-4 border-b border-border/50 bg-amber-500/5 space-y-2">
             <div className="flex items-center gap-2 text-xs font-bold text-amber-700 dark:text-amber-400">
-              <span className="material-symbols-outlined text-[18px]">info</span>
-              <span>Agent đang thực thi quy trình...</span>
+              <span className="material-symbols-outlined text-[18px] animate-spin">sync</span>
+              <span>
+                {agentState.current_step === "OUTLINING"
+                  ? "Đã lập đề cương, đang khởi chạy vòng lặp viết nội dung..."
+                  : agentState.current_step === "DRAFTING"
+                  ? "Agent đang tự động viết từng chương mục..."
+                  : agentState.current_step === "COMPLETED"
+                  ? "Đã hoàn thành toàn bộ báo cáo!"
+                  : "Agent đang thực thi quy trình..."}
+              </span>
             </div>
             <p className="text-[11px] text-text-subtle leading-relaxed">
-              Hệ thống đang chạy ngầm tự động soạn thảo từng chương mục một cách độc lập. Bạn có thể thu nhỏ hoặc xem kết quả trực tiếp tại đây.
+              Hệ thống đang chạy tuần tự từng chương mục độc lập theo đề cương. Trạng thái mỗi mục sẽ liên tục cập nhật bên dưới.
             </p>
           </div>
 
