@@ -323,6 +323,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     setReportWorkflowModelId,
     buildAgentReportContent,
     runAgentInit,
+    loadAgentStatus,
   } = useAgentWorkflow({
     activeSessionId,
     setActiveSessionId,
@@ -353,6 +354,13 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     if (found) return found;
     return { id: activeSession.modelId };
   }, [allModels, activeSession]);
+
+  // Tự động đồng bộ trạng thái AI Agent Workflow khi chuyển đổi session hoặc bật AI Agent mode
+  useEffect(() => {
+    if (activeSessionId && typeof loadAgentStatus === "function") {
+      loadAgentStatus(activeSessionId);
+    }
+  }, [activeSessionId, assistantOnlyMode, loadAgentStatus]);
 
   const triggerFileInput = useCallback(() => {
     fileInputRef.current?.click();
@@ -504,13 +512,16 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     // Nếu đang BẬT chế độ AI Agent (!assistantOnlyMode), tự động kích hoạt Multi-Agent Workflow
     if (!assistantOnlyMode && typeof runAgentInit === "function") {
       try {
+        showToast("Đang kích hoạt hệ thống AI Agent lập đề cương báo cáo...", "info");
         await runAgentInit({
           userPrompt: userText,
           selectedReportModelId: activeModel?.id,
+          chatId: activeSessionId,
           selectedOutlineSubject: selectedKnowledgeSubject !== "none" ? selectedKnowledgeSubject : "",
         });
       } catch (err) {
         console.error("Lỗi kích hoạt AI Agent:", err);
+        showToast("Lỗi khởi chạy AI Agent: " + err.message, "error");
       } finally {
         setIsSending(false);
       }
@@ -1051,6 +1062,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
               ))}
             </div>
           )}
+
           {isSending && (!activeSession?.messages?.some(m => m.id === streamingId && m.content.trim())) && (
             <div className="flex gap-4 max-w-3xl mr-auto">
               <AssistantAvatar />
@@ -1067,6 +1079,93 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
               <span>{searchStatus}</span>
             </div>
           )}
+
+          {/* Active Features Status Badges Bar */}
+          <div className="flex flex-wrap items-center gap-1.5 px-1 py-0.5 text-xs">
+            {/* 1. Web Search / Fetch Badge */}
+            {webSearchEnabled && (
+              <span
+                onClick={() => setWebSearchEnabled(false)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 font-medium text-[11px] cursor-pointer hover:bg-blue-500/20 transition-colors"
+                title="BẬT: Tìm kiếm & Thu thập Web (Click để tắt)"
+              >
+                <span className="material-symbols-outlined text-[14px]">language</span>
+                <span>Web Fetch: BẬT</span>
+                <span className="material-symbols-outlined text-[12px] opacity-70 hover:opacity-100">close</span>
+              </span>
+            )}
+
+            {/* 2. AI Agent Badge */}
+            {!assistantOnlyMode && (
+              <span
+                onClick={() => setAssistantOnlyMode(true)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-600 dark:text-brand-400 font-medium text-[11px] cursor-pointer hover:bg-brand-500/20 transition-colors"
+                title="BẬT: Chế độ AI Agent tự động (Click để tắt)"
+              >
+                <span className="material-symbols-outlined text-[14px]">support_agent</span>
+                <span>AI Agent: BẬT</span>
+                <span className="material-symbols-outlined text-[12px] opacity-70 hover:opacity-100">close</span>
+              </span>
+            )}
+
+            {/* 3. Stream Mode Badge */}
+            {streamEnabled && (
+              <span
+                onClick={() => setStreamEnabled(false)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-medium text-[11px] cursor-pointer hover:bg-emerald-500/20 transition-colors"
+                title="BẬT: Stream Real-time (Click để tắt)"
+              >
+                <span className="material-symbols-outlined text-[14px]">stream</span>
+                <span>Stream: BẬT</span>
+                <span className="material-symbols-outlined text-[12px] opacity-70 hover:opacity-100">close</span>
+              </span>
+            )}
+
+            {/* 4. Thinking Mode Badge */}
+            {(() => {
+              const isModel38 = !!(activeModel?.id && (activeModel.id.includes("3.8") || activeModel.id.includes("qwen3.8") || activeModel.id.includes("qwen-3.8")));
+              const currentThinkingMode = isModel38 ? "thinking" : thinkingMode;
+
+              return (
+                <span
+                  onClick={() => {
+                    if (isModel38) return;
+                    const modes = ["auto", "fast", "thinking"];
+                    const nextIdx = (modes.indexOf(thinkingMode) + 1) % modes.length;
+                    setThinkingMode(modes[nextIdx]);
+                  }}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-medium transition-colors",
+                    isModel38 ? "cursor-not-allowed opacity-90" : "cursor-pointer hover:opacity-80",
+                    currentThinkingMode === "thinking"
+                      ? "bg-purple-500/10 border-purple-500/20 text-purple-600 dark:text-purple-400"
+                      : currentThinkingMode === "fast"
+                      ? "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400"
+                      : "bg-surface border-border text-text-muted"
+                  )}
+                  title={`Thinking Mode: ${currentThinkingMode.toUpperCase()} (Click để đổi)`}
+                >
+                  <span className="material-symbols-outlined text-[14px]">
+                    {currentThinkingMode === "thinking" ? "psychology" : currentThinkingMode === "fast" ? "bolt" : "tune"}
+                  </span>
+                  <span className="capitalize">Thinking: {currentThinkingMode}</span>
+                </span>
+              );
+            })()}
+
+            {/* 5. Knowledge Subject Badge */}
+            {selectedKnowledgeSubject !== "none" && (
+              <span
+                onClick={() => setSelectedKnowledgeSubject("none")}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 font-medium text-[11px] cursor-pointer hover:bg-purple-500/20 transition-colors"
+                title={`Chủ đề báo cáo đang chọn: ${selectedKnowledgeSubject} (Click để bỏ chọn)`}
+              >
+                <span className="material-symbols-outlined text-[14px]">menu_book</span>
+                <span className="max-w-[150px] truncate">{selectedKnowledgeSubject}</span>
+                <span className="material-symbols-outlined text-[12px] opacity-70 hover:opacity-100">close</span>
+              </span>
+            )}
+          </div>
 
           {/* Attached Files Bar */}
           {attachedFiles.length > 0 && (
@@ -1384,6 +1483,123 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
           </div>
         </div>
       </div>
+
+      {/* Right Drawer: AI Agent Progress Panel (Khi agentActive/agentState BẬT) */}
+      {agentActive && agentState && (
+        <div className="w-[420px] border-l border-border bg-surface flex flex-col h-full shrink-0 shadow-lg z-20 transition-all">
+          {/* Header */}
+          <div className="p-4 border-b border-border flex items-center justify-between bg-surface-2/50">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="size-9 rounded-xl bg-brand-500/10 text-brand-500 flex items-center justify-center font-bold shrink-0">
+                <span className="material-symbols-outlined text-[22px] animate-spin">sync</span>
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-sm font-extrabold text-brand-600 dark:text-brand-400 truncate">
+                  AI Agent - Báo cáo tự động
+                </h3>
+                <p className="text-[11px] text-text-subtle truncate">
+                  Quy trình RAG tự động đa bước
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20 uppercase">
+                {agentState.current_step || "DRAFTING"}
+              </span>
+              <button
+                onClick={() => setAgentActive(false)}
+                className="size-7 rounded-lg hover:bg-surface-2 text-text-muted hover:text-text-main flex items-center justify-center transition-colors"
+                title="Đóng bảng Agent"
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Banner Status */}
+          <div className="p-4 border-b border-border/50 bg-amber-500/5 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-bold text-amber-700 dark:text-amber-400">
+              <span className="material-symbols-outlined text-[18px]">info</span>
+              <span>Agent đang thực thi quy trình...</span>
+            </div>
+            <p className="text-[11px] text-text-subtle leading-relaxed">
+              Hệ thống đang chạy ngầm tự động soạn thảo từng chương mục một cách độc lập. Bạn có thể thu nhỏ hoặc xem kết quả trực tiếp tại đây.
+            </p>
+          </div>
+
+          {/* Sections Progress List */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+            <div className="flex items-center justify-between text-xs font-extrabold text-text-subtle uppercase tracking-wider">
+              <span>TIẾN ĐỘ CÁC CHƯƠNG MỤC ({agentState.sections_progress?.length || 0})</span>
+              <span>
+                {agentState.sections_progress?.filter((s) => s.status === "completed").length || 0}/
+                {agentState.sections_progress?.length || 0} Hoàn thành
+              </span>
+            </div>
+
+            {(agentState.sections_progress || []).map((sec, idx) => {
+              const isDone = sec.status === "completed";
+              const isDrafting = sec.status === "drafting" || sec.status === "in_progress";
+
+              return (
+                <div
+                  key={sec.id || idx}
+                  className={cn(
+                    "p-3.5 rounded-2xl border transition-all text-xs space-y-2",
+                    isDone
+                      ? "bg-emerald-500/5 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
+                      : isDrafting
+                      ? "bg-brand-500/5 border-brand-500/40 text-brand-600 dark:text-brand-400 shadow-sm ring-1 ring-brand-500/20"
+                      : "bg-bg/60 border-border text-text-main"
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-2 font-bold">
+                    <span className="leading-snug">{sec.title}</span>
+                    <span
+                      className={cn(
+                        "text-[9px] uppercase font-extrabold px-2 py-0.5 rounded-full border shrink-0",
+                        isDone
+                          ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600"
+                          : isDrafting
+                          ? "bg-amber-500/10 border-amber-500/30 text-amber-600 animate-pulse"
+                          : "bg-surface border-border text-text-subtle"
+                      )}
+                    >
+                      {isDone ? "Hoàn thành" : isDrafting ? "DRAFTING" : "TODO"}
+                    </span>
+                  </div>
+
+                  {sec.description && (
+                    <p className="text-[11px] text-text-subtle leading-relaxed">{sec.description}</p>
+                  )}
+
+                  {/* Subsections list */}
+                  {Array.isArray(sec.subsections) && sec.subsections.length > 0 && (
+                    <div className="pt-1 space-y-1 border-t border-border/40">
+                      <div className="text-[10px] font-bold text-text-subtle uppercase">Mục con:</div>
+                      {sec.subsections.map((sub, sIdx) => (
+                        <div key={sIdx} className="text-[11px] text-text-muted flex items-start gap-1 pl-1">
+                          <span className="text-brand-500">•</span>
+                          <span>{sub}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Drafting progress indicator */}
+                  {isDrafting && (
+                    <div className="pt-2 flex items-center gap-2 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                      <span className="material-symbols-outlined text-[15px] animate-spin">sync</span>
+                      <span>Agent đang xử lý mục: {sec.title}</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Settings Modal */}
       <SettingsModal

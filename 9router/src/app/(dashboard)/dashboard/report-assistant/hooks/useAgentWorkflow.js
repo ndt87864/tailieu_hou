@@ -180,7 +180,23 @@ export function useAgentWorkflow({
     }
   }, [activeSessionId]);
 
-  const runAgentInit = useCallback(async (userPrompt, modelId, chatId, subjectOverride = "") => {
+  const runAgentInit = useCallback(async (userPromptArg, modelIdArg, chatIdArg, subjectOverrideArg = "") => {
+    let userPrompt = userPromptArg;
+    let modelId = modelIdArg;
+    let chatId = chatIdArg;
+    let subjectOverride = subjectOverrideArg;
+
+    if (userPromptArg && typeof userPromptArg === "object") {
+      userPrompt = userPromptArg.userPrompt;
+      modelId = userPromptArg.selectedReportModelId || userPromptArg.modelId;
+      chatId = userPromptArg.chatId || activeSessionId;
+      subjectOverride = userPromptArg.selectedOutlineSubject || userPromptArg.subjectOverride || "";
+    }
+
+    if (!chatId) {
+      chatId = activeSessionId;
+    }
+
     const runId = `run_${createId()}`;
     agentCancelRequestedRef.current = false;
     setAgentLoading(true);
@@ -188,8 +204,6 @@ export function useAgentWorkflow({
     setSelectedOutline(null);
     setAgentActive(true);
     setAgentState({
-      chat_id: chatId,
-      current_step: "PLANNING",
       outline: [],
       sections_progress: [
         {
@@ -252,7 +266,68 @@ export function useAgentWorkflow({
       if (data.ok && data.state) {
         setAgentState(data.state);
         setAgentActive(true);
-        showToast("Agent đã lập đề cương báo cáo thành công!", "success");
+        showToast("Agent đã lập đề cương báo cáo thành công! Đang tự động tiến hành soạn thảo...", "success");
+
+        // Tự động append câu trả lời của AI Agent vào khung trò chuyện
+        const outlinesList = (data.state.outline || [])
+          .map((item, idx) => `${idx + 1}. **${item.title}**\n   *${item.description || "Soạn thảo chi tiết nội dung"}*`)
+          .join("\n\n");
+
+        const agentInitMessage = {
+          id: createId(),
+          role: "assistant",
+          content: `🤖 **HỆ THỐNG AI AGENT ĐÃ KÍCH HOẠT THÀNH CÔNG**\n\nTôi đã tiếp nhận yêu cầu và tự động xây dựng quy trình lập báo cáo theo đề cương dưới đây:\n\n${outlinesList}\n\n---\n⚡ *Hệ thống đang tự động khởi chạy quy trình viết chi tiết từng chương mục báo cáo...*`,
+          createdAt: new Date().toISOString(),
+        };
+
+        if (setSessions && chatId) {
+          setSessions((prev) =>
+            prev.map((s) =>
+              s.id === chatId
+                ? {
+                    ...s,
+                    messages: [...(s.messages || []), agentInitMessage],
+                    updatedAt: new Date().toISOString(),
+                  }
+                : s
+            )
+          );
+        }
+
+        // Tự động kích hoạt Duyệt Đề Cương (approveOutline) & Bắt đầu viết nội dung từng mục (draftNext)
+        try {
+          const approveRes = await fetch("/api/report-assistant/agent", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "approveOutline",
+              chatId,
+              username,
+              outline: data.state.outline,
+            }),
+          });
+          const approveData = await approveRes.json().catch(() => ({}));
+          if (approveData?.ok && approveData.state) {
+            setAgentState(approveData.state);
+            
+            // Kích hoạt worker chạy ngầm draftNext đầu tiên
+            fetch("/api/report-assistant/agent", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "draftNext",
+                chatId,
+                username,
+                modelId,
+              }),
+            }).then(async (r) => {
+              const d = await r.json().catch(() => ({}));
+              if (d?.ok && d.state) setAgentState(d.state);
+            }).catch((err) => console.warn("Background draftNext trigger warning:", err));
+          }
+        } catch (e) {
+          console.error("Lỗi tự động phê duyệt đề cương & kích hoạt soạn thảo:", e);
+        }
       }
     } catch (err) {
       console.error(err);
