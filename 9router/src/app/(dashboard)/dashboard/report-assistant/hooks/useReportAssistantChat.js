@@ -220,19 +220,25 @@ export function useReportAssistantChat({
 
       const targetSessionId = activeSessionId;
       setSessions((prev) =>
-        prev.map((s) =>
-          s.id === targetSessionId
-            ? {
-                ...s,
-                messages: (s.messages || []).map((m) =>
-                  m.id === asstMsgId
-                    ? { ...m, content: fullContent, status: "done" }
-                    : m
-                ),
-                updatedAt: new Date().toISOString(),
-              }
-            : s
-        )
+        prev.map((s) => {
+          if (s.id !== targetSessionId) return s;
+          const updatedMessages = (s.messages || []).map((m) =>
+            m.id === asstMsgId
+              ? { ...m, content: fullContent, status: "done" }
+              : m
+          );
+          let newTitle = s.title;
+          if ((!newTitle || newTitle === "New Chat") && fullContent.trim()) {
+            const cleanText = fullContent.replace(/[#*`_~]/g, "").trim();
+            newTitle = cleanText.slice(0, 20);
+          }
+          return {
+            ...s,
+            title: newTitle,
+            messages: updatedMessages,
+            updatedAt: new Date().toISOString(),
+          };
+        })
       );
 
       setIsSending(false);
@@ -461,19 +467,25 @@ export function useReportAssistantChat({
         }
 
         setSessions((prev) =>
-          prev.map((s) =>
-            s.id === activeSessionId
-              ? {
-                  ...s,
-                  messages: (s.messages || []).map((m) =>
-                    m.id === targetAsstId
-                      ? { ...m, content: fullContent, status: "done" }
-                      : m
-                  ),
-                  updatedAt: new Date().toISOString(),
-                }
-              : s
-          )
+          prev.map((s) => {
+            if (s.id !== activeSessionId) return s;
+            const updatedMessages = (s.messages || []).map((m) =>
+              m.id === targetAsstId
+                ? { ...m, content: fullContent, status: "done" }
+                : m
+            );
+            let newTitle = s.title;
+            if ((!newTitle || newTitle === "New Chat") && fullContent.trim()) {
+              const cleanText = fullContent.replace(/[#*`_~]/g, "").trim();
+              newTitle = cleanText.slice(0, 20);
+            }
+            return {
+              ...s,
+              title: newTitle,
+              messages: updatedMessages,
+              updatedAt: new Date().toISOString(),
+            };
+          })
         );
 
         if (!fullContent.trim()) {
