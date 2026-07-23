@@ -124,10 +124,10 @@ export function useAgentWorkflow({
     agentCancelRequestedRef.current = false;
     setAgentLoading(true);
     try {
-      const res = await fetch("/api/report-assistant/agent", {
+      const res = await fetch("/api/report-assistant/agent/status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "status", chatId }),
+        body: JSON.stringify({ chatId }),
       });
       if (!res.ok) {
         setAgentState(null);
@@ -249,11 +249,10 @@ export function useAgentWorkflow({
         }
       }
 
-      const res = await fetch("/api/report-assistant/agent", {
+      const res = await fetch("/api/report-assistant/agent/init", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "init",
           chatId,
           username,
           subject: selectedOutlineSubject || "Báo cáo tự động",
@@ -307,10 +306,10 @@ export function useAgentWorkflow({
     let outline = currentState?.outline;
     if (!outline || outline.length === 0) {
       try {
-        const statusRes = await fetch("/api/report-assistant/agent", {
+        const statusRes = await fetch("/api/report-assistant/agent/status", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "status", chatId }),
+          body: JSON.stringify({ chatId }),
         });
         const statusData = await statusRes.json().catch(() => ({}));
         if (statusData?.ok && statusData.state?.outline) {
@@ -332,11 +331,10 @@ export function useAgentWorkflow({
     setAgentLoading(true);
 
     try {
-      const approveRes = await fetch("/api/report-assistant/agent", {
+      const approveRes = await fetch("/api/report-assistant/agent/approve-outline", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "approveOutline",
           chatId,
           username,
           outline,
@@ -385,10 +383,10 @@ export function useAgentWorkflow({
               return;
             }
             try {
-              const statusRes = await fetch("/api/report-assistant/agent", {
+              const statusRes = await fetch("/api/report-assistant/agent/status", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "status", chatId }),
+                body: JSON.stringify({ chatId }),
               });
               const statusData = await statusRes.json().catch(() => ({}));
               if (statusData?.ok && statusData.state && !isStepDone) {
@@ -404,10 +402,10 @@ export function useAgentWorkflow({
         startLivePolling();
 
         try {
-          const draftRes = await fetch("/api/report-assistant/agent", {
+          const draftRes = await fetch("/api/report-assistant/agent/draft-next", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "draftNext", chatId, username, modelId }),
+            body: JSON.stringify({ chatId, username, modelId }),
           });
           const draftData = await draftRes.json().catch(() => ({}));
           
@@ -492,10 +490,10 @@ export function useAgentWorkflow({
     if (!chatId || !sectionId) return;
     setAgentLoading(true);
     try {
-      const res = await fetch("/api/report-assistant/agent", {
+      const res = await fetch("/api/report-assistant/agent/reload-section", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "reloadSection", chatId, sectionId }),
+        body: JSON.stringify({ chatId, sectionId }),
       });
       const data = await res.json().catch(() => ({}));
       if (data?.ok && data.state) {
@@ -515,10 +513,10 @@ export function useAgentWorkflow({
     agentCancelRequestedRef.current = true;
     setAgentLoading(true);
     try {
-      const res = await fetch("/api/report-assistant/agent", {
+      const res = await fetch("/api/report-assistant/agent/cancel", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "cancel", chatId: activeSessionId, username }),
+        body: JSON.stringify({ chatId: activeSessionId, username }),
       });
       const data = await res.json().catch(() => ({}));
       if (data?.ok && data.state) {

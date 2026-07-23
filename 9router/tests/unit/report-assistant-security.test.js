@@ -82,9 +82,10 @@ describe("report assistant security and concurrency control", () => {
     await saveAgentState("chat-123", "admin", stateData, null, lockId);
 
     expect(turso.execute).toHaveBeenCalled();
-    const lastCall = turso.execute.mock.lastCall[0];
-    expect(lastCall.sql).toContain("EXISTS (");
-    expect(lastCall.sql).toContain("report_agent_worker_leases");
-    expect(lastCall.args).toContain(lockId);
+    const stateCall = turso.execute.mock.calls.map((c) => c[0]).find((c) => c.sql && c.sql.includes("EXISTS ("));
+    expect(stateCall).toBeDefined();
+    expect(stateCall.sql).toContain("EXISTS (");
+    expect(stateCall.sql).toContain("report_agent_worker_leases");
+    expect(stateCall.args).toContain(lockId);
   });
 });
