@@ -49,7 +49,7 @@ export function formatRelativeDate(dateStr) {
 export function renderMarkdownAndMath(content) {
   if (!content) return "";
   
-  let text = String(content);
+  let text = String(content).replace(/[\u2013\u2014–—]/g, "-");
   text = text.replace(/\[LOGO_HOU\]/g, '<div style="display:flex;justify-content:center;align-items:center;width:100%;margin:1.5cm 0;"><img src="/logo-hou.png" style="width:110px;height:auto;" alt="HOU Logo" /></div>');
 
   // Pre-render <center>...</center> so marked doesn't ignore markdown inside it

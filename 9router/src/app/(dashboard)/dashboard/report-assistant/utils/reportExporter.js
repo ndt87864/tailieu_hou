@@ -98,7 +98,7 @@ export function printReportDoc(title, htmlContent) {
     "line-height: 1.5;" +
     "color: #000;" +
     "}" +
-    "h1 { text-align: center; text-transform: uppercase; font-size: 1.75em; margin-bottom: 1.2em; }" +
+    "h1 { text-align: left; text-transform: uppercase; font-size: 1.5em; margin-bottom: 1.2em; }" +
     "h2, h3, h4 { font-size: 13pt; line-height: 1.5; margin-top: 1.2em; margin-bottom: 0.6em; }" +
     "h2, h4 { font-weight: bold; }" +
     "h3 { font-weight: normal; font-style: italic; }" +

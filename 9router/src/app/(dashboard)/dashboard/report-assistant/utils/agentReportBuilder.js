@@ -100,13 +100,9 @@ export function buildAgentReportContent(state) {
 
   const reportTitle = sections[0]?.reportContext?.reportTitle || state?.title || "";
   const isNoRefReport = hasCareerReport || hasInternshipReport || shouldExcludeReferences(reportTitle);
-  if (isNoRefReport || !webSources.length) return prepareReportContent(finalBody, reportTitle);
+  const rawResult = isNoRefReport || !webSources.length
+    ? prepareReportContent(finalBody, reportTitle)
+    : prepareReportContent(finalBody ? `${finalBody}\n\n${references}` : references, reportTitle);
 
-  const references = [
-    "[PAGE_BREAK]",
-    "## DANH MỤC TÀI LIỆU THAM KHẢO",
-    ...webSources.map((source, index) => `${index + 1}. ${source.title}. Truy cập tại: ${source.url}`),
-  ].join("\n");
-
-  return prepareReportContent(finalBody ? `${finalBody}\n\n${references}` : references, reportTitle);
+  return (rawResult || "").replace(/[\u2013\u2014–—]/g, "-");
 }

@@ -451,8 +451,8 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
         color: var(--color-text-main) !important;
         margin: 1.2em 0 0.6em !important;
         text-indent: 0 !important;
-        font-size: 1.75em !important;
-        text-align: center !important;
+        font-size: 1.5em !important;
+        text-align: left !important;
         text-transform: uppercase !important;
       }
       .report-view h2, .report-view h3, .report-view h4 {
