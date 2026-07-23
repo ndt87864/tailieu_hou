@@ -137,7 +137,18 @@ export function useChatSession({
         setAssistantOnlyMode(rawAssistantOnly === "true");
       }
     } catch {}
-  }, [hydrated, usernameLoaded, username, initialChatId, router]);
+  }, [
+    hydrated,
+    usernameLoaded,
+    username,
+    initialChatId,
+    router,
+    setActiveModelId,
+    setAssistantOnlyMode,
+    setSelectedKnowledgeSubject,
+    setSystemPrompt,
+    setTemperature,
+  ]);
 
   // Persist sessions and configs to localStorage
   useEffect(() => {
