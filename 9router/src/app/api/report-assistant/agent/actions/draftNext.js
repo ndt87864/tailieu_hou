@@ -337,10 +337,21 @@ export async function handleDraftNext(ctx) {
           }
         };
 
+        const onThinking = () => {
+          setAgentActivity(currentState, nextToDraft, "drafting_thinking", "Agent đang tư duy và lập luận chuyên sâu cho mục này...", {
+            actor: "Writer",
+            model: targetModelId,
+            sectionId: nextToDraft.id,
+          });
+          if (typeof setMemoryState === "function") {
+            setMemoryState(chatId, currentState);
+          }
+        };
+
         const rawDraft = await callLLM(targetModelId, [
           { role: "system", content: systemPrompt },
           { role: "user", content: dynamicUserPrompt }
-        ], draftTemperature, authToken, username, requestBaseUrl, reportSession, { timeout: 120000, onChunk });
+        ], draftTemperature, authToken, username, requestBaseUrl, reportSession, { timeout: 120000, onChunk, onThinking });
         draftResult = sanitizeReportDraftContent(rawDraft);
         if (isB49OpeningSection(nextToDraft)) {
           draftResult = sanitizeB49OpeningDraftContent(draftResult);

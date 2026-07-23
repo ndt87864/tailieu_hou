@@ -799,7 +799,7 @@ export class LunaExecutor extends DefaultExecutor {
           choices: [{
             index: choice.index || 0,
             delta: isThinking
-              ? { reasoning_content: content, content: content }
+              ? { reasoning_content: content }
               : { content },
             finish_reason: finishReason,
           }],

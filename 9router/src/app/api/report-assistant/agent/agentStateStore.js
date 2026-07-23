@@ -23,7 +23,10 @@ export function createAgentStateStore(turso) {
     }
   }
 
-  const memoryStateMap = new Map();
+  if (!globalThis._reportAgentMemoryCache) {
+    globalThis._reportAgentMemoryCache = new Map();
+  }
+  const memoryStateMap = globalThis._reportAgentMemoryCache;
 
   function setMemoryState(chatId, stateData) {
     if (!chatId || !stateData) return;
