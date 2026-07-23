@@ -153,9 +153,122 @@ export function ReportPreviewPanel({
           return (
             <div className="flex flex-col items-center gap-6 w-full">
               <style>{`
+                .report-view {
+                  font-family: "Times New Roman", Times, serif !important;
+                  color: var(--color-text-main) !important;
+                  font-size: 13pt !important;
+                  line-height: 1.5 !important;
+                }
+                .report-view p {
+                  font-family: "Times New Roman", Times, serif !important;
+                  font-size: 13pt !important;
+                  line-height: 1.5 !important;
+                  margin: 0.8em 0 !important;
+                  text-align: justify !important;
+                  text-indent: 1cm !important;
+                }
+                .report-view p:has(> strong:only-child),
+                .report-view p > strong:only-child {
+                  text-indent: 0 !important;
+                }
+                /* Loại bỏ indent cho đoạn căn giữa (trang bìa) */
+                .report-view p[style*="center"],
+                .report-view .cover-line {
+                  text-align: center !important;
+                  text-indent: 0 !important;
+                }
+                .report-view h1 {
+                  font-family: "Times New Roman", Times, serif !important;
+                  font-weight: bold !important;
+                  color: var(--color-text-main) !important;
+                  margin: 1.2em 0 0.6em !important;
+                  text-indent: 0 !important;
+                  font-size: 1.75em !important;
+                  text-align: center !important;
+                  text-transform: uppercase !important;
+                }
+                .report-view h2, .report-view h3, .report-view h4 {
+                  font-family: "Times New Roman", Times, serif !important;
+                  font-size: 13pt !important;
+                  line-height: 1.5 !important;
+                  color: var(--color-text-main) !important;
+                  margin: 1.2em 0 0.6em !important;
+                  text-indent: 0 !important;
+                }
+                .report-view h2, .report-view h4 {
+                  font-weight: bold !important;
+                }
                 .report-view h3 {
                   font-weight: normal !important;
                   font-style: italic !important;
+                }
+                .report-view ul {
+                  list-style-type: disc !important;
+                  padding-left: 2em !important;
+                  margin: 0.6em 0 !important;
+                }
+                .report-view ol {
+                  list-style-type: decimal !important;
+                  padding-left: 2em !important;
+                  margin: 0.6em 0 !important;
+                }
+                .report-view li {
+                  font-family: "Times New Roman", Times, serif !important;
+                  font-size: 13pt !important;
+                  line-height: 1.5 !important;
+                  margin: 0.3em 0 !important;
+                }
+                .report-view li p {
+                  text-indent: 0 !important;
+                  margin: 0 !important;
+                }
+                .report-view hr {
+                  border: none !important;
+                  border-top: 1px solid var(--color-border) !important;
+                  margin: 1.5em 0 !important;
+                }
+                .report-view em, .report-view i {
+                  font-style: italic !important;
+                }
+                .report-view strong, .report-view b {
+                  font-weight: bold !important;
+                }
+                .report-view blockquote {
+                  border-left: 3px solid var(--color-border) !important;
+                  padding-left: 1em !important;
+                  margin: 1em 0 !important;
+                  font-style: italic !important;
+                  color: var(--color-text-muted) !important;
+                }
+                .report-view table {
+                  font-family: "Times New Roman", Times, serif !important;
+                  border-collapse: collapse !important;
+                  width: 100% !important;
+                  margin: 1.2em 0 !important;
+                }
+                .report-view th, .report-view td {
+                  border: 1px solid var(--color-border) !important;
+                  padding: 8px 12px !important;
+                  font-family: "Times New Roman", Times, serif !important;
+                  font-size: 12pt !important;
+                  line-height: 1.5 !important;
+                }
+                .report-view th {
+                  background: var(--color-bg-alt) !important;
+                  font-weight: bold !important;
+                  text-align: center !important;
+                }
+                .report-view table.borderless {
+                  border: none !important;
+                }
+                .report-view table.borderless th, .report-view table.borderless td {
+                  border: none !important;
+                  background: transparent !important;
+                  background-color: transparent !important;
+                }
+                .report-view table.borderless th {
+                  background: transparent !important;
+                  background-color: transparent !important;
                 }
               `}</style>
               {pages.map((pageContent, idx) => (

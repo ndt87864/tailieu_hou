@@ -45,8 +45,8 @@ export async function copyReportRichText(rawContent, title = "") {
     h1{font-size:1.75em;font-weight:bold;text-align:center;text-transform:uppercase;margin:1.2em 0 0.6em;}
     h2{font-size:1.4em;font-weight:bold;margin:1em 0 0.5em;}
     h3{font-size:1.2em;font-weight:bold;margin:0.9em 0 0.4em;}
-    body > p{text-align:justify;text-indent:1.25cm;margin:0.6em 0;}
-    body > p:has(> strong:first-child){text-indent:0;}
+    body > p{text-align:justify;text-indent:1cm;margin:0.6em 0;}
+    body > p:has(> strong:only-child){text-indent:0;}
     li p{text-indent:0;margin:0;}
     table:not(.borderless){border-collapse:collapse;width:100%;margin:1em 0;}
     table:not(.borderless) th, table:not(.borderless) td{border:1px solid #000;padding:6px 10px;font-size:14px;}
@@ -102,8 +102,8 @@ export function printReportDoc(title, htmlContent) {
     "h2, h3, h4 { font-size: 13pt; line-height: 1.5; margin-top: 1.2em; margin-bottom: 0.6em; }" +
     "h2, h4 { font-weight: bold; }" +
     "h3 { font-weight: normal; font-style: italic; }" +
-    ".report-view > p { text-align: justify; text-indent: 1.25cm; margin: 0.8em 0; }" +
-    ".report-view > p:has(> strong:first-child) { text-indent: 0; }" +
+    ".report-view > p { text-align: justify; text-indent: 1cm; margin: 0.8em 0; }" +
+    ".report-view > p:has(> strong:only-child) { text-indent: 0; }" +
     "li p { text-indent: 0; margin: 0; }" +
     "table:not(.borderless) { width: 100%; border-collapse: collapse; margin: 1.2em 0; }" +
     "table:not(.borderless) th, table:not(.borderless) td { border: 1px solid #000; padding: 8px 12px; }" +

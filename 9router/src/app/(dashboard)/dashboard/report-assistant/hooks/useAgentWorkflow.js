@@ -153,10 +153,10 @@ export function useAgentWorkflow({
           );
         }
         const isEnded = data.state.current_step === "COMPLETED" || data.state.current_step === "CANCELLED";
-        if (isEnded) {
-          setAgentActive(false);
-        } else if (forceActive) {
+        if (forceActive) {
           setAgentActive(true);
+        } else if (isEnded) {
+          setAgentActive(false);
         }
         return data.state;
       }
@@ -348,6 +348,19 @@ export function useAgentWorkflow({
       setAgentState(approveData.state);
       agentStateRef.current = approveData.state;
       showToast("Đã xác nhận dàn ý! Hệ thống bắt đầu tạo nội dung các mục...", "info");
+
+      // Cập nhật lại outlineStatus trong chat messages để thẻ dàn ý chuyển hẳn sang trạng thái đã xong
+      setSessions((prevSessions) =>
+        prevSessions.map((s) => {
+          if (s.id !== chatId) return s;
+          return {
+            ...s,
+            messages: (s.messages || []).map((m) =>
+              m.isOutlineCard ? { ...m, outlineStatus: "ready" } : m
+            ),
+          };
+        })
+      );
 
       const runNextDraftStep = async () => {
         if (agentCancelRequestedRef.current) return;

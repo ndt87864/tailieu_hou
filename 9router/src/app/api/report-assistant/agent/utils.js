@@ -159,9 +159,12 @@ export function adaptOutlineTitleToContext(title, reportContext) {
   const issue = reportContext.studyIssue || "vấn đề nghiên cứu";
   const company = reportContext.targetCompany || "đơn vị được yêu cầu";
 
+  const numPrefixMatch = String(title || "").match(/^(\d+(?:\.\d+)*)\.?\s+/);
+  const numPrefix = numPrefixMatch ? `${numPrefixMatch[1]}. ` : "";
+
   const escapedIssue = issue.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-  return cleanOutlineLine(title)
+  const cleanedText = cleanOutlineLine(title)
     .replace(/\([^)]*SV[^)]*\)/gi, "")
     .replace(/\((?:nếu có|neu co)\)/gi, "")
     .replace(/\b(?:vấn đề|van de)\s+(?:nghiên cứu|nghien cuu)\b/gi, issue)
@@ -175,6 +178,8 @@ export function adaptOutlineTitleToContext(title, reportContext) {
     .replace(/\s+tại\s*$/i, ` tại ${company}`)
     .replace(/\s{2,}/g, " ")
     .trim();
+
+  return `${numPrefix}${cleanedText}`.trim();
 }
 
 export function parseJsonBlock(rawText) {

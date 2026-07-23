@@ -59,13 +59,18 @@ export function normalizeNumberedHeadingLevels(content) {
       cleanText = cleanText.replace(/^\*|\*$/g, "");
       cleanText = cleanText.trim();
 
-      const numberMatch = cleanText.match(/^(\d+(?:\.\d+)+)\.?\s+(.*)$/);
+      const numberMatch = cleanText.match(/^(\d+(?:\.\d+)*)\.?\s+(.*)$/);
       if (!numberMatch) return line;
 
       const numberPart = numberMatch[1];
       const titlePart = numberMatch[2].replace(/^\*\*|\*\*$/g, "").replace(/^\*|\*$/g, "").trim();
-      const dotCount = numberPart.split(".").length;
+      const parts = numberPart.split(".");
+      const dotCount = parts.length;
 
+      // Single part like "1" or "2" - leave untouched unless it has dots
+      if (dotCount < 2) return line;
+
+      // 1.1 -> level 2 (##), 1.1.1 -> level 3 (###)
       const targetLevel = Math.min(6, Math.max(2, dotCount));
       const targetHashes = "#".repeat(targetLevel);
       return `${targetHashes} ${numberPart}. ${titlePart}`.trim();

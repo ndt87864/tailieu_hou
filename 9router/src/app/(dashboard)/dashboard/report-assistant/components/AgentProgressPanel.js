@@ -226,7 +226,11 @@ export function AgentProgressPanel({
               )}
             >
               <div className="flex items-start justify-between gap-2 font-bold">
-                <span className="leading-snug">{sec.title}</span>
+                <span className="leading-snug">
+                  {sec.id && !/^\d+/.test(sec.title?.trim() || "") && !sec.title?.startsWith(sec.id)
+                    ? `${sec.id}. ${sec.title}`
+                    : sec.title}
+                </span>
                 <span
                   className={cn(
                     "text-[9px] uppercase font-extrabold px-2 py-0.5 rounded-full border shrink-0",

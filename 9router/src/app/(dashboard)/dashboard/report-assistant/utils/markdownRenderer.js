@@ -1,5 +1,6 @@
 import { marked } from "marked";
 import katex from "katex";
+import { isSignatureTable } from "./ooxmlConverter.js";
 
 export function removeVietnameseTones(str) {
   if (!str) return "";
@@ -43,6 +44,33 @@ export function formatRelativeDate(dateStr) {
   }
 }
 
+function normalizeMarkdownTables(content) {
+  if (!content) return "";
+  const lines = String(content).split(/\r?\n/);
+  return lines
+    .map((line, idx) => {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith("|") || !trimmed.endsWith("|")) return line;
+
+      const cells = trimmed
+        .split("|")
+        .slice(1, -1)
+        .map((cell) => cell.trim());
+      const separatorOnly =
+        cells.length > 0 && cells.every((cell) => /^[\s:-]+$/.test(cell));
+      if (!separatorOnly) return line;
+
+      const prev = lines[idx - 1]?.trim() || "";
+      const prevCellCount =
+        prev.startsWith("|") && prev.endsWith("|")
+          ? prev.split("|").slice(1, -1).length
+          : cells.length;
+
+      return `| ${Array.from({ length: Math.max(prevCellCount, 1) }, () => "---").join(" | ")} |`;
+    })
+    .join("\n");
+}
+
 /**
  * Render Markdown and inline/block LaTeX equations using KaTeX.
  */
@@ -65,47 +93,86 @@ export function renderMarkdownAndMath(content) {
     }
   });
 
-  // 1. Process block math: $$equation$$ -> temporary placeholder
-  const blockMathPlaceholder = [];
-  let processed = text.replace(/\$\$(.+?)\$\$/gs, (match, equation) => {
-    try {
-      const rendered = katex.renderToString(equation.trim(), { displayMode: true, throwOnError: false });
-      blockMathPlaceholder.push(rendered);
-      return `__BLOCK_MATH_PLACEHOLDER_${blockMathPlaceholder.length - 1}__`;
-    } catch {
-      return match;
-    }
+  const mathBlocks = [];
+  text = normalizeMarkdownTables(text);
+
+  // 1. Extract block math: \[ ... \]
+  let processedText = text.replace(/\\\[([\s\S]+?)\\\]/g, (match, math) => {
+    const placeholder = `MATHBLOCKPLACEHOLDER${mathBlocks.length}`;
+    mathBlocks.push({ math: math.trim(), isBlock: true, placeholder });
+    return placeholder;
   });
 
-  // 2. Process inline math: $equation$ -> temporary placeholder
-  const inlineMathPlaceholder = [];
-  processed = processed.replace(/\$(.+?)\$/g, (match, equation) => {
-    try {
-      const rendered = katex.renderToString(equation.trim(), { displayMode: false, throwOnError: false });
-      inlineMathPlaceholder.push(rendered);
-      return `__INLINE_MATH_PLACEHOLDER_${inlineMathPlaceholder.length - 1}__`;
-    } catch {
-      return match;
-    }
+  // 2. Extract block math: $$ ... $$
+  processedText = processedText.replace(/\$\$([\s\S]+?)\$\$/g, (match, math) => {
+    const placeholder = `MATHBLOCKPLACEHOLDER${mathBlocks.length}`;
+    mathBlocks.push({ math: math.trim(), isBlock: true, placeholder });
+    return placeholder;
   });
 
-  // 3. Render markdown
+  // 3. Extract inline math: \( ... \) (double-escaped and single-escaped)
+  processedText = processedText.replace(/\\\\\(([\s\S]+?)\\\\\)/g, (match, math) => {
+    const placeholder = `MATHINLINEPLACEHOLDER${mathBlocks.length}`;
+    mathBlocks.push({ math: math.trim(), isBlock: false, placeholder });
+    return placeholder;
+  });
+  processedText = processedText.replace(/\\\(([\s\S]+?)\\\)/g, (match, math) => {
+    const placeholder = `MATHINLINEPLACEHOLDER${mathBlocks.length}`;
+    mathBlocks.push({ math: math.trim(), isBlock: false, placeholder });
+    return placeholder;
+  });
+
+  // 4. Extract inline math: $ ... $
+  processedText = processedText.replace(/\$([^\$\n]+?)\$/g, (match, math) => {
+    if (!math.trim()) return match;
+    const placeholder = `MATHINLINEPLACEHOLDER${mathBlocks.length}`;
+    mathBlocks.push({ math: math.trim(), isBlock: false, placeholder });
+    return placeholder;
+  });
+
+  processedText = processedText.replace(/^\s*•\s+/gm, "- ");
+
+  // 5. Render Markdown using marked
   let html = "";
   try {
-    html = marked.parse(processed);
-  } catch {
-    html = processed;
+    html = marked.parse(processedText, {
+      gfm: true,
+      breaks: true,
+    });
+  } catch (err) {
+    console.error("Marked parsing error:", err);
+    html = processedText;
   }
 
-  // 4. Restore block math placeholders
-  blockMathPlaceholder.forEach((rendered, idx) => {
-    html = html.replace(new RegExp(`__BLOCK_MATH_PLACEHOLDER_${idx}__`, "g"), rendered);
+  // 6. Restore math blocks and render them with KaTeX
+  for (const item of mathBlocks) {
+    try {
+      const mathHtml = katex.renderToString(item.math, {
+        displayMode: item.isBlock,
+        throwOnError: false,
+      });
+      html = html.replace(item.placeholder, mathHtml);
+    } catch (e) {
+      console.error("KaTeX rendering error:", e);
+      html = html.replace(
+        item.placeholder,
+        `<span class="text-red-500 font-mono">${item.math}</span>`,
+      );
+    }
+  }
+
+  // 7. Mark borderless tables (signature tables)
+  html = html.replace(/<table>/g, (match, offset) => {
+    const tableEnd = html.indexOf("</table>", offset);
+    const tableContent = html.slice(offset, tableEnd);
+    if (isSignatureTable(tableContent)) {
+      return '<table class="borderless">';
+    }
+    return '<table>';
   });
 
-  // 5. Restore inline math placeholders
-  inlineMathPlaceholder.forEach((rendered, idx) => {
-    html = html.replace(new RegExp(`__INLINE_MATH_PLACEHOLDER_${idx}__`, "g"), rendered);
-  });
+  // 8. Add indentation to table captions (starting with "Bảng" or "BẢNG")
+  html = html.replace(/<p><strong>((?:Bảng|BẢNG)\s+\d+[^<]*)<\/strong><\/p>/gi, '<p style="text-indent: 1cm !important;"><strong>$1</strong></p>');
 
   return html;
 }

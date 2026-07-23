@@ -70,13 +70,26 @@ export function buildAgentReportContent(state) {
       if (sameTitle) {
         const lines = content.split(/\r?\n/);
         const firstIdx = lines.findIndex((l) => l.trim());
-        if (firstIdx >= 0 && !lines[firstIdx].trim().startsWith("#")) {
-          lines[firstIdx] = `# ${lines[firstIdx].trim()}`;
+        if (firstIdx >= 0) {
+          let lineText = lines[firstIdx].trim().replace(/^#{1,6}\s*/, "");
+          if (section.id && !/^\d+/.test(lineText) && !lineText.startsWith(section.id)) {
+            lineText = `${section.id}. ${lineText}`;
+          }
+          const isNumbered = /^(\d+\.\d+)\b/.test(lineText);
+          const hashes = isNumbered ? "##" : "#";
+          lines[firstIdx] = `${hashes} ${lineText}`;
           return lines.join("\n");
         }
         return content;
       }
-      return `# ${section.title}\n\n${content}`;
+      let displayTitle = section.title || "";
+      if (section.id && !/^\d+/.test(displayTitle.trim()) && !displayTitle.startsWith(section.id)) {
+        displayTitle = `${section.id}. ${displayTitle}`;
+      }
+
+      const isNumbered = /^(\d+\.\d+)\b/.test(displayTitle.trim());
+      const hashes = isNumbered ? "##" : "#";
+      return `${hashes} ${displayTitle}\n\n${content}`;
     })
     .join("\n\n[PAGE_BREAK]\n\n");
 

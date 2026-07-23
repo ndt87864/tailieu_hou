@@ -131,7 +131,7 @@ export async function buildInternalFetchHeaders(authToken = null, contentType = 
 
 // Call local completions API with Exponential Backoff Retries for Rate Limits (429/503)
 const BACKUP_MODELS = ["gemini-1.5-flash", "gemini-2.5-flash", "gpt-4o-mini", "gemini-1.5-pro"];
-const LUNA_BACKUP_MODELS = ["ln/qwen3.7-max", "ln/qwen3.6-plus", "gemini-1.5-flash", "gpt-4o-mini"];
+const LUNA_BACKUP_MODELS = ["ln/qwen3.8-max", "ln/qwen3.7-max", "ln/qwen3.6-plus", "gemini-1.5-flash", "gpt-4o-mini"];
 const ARENA_BACKUP_MODELS = ["ar/claude-3-5-sonnet-20241022", "gemini-1.5-flash", "gpt-4o-mini"];
 
 export function extractLLMText(data) {
