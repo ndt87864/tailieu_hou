@@ -330,7 +330,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     runAgentInit,
     selectedKnowledgeSubject,
     streamEnabled,
-    thinkingMode,
+    thinkingMode: String(activeModel?.id || activeModel?.name || "").includes("3.8") ? "thinking" : thinkingMode,
   });
 
   const activeDoc = selectedReport || selectedOutline;

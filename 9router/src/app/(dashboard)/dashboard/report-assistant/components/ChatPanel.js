@@ -500,10 +500,12 @@ export function ChatPanel({
           )}
 
           {(() => {
-            const currentThinkingMode = thinkingMode;
+            const isLockedQwen38 = String(activeModel?.id || activeModel?.name || "").includes("3.8");
+            const currentThinkingMode = isLockedQwen38 ? "thinking" : thinkingMode;
             return (
               <span
                 onClick={() => {
+                  if (isLockedQwen38) return;
                   const modes = ["auto", "fast", "thinking"];
                   const nextIdx = (modes.indexOf(thinkingMode) + 1) % modes.length;
                   setThinkingMode(modes[nextIdx]);
@@ -514,14 +516,15 @@ export function ChatPanel({
                     ? "bg-purple-500/10 border-purple-500/20 text-purple-600 dark:text-purple-400"
                     : currentThinkingMode === "fast"
                     ? "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400"
-                    : "bg-surface border-border text-text-muted"
+                    : "bg-surface border-border text-text-muted",
+                  isLockedQwen38 && "cursor-not-allowed opacity-90"
                 )}
-                title={`Thinking Mode: ${currentThinkingMode.toUpperCase()} (Click để đổi)`}
+                title={isLockedQwen38 ? "Thinking Mode: KHÓA TỰ ĐỘNG (Dành cho Qwen 3.8 Max)" : `Thinking Mode: ${currentThinkingMode.toUpperCase()} (Click để đổi)`}
               >
                 <span className="material-symbols-outlined text-[14px]">
                   {currentThinkingMode === "thinking" ? "psychology" : currentThinkingMode === "fast" ? "bolt" : "tune"}
                 </span>
-                <span className="capitalize">Thinking: {currentThinkingMode}</span>
+                <span className="capitalize">Thinking: {currentThinkingMode} {isLockedQwen38 ? "(Khóa)" : ""}</span>
               </span>
             );
           })()}
@@ -699,16 +702,22 @@ export function ChatPanel({
                     </button>
 
                     {(() => {
-                      const currentThinkingMode = thinkingMode;
+                      const isLockedQwen38 = String(activeModel?.id || activeModel?.name || "").includes("3.8");
+                      const currentThinkingMode = isLockedQwen38 ? "thinking" : thinkingMode;
                       return (
                         <button
                           type="button"
                           onClick={() => {
+                            if (isLockedQwen38) return;
                             const modes = ["auto", "fast", "thinking"];
                             const nextIdx = (modes.indexOf(thinkingMode) + 1) % modes.length;
                             setThinkingMode(modes[nextIdx]);
                           }}
-                          className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs font-medium hover:bg-surface-2 cursor-pointer transition-colors"
+                          className={cn(
+                            "w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs font-medium hover:bg-surface-2 cursor-pointer transition-colors",
+                            isLockedQwen38 && "cursor-not-allowed opacity-90"
+                          )}
+                          title={isLockedQwen38 ? "Khóa chế độ suy luận cho Qwen 3.8 Max" : ""}
                         >
                           <div className="flex items-center gap-2.5">
                             <span className="material-symbols-outlined text-[18px] text-purple-500">
@@ -717,7 +726,7 @@ export function ChatPanel({
                             <span>Thinking Mode</span>
                           </div>
                           <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 capitalize">
-                            {currentThinkingMode}
+                            {currentThinkingMode} {isLockedQwen38 ? "(Khóa)" : ""}
                           </span>
                         </button>
                       );
