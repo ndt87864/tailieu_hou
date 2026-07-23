@@ -62,6 +62,7 @@ export function ChatPanel({
   setSelectedReport,
   setSelectedOutline,
   openAgentProgressPreview,
+  loadAgentStatus,
 }) {
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
 
@@ -243,7 +244,7 @@ export function ChatPanel({
                       <div className="flex items-center justify-between gap-6 px-4 py-3 bg-surface border border-border/80 rounded-2xl shadow-sm hover:shadow transition-all min-w-[320px]">
                         <div className="flex items-center gap-3">
                           <div className="size-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold">
-                            {msg.outlineStatus === "generating" ? (
+                            {msg.outlineStatus === "generating" && agentState?.current_step !== "WAIT_APPROVAL" ? (
                               <span className="material-symbols-outlined text-[20px] animate-spin text-amber-500">sync</span>
                             ) : msg.outlineStatus === "error" ? (
                               <span className="material-symbols-outlined text-[20px] text-rose-500">error</span>
@@ -256,7 +257,7 @@ export function ChatPanel({
                               Dàn ý báo cáo
                             </div>
                             <div className="text-[10px] text-text-subtle mt-0.5">
-                              {msg.outlineStatus === "generating" ? (
+                              {msg.outlineStatus === "generating" && agentState?.current_step !== "WAIT_APPROVAL" ? (
                                 <span className="text-amber-600 dark:text-amber-400 font-medium">Đang lập dàn ý...</span>
                               ) : msg.outlineStatus === "error" ? (
                                 <span className="text-rose-500 font-medium">{msg.errorText || "Tạo dàn ý thất bại"}</span>
@@ -279,6 +280,9 @@ export function ChatPanel({
                             onClick={() => {
                               setSelectedReport(null);
                               setAgentActive(true);
+                              if (activeSessionId) {
+                                loadAgentStatus(activeSessionId, true);
+                              }
                             }}
                             className="px-3.5 py-1.5 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold text-xs border border-emerald-500/20 transition-all cursor-pointer shadow-2xs"
                           >

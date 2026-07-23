@@ -129,10 +129,29 @@ export function useAgentWorkflow({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "status", chatId }),
       });
-      if (!res.ok) throw new Error("Không thể tải trạng thái quy trình báo cáo.");
+      if (!res.ok) {
+        setAgentState(null);
+        if (forceActive) setAgentActive(false);
+        return null;
+      }
       const data = await res.json().catch(() => null);
       if (data?.ok && data.state) {
         setAgentState(data.state);
+        if (data.state.current_step === "WAIT_APPROVAL") {
+          setSessions((prev) =>
+            prev.map((s) => {
+              if (s.id !== chatId) return s;
+              return {
+                ...s,
+                messages: (s.messages || []).map((m) =>
+                  m.isOutlineCard && m.outlineStatus === "generating"
+                    ? { ...m, outlineStatus: "ready" }
+                    : m
+                ),
+              };
+            })
+          );
+        }
         if (forceActive) {
           setAgentActive(true);
         } else {
@@ -141,8 +160,9 @@ export function useAgentWorkflow({
         }
         return data.state;
       }
-      setAgentState(null);
-      setAgentActive(false);
+      if (forceActive) {
+        setAgentActive(true);
+      }
       return null;
     } catch (err) {
       console.error(err);
@@ -152,7 +172,7 @@ export function useAgentWorkflow({
     } finally {
       setAgentLoading(false);
     }
-  }, [activeSessionId, appendChatMessage]);
+  }, [activeSessionId, setSessions]);
 
   useEffect(() => {
     if (!agentActive || !activeSessionId) return;

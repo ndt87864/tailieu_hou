@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import useUserStore from "@/store/userStore";
 
+import { cn } from "@/shared/utils/cn";
 import {
   DEFAULT_TEMPERATURE,
   RESTRICTED_REPORT_ASSISTANT_SUBJECTS,
@@ -213,7 +214,8 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
   } = useKnowledgeBase({ username, isRestrictedUser });
 
   useEffect(() => {
-    setHydrated(true);
+    const timer = setTimeout(() => setHydrated(true), 0);
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -366,7 +368,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     if (activeSessionId && typeof loadAgentStatus === "function") {
       loadAgentStatus(activeSessionId);
     }
-  }, [activeSessionId, assistantOnlyMode, loadAgentStatus]);
+  }, [activeSessionId, loadAgentStatus]);
 
   const triggerFileInput = useCallback(() => {
     fileInputRef.current?.click();
@@ -564,6 +566,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
         setSelectedReport={setSelectedReport}
         setSelectedOutline={setSelectedOutline}
         openAgentProgressPreview={openAgentProgressPreview}
+        loadAgentStatus={loadAgentStatus}
       />
 
       {activeDoc ? (

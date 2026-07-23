@@ -132,7 +132,9 @@ export function AgentProgressPanel({
               : "sync"}
           </span>
           <span>
-            {agentState.current_step === "WAIT_APPROVAL" || agentState.current_step === "OUTLINING"
+            {agentState.current_step === "OUTLINING"
+              ? "Agent đang phân tích tài liệu và lập dàn ý..."
+              : agentState.current_step === "WAIT_APPROVAL"
               ? "Đã tạo xong dàn ý báo cáo! Vui lòng xác nhận để bắt đầu viết."
               : agentState.current_step === "DRAFTING"
               ? "Agent đang tự động viết từng chương mục..."
@@ -142,12 +144,16 @@ export function AgentProgressPanel({
           </span>
         </div>
         <p className="text-[11px] text-text-subtle leading-relaxed">
-          {agentState.current_step === "WAIT_APPROVAL" || agentState.current_step === "OUTLINING"
+          {agentState.current_step === "OUTLINING"
+            ? "Vui lòng chờ trong giây lát. Hệ thống đang trích xuất tri thức và phân tích đề cương mẫu..."
+            : agentState.current_step === "WAIT_APPROVAL"
             ? "Kiểm tra danh sách các mục bên dưới và bấm nút Xác nhận dàn ý để kích hoạt quá trình tự động soạn thảo từng chương mục."
             : "Hệ thống đang chạy tuần tự từng chương mục độc lập theo đề cương. Trạng thái mỗi mục sẽ liên tục cập nhật bên dưới."}
         </p>
 
-        {(agentState.current_step === "WAIT_APPROVAL" || agentState.current_step === "OUTLINING") && (
+        {((agentState.current_step === "WAIT_APPROVAL" || agentState.current_step === "OUTLINING") && 
+          ((Array.isArray(agentState.outline) && agentState.outline.length > 0) || 
+           (Array.isArray(agentState.sections_progress) && agentState.sections_progress.length > 0 && agentState.sections_progress[0].id !== "planning"))) && (
           <button
             onClick={() => confirmOutlineAndStartDrafting()}
             disabled={agentLoading}
