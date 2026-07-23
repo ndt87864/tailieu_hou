@@ -325,6 +325,28 @@ export class LunaExecutor extends DefaultExecutor {
     return { choice, delta, content, phase, status, summary, responseId };
   }
 
+  async fetchCompletedChatContent(chatId, credentials, proxyOptions) {
+    if (!chatId) return null;
+    const url = `https://chat.qwen.ai/api/v2/chats/${chatId}`;
+    const headers = this.buildHeaders(credentials, false, chatId);
+    const res = await proxyAwareFetch(url, { method: "GET", headers }, proxyOptions);
+    if (!res.ok) return null;
+    const chatData = await res.json();
+    const history = chatData?.data?.chat?.history;
+    const messages = history?.messages || {};
+    const currentId = history?.currentId;
+    if (currentId && messages[currentId]) {
+      const msg = messages[currentId];
+      if (msg.role === "assistant") {
+        const answerItem = Array.isArray(msg.content_list)
+          ? msg.content_list.find((item) => item.phase === "answer" || item.status === "finished")
+          : null;
+        return answerItem?.content || msg.content || "";
+      }
+    }
+    return null;
+  }
+
   async createChat(model, credentials, proxyOptions, body = null) {
     const url = "https://chat.qwen.ai/api/v2/chats/new";
     const headers = this.buildHeaders(credentials, false);
@@ -595,6 +617,7 @@ export class LunaExecutor extends DefaultExecutor {
     let buffer = "";
     let sessionMessageId = null;
     let fullRawResponse = "";
+    let answerFinished = false;
 
     try {
       while (true) {
@@ -607,10 +630,23 @@ export class LunaExecutor extends DefaultExecutor {
         const lines = buffer.split("\n");
         buffer = lines.pop() || "";
 
+        // Qwen may emit the final "finished" event without a trailing newline and
+        // then hold the connection open. Peek the leftover buffer: if it is a
+        // complete terminal answer-side event, consume it now so we don't wait for
+        // a `done` that never arrives on the keep-alive connection.
+        const leftover = buffer.trim();
+        if (leftover && this.extractDataLinePayload(leftover)) {
+          const peek = this.processQwenLineWeb(leftover, model, sessionMessageId);
+          if (peek.terminal) {
+            lines.push(buffer);
+            buffer = "";
+          }
+        }
+
         for (const line of lines) {
           const jsonStr = this.extractDataLinePayload(line);
           if (!jsonStr) continue;
-          if (jsonStr === "[DONE]") continue;
+          if (jsonStr === "[DONE]") { answerFinished = true; break; }
 
           try {
             const data = JSON.parse(jsonStr);
@@ -626,6 +662,12 @@ export class LunaExecutor extends DefaultExecutor {
             } else if ((phase === "answer" || phase === "image_gen" || phase == null) && content) {
               fullContent += content;
             }
+            // Answer-side finished (not thinking_summary) marks the true end.
+            const isThinking = phase === "think" || phase === "thinking_summary";
+            if (status === "finished" && !isThinking) {
+              answerFinished = true;
+              break;
+            }
           } catch (e) {
             if (e.message && e.message.startsWith("Qwen stream error:")) {
               throw e;
@@ -633,9 +675,15 @@ export class LunaExecutor extends DefaultExecutor {
             // Skip invalid JSON
           }
         }
+        // Stop reading once the answer is complete — Qwen keeps the connection
+        // alive after the final event, so waiting for `done` would hang.
+        if (answerFinished) {
+          await reader.cancel().catch(() => {});
+          break;
+        }
       }
       // Flush any remaining data left in the buffer after stream ends
-      if (buffer.trim()) {
+      if (!answerFinished && buffer.trim()) {
         const lastJsonStr = this.extractDataLinePayload(buffer);
         if (lastJsonStr && lastJsonStr !== "[DONE]") {
           try {
@@ -660,6 +708,18 @@ export class LunaExecutor extends DefaultExecutor {
     } catch (error) {
       console.error("[Luna] Failed to parse non-streaming response. Raw response snippet:", fullRawResponse.slice(0, 1000));
       throw new Error(`Luna non-stream error: ${error.message}`);
+    }
+
+    if (!fullContent && chatId) {
+      try {
+        console.log(`[Luna] Fetching full chat history for fallback: chatId=${chatId}`);
+        const fetchedContent = await this.fetchCompletedChatContent(chatId, credentials, proxyOptions);
+        if (fetchedContent) {
+          fullContent = fetchedContent;
+        }
+      } catch (fallbackErr) {
+        console.warn("[Luna] Failed to fetch full chat fallback content:", fallbackErr.message);
+      }
     }
 
     if (!fullContent && (summaryText || reasoningText)) {
@@ -706,57 +766,109 @@ export class LunaExecutor extends DefaultExecutor {
     let buffer = "";
     let isFirstChunk = true;
     let activeResponseId = assistantMessageId;
+    let streamEnded = false;
+
+    // Emit the final stop chunk + a single [DONE], release the upstream connection,
+    // and close the downstream controller. Idempotent — safe to call once.
+    const finish = (controller, extraChunk = null) => {
+      if (streamEnded) return;
+      streamEnded = true;
+      if (extraChunk) {
+        controller.enqueue(encoder.encode(extraChunk));
+      }
+      controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+      // Release the keep-alive upstream connection so it doesn't hang open.
+      reader.cancel().catch(() => {});
+      controller.close();
+    };
 
     return new ReadableStream({
       async pull(controller) {
+        if (streamEnded) return;
         try {
-          const { done, value } = await reader.read();
+          // Keep reading until we have something to enqueue, hit the terminal
+          // event, or the upstream closes. A single reader.read() is NOT enough:
+          // when the upstream splits the SSE into tiny slices (e.g. 1–7 bytes),
+          // one read may only add a partial line to `buffer` — no complete line,
+          // nothing to enqueue. Returning from pull() without enqueuing relies on
+          // the consumer calling pull() again, which is not guaranteed by every
+          // consumer and stalls timeout-based collectors. Loop here so each pull()
+          // makes forward progress until it produces output or the stream ends.
+          while (true) {
+            const { done, value } = await reader.read();
 
-          if (done) {
-            if (buffer.trim()) {
-              const transformed = self.processQwenLineWeb(buffer, model, activeResponseId);
-              if (transformed) {
-                controller.enqueue(encoder.encode(transformed));
+            if (done) {
+              let tail = null;
+              if (buffer.trim()) {
+                const result = self.processQwenLineWeb(buffer, model, activeResponseId);
+                if (result.chunk) tail = result.chunk;
+              }
+              // Upstream closed without an explicit terminal event — synthesize a stop.
+              const finalChunk = tail || `data: ${JSON.stringify({
+                id: activeResponseId || `chatcmpl-${Date.now()}`,
+                object: "chat.completion.chunk",
+                created: Math.floor(Date.now() / 1000),
+                model: model,
+                choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+              })}\n\n`;
+              finish(controller, finalChunk);
+              return;
+            }
+
+            buffer += decoder.decode(value, { stream: true });
+
+            if (isFirstChunk) {
+              console.log("[Luna Debug] First raw chunk:", buffer.slice(0, 500));
+              isFirstChunk = false;
+            }
+
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+
+            // Process complete lines. Then also peek at the leftover buffer: Qwen may
+            // send the final "finished" event WITHOUT a trailing newline and then hold
+            // the connection open (keep-alive), so it would otherwise stay stuck in
+            // `buffer` until an upstream `done` that never comes. If the leftover parses
+            // as a terminal event, act on it now.
+            const pending = [...lines];
+            const leftover = buffer.trim();
+            if (leftover && self.extractDataLinePayload(leftover)) {
+              const peek = self.processQwenLineWeb(leftover, model, activeResponseId);
+              if (peek.terminal) {
+                pending.push(buffer);
+                buffer = "";
               }
             }
-            const finalChunk = {
-              id: activeResponseId || `chatcmpl-${Date.now()}`,
-              object: "chat.completion.chunk",
-              created: Math.floor(Date.now() / 1000),
-              model: model,
-              choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
-            };
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify(finalChunk)}\n\n`));
-            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-            controller.close();
-            return;
-          }
 
-          buffer += decoder.decode(value, { stream: true });
-
-          if (isFirstChunk) {
-            console.log("[Luna Debug] First raw chunk:", buffer.slice(0, 500));
-            isFirstChunk = false;
-          }
-
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-
-          for (const line of lines) {
-            const jsonStr = self.extractDataLinePayload(line);
-            if (jsonStr && jsonStr !== "[DONE]") {
-              try {
-                const data = JSON.parse(jsonStr);
-                const rId = data?.["response.created"]?.response_id || data?.id;
-                if (rId) {
-                  activeResponseId = rId;
-                }
-              } catch (e) {}
+            let enqueuedAny = false;
+            for (const line of pending) {
+              const jsonStr = self.extractDataLinePayload(line);
+              if (jsonStr && jsonStr !== "[DONE]") {
+                try {
+                  const data = JSON.parse(jsonStr);
+                  const rId = data?.["response.created"]?.response_id || data?.id;
+                  if (rId) {
+                    activeResponseId = rId;
+                  }
+                } catch (e) {}
+              }
+              const result = self.processQwenLineWeb(line, model, activeResponseId);
+              if (result.terminal) {
+                // Real end of response: emit the final chunk, [DONE], and close now
+                // instead of waiting for the keep-alive upstream to close on its own.
+                finish(controller, result.chunk);
+                return;
+              }
+              if (result.chunk) {
+                controller.enqueue(encoder.encode(result.chunk));
+                enqueuedAny = true;
+              }
             }
-            const transformed = self.processQwenLineWeb(line, model, activeResponseId);
-            if (transformed) {
-              controller.enqueue(encoder.encode(transformed));
-            }
+
+            // Made forward progress this pull — hand control back so the consumer
+            // can drain what we enqueued. Otherwise loop and read the next slice
+            // rather than returning empty-handed.
+            if (enqueuedAny) return;
           }
         } catch (err) {
           console.error("[Luna] Stream pull error:", err);
@@ -774,23 +886,37 @@ export class LunaExecutor extends DefaultExecutor {
    * Phase-aware SSE parser.
    * Qwen emits multiple phases per request: "think" -> "thinking_summary" -> "answer".
    * All phases carry delta.content that should be streamed to the client.
+   *
+   * Returns { chunk, terminal } where:
+   *   - chunk: the SSE `data: ...\n\n` string to enqueue (or null when nothing to emit).
+   *   - terminal: true only when this is the real end of the response. The caller is
+   *     responsible for emitting a single `[DONE]` and closing the stream. This method
+   *     never embeds `[DONE]` itself, so the marker is emitted exactly once.
+   *
+   * A `status: "finished"` on the `think`/`thinking_summary` phase marks the END OF
+   * THINKING, not the end of the response — the `answer` phase follows. Only an
+   * explicit `finish_reason: "stop"` or a `finished` status on an answer-side phase
+   * (answer/image_gen/null) is treated as terminal.
    */
   processQwenLineWeb(line, model, activeResponseId = null) {
     const jsonStr = this.extractDataLinePayload(line);
-    if (!jsonStr) return null;
-    if (jsonStr === "[DONE]") return null;
+    if (!jsonStr) return { chunk: null, terminal: false };
+    if (jsonStr === "[DONE]") return { chunk: null, terminal: true };
 
     try {
       const data = JSON.parse(jsonStr);
       this.checkQwenError(data);
-      const { choice, content, phase, responseId } = this.extractQwenContentDelta(data);
-      if (!choice) return null;
+      const { choice, content, phase, status, responseId } = this.extractQwenContentDelta(data);
+      if (!choice) return { chunk: null, terminal: false };
 
       const finalResponseId = responseId || activeResponseId || `chatcmpl-${Date.now()}`;
+      const isThinking = phase === "think" || phase === "thinking_summary";
+      const statusFinished = status === "finished" || (choice.delta && choice.delta.status === "finished");
+      // Thinking-side "finished" only ends the thinking phase; the answer phase is still coming.
+      const isTerminal = choice.finish_reason === "stop" || (statusFinished && !isThinking);
 
       if (content || phase === "thinking_summary") {
-        const isThinking = phase === "think" || phase === "thinking_summary";
-        const finishReason = choice.finish_reason || null;
+        const finishReason = isTerminal ? "stop" : (choice.finish_reason || null);
         const deltaObj = isThinking
           ? { reasoning_content: content, phase, extra: choice?.delta?.extra }
           : { content, phase, extra: choice?.delta?.extra };
@@ -806,11 +932,12 @@ export class LunaExecutor extends DefaultExecutor {
             finish_reason: finishReason,
           }],
         };
-        return `data: ${JSON.stringify(openaiChunk)}\n\n`;
+
+        return { chunk: `data: ${JSON.stringify(openaiChunk)}\n\n`, terminal: isTerminal };
       }
 
-      // Forward explicit stop
-      if (choice.finish_reason === "stop") {
+      // Forward explicit stop or finished status from Qwen Web (answer side, empty content).
+      if (isTerminal) {
         const stopChunk = {
           id: finalResponseId,
           object: "chat.completion.chunk",
@@ -818,7 +945,7 @@ export class LunaExecutor extends DefaultExecutor {
           model: model,
           choices: [{ index: choice.index || 0, delta: {}, finish_reason: "stop" }],
         };
-        return `data: ${JSON.stringify(stopChunk)}\n\n`;
+        return { chunk: `data: ${JSON.stringify(stopChunk)}\n\n`, terminal: true };
       }
     } catch (e) {
       if (e.message && e.message.startsWith("Qwen stream error:")) {
@@ -826,7 +953,7 @@ export class LunaExecutor extends DefaultExecutor {
       }
       // Skip invalid JSON
     }
-    return null;
+    return { chunk: null, terminal: false };
   }
 }
 
