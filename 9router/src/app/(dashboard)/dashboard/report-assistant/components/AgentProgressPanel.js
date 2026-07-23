@@ -243,7 +243,11 @@ export function AgentProgressPanel({
                     : sec.title}
                 </span>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  {typeof reloadSection === "function" && !isDrafting && (
+                  {typeof reloadSection === "function" &&
+                    !isDrafting &&
+                    agentState?.current_step !== "OUTLINING" &&
+                    agentState?.current_step !== "WAIT_APPROVAL" &&
+                    (sec.status === "done" || sec.status === "cancelled" || sec.status === "error") && (
                     <button
                       onClick={() => {
                         setReloadModal({

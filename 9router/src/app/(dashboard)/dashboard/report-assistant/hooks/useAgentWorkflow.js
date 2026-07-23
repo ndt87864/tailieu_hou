@@ -35,6 +35,7 @@ export function useAgentWorkflow({
 
   const agentCancelRequestedRef = useRef(false);
   const agentDraftingInProgressRef = useRef(false);
+  const agentInitInProgressRef = useRef(false);
   const agentStateRef = useRef(null);
 
   useEffect(() => { agentStateRef.current = agentState; }, [agentState]);
@@ -130,8 +131,10 @@ export function useAgentWorkflow({
         body: JSON.stringify({ chatId }),
       });
       if (!res.ok) {
-        setAgentState(null);
-        if (forceActive) setAgentActive(false);
+        if (!agentInitInProgressRef.current) {
+          setAgentState(null);
+          if (forceActive) setAgentActive(false);
+        }
         return null;
       }
       const data = await res.json().catch(() => null);
@@ -160,13 +163,17 @@ export function useAgentWorkflow({
         }
         return data.state;
       }
-      setAgentActive(false);
-      setAgentState(null);
+      if (!agentInitInProgressRef.current) {
+        setAgentActive(false);
+        setAgentState(null);
+      }
       return null;
     } catch (err) {
       console.error(err);
-      setAgentState(null);
-      setAgentActive(false);
+      if (!agentInitInProgressRef.current) {
+        setAgentState(null);
+        setAgentActive(false);
+      }
       return null;
     } finally {
       setAgentLoading(false);
@@ -193,6 +200,7 @@ export function useAgentWorkflow({
     if (!chatId) chatId = activeSessionId;
     const runId = `run_${createId()}`;
     agentCancelRequestedRef.current = false;
+    agentInitInProgressRef.current = true;
     setAgentLoading(true);
     setSelectedReport(null);
     setSelectedOutline(null);
@@ -290,6 +298,7 @@ export function useAgentWorkflow({
       });
       showToast(err.message, "error");
     } finally {
+      agentInitInProgressRef.current = false;
       setAgentLoading(false);
     }
   }, [activeSessionId, username, showToast, appendChatMessage, updateChatMessage]);

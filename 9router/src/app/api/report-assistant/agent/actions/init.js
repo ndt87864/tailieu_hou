@@ -61,6 +61,27 @@ export async function handleInit(ctx) {
     reportContext.runId = runId;
   }
 
+  const initialOutliningState = {
+    chat_id: chatId,
+    current_step: "OUTLINING",
+    reportType,
+    current_activity: buildAgentActivity("outlining", "Agent đang phân tích tài liệu và lập dàn ý...", {
+      actor: "Report Agent",
+    }),
+    outline: [],
+    sections_progress: [
+      {
+        id: "planning",
+        title: "Đang lập dàn ý báo cáo",
+        description: "AI đang phân tích yêu cầu, đề cương và tài liệu để lập dàn ý phù hợp.",
+        status: "drafting",
+        content: "",
+        feedback: "",
+      },
+    ],
+  };
+  await saveAgentState(chatId, username, initialOutliningState);
+
   const outlineKnowledgeText = String(outlineKnowledge || "").trim();
   const templateKnowledgeText = String(templateKnowledge || "").trim();
   let parsedOutline = [];

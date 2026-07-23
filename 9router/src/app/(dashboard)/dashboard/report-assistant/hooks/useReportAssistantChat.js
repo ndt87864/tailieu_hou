@@ -6,6 +6,8 @@ import { buildContentWithAttachments } from "../utils/attachmentExtractor";
 
 export function useReportAssistantChat({
   activeSessionId,
+  setActiveSessionId,
+  createSession,
   draft,
   setDraft,
   attachedFiles,
@@ -41,7 +43,20 @@ export function useReportAssistantChat({
   }, []);
 
   const handleSendMessage = useCallback(async () => {
-    if (!activeSessionId || isSending || isSendingRef.current || (!draft.trim() && attachedFiles.length === 0)) return;
+    let targetChatId = activeSessionId;
+    if (!targetChatId && typeof createSession === "function") {
+      const newSession = createSession(activeModel);
+      targetChatId = newSession.id;
+      setSessions((prev) => [newSession, ...prev]);
+      if (typeof setActiveSessionId === "function") {
+        setActiveSessionId(targetChatId);
+      }
+      if (typeof window !== "undefined") {
+        window.history.replaceState(null, "", `/dashboard/report-assistant/${targetChatId}`);
+      }
+    }
+
+    if (!targetChatId || isSending || isSendingRef.current || (!draft.trim() && attachedFiles.length === 0)) return;
     isSendingRef.current = true;
     setIsSending(true);
 
@@ -60,7 +75,7 @@ export function useReportAssistantChat({
 
     setSessions((prev) =>
       prev.map((s) => {
-        if (s.id !== activeSessionId) return s;
+        if (s.id !== targetChatId) return s;
         const currentMsgs = s.messages || [];
         const lastMsg = currentMsgs[currentMsgs.length - 1];
         if (lastMsg && lastMsg.role === "user" && lastMsg.content === userText) {
@@ -82,7 +97,7 @@ export function useReportAssistantChat({
         await runAgentInit({
           userPrompt: userText,
           selectedReportModelId: activeModel?.id,
-          chatId: activeSessionId,
+          chatId: targetChatId,
           selectedOutlineSubject: selectedKnowledgeSubject !== "none" ? selectedKnowledgeSubject : "",
         });
       } catch (err) {

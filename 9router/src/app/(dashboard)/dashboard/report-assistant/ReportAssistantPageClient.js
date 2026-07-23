@@ -314,6 +314,8 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     handleRegenerateMessage,
   } = useReportAssistantChat({
     activeSessionId,
+    setActiveSessionId,
+    createSession,
     draft,
     setDraft,
     attachedFiles,
