@@ -165,7 +165,7 @@ export function useAgentWorkflow({
     const isEnded = agentState?.current_step === "COMPLETED" || agentState?.current_step === "CANCELLED";
     const isWaitingApproval = agentState?.current_step === "WAIT_APPROVAL";
     if (isEnded || isWaitingApproval) return;
-    const timer = setInterval(() => { loadAgentStatus(activeSessionId); }, 2500);
+    const timer = setInterval(() => { loadAgentStatus(activeSessionId); }, 200);
     return () => clearInterval(timer);
   }, [agentActive, activeSessionId, agentState?.current_step, loadAgentStatus]);
 

@@ -9,7 +9,8 @@ import {
   inferSectionTemplateExpectation,
   isReferenceOnlySection,
   calculateTargetWordsForSection,
-  safeParseJson
+  safeParseJson,
+  logAgentStep
 } from "../utils";
 import {
   normalizeReportOutlineSections,
@@ -49,6 +50,8 @@ export async function handleInit(ctx) {
   if (!userPrompt) {
     return NextResponse.json({ error: "Missing userPrompt for init" }, { status: 400 });
   }
+
+  logAgentStep("INIT_START", { chatId, username, targetModelId, subject, userPrompt });
 
   const reportContext = buildReportContext(userPrompt, subject, outlineSource);
   if (runId) {
@@ -271,6 +274,12 @@ export async function handleInit(ctx) {
   };
   setReportLunaChatId(newState, reportSession.lunaChatId);
   setReportLunaMessageId(newState, reportSession.lunaMessageId);
+
+  logAgentStep("OUTLINE_GENERATED", {
+    chatId,
+    sectionsCount: sectionsProgress.length,
+    sections: sectionsProgress.map((s) => ({ id: s.id, title: s.title, targetWords: s.target_words }))
+  });
 
   await saveAgentState(chatId, username, newState);
   return NextResponse.json({ ok: true, state: newState });

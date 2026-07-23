@@ -22,7 +22,8 @@ import {
   sanitizeB49OpeningDraftContent,
   hasSubstantiveDraftContent,
   validateDraftQuality,
-  normalizeOutlineMatchText
+  normalizeOutlineMatchText,
+  logAgentStep
 } from "../utils";
 import {
   sanitizeCareerSectionIV,
@@ -103,7 +104,7 @@ export async function handleDraftNext(ctx) {
     actor: "Report Agent",
     sectionId: nextToDraft.id,
   });
-  console.log(`[agent/route] Draft worker started chatId=${chatId} sectionId=${nextToDraft.id} model=${targetModelId}`);
+  logAgentStep("SECTION_DRAFT_START", { chatId, sectionId: nextToDraft.id, title: nextToDraft.title, model: targetModelId });
 
   try {
     await checkPreconditions(leaseManager, getAgentState, chatId, username);
@@ -327,7 +328,7 @@ export async function handleDraftNext(ctx) {
           if (!partialText) return;
           nextToDraft.content = partialText;
           const now = Date.now();
-          if (now - lastSaveTime > 150) {
+          if (now - lastSaveTime > 50) {
             lastSaveTime = now;
             try {
               await saveAgentState(chatId, username, currentState, null, lockId);

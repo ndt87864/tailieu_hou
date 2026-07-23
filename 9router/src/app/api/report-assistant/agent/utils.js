@@ -12,6 +12,14 @@ export const buildReportContext = buildCtx;
 export const reportContextPrompt = ctxPrompt;
 export const extractRequestedPages = reqPages;
 
+export function logAgentStep(stepName, details) {
+  if (process.env.NODE_ENV !== "production") {
+    const timestamp = new Date().toISOString().split("T")[1].slice(0, 8);
+    const detailStr = typeof details === "object" ? JSON.stringify(details, null, 2) : String(details);
+    console.log(`\x1b[36m[AI Agent ${timestamp}]\x1b[0m \x1b[33m${stepName}\x1b[0m:`, detailStr);
+  }
+}
+
 export function sanitizeReportDraftContent(content) {
   if (typeof content !== "string") return "";
   return content

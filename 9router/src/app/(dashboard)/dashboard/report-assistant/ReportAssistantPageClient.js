@@ -66,15 +66,21 @@ function SmoothStreamText({ text, isDone = false, className = "" }) {
       return;
     }
 
+    const target = targetTextRef.current || "";
+    setDisplayedText((prev) => {
+      if (!prev) return target.slice(0, Math.min(target.length, 30));
+      return prev;
+    });
+
     const interval = setInterval(() => {
       setDisplayedText((prev) => {
         const target = targetTextRef.current || "";
         if (prev.length >= target.length) return target;
         const diff = target.length - prev.length;
-        const step = Math.max(1, Math.min(diff, Math.ceil(diff / 4)));
+        const step = Math.max(2, Math.ceil(diff / 3));
         return target.slice(0, prev.length + step);
       });
-    }, 20);
+    }, 16);
 
     return () => clearInterval(interval);
   }, [isDone, text]);

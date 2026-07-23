@@ -10,7 +10,7 @@ import {
   applyCriticDecision
 } from "../stateTransitions";
 import { callLLM } from "../llm";
-import { getLastCompletedYears } from "../utils";
+import { getLastCompletedYears, logAgentStep } from "../utils";
 import { throwIfCancelled } from "../draftNextHelpers";
 
 const REPORT_ENABLE_CRITIC = String(process.env.REPORT_AGENT_ENABLE_CRITIC || "false").toLowerCase() === "true";
@@ -62,6 +62,14 @@ export async function handleDraftFinalize(ctx, {
         criticSkipped: true,
       });
 
+      logAgentStep("SECTION_COMPLETED", {
+        chatId,
+        sectionId: targetSection.id,
+        title: targetSection.title,
+        contentLength: (draftResult || "").length,
+        webSourcesCount: (webSources || []).length
+      });
+
       const reportTitle = activeReportContext?.subject || "Unknown Report";
       const stillTodo = stateToSave.sections_progress.find((p) => p.status === "todo" || p.status === "drafting" || p.status === "stream_drafting");
       if (!stillTodo) {
@@ -69,6 +77,10 @@ export async function handleDraftFinalize(ctx, {
         setAgentActivity(stateToSave, null, "report_completed", "Tất cả mục trong báo cáo đã hoàn tất.", {
           actor: "Report Agent",
           sections: stateToSave.sections_progress.length,
+        });
+        logAgentStep("REPORT_COMPLETED", {
+          chatId,
+          totalSections: stateToSave.sections_progress.length
         });
       }
 
