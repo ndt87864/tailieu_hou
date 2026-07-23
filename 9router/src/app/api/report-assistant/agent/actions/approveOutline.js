@@ -26,14 +26,23 @@ export async function handleApproveOutline(ctx) {
 
   const approvedOutline = normalizeReportOutlineSections(outline || currentState.outline);
   const contentSectionsApproved = approvedOutline.filter((item) => !isReferenceOnlySection(item));
+  const currentRunId = currentState.run_id || currentState.session_id || currentState.outline?.[0]?.reportContext?.runId || null;
+
   const sectionsProgress = approvedOutline.map((item) => {
     const existing = (currentState.sections_progress || []).find((p) => String(p.id) === String(item.id));
     const reportContext = item.reportContext || existing?.reportContext || currentState.outline?.[0]?.reportContext || null;
     const isRefSection = isReferenceOnlySection(item);
-    let sectionStatus = existing ? existing.status : "todo";
-    if ((sectionStatus === "drafting" || sectionStatus === "stream_drafting") && !existing?.content) {
+
+    // Chỉ giữ lại status/content nếu existing thuộc đúng lượt chạy mới (cùng runId)
+    const existingRunId = existing?.reportContext?.runId || null;
+    const isSameRun = Boolean(currentRunId && existingRunId && String(currentRunId) === String(existingRunId));
+
+    let sectionStatus = (existing && isSameRun) ? existing.status : "todo";
+    if ((sectionStatus === "drafting" || sectionStatus === "stream_drafting" || sectionStatus === "in_progress") && !existing?.content) {
       sectionStatus = "todo";
     }
+    const sectionContent = (existing && isSameRun) ? (existing.content || "") : "";
+
     return {
       id: item.id,
       title: adaptOutlineTitleToContext(item.title, reportContext),
@@ -47,11 +56,11 @@ export async function handleApproveOutline(ctx) {
       is_reference_section: isRefSection,
       target_words: isRefSection
         ? 0
-        : (existing?.target_words || calculateTargetWordsForSection(item, reportContext?.targetWords, contentSectionsApproved)),
+        : (calculateTargetWordsForSection(item, reportContext?.targetWords, contentSectionsApproved)),
       status: sectionStatus,
-      content: existing ? existing.content : "",
-      previousContent: existing ? (existing.previousContent || existing.content || "") : "",
-      feedback: existing ? existing.feedback : "",
+      content: sectionContent,
+      previousContent: (existing && isSameRun) ? (existing.previousContent || "") : "",
+      feedback: (existing && isSameRun) ? (existing.feedback || "") : "",
     };
   });
 

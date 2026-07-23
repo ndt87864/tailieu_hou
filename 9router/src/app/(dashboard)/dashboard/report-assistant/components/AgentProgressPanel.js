@@ -158,7 +158,7 @@ export function AgentProgressPanel({
             : "Hệ thống đang chạy tuần tự từng chương mục độc lập theo đề cương. Trạng thái mỗi mục sẽ liên tục cập nhật bên dưới."}
         </p>
 
-        {((agentState.current_step === "WAIT_APPROVAL" || agentState.current_step === "OUTLINING") && 
+        {(agentState.current_step === "WAIT_APPROVAL" && 
           ((Array.isArray(agentState.outline) && agentState.outline.length > 0) || 
            (Array.isArray(agentState.sections_progress) && agentState.sections_progress.length > 0 && agentState.sections_progress[0].id !== "planning"))) && (
           <button

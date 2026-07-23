@@ -205,7 +205,10 @@ export function useAgentWorkflow({
     setSelectedReport(null);
     setSelectedOutline(null);
     setAgentActive(true);
-    setAgentState({
+    const initialNewState = {
+      chat_id: chatId,
+      session_id: runId,
+      run_id: runId,
       outline: [],
       current_step: "OUTLINING",
       sections_progress: [
@@ -218,7 +221,9 @@ export function useAgentWorkflow({
           feedback: "",
         },
       ],
-    });
+    };
+    setAgentState(initialNewState);
+    agentStateRef.current = initialNewState;
     const outlineCardId = createId();
     appendChatMessage(chatId, null, {
       id: outlineCardId,
