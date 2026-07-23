@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { normalizeAgentState, setAgentActivity, setReportLunaChatId, setReportLunaMessageId } from "../agentActivity";
-import { buildCareerOrientationOutline } from "../outlines";
+import { buildCareerOrientationOutline, buildInternshipB49Outline } from "../outlines";
 
 export async function handleReloadSection(ctx) {
   const {
@@ -30,6 +30,20 @@ export async function handleReloadSection(ctx) {
   // Invalidate existing worker leases to force takeover/reload safety
   await invalidateWorkerLease({ chatId, username });
 
+  // 1. Ensure reportContext is present & synchronized from currentState/outline if missing
+  const activeReportContext =
+    section.reportContext ||
+    currentState.outline?.find((o) => String(o.id) === String(sectionId))?.reportContext ||
+    currentState.outline?.[0]?.reportContext ||
+    progress.find((p) => p.reportContext)?.reportContext ||
+    null;
+
+  const applyClear = (reportContext) => {
+    if (!reportContext || typeof reportContext !== "object") return reportContext;
+    return { ...reportContext, lunaChatId: "", lunaMessageId: "" };
+  };
+  const cleanContext = applyClear(activeReportContext);
+
   // Reset the target section
   section.status = "todo";
   section.content = "";
@@ -37,23 +51,38 @@ export async function handleReloadSection(ctx) {
   section.web_sources = [];
   section.activity = null;
   section.activity_history = [];
+  section.reportContext = cleanContext;
+
+  // Sync section properties from the approved outline item if available
+  const outlineItem = currentState.outline?.find((o) => String(o.id) === String(sectionId));
+  if (outlineItem) {
+    if (outlineItem.subsections && Array.isArray(outlineItem.subsections)) {
+      section.subsections = [...outlineItem.subsections];
+    }
+    if (outlineItem.title) section.title = outlineItem.title;
+    if (outlineItem.description) section.description = outlineItem.description;
+    if (outlineItem.style_guidance) section.style_guidance = outlineItem.style_guidance;
+    if (outlineItem.target_words) section.target_words = outlineItem.target_words;
+  }
 
   // Reset Luna credentials for this section/chat context
   setReportLunaChatId(currentState, "");
   setReportLunaMessageId(currentState, "");
 
-  const applyClear = (reportContext) => {
-    if (!reportContext || typeof reportContext !== "object") return reportContext;
-    return { ...reportContext, lunaChatId: "", lunaMessageId: "" };
-  };
-  section.reportContext = applyClear(section.reportContext);
-
-  // Dynamically sync template subsections for career orientation reports on reload
-  if (section.reportContext?.careerOrientationReport) {
-    const template = buildCareerOrientationOutline(section.reportContext);
+  // Dynamically sync template subsections for predefined templates (career orientation, B49 internship)
+  if (cleanContext?.careerOrientationReport) {
+    const template = buildCareerOrientationOutline(cleanContext);
     const templateSection = template.find((t) => String(t.id) === String(section.id));
     if (templateSection) {
-      section.subsections = templateSection.subsections || [];
+      section.subsections = templateSection.subsections || section.subsections || [];
+      section.title = templateSection.title || section.title;
+      section.description = templateSection.description || section.description;
+    }
+  } else if (cleanContext?.internshipReport) {
+    const template = buildInternshipB49Outline(cleanContext);
+    const templateSection = template.find((t) => String(t.id) === String(section.id));
+    if (templateSection) {
+      section.subsections = templateSection.subsections || section.subsections || [];
       section.title = templateSection.title || section.title;
       section.description = templateSection.description || section.description;
     }

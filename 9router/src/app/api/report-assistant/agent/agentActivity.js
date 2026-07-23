@@ -104,21 +104,20 @@ export function setReportLunaChatId(state, lunaChatId) {
   const clean = typeof lunaChatId === "string" ? lunaChatId.trim() : "";
   if (!state || !clean) return state;
 
-  const apply = (reportContext) => {
-    if (!reportContext || typeof reportContext !== "object") return reportContext;
-    return { ...reportContext, lunaChatId: clean };
-  };
-
   if (Array.isArray(state.outline)) {
-    state.outline = state.outline.map((item) => item && typeof item === "object"
-      ? { ...item, reportContext: apply(item.reportContext) }
-      : item);
+    for (const item of state.outline) {
+      if (item && typeof item === "object" && item.reportContext && typeof item.reportContext === "object") {
+        item.reportContext.lunaChatId = clean;
+      }
+    }
   }
 
   if (Array.isArray(state.sections_progress)) {
-    state.sections_progress = state.sections_progress.map((item) => item && typeof item === "object"
-      ? { ...item, reportContext: apply(item.reportContext) }
-      : item);
+    for (const item of state.sections_progress) {
+      if (item && typeof item === "object" && item.reportContext && typeof item.reportContext === "object") {
+        item.reportContext.lunaChatId = clean;
+      }
+    }
   }
 
   if (state.current_activity && typeof state.current_activity === "object") {
@@ -135,21 +134,20 @@ export function setReportLunaMessageId(state, lunaMessageId) {
   const clean = typeof lunaMessageId === "string" ? lunaMessageId.trim() : "";
   if (!state || !clean) return state;
 
-  const apply = (reportContext) => {
-    if (!reportContext || typeof reportContext !== "object") return reportContext;
-    return { ...reportContext, lunaMessageId: clean };
-  };
-
   if (Array.isArray(state.outline)) {
-    state.outline = state.outline.map((item) => item && typeof item === "object"
-      ? { ...item, reportContext: apply(item.reportContext) }
-      : item);
+    for (const item of state.outline) {
+      if (item && typeof item === "object" && item.reportContext && typeof item.reportContext === "object") {
+        item.reportContext.lunaMessageId = clean;
+      }
+    }
   }
 
   if (Array.isArray(state.sections_progress)) {
-    state.sections_progress = state.sections_progress.map((item) => item && typeof item === "object"
-      ? { ...item, reportContext: apply(item.reportContext) }
-      : item);
+    for (const item of state.sections_progress) {
+      if (item && typeof item === "object" && item.reportContext && typeof item.reportContext === "object") {
+        item.reportContext.lunaMessageId = clean;
+      }
+    }
   }
 
   if (state.current_activity && typeof state.current_activity === "object") {

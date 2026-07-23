@@ -226,8 +226,11 @@ export async function handleDraftNext(ctx) {
   await throwIfCancelled(getAgentState, chatId, username);
 
   // Construct drafting prompt (Scope Control with lightweight outline summary)
-  const previousDone = progress.filter((p) => p.status === "done");
-  const lastDoneContent = previousDone.length > 0 ? previousDone[previousDone.length - 1].content : "";
+  const currentSecIndex = progress.findIndex((p) => String(p.id) === String(nextToDraft.id));
+  const prevSectionInOrder = currentSecIndex > 0 ? progress[currentSecIndex - 1] : null;
+  const lastDoneContent = (prevSectionInOrder && prevSectionInOrder.status === "done" && prevSectionInOrder.content)
+    ? prevSectionInOrder.content
+    : "";
 
   const outlineSummaryString = (currentState.outline || [])
     .map((s) => `- ${s.title}`)
@@ -331,8 +334,18 @@ export async function handleDraftNext(ctx) {
         let lastSaveTime = 0;
         const onChunk = (partialText) => {
           if (!partialText) return;
-          // Store stream output in memory RAM locally only, DB save happens after full response
           nextToDraft.content = partialText;
+          const currentProgressSec = currentState?.sections_progress?.find((s) => String(s.id) === String(nextToDraft.id));
+          if (currentProgressSec) {
+            currentProgressSec.content = partialText;
+          }
+          setAgentActivity(
+            currentState,
+            nextToDraft,
+            "section_streaming",
+            `Agent đang viết nội dung thực tế... (${partialText.length} kí tự)`,
+            { actor: "Writer", sectionId: nextToDraft.id, textLength: partialText.length }
+          );
           if (typeof setMemoryState === "function") {
             setMemoryState(chatId, currentState);
           }

@@ -152,19 +152,21 @@ export async function checkPreconditions(leaseManager, getAgentState, chatId, us
 export function retryWithFreshLunaChat(reportSession, stateToSave) {
   reportSession.lunaChatId = "";
   reportSession.lunaMessageId = "";
-  const applyClear = (reportContext) => {
-    if (!reportContext || typeof reportContext !== "object") return reportContext;
-    return { ...reportContext, lunaChatId: "", lunaMessageId: "" };
-  };
-  if (Array.isArray(stateToSave.outline)) {
-    stateToSave.outline = stateToSave.outline.map((item) => item && typeof item === "object"
-      ? { ...item, reportContext: applyClear(item.reportContext) }
-      : item);
+  if (Array.isArray(stateToSave?.outline)) {
+    for (const item of stateToSave.outline) {
+      if (item && typeof item === "object" && item.reportContext && typeof item.reportContext === "object") {
+        item.reportContext.lunaChatId = "";
+        item.reportContext.lunaMessageId = "";
+      }
+    }
   }
-  if (Array.isArray(stateToSave.sections_progress)) {
-    stateToSave.sections_progress = stateToSave.sections_progress.map((item) => item && typeof item === "object"
-      ? { ...item, reportContext: applyClear(item.reportContext) }
-      : item);
+  if (Array.isArray(stateToSave?.sections_progress)) {
+    for (const item of stateToSave.sections_progress) {
+      if (item && typeof item === "object" && item.reportContext && typeof item.reportContext === "object") {
+        item.reportContext.lunaChatId = "";
+        item.reportContext.lunaMessageId = "";
+      }
+    }
   }
 }
 

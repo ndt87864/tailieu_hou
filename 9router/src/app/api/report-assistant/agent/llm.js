@@ -304,16 +304,27 @@ export async function callLLM(modelId, messages, temperature = 0.3, authToken = 
                   throw new Error(`Lỗi stream từ mô hình ${currentModelId}: ${errDetails || errCode}`);
                 }
 
-                const choiceDelta = json.choices?.[0]?.delta;
-                const reasoning = choiceDelta?.reasoning_content || choiceDelta?.reasoning || "";
+                const choiceDelta = json.choices?.[0]?.delta || json.delta || json.choices?.[0] || json;
+                const reasoning = choiceDelta?.reasoning_content || choiceDelta?.reasoning || json.reasoning || "";
                 if (reasoning && typeof options.onThinking === "function") {
                   options.onThinking(reasoning);
                 }
 
-                const delta = choiceDelta?.content ?? choiceDelta?.text ?? json.choices?.[0]?.text ?? "";
+                const delta =
+                  choiceDelta?.content ??
+                  choiceDelta?.text ??
+                  json.choices?.[0]?.text ??
+                  json.choices?.[0]?.message?.content ??
+                  json.delta?.content ??
+                  json.content ??
+                  json.text ??
+                  "";
+
                 if (delta) {
                   fullText += delta;
-                  options.onChunk(fullText);
+                  if (typeof options.onChunk === "function") {
+                    options.onChunk(fullText);
+                  }
                 }
               } catch (e) {
                 if (e.message?.startsWith("Lỗi stream từ mô hình")) {
