@@ -308,17 +308,46 @@ export class LunaExecutor extends DefaultExecutor {
 
   extractDataLinePayload(line) {
     const trimmed = String(line || "").trim();
-    if (!trimmed.startsWith("data:")) return null;
-    return trimmed.slice(5).trim();
+    if (trimmed.startsWith("data:")) return trimmed.slice(5).trim();
+    if (trimmed.startsWith("{") && trimmed.endsWith("}")) return trimmed;
+    return null;
   }
 
   extractQwenContentDelta(data) {
-    const choice = data?.choices?.[0];
-    const delta = choice?.delta || {};
-    const content = typeof delta.content === "string" ? delta.content : "";
-    const phase = delta.phase;
-    const status = delta.status;
-    const summaryParts = delta.extra?.summary_thought?.content;
+    const rawChoice = data?.choices?.[0];
+    const delta = rawChoice?.delta || data?.delta || (typeof data?.content === "string" ? { content: data.content, phase: data?.phase, status: data?.status } : (typeof data?.text === "string" ? { content: data.text } : {}));
+    
+    let content = "";
+    if (typeof delta.content === "string") {
+      content = delta.content;
+    } else if (Array.isArray(delta.content_list) && delta.content_list.length > 0) {
+      const items = delta.content_list.filter((item) => item?.content);
+      const answerItem = items.find((item) => (item.phase === "answer" || item.phase === "image_gen") && item.content) ||
+                         items.find((item) => item.phase !== "think" && item.phase !== "thinking_summary" && item.content) ||
+                         items[0];
+      if (answerItem?.content) {
+        content = answerItem.content;
+      }
+    } else if (Array.isArray(data?.content_list) && data.content_list.length > 0) {
+      const items = data.content_list.filter((item) => item?.content);
+      const answerItem = items.find((item) => (item.phase === "answer" || item.phase === "image_gen") && item.content) ||
+                         items.find((item) => item.phase !== "think" && item.phase !== "thinking_summary" && item.content) ||
+                         items[0];
+      if (answerItem?.content) {
+        content = answerItem.content;
+      }
+    } else if (typeof delta.text === "string") {
+      content = delta.text;
+    } else if (typeof data?.content === "string") {
+      content = data.content;
+    } else if (typeof data?.text === "string") {
+      content = data.text;
+    }
+
+    const choice = rawChoice || (data?.delta || typeof data?.content === "string" || typeof data?.text === "string" || Array.isArray(data?.content_list) || data?.status === "finished" ? { index: 0, delta: { ...delta, content }, finish_reason: data?.finish_reason || (data?.status === "finished" ? "stop" : null) } : null);
+    const phase = delta.phase || data?.phase || (Array.isArray(delta.content_list) ? delta.content_list[0]?.phase : null) || "answer";
+    const status = delta.status || data?.status;
+    const summaryParts = delta.extra?.summary_thought?.content || data?.extra?.summary_thought?.content;
     const summary = Array.isArray(summaryParts) ? summaryParts.join("\n") : "";
     const responseId = data?.["response.created"]?.response_id || data?.id || "";
 
@@ -615,15 +644,16 @@ export class LunaExecutor extends DefaultExecutor {
   checkQwenError(data) {
     if (!data) return;
     const isCaptcha = Array.isArray(data.ret) && data.ret.includes("FAIL_SYS_USER_VALIDATE");
-    if (data.error || data.success === false || data.message === "Unauthorized" || data.message === "The chat is in progress" || isCaptcha) {
+    if (data.error || data.success === false || data.message === "Unauthorized" || data.message === "The chat is in progress" || isCaptcha || data.data?.code) {
       console.warn("[Luna] Qwen error response:", JSON.stringify(data).slice(0, 500));
-      const rawErr = data.error?.message || data.error || data.message || "";
+      const codeStr = data.data?.code ? `${data.data.code}: ` : "";
+      const rawErr = data.data?.details || data.error?.message || data.error || data.message || data.data?.code || "";
       let errMsg = typeof rawErr === "object" ? JSON.stringify(rawErr) : String(rawErr || "");
       if (isCaptcha) {
         errMsg = "Qwen captcha validation required (FAIL_SYS_USER_VALIDATE)";
       }
       if (!errMsg) errMsg = "Unknown Qwen error";
-      throw new Error(`Qwen stream error: ${errMsg}`);
+      throw new Error(`Qwen stream error: ${codeStr}${errMsg}`);
     }
   }
 
@@ -973,7 +1003,25 @@ export class LunaExecutor extends DefaultExecutor {
       }
     } catch (e) {
       if (e.message && e.message.startsWith("Qwen stream error:")) {
-        throw e;
+        const errDetails = e.message.replace(/^Qwen stream error:\s*/, "");
+        const errorChunk = {
+          id: activeResponseId || `chatcmpl-${Date.now()}`,
+          object: "chat.completion.chunk",
+          created: Math.floor(Date.now() / 1000),
+          model: model,
+          choices: [{
+            index: 0,
+            delta: {},
+            finish_reason: "error",
+          }],
+          success: false,
+          error: {
+            code: "LunaError",
+            message: errDetails,
+          },
+          data: { code: "LunaError", details: errDetails },
+        };
+        return { chunk: `data: ${JSON.stringify(errorChunk)}\n\n`, terminal: true };
       }
       // Skip invalid JSON
     }

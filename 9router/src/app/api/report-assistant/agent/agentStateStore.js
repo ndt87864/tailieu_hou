@@ -133,7 +133,10 @@ export function createAgentStateStore(turso) {
             err.code = "CONCURRENCY_CONFLICT";
             throw err;
           }
-          if (stateData) stateData.updated_at = now;
+          if (stateData) {
+            stateData.updated_at = now;
+            setMemoryState(chatId, stateData);
+          }
           return { savedTurso: true };
         } else {
           // Conditional insert/update using ON CONFLICT and checking lease status
@@ -179,7 +182,10 @@ export function createAgentStateStore(turso) {
             err.code = "LEASE_LOST";
             throw err;
           }
-          if (stateData) stateData.updated_at = now;
+          if (stateData) {
+            stateData.updated_at = now;
+            setMemoryState(chatId, stateData);
+          }
           // Touch / extend lease so long-running streams don't expire mid-execution
           const leaseTtl = Number.parseInt(process.env.REPORT_AGENT_LEASE_TTL_MS || "720000", 10);
           const newExpiresAt = new Date(new Date(now).getTime() + leaseTtl).toISOString();
@@ -213,7 +219,10 @@ export function createAgentStateStore(turso) {
           err.code = "CONCURRENCY_CONFLICT";
           throw err;
         }
-        if (stateData) stateData.updated_at = now;
+        if (stateData) {
+          stateData.updated_at = now;
+          setMemoryState(chatId, stateData);
+        }
         return { savedTurso: true };
       }
 
@@ -244,8 +253,10 @@ export function createAgentStateStore(turso) {
         err.code = "AGENT_STATE_ACCESS_DENIED";
         throw err;
       }
-      if (stateData) stateData.updated_at = now;
-      memoryStateMap.delete(chatId);
+      if (stateData) {
+        stateData.updated_at = now;
+        setMemoryState(chatId, stateData);
+      }
       return { savedTurso: true };
     } catch (err) {
       console.error("[agent/route] saveAgentState failed:", err.message);

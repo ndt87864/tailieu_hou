@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { normalizeAgentState, setAgentActivity } from "../agentActivity";
+import { normalizeAgentState, setAgentActivity, setReportLunaChatId, setReportLunaMessageId } from "../agentActivity";
 import { buildCareerOrientationOutline } from "../outlines";
 
 export async function handleReloadSection(ctx) {
@@ -38,7 +38,10 @@ export async function handleReloadSection(ctx) {
   section.activity = null;
   section.activity_history = [];
 
-  // Reset Luna credentials for this section/chat context if any
+  // Reset Luna credentials for this section/chat context
+  setReportLunaChatId(currentState, "");
+  setReportLunaMessageId(currentState, "");
+
   const applyClear = (reportContext) => {
     if (!reportContext || typeof reportContext !== "object") return reportContext;
     return { ...reportContext, lunaChatId: "", lunaMessageId: "" };

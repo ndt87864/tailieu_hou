@@ -4,7 +4,7 @@ import { getDefaultModel } from "@/shared/constants/models";
 import { ensureRestrictedUserResources } from "@/lib/restrictedUserProvisioning";
 
 const CLI_TOKEN_SALT = "9r-cli-auth";
-const REPORT_LLM_TIMEOUT_MS = Number.parseInt(process.env.REPORT_AGENT_LLM_TIMEOUT_MS || "60000", 10);
+const REPORT_LLM_TIMEOUT_MS = Number.parseInt(process.env.REPORT_AGENT_LLM_TIMEOUT_MS || "180000", 10);
 const REPORT_LLM_MAX_ATTEMPTS = Number.parseInt(process.env.REPORT_AGENT_LLM_MAX_ATTEMPTS || "1", 10);
 const REPORT_MAX_COMBO_MODELS = Number.parseInt(process.env.REPORT_AGENT_MAX_COMBO_MODELS || "2", 10);
 const REPORT_COMBO_STRATEGY = String(process.env.REPORT_AGENT_COMBO_STRATEGY || "round-robin").trim().toLowerCase();
@@ -90,12 +90,6 @@ export function getBaseUrl(request = null) {
     } catch { }
   }
 
-  // Priority order for base URL detection:
-  // 1. Server-side BASE_URL (preferred for internal API calls)
-  // 2. NEXT_PUBLIC_BASE_URL (fallback, works client and server)
-  // 3. NEXT_PUBLIC_APP_URL (alternative naming)
-  // 4. VERCEL_URL (Vercel deployment)
-  // 5. Localhost for development
   if (process.env.BASE_URL) {
     return process.env.BASE_URL;
   }
@@ -108,7 +102,6 @@ export function getBaseUrl(request = null) {
   if (process.env.VERCEL_URL) {
     return `https://${process.env.VERCEL_URL}`;
   }
-  // Fallback to localhost for development
   return "http://localhost:20128";
 }
 
@@ -129,7 +122,6 @@ export async function buildInternalFetchHeaders(authToken = null, contentType = 
   return headers;
 }
 
-// Call local completions API with Exponential Backoff Retries for Rate Limits (429/503)
 const BACKUP_MODELS = ["gemini-1.5-flash", "gemini-2.5-flash", "gpt-4o-mini", "gemini-1.5-pro"];
 const LUNA_BACKUP_MODELS = ["ln/qwen3.8-max", "ln/qwen3.7-max", "ln/qwen3.6-plus", "gemini-1.5-flash", "gpt-4o-mini"];
 const ARENA_BACKUP_MODELS = ["ar/claude-3-5-sonnet-20241022", "gemini-1.5-flash", "gpt-4o-mini"];
@@ -157,19 +149,27 @@ export function extractLLMText(data) {
 export async function callLLM(modelId, messages, temperature = 0.3, authToken = null, rawUsername = null, baseUrlOverride = null, sessionState = null, options = {}) {
   const authContext = rawUsername;
   const maxAttempts = Number.isFinite(REPORT_LLM_MAX_ATTEMPTS) && REPORT_LLM_MAX_ATTEMPTS > 0 ? REPORT_LLM_MAX_ATTEMPTS : 1;
-  const timeoutMs = Number.isFinite(options.timeout) && options.timeout > 0 ? options.timeout : (Number.isFinite(REPORT_LLM_TIMEOUT_MS) && REPORT_LLM_TIMEOUT_MS > 0 ? REPORT_LLM_TIMEOUT_MS : 60000);
+  const timeoutMs = Number.isFinite(options.timeout) && options.timeout > 0 ? options.timeout : (Number.isFinite(REPORT_LLM_TIMEOUT_MS) && REPORT_LLM_TIMEOUT_MS > 0 ? REPORT_LLM_TIMEOUT_MS : 180000);
 
-  // Execute request on specified model with automatic fallback list
-  const fallbackList = isLunaModelId(modelId)
-    ? LUNA_BACKUP_MODELS
-    : (isArenaModelId(modelId) ? ARENA_BACKUP_MODELS : BACKUP_MODELS);
-  let modelsToTry = Array.from(new Set([modelId, ...fallbackList]));
-  let currentModelIdx = 0;
+  // Strictly execute request on ONLY the user-selected modelId (no fallback models)
+  const currentModelId = modelId;
   let attempt = 0;
   let backoffMs = 2000;
 
-  while (currentModelIdx < modelsToTry.length) {
-    const currentModelId = modelsToTry[currentModelIdx];
+  while (attempt < maxAttempts) {
+    // Dynamic inactivity controller: reset timeout whenever any stream chunk (thinking or text) arrives
+    const abortController = new AbortController();
+    let inactivityTimer = setTimeout(() => {
+      abortController.abort(new Error(`Hệ thống ngắt kết nối do mô hình ${currentModelId} không trả về dữ liệu quá ${Math.round(timeoutMs / 1000)}s`));
+    }, timeoutMs);
+
+    const resetInactivity = () => {
+      clearTimeout(inactivityTimer);
+      inactivityTimer = setTimeout(() => {
+        abortController.abort(new Error(`Hệ thống ngắt kết nối do mô hình ${currentModelId} không trả về dữ liệu quá ${Math.round(timeoutMs / 1000)}s`));
+      }, timeoutMs);
+    };
+
     try {
       const baseUrl = baseUrlOverride || getBaseUrl();
       const headers = {
@@ -215,35 +215,28 @@ export async function callLLM(modelId, messages, temperature = 0.3, authToken = 
             lunaParentMessageId: sessionState.lunaMessageId || "",
           } : {}),
         }),
-        signal: AbortSignal.timeout(timeoutMs),
+        signal: abortController.signal,
       });
 
       if (process.env.NODE_ENV !== "production") {
         console.log(`[agent/route] LLM response model=${currentModelId} status=${res.status} attempt=${attempt + 1}/${maxAttempts} stream=${isStream}`);
       }
 
-      // Handle Rate Limiting / Quota Exceeded (429/502 with quota_limit) -> immediately switch to next model
+      // Handle Rate Limiting / Quota Exceeded (429) -> throw error immediately, no fallback
       if (res.status === 429) {
+        clearTimeout(inactivityTimer);
         const errText = await res.text().catch(() => "");
-        console.warn(`[agent/route] Model ${currentModelId} returned 429 (Quota Limit). Switching immediately to next fallback model... Error detail: ${errText.slice(0, 180)}`);
-        currentModelIdx++;
-        attempt = 0;
-        backoffMs = 2000;
-        continue;
+        throw new Error(`Mô hình ${currentModelId} bị giới hạn hạn ngạch (429 Quota/Rate Limit): ${errText.slice(0, 180)}`);
       }
 
-      // Handle retriable server errors like 502/503/504
+      // Handle server errors (502/503/504) -> retry if attempt < maxAttempts, else throw error
       if (res.status === 502 || res.status === 503 || res.status === 504) {
+        clearTimeout(inactivityTimer);
         const errText = await res.text().catch(() => "");
-        const isQuotaError = /quota_limit|rate_limit|accounts locked/i.test(errText);
-        if (isQuotaError || attempt >= maxAttempts - 1) {
-          console.warn(`[agent/route] Model ${currentModelId} returned ${res.status} (${isQuotaError ? "Quota/Account Limit" : "Server Error"}). Switching to next fallback model... Error detail: ${errText.slice(0, 180)}`);
-          currentModelIdx++;
-          attempt = 0;
-          backoffMs = 2000;
-          continue;
-        }
         attempt++;
+        if (attempt >= maxAttempts) {
+          throw new Error(`Mô hình ${currentModelId} gặp lỗi máy chủ (${res.status}): ${errText.slice(0, 180)}`);
+        }
         const jitter = Math.floor(Math.random() * 1000);
         const sleepMs = Math.min(backoffMs, 5000) + jitter;
         console.warn(`[agent/route] LLM ${res.status}. Attempt ${attempt}/${maxAttempts}. Retrying same model in ${sleepMs}ms...`);
@@ -253,8 +246,9 @@ export async function callLLM(modelId, messages, temperature = 0.3, authToken = 
       }
 
       if (!res.ok) {
+        clearTimeout(inactivityTimer);
         const errText = await res.text();
-        throw new Error(`LLM Error: ${res.status} - ${errText}`);
+        throw new Error(`Mô hình ${currentModelId} phản hồi lỗi (${res.status}): ${errText.slice(0, 200)}`);
       }
 
       const lunaChatId = res.headers.get("x-luna-chat-id") || "";
@@ -276,6 +270,8 @@ export async function callLLM(modelId, messages, temperature = 0.3, authToken = 
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
+            resetInactivity();
+
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split("\n");
             buffer = lines.pop() || "";
@@ -284,57 +280,77 @@ export async function callLLM(modelId, messages, temperature = 0.3, authToken = 
               const trimmed = line.trim();
               if (!trimmed || trimmed.startsWith(":")) continue;
               if (trimmed === "data: [DONE]") break;
+
+              let jsonStr = trimmed;
               if (trimmed.startsWith("data: ")) {
-                try {
-                  const json = JSON.parse(trimmed.slice(6));
-                  const choiceDelta = json.choices?.[0]?.delta;
-                  const reasoning = choiceDelta?.reasoning_content || choiceDelta?.reasoning || "";
-                  if (reasoning && typeof options.onThinking === "function") {
-                    options.onThinking(reasoning);
+                jsonStr = trimmed.slice(6);
+              }
+
+              try {
+                const json = JSON.parse(jsonStr);
+                
+                // Detect provider level stream error payloads
+                if (json.success === false || json.error || json.data?.code) {
+                  const errCode = json.data?.code || json.error?.code || "";
+                  const errDetails = json.data?.details || json.error?.message || json.message || "";
+                  console.warn(`[callLLM] Stream returned error (${currentModelId}):`, errCode, errDetails);
+
+                  if (errCode === "PARENT_NOT_FOUND" || String(errDetails).includes("parent_id")) {
+                    if (sessionState) {
+                      sessionState.lunaChatId = "";
+                      sessionState.lunaMessageId = "";
+                    }
                   }
-                  
-                  // Lấy delta text chính xác từ các cấu trúc phổ biến
-                  const delta = choiceDelta?.content ?? choiceDelta?.text ?? json.choices?.[0]?.text ?? "";
-                  if (delta) {
-                    fullText += delta;
-                    options.onChunk(fullText);
-                  }
-                } catch (e) {}
+                  throw new Error(`Lỗi stream từ mô hình ${currentModelId}: ${errDetails || errCode}`);
+                }
+
+                const choiceDelta = json.choices?.[0]?.delta;
+                const reasoning = choiceDelta?.reasoning_content || choiceDelta?.reasoning || "";
+                if (reasoning && typeof options.onThinking === "function") {
+                  options.onThinking(reasoning);
+                }
+
+                const delta = choiceDelta?.content ?? choiceDelta?.text ?? json.choices?.[0]?.text ?? "";
+                if (delta) {
+                  fullText += delta;
+                  options.onChunk(fullText);
+                }
+              } catch (e) {
+                if (e.message?.startsWith("Lỗi stream từ mô hình")) {
+                  throw e;
+                }
               }
             }
           }
+          clearTimeout(inactivityTimer);
           if (fullText.trim()) {
             return fullText;
           }
         } catch (streamErr) {
-          console.warn("[callLLM] Streaming error, falling back if fullText exists:", streamErr.message);
+          clearTimeout(inactivityTimer);
           if (fullText.trim()) return fullText;
+          throw streamErr;
         }
+
+        throw new Error(`Luồng dữ liệu từ mô hình ${currentModelId} kết thúc mà không có nội dung văn bản.`);
       }
 
       const data = await res.json();
+      clearTimeout(inactivityTimer);
       return extractLLMText(data);
     } catch (err) {
       attempt++;
-      if (err.name === "AbortError" || err.message?.includes("timeout") || err.name === "TimeoutError") {
-        console.warn(`[agent/route] Request to ${currentModelId} timed out after ${timeoutMs}ms.`);
-        currentModelIdx++;
-        attempt = 0;
-        backoffMs = 2000;
-        continue;
+      if (err.name === "AbortError" || err.message?.includes("timeout") || err.name === "TimeoutError" || err.message?.includes("stalled")) {
+        throw new Error(`Mô hình ${currentModelId} không phản hồi/bị ngắt kết nối sau ${Math.round(timeoutMs / 1000)}s. Quy trình đã hủy.`);
       }
       if (attempt >= maxAttempts) {
-        console.warn(`[agent/route] Connection error on ${currentModelId} after all attempts. Switching to next fallback model... Error:`, err.message);
-        currentModelIdx++;
-        attempt = 0;
-        backoffMs = 2000;
-        continue;
+        throw new Error(`Lỗi mô hình ${currentModelId}: ${err.message}`);
       }
       const sleepMs = backoffMs + Math.floor(Math.random() * 1000);
-      console.warn(`[agent/route] Connection error. Attempt ${attempt}/${maxAttempts}. Retrying in ${sleepMs}ms...`, err.message);
+      console.warn(`[agent/route] Connection error on ${currentModelId}. Attempt ${attempt}/${maxAttempts}. Retrying in ${sleepMs}ms...`, err.message);
       await sleep(sleepMs);
       backoffMs *= 2;
     }
   }
-  throw new Error("Failed to contact LLM: all configured fallback models failed, hit quota limits, or timed out.");
+  throw new Error(`Không thể kết nối mô hình ${modelId}: quy trình đã dừng.`);
 }

@@ -294,11 +294,169 @@ export function useAgentWorkflow({
     }
   }, [activeSessionId, username, showToast, appendChatMessage, updateChatMessage]);
 
+  const cancelAgentWorkflow = useCallback(async () => {
+    agentCancelRequestedRef.current = true;
+    setAgentLoading(true);
+    try {
+      const res = await fetch("/api/report-assistant/agent/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId: activeSessionId, username }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data?.ok && data.state) {
+        setAgentState(data.state);
+        showToast("Đã dừng quy trình AI Agent thành công!", "info");
+      }
+    } catch (err) {
+      console.error("Lỗi khi hủy AI Agent:", err);
+    } finally {
+      setAgentLoading(false);
+      setAgentActive(false);
+    }
+  }, [activeSessionId, username, showToast]);
+
+  const startDraftingLoop = useCallback(async (chatIdArg, modelIdArg) => {
+    const chatId = chatIdArg || activeSessionId;
+    const modelId = modelIdArg || selectedReportModelId || activeModel?.id || "";
+
+    if (!chatId) return;
+
+    const runNextDraftStep = async () => {
+      if (agentCancelRequestedRef.current) return;
+
+      const currentSt = agentStateRef.current;
+      const progress = currentSt?.sections_progress || [];
+      const nextToDraft = progress.find((p) => p.status === "todo" || p.status === "drafting");
+
+      // Cập nhật ngay UI để người dùng thấy mục hiện tại đang được stream / tạo
+      if (nextToDraft && setSessions) {
+        setAgentState((prev) => {
+          if (!prev) return prev;
+          const updated = {
+            ...prev,
+            sections_progress: (prev.sections_progress || []).map((s) =>
+              s.id === nextToDraft.id ? { ...s, status: "drafting" } : s
+            ),
+          };
+          agentStateRef.current = updated;
+          return updated;
+        });
+      }
+
+      // Bắt đầu interval poll trạng thái nhanh (1.5s) ngay khi vừa gửi request backend để bắt lấy stream/chờ stream
+      let pollTimer = null;
+      let isStepDone = false;
+
+      const startLivePolling = () => {
+        pollTimer = setInterval(async () => {
+          if (isStepDone || agentCancelRequestedRef.current) {
+            if (pollTimer) clearInterval(pollTimer);
+            return;
+          }
+          try {
+            const statusRes = await fetch("/api/report-assistant/agent/status", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ chatId }),
+            });
+            const statusData = await statusRes.json().catch(() => ({}));
+            if (statusData?.ok && statusData.state && !isStepDone && !agentCancelRequestedRef.current) {
+              setAgentState(statusData.state);
+              agentStateRef.current = statusData.state;
+            }
+          } catch (e) {
+            // Ignore polling fetch errors
+          }
+        }, 1500);
+      };
+
+      startLivePolling();
+
+      try {
+        const draftRes = await fetch("/api/report-assistant/agent/draft-next", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chatId, username, modelId }),
+        });
+        const draftData = await draftRes.json().catch(() => ({}));
+        
+        isStepDone = true;
+        if (pollTimer) clearInterval(pollTimer);
+        
+        if (!draftRes.ok || draftData?.ok === false) {
+          const errClass = classifyAgentDraftError(
+            draftRes.status,
+            typeof draftData?.error === "string" ? draftData.error : "",
+            new Error(draftData?.error || "Lỗi không xác định khi soạn thảo")
+          );
+          setAgentErrorDialog({
+            title: errClass.title,
+            message: errClass.message,
+            detail: errClass.detail,
+            chatId,
+            sectionId: draftData?.activeSectionId || null,
+          });
+          setAgentActive(false);
+          cancelAgentWorkflow();
+          return;
+        }
+
+        if (draftData?.ok && draftData.state) {
+          setAgentState(draftData.state);
+          agentStateRef.current = draftData.state;
+
+          const isCancelled = draftData.state.current_step === "CANCELLED";
+
+          if (isCancelled || agentCancelRequestedRef.current) {
+            setAgentActive(false);
+            return;
+          }
+
+          if (draftData.workerAlreadyRunning) {
+            // Worker đang soạn thảo ở backend, poll lại mỗi 1.5s để nhận nội dung stream real-time mới nhất
+            setTimeout(runNextDraftStep, 1500);
+            return;
+          }
+
+          const hasMoreTodo = (draftData.state.sections_progress || []).some(
+            (s) => s.status === "todo" || s.status === "drafting" || s.status === "stream_drafting"
+          );
+
+          if (hasMoreTodo) {
+            setTimeout(runNextDraftStep, 1000);
+          } else {
+            showToast("AI Agent đã hoàn thành nội dung báo cáo!", "success");
+            // B4: Mở drawer + chuyển Preview báo cáo hoàn chỉnh khi HOÀN THÀNH TẤT CẢ CÁC MỤC
+            setAgentActive(true);
+            openAgentProgressPreview(draftData.state, "Báo cáo hoàn chỉnh");
+            const runId = draftData.state.session_id || draftData.state.run_id || draftData.state.sections_progress?.[0]?.reportContext?.runId || draftData.state.updatedAt || "v1";
+            const reportCardId = `report_card_${chatId}_${runId}`;
+            const reportCardMsg = {
+              id: reportCardId,
+              role: "assistant",
+              isReportCard: true,
+              sessionId: runId,
+              content: "Báo cáo hoàn chỉnh",
+              createdAt: new Date().toISOString(),
+            };
+            appendChatMessage(chatId, null, reportCardMsg);
+          }
+        }
+      } catch (fetchErr) {
+        if (agentCancelRequestedRef.current) return;
+        console.warn("[runNextDraftStep] Lỗi kết nối mạng tạm thời, tự động thử lại sau 1s...", fetchErr.message);
+        setTimeout(runNextDraftStep, 1000);
+      }
+    };
+
+    runNextDraftStep();
+  }, [activeSessionId, selectedReportModelId, activeModel?.id, username, showToast, openAgentProgressPreview, appendChatMessage, setSessions, setAgentActive, cancelAgentWorkflow, setAgentErrorDialog]);
+
   // B3 & B4: Xác nhận dàn ý -> Soạn thảo từng mục -> Xem Preview trong Drawer
   const confirmOutlineAndStartDrafting = useCallback(async (chatIdArg, modelIdArg) => {
     const chatId = chatIdArg || activeSessionId;
     const currentState = agentStateRef.current;
-    const modelId = modelIdArg || selectedReportModelId || activeModel?.id || "";
 
     if (!chatId) return;
 
@@ -362,144 +520,17 @@ export function useAgentWorkflow({
         })
       );
 
-      const runNextDraftStep = async () => {
-        if (agentCancelRequestedRef.current) return;
-
-        const currentSt = agentStateRef.current;
-        const progress = currentSt?.sections_progress || [];
-        const nextToDraft = progress.find((p) => p.status === "todo" || p.status === "drafting");
-
-        // Cập nhật ngay UI để người dùng thấy mục hiện tại đang được stream / tạo
-        if (nextToDraft && setSessions) {
-          setAgentState((prev) => {
-            if (!prev) return prev;
-            const updated = {
-              ...prev,
-              sections_progress: (prev.sections_progress || []).map((s) =>
-                s.id === nextToDraft.id ? { ...s, status: "drafting" } : s
-              ),
-            };
-            agentStateRef.current = updated;
-            return updated;
-          });
-        }
-
-        // Bắt đầu interval poll trạng thái nhanh (250ms) ngay khi vừa gửi request backend để bắt lấy stream/chờ stream
-        let pollTimer = null;
-        let isStepDone = false;
-
-        const startLivePolling = () => {
-          pollTimer = setInterval(async () => {
-            if (isStepDone || agentCancelRequestedRef.current) {
-              if (pollTimer) clearInterval(pollTimer);
-              return;
-            }
-            try {
-              const statusRes = await fetch("/api/report-assistant/agent/status", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ chatId }),
-              });
-              const statusData = await statusRes.json().catch(() => ({}));
-              if (statusData?.ok && statusData.state && !isStepDone) {
-                setAgentState(statusData.state);
-                agentStateRef.current = statusData.state;
-              }
-            } catch (e) {
-              // Ignore polling fetch errors
-            }
-          }, 1500);
-        };
-
-        startLivePolling();
-
-        try {
-          const draftRes = await fetch("/api/report-assistant/agent/draft-next", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ chatId, username, modelId }),
-          });
-          const draftData = await draftRes.json().catch(() => ({}));
-          
-          isStepDone = true;
-          if (pollTimer) clearInterval(pollTimer);
-          
-          if (!draftRes.ok || draftData?.ok === false) {
-            const errClass = classifyAgentDraftError(
-              draftRes.status,
-              typeof draftData?.error === "string" ? draftData.error : "",
-              new Error(draftData?.error || "Lỗi không xác định khi soạn thảo")
-            );
-            setAgentErrorDialog({
-              title: errClass.title,
-              message: errClass.message,
-              detail: errClass.detail,
-              chatId,
-              sectionId: draftData?.activeSectionId || null,
-            });
-            setAgentActive(false);
-            return;
-          }
-
-          if (draftData?.ok && draftData.state) {
-            setAgentState(draftData.state);
-            agentStateRef.current = draftData.state;
-
-            const isCompleted = draftData.state.current_step === "COMPLETED";
-            const isCancelled = draftData.state.current_step === "CANCELLED";
-
-            if (isCancelled || agentCancelRequestedRef.current) {
-              setAgentActive(false);
-              return;
-            }
-
-            if (draftData.workerAlreadyRunning) {
-              // Worker đang soạn thảo ở backend, poll lại mỗi 1.5s để nhận nội dung stream real-time mới nhất
-              setTimeout(runNextDraftStep, 1500);
-              return;
-            }
-
-            const hasMoreTodo = (draftData.state.sections_progress || []).some(
-              (s) => s.status === "todo" || s.status === "drafting" || s.status === "stream_drafting"
-            );
-
-            if (!isCompleted && hasMoreTodo) {
-              setTimeout(runNextDraftStep, 1000);
-            } else if (isCompleted) {
-              showToast("AI Agent đã hoàn thành toàn bộ nội dung báo cáo!", "success");
-              // B4: Mở drawer + chuyển Preview báo cáo hoàn chỉnh khi HOÀN THÀNH TẤT CẢ CÁC MỤC
-              setAgentActive(true);
-              openAgentProgressPreview(draftData.state, "Báo cáo hoàn chỉnh");
-              const runId = draftData.state.session_id || draftData.state.run_id || draftData.state.sections_progress?.[0]?.reportContext?.runId || draftData.state.updatedAt || "v1";
-              const reportCardId = `report_card_${chatId}_${runId}`;
-              const reportCardMsg = {
-                id: reportCardId,
-                role: "assistant",
-                isReportCard: true,
-                sessionId: runId,
-                content: "Báo cáo hoàn chỉnh",
-                createdAt: new Date().toISOString(),
-              };
-              appendChatMessage(chatId, null, reportCardMsg);
-            }
-          }
-        } catch (fetchErr) {
-          if (agentCancelRequestedRef.current) return;
-          console.warn("[runNextDraftStep] Lỗi kết nối mạng tạm thời, tự động thử lại sau 1s...", fetchErr.message);
-          setTimeout(runNextDraftStep, 1000);
-        }
-      };
-
-      runNextDraftStep();
+      startDraftingLoop(chatId, modelIdArg);
     } catch (err) {
       showToast(err.message || "Không thể khởi chạy quy trình soạn thảo.", "error");
       setAgentLoading(false);
     }
-  }, [activeSessionId, selectedReportModelId, activeModel?.id, username, showToast, openAgentProgressPreview, appendChatMessage]);
+  }, [activeSessionId, username, showToast, setSessions, startDraftingLoop]);
 
   const reloadSection = useCallback(async (sectionId, chatIdArg = activeSessionId) => {
     const chatId = chatIdArg || activeSessionId;
     if (!chatId || !sectionId) return;
+    agentCancelRequestedRef.current = false;
     setAgentLoading(true);
     try {
       const res = await fetch("/api/report-assistant/agent/reload-section", {
@@ -509,39 +540,18 @@ export function useAgentWorkflow({
       });
       const data = await res.json().catch(() => ({}));
       if (data?.ok && data.state) {
+        agentCancelRequestedRef.current = false;
         setAgentState(data.state);
         agentStateRef.current = data.state;
         setAgentActive(true);
         showToast("Đã thiết lập lại mục báo cáo để soạn lại!", "info");
-        confirmOutlineAndStartDrafting(chatId);
+        startDraftingLoop(chatId);
       }
     } catch (err) {
       console.error("Reload section error:", err);
       showToast("Lỗi khi tải lại mục: " + err.message, "error");
     } finally { setAgentLoading(false); }
-  }, [activeSessionId, showToast, confirmOutlineAndStartDrafting]);
-
-  const cancelAgentWorkflow = useCallback(async () => {
-    agentCancelRequestedRef.current = true;
-    setAgentLoading(true);
-    try {
-      const res = await fetch("/api/report-assistant/agent/cancel", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chatId: activeSessionId, username }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (data?.ok && data.state) {
-        setAgentState(data.state);
-        showToast("Đã dừng quy trình AI Agent thành công!", "info");
-      }
-    } catch (err) {
-      console.error("Lỗi khi hủy AI Agent:", err);
-    } finally {
-      setAgentLoading(false);
-      setAgentActive(false);
-    }
-  }, [activeSessionId, username, showToast]);
+  }, [activeSessionId, showToast, startDraftingLoop]);
 
   return {
     agentActive, setAgentActive, agentState, setAgentState, agentLoading, setAgentLoading,

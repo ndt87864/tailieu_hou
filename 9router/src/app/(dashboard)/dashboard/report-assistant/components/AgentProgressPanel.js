@@ -214,9 +214,11 @@ export function AgentProgressPanel({
         </div>
 
         {(agentState.sections_progress || []).map((sec, idx) => {
+          const isWorkflowCancelled = agentState?.current_step === "CANCELLED";
           const isDone = sec.status === "done";
-          const isStreamDrafting = sec.status === "stream_drafting";
-          const isDrafting = sec.status === "drafting" || sec.status === "in_progress" || isStreamDrafting;
+          const isCancelled = sec.status === "cancelled" || (isWorkflowCancelled && !isDone);
+          const isStreamDrafting = !isWorkflowCancelled && sec.status === "stream_drafting";
+          const isDrafting = !isWorkflowCancelled && (sec.status === "drafting" || sec.status === "in_progress" || isStreamDrafting);
 
           return (
             <div
@@ -225,6 +227,8 @@ export function AgentProgressPanel({
                 "p-3.5 rounded-2xl border transition-all text-xs space-y-2",
                 isDone
                   ? "bg-emerald-500/5 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
+                  : isCancelled
+                  ? "bg-rose-500/5 border-rose-500/30 text-rose-700 dark:text-rose-300"
                   : isStreamDrafting
                   ? "bg-purple-500/5 border-purple-500/40 text-purple-700 dark:text-purple-300 shadow-sm ring-1 ring-purple-500/20"
                   : isDrafting
@@ -261,12 +265,14 @@ export function AgentProgressPanel({
                       "text-[9px] uppercase font-extrabold px-2 py-0.5 rounded-full border shrink-0",
                       isDone
                         ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600"
+                        : isCancelled
+                        ? "bg-rose-500/10 border-rose-500/30 text-rose-600 font-extrabold"
                         : isDrafting
                         ? "bg-amber-500/10 border-amber-500/30 text-amber-600 animate-pulse"
                         : "bg-surface border-border text-text-subtle"
                     )}
                   >
-                    {isDone ? "Hoàn thành" : isDrafting ? "DRAFTING" : "TODO"}
+                    {isDone ? "Hoàn thành" : isCancelled ? "Đã hủy" : isDrafting ? "DRAFTING" : "TODO"}
                   </span>
                 </div>
               </div>
@@ -309,6 +315,32 @@ export function AgentProgressPanel({
                     </button>
                   </div>
                   <div className="text-[11px] text-text-main/90 max-h-48 overflow-y-auto custom-scrollbar bg-emerald-500/5 p-2 rounded-xl leading-relaxed whitespace-pre-wrap font-sans border border-emerald-500/10">
+                    {sec.content.replace(/^#+\s*.*(\r?\n|$)/, "").trim()}
+                  </div>
+                </div>
+              )}
+
+              {/* Cancelled Draft Preview Snippet */}
+              {isCancelled && sec.content && (
+                <div className="pt-2 border-t border-rose-500/20 space-y-1">
+                  <div className="text-[10px] font-bold text-rose-600 dark:text-rose-400 flex items-center justify-between gap-1">
+                    <div className="flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[13px]">cancel</span>
+                      <span>Bản nháp đã bị hủy:</span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(sec.content);
+                        showToast("Đã sao chép nội dung bản nháp!", "success");
+                      }}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg hover:bg-rose-500/10 text-rose-600 dark:text-rose-400 transition-colors cursor-pointer font-bold border border-rose-500/20 bg-rose-500/5 text-[11px]"
+                      title="Sao chép bản nháp này"
+                    >
+                      <span className="material-symbols-outlined text-[13px]">content_copy</span>
+                      <span>Sao chép</span>
+                    </button>
+                  </div>
+                  <div className="text-[11px] text-text-main/90 max-h-48 overflow-y-auto custom-scrollbar bg-rose-500/5 p-2 rounded-xl leading-relaxed whitespace-pre-wrap font-sans border border-rose-500/10">
                     {sec.content.replace(/^#+\s*.*(\r?\n|$)/, "").trim()}
                   </div>
                 </div>

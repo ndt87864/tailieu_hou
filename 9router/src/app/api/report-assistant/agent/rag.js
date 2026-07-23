@@ -1,4 +1,4 @@
-import { rankKnowledgeItems } from "./ragRanking";
+import { rankKnowledgeItems, extractBestKnowledgeExcerpt } from "./ragRanking";
 import { REPORT_TEMPLATE_CONTENT_USER } from "./utils";
 import { buildInternalFetchHeaders } from "./llm";
 
@@ -9,7 +9,7 @@ export function timeoutSignal(ms) {
   return AbortSignal.timeout(timeoutMs);
 }
 
-export async function runSupabaseRag({ supabaseQuery, username, requestBaseUrl, activeReportContext, authToken, reportType }) {
+export async function runSupabaseRag({ supabaseQuery, username, requestBaseUrl, activeReportContext, authToken, reportType, sectionInfo }) {
   if (!supabaseQuery || !username) return "";
 
   const baseUrl = requestBaseUrl;
@@ -58,9 +58,11 @@ export async function runSupabaseRag({ supabaseQuery, username, requestBaseUrl, 
 1. PHONG CÁCH XƯNG HÔ: Quan sát kỹ và BẮT CHƯỚC y hệt danh xưng được dùng (ví dụ: "sinh viên", "em", "công ty", "tác giả"...).
 2. VĂN PHONG VÀ ĐỘ DÀI: Viết đi thẳng vào vấn đề, súc tích, thực tế đúng như mẫu. TUYỆT ĐỐI không viết dài dòng, sáo rỗng, lan man.
 3. CẤU TRÚC LẬP LUẬN: Học cách tài liệu tham khảo tiếp cận vấn đề, cách họ kết hợp bảng số liệu với các diễn giải thực tế và cách đưa luận điểm.
+4. LƯU Ý BẮT BUỘC: Đây CHỈ LÀ TÀI LIỆU MẪU ĐỂ THAM KHẢO VĂN PHONG VÀ PHƯƠNG PHÁP TƯ DUY. TUYỆT ĐỐI không lấy tên công ty/lời mở đầu trong tài liệu mẫu để thay cho nội dung mục được yêu cầu hiện tại!
 Hãy chưng cất và áp dụng triệt để văn phong, tư duy và danh xưng này vào phần soạn thảo của bạn. Tuyệt đối KHÔNG SAO CHÉP câu chữ nguyên văn hay số liệu gốc của họ.`;
   for (const rc of rankedChunks) {
-    content += `\n\n[Tài liệu mẫu tham chiếu: ${rc.item.filename}]\n${rc.item.content_text.slice(0, 4000)}`;
+    const excerpt = extractBestKnowledgeExcerpt(rc.item.content_text, sectionInfo, supabaseQuery, 4000);
+    content += `\n\n[Tài liệu mẫu tham chiếu: ${rc.item.filename}]\n${excerpt}`;
   }
   content += `\n-----------------------------------------------------------`;
   return content;

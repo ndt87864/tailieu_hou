@@ -180,7 +180,20 @@ export async function handleDraftNext(ctx) {
   }
 
   const [supabaseResult, webResult] = await Promise.allSettled([
-    runSupabaseRag({ supabaseQuery, username, requestBaseUrl, activeReportContext, authToken, reportType: currentState?.reportType }),
+    runSupabaseRag({
+      supabaseQuery,
+      username,
+      requestBaseUrl,
+      activeReportContext,
+      authToken,
+      reportType: currentState?.reportType,
+      sectionInfo: {
+        id: nextToDraft?.id,
+        title: nextToDraft?.title,
+        cleanTitle,
+        subsections: nextToDraft?.subsections || [],
+      },
+    }),
     runWebRag({ useWebRag, webQuery, requestBaseUrl, authToken }),
   ]);
 
@@ -288,6 +301,9 @@ export async function handleDraftNext(ctx) {
     while (attempts < maxDraftAttempts) {
       attempts++;
       try {
+        // ALWAYS use a fresh clean Luna chat session for drafting each section (matching init action behavior)
+        retryWithFreshLunaChat(reportSession, currentState);
+
         if (attempts > 1) {
           const { data: updatedState } = await getAgentState(chatId, username);
           if (updatedState?.current_step === "CANCELLED") {
@@ -295,9 +311,6 @@ export async function handleDraftNext(ctx) {
             return NextResponse.json({ ok: true, state: updatedState, message: "Agent run cancelled." });
           }
           const stateToSave = updatedState || currentState;
-
-          // Reset Luna session context parameters for retry attempts
-          retryWithFreshLunaChat(reportSession, stateToSave);
 
           setAgentActivity(
             stateToSave,
@@ -388,7 +401,8 @@ export async function handleDraftNext(ctx) {
           throw err;
         }
         console.error(`[executeDraftNext] Attempt ${attempts} failed:`, err.message);
-        if (attempts >= maxDraftAttempts) {
+        const isRateLimit = String(err?.message || "").includes("RateLimited") || String(err?.message || "").includes("upper limit") || String(err?.message || "").includes("daily usage limit");
+        if (isRateLimit || attempts >= maxDraftAttempts) {
           throw err;
         }
       }
@@ -405,16 +419,39 @@ export async function handleDraftNext(ctx) {
       sectionType,
     });
   } catch (err) {
-    try {
-      await leaseManager.release();
-    } catch (releaseErr) {}
-
     if (err?.code === "AGENT_CANCELLED" || String(err?.message || "").includes("CANCELLED")) {
+      try {
+        await leaseManager.release();
+      } catch (releaseErr) {}
       const { data: latestState } = await getAgentState(chatId, username);
       return NextResponse.json({ ok: true, state: latestState, message: "Worker aborted: workflow cancelled by user." });
     }
 
-    console.error("[executeDraftNext] Unexpected error in draftNext workflow:", err);
+    console.error("[executeDraftNext] Error in draftNext workflow:", err.message);
+    try {
+      const { data: currentState } = await getAgentState(chatId, username);
+      if (currentState) {
+        const targetSec = currentState.outline?.find((s) => s.status === "in_progress" || s.status === "drafting");
+        if (targetSec) {
+          targetSec.status = "error";
+        }
+        currentState.status = "error";
+        currentState.current_step = "CANCELLED";
+        currentState.errorMessage = err.message || "Lỗi soạn thảo bằng mô hình đã chọn.";
+        setAgentActivity(currentState, targetSec, "error", `Đã dừng quy trình: ${err.message || "Lỗi mô hình"}`, {
+          actor: "Writer",
+          error: err.message,
+        });
+        await saveAgentState(chatId, username, currentState, null, lockId);
+      }
+    } catch (saveErr) {
+      console.error("[executeDraftNext] Failed to save error state:", saveErr);
+    } finally {
+      try {
+        await leaseManager.release();
+      } catch (releaseErr) {}
+    }
+
     return NextResponse.json({ ok: false, error: err.message || "Lỗi soạn thảo mục báo cáo" }, { status: 200 });
   }
 }
