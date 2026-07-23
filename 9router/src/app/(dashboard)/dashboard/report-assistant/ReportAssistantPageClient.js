@@ -1457,6 +1457,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
                     )}
 
                     {/* Hover actions */}
+                    {!msg.isOutlineCard && !msg.isReportCard && (
                     <div
                       className={cn(
                         "absolute opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 bg-surface border border-border shadow-sm rounded-lg p-0.5 z-10 top-full mt-1",
@@ -1495,6 +1496,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
                         </button>
                       )}
                     </div>
+                    )}
                   </div>
                 </div>
                 ));
