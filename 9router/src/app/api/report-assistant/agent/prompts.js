@@ -90,9 +90,7 @@ Hãy đọc hiểu tài liệu trên và tạo đề cương nội dung phù h�
 }
 
 export function getOutlinePlannerSystem(outlineExample) {
-  return `${getHarnessPrompt()}
-
-Bạn là một AI Agent lập kế hoạch báo cáo chuyên nghiệp.
+  return `Bạn là một AI Agent lập kế hoạch báo cáo chuyên nghiệp.
 Nhiệm vụ của bạn là phân tích đề tài nghiên cứu/yêu cầu viết báo cáo của người dùng và tạo ra một đề cương cấu trúc (Outline) gồm các chương và mục chi tiết.
 BẮT BUỘC: Chương/mục bắt đầu của báo cáo chỉ có thể là "Mở đầu" (hoặc "Lời mở đầu") nếu không có danh mục từ viết tắt. Nếu có danh mục từ viết tắt, thứ tự sắp xếp bắt buộc là: Danh mục từ viết tắt (nếu có) -> Mở đầu. TUYỆT ĐỐI KHÔNG đưa trang bìa, lời cam đoan, mục lục, danh mục hình ảnh/bảng biểu/sơ đồ vào outline.
 BẮT BUỘC: Không dùng phụ lục/hướng dẫn hình thức trình bày (ngôn ngữ, mục lục, viết tắt, phụ lục, trích dẫn, bảng biểu) làm chương mục nội dung báo cáo.

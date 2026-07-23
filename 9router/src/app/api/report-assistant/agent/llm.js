@@ -159,8 +159,11 @@ export async function callLLM(modelId, messages, temperature = 0.3, authToken = 
   const maxAttempts = Number.isFinite(REPORT_LLM_MAX_ATTEMPTS) && REPORT_LLM_MAX_ATTEMPTS > 0 ? REPORT_LLM_MAX_ATTEMPTS : 1;
   const timeoutMs = Number.isFinite(options.timeout) && options.timeout > 0 ? options.timeout : (Number.isFinite(REPORT_LLM_TIMEOUT_MS) && REPORT_LLM_TIMEOUT_MS > 0 ? REPORT_LLM_TIMEOUT_MS : 60000);
 
-  // Execute request on specified model
-  let modelsToTry = [modelId];
+  // Execute request on specified model with automatic fallback list
+  const fallbackList = isLunaModelId(modelId)
+    ? LUNA_BACKUP_MODELS
+    : (isArenaModelId(modelId) ? ARENA_BACKUP_MODELS : BACKUP_MODELS);
+  let modelsToTry = Array.from(new Set([modelId, ...fallbackList]));
   let currentModelIdx = 0;
   let attempt = 0;
   let backoffMs = 2000;
@@ -219,7 +222,7 @@ export async function callLLM(modelId, messages, temperature = 0.3, authToken = 
         console.log(`[agent/route] LLM response model=${currentModelId} status=${res.status} attempt=${attempt + 1}/${maxAttempts} stream=${isStream}`);
       }
 
-      // Handle Rate Limiting / Quota Exceeded (429) -> immediately switch to next model
+      // Handle Rate Limiting / Quota Exceeded (429/502 with quota_limit) -> immediately switch to next model
       if (res.status === 429) {
         const errText = await res.text().catch(() => "");
         console.warn(`[agent/route] Model ${currentModelId} returned 429 (Quota Limit). Switching immediately to next fallback model... Error detail: ${errText.slice(0, 180)}`);
@@ -229,17 +232,18 @@ export async function callLLM(modelId, messages, temperature = 0.3, authToken = 
         continue;
       }
 
-      // Handle other retriable errors like 503 (Server Overloaded) or 504
-      if (res.status === 503 || res.status === 504) {
-        attempt++;
+      // Handle retriable server errors like 502/503/504
+      if (res.status === 502 || res.status === 503 || res.status === 504) {
         const errText = await res.text().catch(() => "");
-        if (attempt >= maxAttempts) {
-          console.warn(`[agent/route] Model ${currentModelId} returned ${res.status} repeatedly. Switching to next fallback model...`);
+        const isQuotaError = /quota_limit|rate_limit|accounts locked/i.test(errText);
+        if (isQuotaError || attempt >= maxAttempts - 1) {
+          console.warn(`[agent/route] Model ${currentModelId} returned ${res.status} (${isQuotaError ? "Quota/Account Limit" : "Server Error"}). Switching to next fallback model... Error detail: ${errText.slice(0, 180)}`);
           currentModelIdx++;
           attempt = 0;
           backoffMs = 2000;
           continue;
         }
+        attempt++;
         const jitter = Math.floor(Math.random() * 1000);
         const sleepMs = Math.min(backoffMs, 5000) + jitter;
         console.warn(`[agent/route] LLM ${res.status}. Attempt ${attempt}/${maxAttempts}. Retrying same model in ${sleepMs}ms...`);

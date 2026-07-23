@@ -32,6 +32,10 @@ import {
   checkPreconditions,
   retryWithFreshLunaChat
 } from "../draftNextHelpers";
+import {
+  classifySection,
+  buildSectionAwareRAGQuery
+} from "../promptSectionClassifier";
 
 export async function handleDraftNext(ctx) {
   const {
@@ -132,30 +136,17 @@ export async function handleDraftNext(ctx) {
     return NextResponse.json({ ok: true, state: latestState, message: "Worker aborted: cancelled or lease lost." });
   }
 
-  // 1. Search Planning (Heuristic RAG - 0ms)
-  let supabaseQuery = "";
-  let webQuery = "";
-
+  // 1. Search Planning (Heuristic RAG - 0ms with Section Classifier)
+  const sectionType = classifySection(nextToDraft, activeReportContext);
   const cleanTitle = stripOutlineNumberPrefix(nextToDraft.title);
-  supabaseQuery = cleanTitle;
-  webQuery = cleanTitle;
-
-  if (activeReportContext) {
-    const contextQuery = [
-      activeReportContext.studyIssue,
-      activeReportContext.targetCompany,
-      activeReportContext.analysisYearLabel,
-    ]
-      .filter(Boolean)
-      .join(" ");
-    supabaseQuery = `${contextQuery} ${supabaseQuery}`.trim();
-    webQuery = `${contextQuery} ${webQuery}`.trim();
-  }
+  const supabaseQuery = buildSectionAwareRAGQuery(cleanTitle, sectionType, activeReportContext);
+  const webQuery = buildSectionAwareRAGQuery(cleanTitle, sectionType, activeReportContext);
 
   setAgentActivity(currentState, nextToDraft, "search_plan_ready", "Agent đã lập truy vấn thông tin dạng heuristic cực nhanh (0ms).", {
     actor: "Planner",
     supabaseQuery,
     webQuery,
+    sectionType,
   });
 
   try {
@@ -221,37 +212,34 @@ export async function handleDraftNext(ctx) {
   }
   await throwIfCancelled(getAgentState, chatId, username);
 
-  // Construct drafting prompt (Scope Control)
+  // Construct drafting prompt (Scope Control with lightweight outline summary)
   const previousDone = progress.filter((p) => p.status === "done");
   const lastDoneContent = previousDone.length > 0 ? previousDone[previousDone.length - 1].content : "";
 
-  // Dispatch system prompt theo reportType lưu trong state (uu tiên), fallback sang regex detect
+  const outlineSummaryString = (currentState.outline || [])
+    .map((s) => `- ${s.title}`)
+    .join("\n");
+
+  // Dispatch system prompt theo reportType lưu trong state
   const reportType = currentState?.reportType;
   const isB49 = reportType ? reportType === "b49" : isInternshipB49ReportSection(nextToDraft);
   const isCareer = reportType ? reportType === "career" : isCareerOrientationReportSection(nextToDraft);
 
+  const promptOptions = {
+    analysisYearsText: activeReportContext?.analysisYearLabel || getLastCompletedYears(3).join(", "),
+    reportContextPromptText: reportContextPrompt(activeReportContext, progress.length, nextToDraft.target_words),
+    outlineJsonString: outlineSummaryString,
+    lastDoneContent,
+    sectionType,
+  };
+
   let systemPrompt = "";
   if (isCareer) {
-    systemPrompt = prompts.getDraftingSystemCareer({
-      analysisYearsText: activeReportContext?.analysisYearLabel || getLastCompletedYears(3).join(", "),
-      reportContextPromptText: reportContextPrompt(activeReportContext, progress.length, nextToDraft.target_words),
-      outlineJsonString: JSON.stringify(currentState.outline, null, 2),
-      lastDoneContent,
-    });
+    systemPrompt = prompts.getDraftingSystemCareer(promptOptions);
   } else if (isB49) {
-    systemPrompt = prompts.getDraftingSystemB49({
-      analysisYearsText: activeReportContext?.analysisYearLabel || getLastCompletedYears(3).join(", "),
-      reportContextPromptText: reportContextPrompt(activeReportContext, progress.length, nextToDraft.target_words),
-      outlineJsonString: JSON.stringify(currentState.outline, null, 2),
-      lastDoneContent,
-    });
+    systemPrompt = prompts.getDraftingSystemB49(promptOptions);
   } else {
-    systemPrompt = prompts.getDraftingSystemStandard({
-      analysisYearsText: activeReportContext?.analysisYearLabel || getLastCompletedYears(3).join(", "),
-      reportContextPromptText: reportContextPrompt(activeReportContext, progress.length, nextToDraft.target_words),
-      outlineJsonString: JSON.stringify(currentState.outline, null, 2),
-      lastDoneContent,
-    });
+    systemPrompt = prompts.getDraftingSystemStandard(promptOptions);
   }
   // If this is a references-only section, override to a specialized listing prompt
   const isRefSection = nextToDraft.is_reference_section || isReferenceOnlySection(nextToDraft);
@@ -413,7 +401,8 @@ export async function handleDraftNext(ctx) {
       activeReportContext,
       draftResult: finalContent,
       webSources,
-      leaseManager
+      leaseManager,
+      sectionType,
     });
   } catch (err) {
     try {

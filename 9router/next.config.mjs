@@ -32,7 +32,7 @@ const nextConfig = {
     // Cache fetch responses across HMR refreshes for faster dev reloads.
     serverComponentsHmrCache: true,
     // Tree-shake heavy barrel imports to cut compile + bundle size
-    optimizePackageImports: ["@xyflow/react", "@dnd-kit/core", "@dnd-kit/sortable", "material-symbols", "marked"],
+    optimizePackageImports: ["@xyflow/react", "@dnd-kit/core", "@dnd-kit/sortable", "material-symbols", "marked", "recharts"],
   },
   webpack: (config, { dev, isServer }) => {
     // Ignore fs/path modules in browser bundle
@@ -43,11 +43,26 @@ const nextConfig = {
         path: false,
       };
     }
-    // Exclude non-source dirs from watcher to reduce inotify load
+    // Exclude non-source dirs from watcher to reduce inotify load and prevent scanning C:\ root system files on Windows
     config.watchOptions = {
       ...config.watchOptions,
       aggregateTimeout: 300,
-      ignored: /[\\/](node_modules|\.git|logs|\.next|\.next-cli-build|gitbook|cli|open-sse\.old|tests|docs)[\\/]/,
+      followSymlinks: false,
+      ignored: [
+        "**/node_modules/**",
+        "**/.git/**",
+        "**/logs/**",
+        "**/.next/**",
+        "**/.next-cli-build/**",
+        "**/gitbook/**",
+        "**/cli/**",
+        "**/open-sse.old/**",
+        "**/tests/**",
+        "**/docs/**",
+        "**/*.sys",
+        "**/*.tmp",
+        "**/*.log*",
+      ],
     };
     return config;
   },

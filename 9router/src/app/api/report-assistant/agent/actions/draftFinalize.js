@@ -20,7 +20,8 @@ export async function handleDraftFinalize(ctx, {
   activeReportContext,
   draftResult,
   webSources,
-  leaseManager
+  leaseManager,
+  sectionType = "analysis"
 }) {
   const {
     chatId,
@@ -117,7 +118,8 @@ export async function handleDraftFinalize(ctx, {
       activeReportContext?.analysisYearLabel || getLastCompletedYears(3).join(", "),
       !!activeReportContext?.careerOrientationReport,
       nextToDraft.id,
-      nextToDraft.title
+      nextToDraft.title,
+      sectionType
     );
 
     const criticMessages = [

@@ -178,7 +178,7 @@ export function useAgentWorkflow({
     const isEnded = agentState.current_step === "COMPLETED" || agentState.current_step === "CANCELLED";
     const isWaitingApproval = agentState.current_step === "WAIT_APPROVAL";
     if (isEnded || isWaitingApproval) return;
-    const timer = setInterval(() => { loadAgentStatus(activeSessionId); }, 2000);
+    const timer = setInterval(() => { loadAgentStatus(activeSessionId); }, 3000);
     return () => clearInterval(timer);
   }, [agentActive, activeSessionId, agentState?.current_step, loadAgentStatus]);
 
@@ -395,7 +395,7 @@ export function useAgentWorkflow({
             } catch (e) {
               // Ignore polling fetch errors
             }
-          }, 250);
+          }, 1500);
         };
 
         startLivePolling();
@@ -441,8 +441,8 @@ export function useAgentWorkflow({
             }
 
             if (draftData.workerAlreadyRunning) {
-              // Worker đang soạn thảo ở backend, poll lại mỗi 300ms để nhận nội dung stream real-time mới nhất
-              setTimeout(runNextDraftStep, 300);
+              // Worker đang soạn thảo ở backend, poll lại mỗi 1.5s để nhận nội dung stream real-time mới nhất
+              setTimeout(runNextDraftStep, 1500);
               return;
             }
 
@@ -451,7 +451,7 @@ export function useAgentWorkflow({
             );
 
             if (!isCompleted && hasMoreTodo) {
-              setTimeout(runNextDraftStep, 350);
+              setTimeout(runNextDraftStep, 1000);
             } else if (isCompleted) {
               showToast("AI Agent đã hoàn thành toàn bộ nội dung báo cáo!", "success");
               // B4: Mở drawer + chuyển Preview báo cáo hoàn chỉnh khi HOÀN THÀNH TẤT CẢ CÁC MỤC
