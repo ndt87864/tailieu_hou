@@ -406,6 +406,41 @@ export function ChatPanel({
             <TypingDots />
           </div>
         )}
+
+        {/* Live streaming indicator for AI Agent drafting report sections */}
+        {agentActive && agentState && agentState.current_step !== "COMPLETED" && agentState.current_step !== "CANCELLED" && agentState.current_step !== "WAIT_APPROVAL" && (() => {
+          const currentDraftingSection = (agentState.sections_progress || []).find((s) => s.status === "drafting" || s.status === "stream_drafting");
+          if (!currentDraftingSection) return null;
+
+          return (
+            <div className="flex gap-4 max-w-3xl mr-auto">
+              <AssistantAvatar />
+              <div className="p-4 rounded-2xl border text-sm leading-relaxed bg-surface border-brand-500/30 text-text-main shadow-xs flex-1">
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-border/60">
+                  <div className="flex items-center gap-2 font-bold text-xs text-brand-600 dark:text-brand-400">
+                    <span className="material-symbols-outlined text-[16px] animate-spin text-brand-500">sync</span>
+                    <span>Đang soạn thảo: {currentDraftingSection.title}</span>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-500/10 text-brand-600 font-semibold animate-pulse">
+                    Stream Realtime
+                  </span>
+                </div>
+                {currentDraftingSection.content ? (
+                  <div
+                    dangerouslySetInnerHTML={{
+                      __html: renderMarkdownAndMath(currentDraftingSection.content),
+                    }}
+                  />
+                ) : (
+                  <div className="flex items-center gap-2 text-text-subtle py-1">
+                    <span className="material-symbols-outlined text-[16px] animate-spin text-brand-500">progress_activity</span>
+                    <span className="text-xs font-medium italic">Đang suy nghĩ & thu thập nội dung cho mục này...</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Input Bar */}
