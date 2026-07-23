@@ -51,7 +51,14 @@ export function AgentProgressPanel({
   confirmOutlineAndStartDrafting,
   openAgentProgressPreview,
   showToast,
+  reloadSection,
 }) {
+  const [reloadModal, setReloadModal] = useState({
+    isOpen: false,
+    sectionId: null,
+    sectionTitle: "",
+  });
+
   if (!agentState) return null;
 
   return (
@@ -231,18 +238,37 @@ export function AgentProgressPanel({
                     ? `${sec.id}. ${sec.title}`
                     : sec.title}
                 </span>
-                <span
-                  className={cn(
-                    "text-[9px] uppercase font-extrabold px-2 py-0.5 rounded-full border shrink-0",
-                    isDone
-                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600"
-                      : isDrafting
-                      ? "bg-amber-500/10 border-amber-500/30 text-amber-600 animate-pulse"
-                      : "bg-surface border-border text-text-subtle"
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {typeof reloadSection === "function" && !isDrafting && (
+                    <button
+                      onClick={() => {
+                        setReloadModal({
+                          isOpen: true,
+                          sectionId: sec.id,
+                          sectionTitle: sec.title || sec.id,
+                        });
+                      }}
+                      disabled={agentLoading}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-brand-500/10 hover:bg-brand-500/20 text-brand-600 dark:text-brand-400 font-extrabold border border-brand-500/25 transition-all cursor-pointer text-[11px] disabled:opacity-50 shadow-2xs active:scale-95"
+                      title="Tách riêng mục này để AI tạo lại mà không ảnh hưởng các mục khác"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">refresh</span>
+                      <span>Soạn lại</span>
+                    </button>
                   )}
-                >
-                  {isDone ? "Hoàn thành" : isDrafting ? "DRAFTING" : "TODO"}
-                </span>
+                  <span
+                    className={cn(
+                      "text-[9px] uppercase font-extrabold px-2 py-0.5 rounded-full border shrink-0",
+                      isDone
+                        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600"
+                        : isDrafting
+                        ? "bg-amber-500/10 border-amber-500/30 text-amber-600 animate-pulse"
+                        : "bg-surface border-border text-text-subtle"
+                    )}
+                  >
+                    {isDone ? "Hoàn thành" : isDrafting ? "DRAFTING" : "TODO"}
+                  </span>
+                </div>
               </div>
 
               {sec.description && (
@@ -275,11 +301,11 @@ export function AgentProgressPanel({
                         navigator.clipboard.writeText(sec.content);
                         showToast("Đã sao chép nội dung chương mục này!", "success");
                       }}
-                      className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 transition-colors cursor-pointer font-bold"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 transition-colors cursor-pointer font-bold border border-emerald-500/20 bg-emerald-500/5 text-[11px]"
                       title="Sao chép chương mục này"
                     >
-                      <span className="material-symbols-outlined text-[12px]">content_copy</span>
-                      <span>Copy</span>
+                      <span className="material-symbols-outlined text-[13px]">content_copy</span>
+                      <span>Sao chép</span>
                     </button>
                   </div>
                   <div className="text-[11px] text-text-main/90 max-h-48 overflow-y-auto custom-scrollbar bg-emerald-500/5 p-2 rounded-xl leading-relaxed whitespace-pre-wrap font-sans border border-emerald-500/10">
@@ -313,6 +339,62 @@ export function AgentProgressPanel({
           );
         })}
       </div>
+
+      {/* Modern Custom UI Confirmation Modal */}
+      {reloadModal.isOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="flex items-start gap-3.5">
+              <div className="size-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold shrink-0 border border-amber-500/20">
+                <span className="material-symbols-outlined text-[22px]">refresh</span>
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-base font-extrabold text-text-main">
+                  Xác nhận soạn lại mục báo cáo
+                </h3>
+                <p className="mt-1 text-xs text-text-subtle leading-relaxed">
+                  Bạn có chắc chắn muốn tách riêng mục{" "}
+                  <span className="font-bold text-brand-600 dark:text-brand-400">
+                    "{reloadModal.sectionTitle}"
+                  </span>{" "}
+                  để AI tạo lại không?
+                </p>
+                <div className="mt-3 p-2.5 rounded-xl bg-surface-2 border border-border/60 text-[11px] text-text-muted leading-relaxed flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[16px] text-emerald-500 shrink-0">
+                    check_circle
+                  </span>
+                  <span>Nội dung của toàn bộ các mục khác đã hoàn thành sẽ được giữ nguyên 100%.</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border/60">
+              <button
+                type="button"
+                onClick={() => setReloadModal({ isOpen: false, sectionId: null, sectionTitle: "" })}
+                className="px-4 py-2 rounded-xl border border-border bg-bg hover:bg-surface-2 text-text-muted hover:text-text-main text-xs font-bold transition-all cursor-pointer select-none"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const secId = reloadModal.sectionId;
+                  setReloadModal({ isOpen: false, sectionId: null, sectionTitle: "" });
+                  if (secId && typeof reloadSection === "function") {
+                    reloadSection(secId);
+                  }
+                }}
+                disabled={agentLoading}
+                className="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 active:scale-98 text-white text-xs font-bold transition-all shadow-md cursor-pointer select-none flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[16px]">refresh</span>
+                <span>Xác nhận soạn lại</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

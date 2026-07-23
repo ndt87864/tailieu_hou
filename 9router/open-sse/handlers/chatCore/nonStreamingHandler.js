@@ -303,10 +303,16 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
     console.error("[RequestDetail] Failed to save:", err.message);
   });
 
+  const jsonResHeaders = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" };
+  const lunaChatId = providerResponse?.headers?.get("x-luna-chat-id");
+  const lunaMsgId = providerResponse?.headers?.get("x-luna-message-id");
+  if (lunaChatId) jsonResHeaders["x-luna-chat-id"] = lunaChatId;
+  if (lunaMsgId) jsonResHeaders["x-luna-message-id"] = lunaMsgId;
+
   return {
     success: true,
     response: new Response(JSON.stringify(translatedResponse), {
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+      headers: jsonResHeaders
     })
   };
 }

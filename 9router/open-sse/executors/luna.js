@@ -325,6 +325,17 @@ export class LunaExecutor extends DefaultExecutor {
     return { choice, delta, content, phase, status, summary, responseId };
   }
 
+  extractAssistantContentFromMessage(msg) {
+    if (!msg || msg.role !== "assistant") return null;
+    if (Array.isArray(msg.content_list) && msg.content_list.length > 0) {
+      const answerItem =
+        msg.content_list.find((item) => (item.phase === "answer" || item.phase === "image_gen") && item.content) ||
+        msg.content_list.find((item) => item.phase !== "think" && item.phase !== "thinking_summary" && item.content);
+      if (answerItem?.content) return answerItem.content;
+    }
+    return msg.content || null;
+  }
+
   async fetchCompletedChatContent(chatId, credentials, proxyOptions) {
     if (!chatId) return null;
     const url = `https://chat.qwen.ai/api/v2/chats/${chatId}`;
@@ -335,14 +346,18 @@ export class LunaExecutor extends DefaultExecutor {
     const history = chatData?.data?.chat?.history;
     const messages = history?.messages || {};
     const currentId = history?.currentId;
-    if (currentId && messages[currentId]) {
-      const msg = messages[currentId];
-      if (msg.role === "assistant") {
-        const answerItem = Array.isArray(msg.content_list)
-          ? msg.content_list.find((item) => item.phase === "answer" || item.status === "finished")
-          : null;
-        return answerItem?.content || msg.content || "";
+    if (!currentId) return null;
+
+    let targetMsg = messages[currentId];
+    if (targetMsg && targetMsg.role === "user" && Array.isArray(targetMsg.childrenIds) && targetMsg.childrenIds.length > 0) {
+      const lastChildId = targetMsg.childrenIds[targetMsg.childrenIds.length - 1];
+      if (messages[lastChildId]) {
+        targetMsg = messages[lastChildId];
       }
+    }
+
+    if (targetMsg && targetMsg.role === "assistant") {
+      return this.extractAssistantContentFromMessage(targetMsg);
     }
     return null;
   }
@@ -575,11 +590,15 @@ export class LunaExecutor extends DefaultExecutor {
       // Transform Qwen SSE stream to OpenAI format for streaming
       const webStream = await this.transformResponseStream(response.body, model, assistantMessageId);
 
+      const resHeaders = new Headers(response.headers);
+      if (chatId) resHeaders.set("x-luna-chat-id", chatId);
+      if (assistantMessageId) resHeaders.set("x-luna-message-id", assistantMessageId);
+
       return {
         response: new Response(webStream, {
           status: response.status,
           statusText: response.statusText,
-          headers: response.headers,
+          headers: resHeaders,
         }),
         url,
         headers,
@@ -744,11 +763,16 @@ export class LunaExecutor extends DefaultExecutor {
       usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
     };
 
+    const resHeaders = new Headers();
+    resHeaders.set("Content-Type", "application/json");
+    if (chatId) resHeaders.set("x-luna-chat-id", chatId);
+    if (sessionMessageId) resHeaders.set("x-luna-message-id", sessionMessageId);
+
     const body = JSON.stringify(completionResponse);
     return {
       response: new Response(body, {
         status: 200,
-        headers: { "Content-Type": "application/json" },
+        headers: resHeaders,
       }),
       url,
       headers,

@@ -592,6 +592,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
             confirmOutlineAndStartDrafting={confirmOutlineAndStartDrafting}
             openAgentProgressPreview={openAgentProgressPreview}
             showToast={showToast}
+            reloadSection={reloadSection}
           />
         )
       )}

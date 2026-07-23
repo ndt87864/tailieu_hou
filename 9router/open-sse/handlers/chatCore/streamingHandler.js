@@ -101,9 +101,15 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
     console.error("[RequestDetail] Failed to save streaming request:", err.message);
   });
 
+  const sseResHeaders = { ...SSE_HEADERS };
+  const lunaChatId = providerResponse?.headers?.get("x-luna-chat-id");
+  const lunaMsgId = providerResponse?.headers?.get("x-luna-message-id");
+  if (lunaChatId) sseResHeaders["x-luna-chat-id"] = lunaChatId;
+  if (lunaMsgId) sseResHeaders["x-luna-message-id"] = lunaMsgId;
+
   return {
     success: true,
-    response: new Response(transformedBody, { headers: SSE_HEADERS })
+    response: new Response(transformedBody, { headers: sseResHeaders })
   };
 }
 
