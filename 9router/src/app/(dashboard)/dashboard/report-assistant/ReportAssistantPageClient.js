@@ -1514,10 +1514,10 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
             {!assistantOnlyMode && (
               <span
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-600 dark:text-brand-400 font-medium text-[11px] cursor-pointer hover:bg-brand-500/20 transition-colors"
-                title="BẬT: Chế độ AI Agent tự động (Click chữ để mở xem tiến độ, click [x] để tắt)"
+                title="BẬT: Chế độ AI tạo báo cáo tự động (Click chữ để mở xem tiến độ, click [x] để tắt)"
               >
                 <span className="material-symbols-outlined text-[14px]">support_agent</span>
-                <span onClick={() => { if (agentState) setAgentActive(true); }}>AI Agent: BẬT</span>
+                <span onClick={() => { if (agentState) setAgentActive(true); }}>AI tạo báo cáo: BẬT</span>
                 <span
                   onClick={(e) => {
                     e.stopPropagation();
@@ -1725,7 +1725,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
                       >
                         <div className="flex items-center gap-2.5">
                           <span className="material-symbols-outlined text-[18px] text-brand-500">support_agent</span>
-                          <span>Chế độ AI Agent</span>
+                          <span>AI tạo báo cáo</span>
                         </div>
                         <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-surface border border-border text-text-subtle">
                           {!assistantOnlyMode ? "BẬT" : "TẮT"}
