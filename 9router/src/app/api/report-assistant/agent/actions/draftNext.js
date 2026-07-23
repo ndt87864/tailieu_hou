@@ -444,16 +444,34 @@ export async function handleDraftNext(ctx) {
     try {
       const { data: currentState } = await getAgentState(chatId, username);
       if (currentState) {
-        const targetSec = currentState.outline?.find((s) => s.status === "in_progress" || s.status === "drafting");
-        if (targetSec) {
-          targetSec.status = "error";
+        normalizeAgentState(currentState);
+        const progress = currentState.sections_progress || [];
+        let restoredAny = false;
+
+        for (const sec of progress) {
+          if (sec.previousContent && (!sec.content || sec.status === "todo" || sec.status === "drafting" || sec.status === "stream_drafting" || sec.status === "error")) {
+            sec.content = sec.previousContent;
+            restoredAny = true;
+          }
+          if (sec.content && sec.content.trim()) {
+            sec.status = "done";
+          }
         }
-        currentState.status = "error";
-        currentState.current_step = "CANCELLED";
-        currentState.errorMessage = err.message || "Lỗi soạn thảo bằng mô hình đã chọn.";
-        setAgentActivity(currentState, targetSec, "error", `Đã dừng quy trình: ${err.message || "Lỗi mô hình"}`, {
+
+        const hasAnyContent = progress.some((sec) => sec.content && sec.content.trim());
+        if (hasAnyContent || restoredAny) {
+          currentState.current_step = "COMPLETED";
+          currentState.status = "completed";
+        } else {
+          currentState.status = "error";
+          currentState.current_step = "CANCELLED";
+        }
+
+        currentState.errorMessage = err.message || "Lỗi khi tạo lại báo cáo.";
+        setAgentActivity(currentState, null, "error", `Tạo lại báo cáo bị lỗi - Đã giữ nguyên nội dung cũ ở DB và trở lại trạng thái complete: ${err.message || "Lỗi mô hình"}`, {
           actor: "Writer",
           error: err.message,
+          restored: restoredAny,
         });
         await saveAgentState(chatId, username, currentState, null, lockId);
       }

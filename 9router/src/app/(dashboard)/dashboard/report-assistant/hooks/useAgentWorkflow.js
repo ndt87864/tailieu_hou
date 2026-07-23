@@ -398,7 +398,7 @@ export function useAgentWorkflow({
             sectionId: draftData?.activeSectionId || null,
           });
           setAgentActive(false);
-          cancelAgentWorkflow();
+          await loadAgentStatus(chatId);
           return;
         }
 

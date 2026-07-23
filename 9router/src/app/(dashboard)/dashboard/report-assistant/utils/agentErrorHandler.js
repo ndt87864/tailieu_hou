@@ -26,16 +26,16 @@ export function classifyAgentDraftError(status, errorText, fallbackError = null)
     return {
       title: "Lỗi quá tải hệ thống",
       message:
-        "Hệ thống đang quá tải hoặc model/API key hiện tại không thể xử lý yêu cầu tạo báo cáo.",
+        "Tạo lại báo cáo bị lỗi do hệ thống quá tải. Nội dung báo cáo cũ đã được giữ nguyên ở cơ sở dữ liệu và chuyển về trạng thái hoàn thành (complete).",
       detail: rawMessage || `HTTP ${statusCode}`,
     };
   }
 
   if ([502, 504].includes(statusCode) || /timeout|timed out|aborted|fetch failed|econnrefused|api|json|unexpected end|no content/i.test(rawMessage)) {
     return {
-      title: "Hệ thống không tạo được nội dung",
+      title: "Không thể tạo lại nội dung",
       message:
-        "API không trả về nội dung hợp lệ cho bước soạn thảo này. Quy trình Agent đã được dừng để tránh chạy tiếp với trạng thái lỗi.",
+        "Tạo lại báo cáo bị lỗi kết nối hoặc phản hồi API. Nội dung báo cáo cũ đã được giữ nguyên ở cơ sở dữ liệu và chuyển về trạng thái hoàn thành (complete).",
       detail: rawMessage || (statusCode ? `HTTP ${statusCode}` : "API không phản hồi"),
     };
   }
@@ -44,15 +44,15 @@ export function classifyAgentDraftError(status, errorText, fallbackError = null)
     return {
       title: "Hết hạn mức API",
       message:
-        "API key hoặc tài khoản model đã hết hạn mức nên không thể tiếp tục tạo nội dung báo cáo.",
+        "API key hoặc tài khoản model đã hết hạn mức. Nội dung báo cáo cũ đã được giữ nguyên ở cơ sở dữ liệu và chuyển về trạng thái hoàn thành (complete).",
       detail: rawMessage,
     };
   }
 
   return {
-    title: "Soạn thảo mục báo cáo thất bại",
+    title: "Tạo lại báo cáo thất bại",
     message:
-      "Quy trình Agent đã được dừng vì bước soạn thảo hiện tại gặp lỗi.",
+      "Tạo lại báo cáo bị lỗi. Nội dung báo cáo cũ đã được giữ nguyên ở cơ sở dữ liệu và chuyển về trạng thái hoàn thành (complete).",
     detail: rawMessage || (statusCode ? `HTTP ${statusCode}` : "Không có thông tin lỗi chi tiết"),
   };
 }

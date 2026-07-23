@@ -50,6 +50,7 @@ export async function handleApproveOutline(ctx) {
         : (existing?.target_words || calculateTargetWordsForSection(item, reportContext?.targetWords, contentSectionsApproved)),
       status: sectionStatus,
       content: existing ? existing.content : "",
+      previousContent: existing ? (existing.previousContent || existing.content || "") : "",
       feedback: existing ? existing.feedback : "",
     };
   });

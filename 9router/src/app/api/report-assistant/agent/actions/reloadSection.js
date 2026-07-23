@@ -44,7 +44,12 @@ export async function handleReloadSection(ctx) {
   };
   const cleanContext = applyClear(activeReportContext);
 
-  // Reset the target section
+  // Reset the target section and preserve previousContent if available
+  if (section.content && section.content.trim()) {
+    section.previousContent = section.content;
+  } else if (!section.previousContent && section.content) {
+    section.previousContent = section.content;
+  }
   section.status = "todo";
   section.content = "";
   section.feedback = "";

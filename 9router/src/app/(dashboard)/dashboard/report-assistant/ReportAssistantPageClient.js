@@ -669,9 +669,9 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
               <button
                 onClick={() => {
                   setAgentErrorDialog(null);
-                  cancelAgentWorkflow();
+                  loadAgentStatus(activeSessionId);
                 }}
-                className="px-4 py-2 rounded-[10px] bg-red-500 hover:bg-red-600 text-white text-xs font-bold transition-colors cursor-pointer"
+                className="px-4 py-2 rounded-[10px] bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold transition-colors cursor-pointer"
               >
                 Đã hiểu
               </button>
