@@ -49,14 +49,14 @@ export async function runSupabaseRag({ supabaseQuery, username, requestBaseUrl, 
 
   if (allItems.length === 0) return "";
 
-  const rankedChunks = rankKnowledgeItems(supabaseQuery, allItems, 2);
+  const rankedChunks = rankKnowledgeItems(supabaseQuery, allItems, 3);
 
   if (rankedChunks.length === 0) return "";
 
   let content = `\n\n--- TRI THỨC NỘI BỘ TRUY XUẤT ĐƯỢC (Tài liệu mẫu liên quan) ---
-[QUY TẮC PHÂN TÍCH]: Hãy đọc kỹ nội dung mẫu dưới đây để nghiên cứu cách tài liệu tham khảo tiếp cận vấn đề phân tích, cách họ kết hợp bảng số liệu với các diễn giải thực tế, cách chỉ ra nguyên nhân biến động số liệu hoặc cách lập luận pháp lý. Hãy chưng cất tư duy và phương pháp lập luận này để áp dụng vào phần soạn thảo của bạn. Tuyệt đối KHÔNG SAO CHÉP câu chữ hay số liệu gốc.`;
+[QUY TẮC BẮT CHƯỚC PHONG CÁCH]: Bạn phải đọc kỹ nội dung mẫu dưới đây để nghiên cứu cách tài liệu tham khảo tiếp cận vấn đề. BẮT BUỘC phải bắt chước: (1) phong cách xưng hô (ví dụ: 'sinh viên', 'nhóm tác giả', v.v.), (2) độ dài đoạn văn trung bình, (3) mật độ chi tiết so với mô tả chung, (4) cách mở đầu và kết thúc mỗi heading, và (5) nhịp câu, cách chuyển tiếp giữa các ý. Tuyệt đối không sao chép nguyên văn số liệu, tên đơn vị hay sự kiện của mẫu, nhưng PHONG CÁCH VÀ CẤU TRÚC DIỄN ĐẠT phải giống hệt.`;
   for (const rc of rankedChunks) {
-    content += `\n\n[Tài liệu mẫu tham chiếu: ${rc.item.filename}]\n${rc.item.content_text.slice(0, 4000)}`;
+    content += `\n\n[Tài liệu mẫu tham chiếu: ${rc.item.filename}]\n${rc.item.content_text.slice(0, 6000)}`;
   }
   content += `\n-----------------------------------------------------------`;
   return content;
