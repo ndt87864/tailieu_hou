@@ -359,6 +359,50 @@ export function useAgentWorkflow({
         const progress = currentSt?.sections_progress || [];
         const nextToDraft = progress.find((p) => p.status === "todo" || p.status === "drafting");
 
+        // Cập nhật ngay UI để người dùng thấy mục hiện tại đang được stream / tạo
+        if (nextToDraft && setSessions) {
+          setAgentState((prev) => {
+            if (!prev) return prev;
+            const updated = {
+              ...prev,
+              sections_progress: (prev.sections_progress || []).map((s) =>
+                s.id === nextToDraft.id ? { ...s, status: "drafting" } : s
+              ),
+            };
+            agentStateRef.current = updated;
+            return updated;
+          });
+        }
+
+        // Bắt đầu interval poll trạng thái nhanh (250ms) ngay khi vừa gửi request backend để bắt lấy stream/chờ stream
+        let pollTimer = null;
+        let isStepDone = false;
+
+        const startLivePolling = () => {
+          pollTimer = setInterval(async () => {
+            if (isStepDone || agentCancelRequestedRef.current) {
+              if (pollTimer) clearInterval(pollTimer);
+              return;
+            }
+            try {
+              const statusRes = await fetch("/api/report-assistant/agent", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "status", chatId }),
+              });
+              const statusData = await statusRes.json().catch(() => ({}));
+              if (statusData?.ok && statusData.state && !isStepDone) {
+                setAgentState(statusData.state);
+                agentStateRef.current = statusData.state;
+              }
+            } catch (e) {
+              // Ignore polling fetch errors
+            }
+          }, 250);
+        };
+
+        startLivePolling();
+
         try {
           const draftRes = await fetch("/api/report-assistant/agent", {
             method: "POST",
@@ -366,6 +410,9 @@ export function useAgentWorkflow({
             body: JSON.stringify({ action: "draftNext", chatId, username, modelId }),
           });
           const draftData = await draftRes.json().catch(() => ({}));
+          
+          isStepDone = true;
+          if (pollTimer) clearInterval(pollTimer);
           
           if (!draftRes.ok || draftData?.ok === false) {
             const errClass = classifyAgentDraftError(

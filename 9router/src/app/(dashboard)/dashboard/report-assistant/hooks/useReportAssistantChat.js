@@ -96,107 +96,9 @@ export function useReportAssistantChat({
     }
 
     try {
-      let webSearchContext = "";
-      const urls = userText.match(/(https?:\/\/[^\s]+)/g);
-      if (webSearchEnabled && urls && urls.length > 0) {
-        setSearchStatus("Đang đọc nội dung liên kết qua Web Fetch (fetch-combo)...");
-        showToast("Hệ thống đang đọc nội dung liên kết qua Web Fetch...", "info");
-        for (const u of urls) {
-          try {
-            const res = await fetch("/api/v1/web/fetch", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
-              },
-              body: JSON.stringify({
-                model: "fetch-combo",
-                url: u,
-              }),
-            });
-            if (res.ok) {
-              const data = await res.json();
-              const extractedText = data.content || data.text || data.markdown || "";
-              if (extractedText) {
-                webSearchContext += `\n\n--- NỘI DUNG TÀI LIỆU CHI TIẾT TỪ LIÊN KẾT [${u}] ---\n${extractedText.slice(0, 15000)}\n------------------------------------------------`;
-              }
-            }
-          } catch (e) {
-            console.error("Lỗi khi đọc liên kết qua /api/v1/web/fetch", e);
-          }
-        }
-      }
-
       const activeSystemPrompt = systemPrompt.trim()
         ? systemPrompt
         : (isReportIntent(userText) || !assistantOnlyMode ? defaultSystemPrompt : defaultSystemPrompt);
-
-      if (
-        webSearchEnabled &&
-        isReportIntent(userText)
-      ) {
-        const searchQuery = cleanWebSearchQuery(userText);
-        if (searchQuery) {
-          setSearchStatus(
-            `Đang đọc và thu thập dữ liệu web qua Web Fetch (fetch-combo) cho: "${searchQuery}"...`
-          );
-          showToast("Đang tìm kiếm & bóc tách dữ liệu web (fetch-combo)...", "info");
-          try {
-            const matchUrl = searchQuery.match(/(https?:\/\/[^\s]+)/g)?.[0];
-            const targetFetchUrl = matchUrl || `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`;
-
-            const res = await fetch("/api/v1/web/fetch", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
-              },
-              body: JSON.stringify({
-                model: "fetch-combo",
-                url: targetFetchUrl,
-              }),
-            });
-
-            if (res.ok) {
-              const data = await res.json();
-              const rawText = data.content || data.text || data.markdown || (typeof data === "string" ? data : JSON.stringify(data));
-              const extractedText = typeof rawText === "string" ? rawText : String(rawText || "");
-              if (extractedText) {
-                showToast("Thu thập dữ liệu Web Fetch thành công!", "success");
-                let searchContent = `\n\n--- DỮ LIỆU TÌM KIẾM & BÓC TÁCH MỚI NHẤT TỪ WEB FETCH (fetch-combo) ---`;
-                searchContent += `\n**Nguồn / URL:** ${targetFetchUrl}`;
-                searchContent += `\n**Nội dung trích xuất:**\n${extractedText.slice(0, 15000)}`;
-                searchContent += `\n------------------------------------------------`;
-                webSearchContext += searchContent;
-              }
-            } else {
-              const fallbackRes = await fetch("/api/report-assistant/web-search", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ query: searchQuery }),
-              });
-              if (fallbackRes.ok) {
-                const data = await fallbackRes.json();
-                if (data.results) {
-                  let searchContent = `\n\n--- DỮ LIỆU TÌM KIẾM MỚI NHẤT TỪ WEB SEARCH ---`;
-                  if (data.results.answer) {
-                    searchContent += `\n**Tóm tắt câu trả lời:** ${data.results.answer}`;
-                  }
-                  searchContent += `\n\n**Các nguồn tin cậy:**`;
-                  for (const r of data.results.results || []) {
-                    searchContent += `\n\n- **[${r.title}](${r.url})**\n  *Nội dung:* ${r.content}`;
-                  }
-                  searchContent += `\n--------------------------------------------`;
-                  webSearchContext += searchContent;
-                }
-              }
-            }
-          } catch (e) {
-            console.error("Error fetching Web search content via /v1/web/fetch", e);
-          }
-        }
-      }
-      setSearchStatus("");
 
       const requestMessages = [];
       if (activeSystemPrompt) {
@@ -204,7 +106,7 @@ export function useReportAssistantChat({
       }
       requestMessages.push({
         role: "user",
-        content: await buildContentWithAttachments(userText + webSearchContext, filePayloads),
+        content: await buildContentWithAttachments(userText, filePayloads),
       });
 
       const initialAsstMsg = {
