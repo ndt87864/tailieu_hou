@@ -327,7 +327,7 @@ export async function handleDraftNext(ctx) {
           if (!partialText) return;
           nextToDraft.content = partialText;
           const now = Date.now();
-          if (now - lastSaveTime > 600) {
+          if (now - lastSaveTime > 150) {
             lastSaveTime = now;
             try {
               await saveAgentState(chatId, username, currentState, null, lockId);

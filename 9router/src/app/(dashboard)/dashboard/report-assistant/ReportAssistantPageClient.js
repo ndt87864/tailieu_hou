@@ -55,6 +55,40 @@ import {
 import { useChatSession } from "./hooks/useChatSession";
 import { useAgentWorkflow } from "./hooks/useAgentWorkflow";
 
+function SmoothStreamText({ text, isDone = false, className = "" }) {
+  const [displayedText, setDisplayedText] = useState(text || "");
+  const targetTextRef = useRef(text || "");
+  targetTextRef.current = text || "";
+
+  useEffect(() => {
+    if (isDone) {
+      setDisplayedText(text || "");
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setDisplayedText((prev) => {
+        const target = targetTextRef.current || "";
+        if (prev.length >= target.length) return target;
+        const diff = target.length - prev.length;
+        const step = Math.max(1, Math.min(diff, Math.ceil(diff / 4)));
+        return target.slice(0, prev.length + step);
+      });
+    }, 20);
+
+    return () => clearInterval(interval);
+  }, [isDone, text]);
+
+  const cleanText = (displayedText || "").replace(/^#+\s*.*(\r?\n|$)/, "").trim();
+
+  return (
+    <div className={className}>
+      {cleanText}
+      {!isDone && <span className="inline-block w-1.5 h-3.5 bg-amber-500 ml-1 animate-pulse" />}
+    </div>
+  );
+}
+
 export default function ReportAssistantPageClient({ initialPrompt, initialChatId }) {
   const router = useRouter();
   const [hydrated, setHydrated] = useState(false);
@@ -2281,10 +2315,11 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
                           <span>{agentState.current_activity?.message || "Agent đang phân tích & soạn thảo nội dung..."}</span>
                         </div>
                         {sec.content ? (
-                          <div className="text-[11px] text-text-main/90 max-h-48 overflow-y-auto custom-scrollbar bg-amber-500/5 p-2 rounded-xl leading-relaxed whitespace-pre-wrap font-sans border border-amber-500/10 relative">
-                            {sec.content.replace(/^#+\s*.*(\r?\n|$)/, "").trim()}
-                            <span className="inline-block w-1.5 h-3.5 bg-amber-500 ml-1 animate-pulse" />
-                          </div>
+                          <SmoothStreamText
+                            text={sec.content}
+                            isDone={false}
+                            className="text-[11px] text-text-main/90 max-h-48 overflow-y-auto custom-scrollbar bg-amber-500/5 p-2 rounded-xl leading-relaxed whitespace-pre-wrap font-sans border border-amber-500/10 relative"
+                          />
                         ) : (
                           <div className="flex items-center gap-2 p-2 rounded-xl bg-amber-500/5 border border-amber-500/10 text-[11px] text-amber-600/80 dark:text-amber-400/80 italic">
                             <span className="material-symbols-outlined text-[14px] animate-bounce">edit_note</span>

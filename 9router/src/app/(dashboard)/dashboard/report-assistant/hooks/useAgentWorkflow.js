@@ -374,13 +374,6 @@ export function useAgentWorkflow({
             setAgentState(draftData.state);
             agentStateRef.current = draftData.state;
 
-            // Đồng bộ nội dung preview real-time vào vùng hiển thị báo cáo
-            setSelectedReport((prevSelected) => {
-              const content = buildAgentReportContent(draftData.state);
-              if (!content) return prevSelected;
-              const title = prevSelected?.title || `Báo cáo tự động - ${new Date().toLocaleDateString("vi-VN")}`;
-              return { title, content };
-            });
             const isCompleted = draftData.state.current_step === "COMPLETED";
             const isCancelled = draftData.state.current_step === "CANCELLED";
 
@@ -390,20 +383,20 @@ export function useAgentWorkflow({
             }
 
             if (draftData.workerAlreadyRunning) {
-              // Worker đang soạn thảo ở backend, poll lại mỗi 1.2s để nhận nội dung stream real-time mới nhất
-              setTimeout(runNextDraftStep, 1200);
+              // Worker đang soạn thảo ở backend, poll lại mỗi 300ms để nhận nội dung stream real-time mới nhất
+              setTimeout(runNextDraftStep, 300);
               return;
             }
 
             const hasMoreTodo = (draftData.state.sections_progress || []).some(
-              (s) => s.status === "todo" || s.status === "drafting"
+              (s) => s.status === "todo" || s.status === "drafting" || s.status === "stream_drafting"
             );
 
             if (!isCompleted && hasMoreTodo) {
-              setTimeout(runNextDraftStep, 800);
+              setTimeout(runNextDraftStep, 350);
             } else if (isCompleted) {
               showToast("AI Agent đã hoàn thành toàn bộ nội dung báo cáo!", "success");
-              // B4: Mở drawer + chuyển Preview báo cáo hoàn chỉnh
+              // B4: Mở drawer + chuyển Preview báo cáo hoàn chỉnh khi HOÀN THÀNH TẤT CẢ CÁC MỤC
               setAgentActive(true);
               openAgentProgressPreview(draftData.state, "Báo cáo hoàn chỉnh");
               const reportCardMsg = {

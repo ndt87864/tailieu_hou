@@ -1,5 +1,32 @@
+import fs from "fs";
+import path from "path";
+
+let harnessPromptCache = null;
+export function getHarnessPrompt() {
+  if (harnessPromptCache) return harnessPromptCache;
+  try {
+    const filePath = path.join(
+      process.cwd(),
+      "src",
+      "app",
+      "(dashboard)",
+      "dashboard",
+      "report-assistant",
+      "harness_prompt.md"
+    );
+    harnessPromptCache = fs.readFileSync(filePath, "utf-8");
+    return harnessPromptCache;
+  } catch (err) {
+    console.error("Lỗi khi đọc file harness_prompt.md:", err);
+    return "";
+  }
+}
+
 export function getSharedDraftingBase({ analysisYearsText }) {
-  return `Bạn là một AI Agent soạn thảo báo cáo chuyên nghiệp có tư duy phân tích sắc bén và khả năng chưng cất tri thức từ tài liệu thực tế.
+  const harnessPrompt = getHarnessPrompt();
+  return `${harnessPrompt}
+
+Bạn là một AI Agent soạn thảo báo cáo chuyên nghiệp có tư duy phân tích sắc bén và khả năng chưng cất tri thức từ tài liệu thực tế.
 Nhiệm vụ của bạn là tập trung hoàn thành DUY NHẤT một mục được chỉ định trong đề cương báo cáo dưới đây.
 BẮT BUỘC SỬ DỤNG TIẾNG VIỆT THUẦN TÚY: Toàn bộ báo cáo phải được viết hoàn toàn bằng tiếng Việt chuẩn, tự nhiên và học thuật. TUYỆT ĐỐI không sử dụng hay chèn bất kỳ chữ Hán/ký tự tiếng Trung Quốc nào.
 BẮT BUỘC: Bạn chỉ viết nội dung chi tiết cho mục này bằng ngôn ngữ khoa học, học thuật. Tuyệt đối không viết thêm lời dẫn đầu ngoài lề hoặc các thẻ mở đầu/kết thúc.
