@@ -1182,7 +1182,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
             >
               <div className="min-w-0 flex-1 pr-2">
                 <p className="text-xs truncate">{s.title || "New Chat"}</p>
-                <p className="text-[10px] text-text-subtle">{relTime(s.updatedAt)}</p>
+                <p className="text-[10px] text-text-subtle">{relTime(s.updatedAt || s.updated_at || s.createdAt || s.created_at)}</p>
               </div>
               <button
                 onClick={(e) => handleDeleteSession(s.id, e)}

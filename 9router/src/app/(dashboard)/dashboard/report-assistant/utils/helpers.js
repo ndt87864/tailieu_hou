@@ -163,12 +163,12 @@ export function formatBytes(bytes, decimals = 1) {
 }
 
 export function relTime(iso) {
-  if (!iso) return "now";
+  if (!iso) return "vừa xong";
   const diff = (Date.now() - new Date(iso).getTime()) / 1000;
-  if (diff < 60) return "just now";
-  if (diff < 3600) return `${Math.round(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.round(diff / 3600)}h ago`;
-  return `${Math.round(diff / 86400)}d ago`;
+  if (diff < 60) return "vừa xong";
+  if (diff < 3600) return `${Math.round(diff / 60)} phút trước`;
+  if (diff < 86400) return `${Math.round(diff / 3600)} giờ trước`;
+  return `${Math.round(diff / 86400)} ngày trước`;
 }
 
 export function historySyncSignature(username, sessions) {
