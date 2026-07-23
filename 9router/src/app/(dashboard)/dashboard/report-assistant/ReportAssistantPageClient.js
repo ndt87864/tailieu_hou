@@ -311,6 +311,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     searchStatus,
     handleSendMessage,
     handleStopStreaming,
+    handleRegenerateMessage,
   } = useReportAssistantChat({
     activeSessionId,
     draft,
@@ -559,6 +560,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
         textareaRef={textareaRef}
         handleSendMessage={handleSendMessage}
         handleStopStreaming={handleStopStreaming}
+        handleRegenerateMessage={handleRegenerateMessage}
         showToast={showToast}
         copiedMessageId={copiedMessageId}
         setCopiedMessageId={setCopiedMessageId}

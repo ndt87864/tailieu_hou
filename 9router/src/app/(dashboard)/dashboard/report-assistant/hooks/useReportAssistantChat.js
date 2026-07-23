@@ -298,6 +298,217 @@ export function useReportAssistantChat({
     searchStatus,
     handleSendMessage,
     handleStopStreaming,
+    handleRegenerateMessage: async (targetMsgId) => {
+      if (!activeSessionId || isSending || isSendingRef.current) return;
+
+      // Tìm session và message cần regenerate
+      let userPrompt = "";
+      let userFiles = [];
+      let targetAsstId = targetMsgId;
+
+      setSessions((prev) => {
+        const session = prev.find((s) => s.id === activeSessionId);
+        if (!session || !session.messages) return prev;
+
+        const msgs = session.messages;
+        let asstIdx = -1;
+
+        if (targetAsstId) {
+          asstIdx = msgs.findIndex((m) => m.id === targetAsstId);
+        } else {
+          // Nếu không truyền ID, lấy tin nhắn assistant cuối cùng
+          for (let i = msgs.length - 1; i >= 0; i--) {
+            if (msgs[i].role === "assistant" && !msgs[i].isOutlineCard && !msgs[i].isReportCard) {
+              asstIdx = i;
+              targetAsstId = msgs[i].id;
+              break;
+            }
+          }
+        }
+
+        if (asstIdx === -1) return prev;
+
+        // Tìm tin nhắn user ngay trước tin nhắn assistant này
+        for (let i = asstIdx - 1; i >= 0; i--) {
+          if (msgs[i].role === "user") {
+            userPrompt = msgs[i].content;
+            userFiles = msgs[i].files || [];
+            break;
+          }
+        }
+
+        if (!userPrompt && userFiles.length === 0) return prev;
+
+        // Cập nhật trạng thái tin nhắn assistant thành streaming & xoá content cũ
+        return prev.map((s) =>
+          s.id === activeSessionId
+            ? {
+                ...s,
+                messages: s.messages.map((m) =>
+                  m.id === targetAsstId
+                    ? { ...m, content: "", status: "streaming" }
+                    : m
+                ),
+                updatedAt: new Date().toISOString(),
+              }
+            : s
+        );
+      });
+
+      if (!userPrompt && userFiles.length === 0) return;
+
+      isSendingRef.current = true;
+      setIsSending(true);
+      setStreamingId(targetAsstId);
+
+      try {
+        const activeSystemPrompt = systemPrompt.trim()
+          ? systemPrompt
+          : defaultSystemPrompt;
+
+        const requestMessages = [];
+        if (activeSystemPrompt) {
+          requestMessages.push({ role: "system", content: activeSystemPrompt });
+        }
+        requestMessages.push({
+          role: "user",
+          content: await buildContentWithAttachments(userPrompt, userFiles),
+        });
+
+        abortRef.current = new AbortController();
+
+        const response = await fetch("/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: activeModel?.id,
+            messages: requestMessages,
+            stream: streamEnabled,
+            thinking_mode: thinkingMode,
+            temperature,
+          }),
+          signal: abortRef.current.signal,
+        });
+
+        if (!response.ok) {
+          const errJson = await response.json().catch(() => ({}));
+          const errMsg = errJson.error?.message || errJson.message || `Lỗi server (${response.status})`;
+          throw new Error(errMsg);
+        }
+
+        let fullContent = "";
+
+        if (!streamEnabled) {
+          const data = await response.json();
+          fullContent = data.choices?.[0]?.message?.content || "";
+        } else {
+          const reader = response.body?.getReader();
+          if (!reader) {
+            throw new Error("Trình duyệt không hỗ trợ đọc stream response.");
+          }
+
+          const decoder = new TextDecoder("utf-8");
+          let buffer = "";
+
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split(/\r?\n/);
+            buffer = lines.pop() || "";
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed.startsWith("data:")) continue;
+              const payloadStr = trimmed.slice(5).trim();
+              if (!payloadStr || payloadStr === "[DONE]") continue;
+
+              try {
+                const chunk = JSON.parse(payloadStr);
+                const choiceDelta = chunk.choices?.[0]?.delta;
+
+                const delta =
+                  choiceDelta?.content ??
+                  choiceDelta?.text ??
+                  chunk.choices?.[0]?.text ??
+                  chunk.choices?.[0]?.message?.content ??
+                  "";
+
+                if (delta) {
+                  fullContent += delta;
+                  setSessions((prev) =>
+                    prev.map((s) =>
+                      s.id === activeSessionId
+                        ? {
+                            ...s,
+                            messages: (s.messages || []).map((m) =>
+                              m.id === targetAsstId
+                                ? { ...m, content: fullContent, status: "streaming" }
+                                : m
+                            ),
+                            updatedAt: new Date().toISOString(),
+                          }
+                        : s
+                    )
+                  );
+                }
+              } catch (e) {}
+            }
+          }
+        }
+
+        setSessions((prev) =>
+          prev.map((s) =>
+            s.id === activeSessionId
+              ? {
+                  ...s,
+                  messages: (s.messages || []).map((m) =>
+                    m.id === targetAsstId
+                      ? { ...m, content: fullContent, status: "done" }
+                      : m
+                  ),
+                  updatedAt: new Date().toISOString(),
+                }
+              : s
+          )
+        );
+
+        if (!fullContent.trim()) {
+          throw new Error("Không nhận được phản hồi từ mô hình AI.");
+        }
+      } catch (err) {
+        if (err?.name === "AbortError") {
+          setSessions((prev) =>
+            prev.map((s) =>
+              s.id === activeSessionId
+                ? {
+                    ...s,
+                    messages: (s.messages || []).map((m) =>
+                      m.id === targetAsstId ? { ...m, status: "done" } : m
+                    ),
+                  }
+                : s
+            )
+          );
+        } else {
+          console.error(err);
+          const isFetchErr = err?.message === "Failed to fetch" || err?.name === "TypeError";
+          const displayMsg = isFetchErr
+            ? "Không thể kết nối đến máy chủ API. Vui lòng kiểm tra lại server hoặc thử lại sau giây lát."
+            : err.message;
+          showToast("Lỗi tạo lại phản hồi: " + displayMsg, "error");
+        }
+      } finally {
+        isSendingRef.current = false;
+        setIsSending(false);
+        setStreamingId("");
+        setSearchStatus("");
+        abortRef.current = null;
+      }
+    },
   };
 }
 

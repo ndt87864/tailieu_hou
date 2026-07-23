@@ -55,6 +55,7 @@ export function ChatPanel({
   textareaRef,
   handleSendMessage,
   handleStopStreaming,
+  handleRegenerateMessage,
   showToast,
   copiedMessageId,
   setCopiedMessageId,
@@ -368,6 +369,16 @@ export function ChatPanel({
                             {copiedMessageId === msg.id ? "done" : "content_copy"}
                           </span>
                         </button>
+                        {msg.role === "assistant" && (
+                          <button
+                            onClick={() => handleRegenerateMessage(msg.id)}
+                            disabled={isSending}
+                            className="p-1 rounded text-text-subtle hover:text-text-main hover:bg-surface-2 cursor-pointer flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Tạo lại câu trả lời"
+                          >
+                            <span className="material-symbols-outlined text-[15px]">refresh</span>
+                          </button>
+                        )}
                         {msg.role === "user" && (
                           <button
                             onClick={() => {
