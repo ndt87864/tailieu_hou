@@ -597,6 +597,8 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
     agentLoading,
     selectedReport,
     setSelectedReport,
+    reportOpenedSource,
+    setReportOpenedSource,
     selectedOutline,
     setSelectedOutline,
     pendingReportRequest,
@@ -658,7 +660,12 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
   const closeDoc = useCallback(() => {
     setSelectedOutline(null);
     setSelectedReport(null);
-  }, [setSelectedOutline, setSelectedReport]);
+    if (reportOpenedSource === "card") {
+      setAgentActive(false);
+    } else {
+      setAgentActive(true);
+    }
+  }, [setSelectedOutline, setSelectedReport, reportOpenedSource, setAgentActive]);
 
 
 
@@ -1405,7 +1412,10 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
                             </button>
                           )}
                           <button
-                            onClick={() => setAgentActive(true)}
+                            onClick={() => {
+                              setSelectedReport(null);
+                              setAgentActive(true);
+                            }}
                             className="px-3.5 py-1.5 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold text-xs border border-emerald-500/20 transition-all cursor-pointer shadow-2xs"
                           >
                             Open
@@ -1429,8 +1439,8 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
                         </div>
                         <button
                           onClick={() => {
-                            setAgentActive(true);
-                            openAgentProgressPreview(agentState, "Báo cáo hoàn chỉnh");
+                            setSelectedOutline(null);
+                            openAgentProgressPreview(agentState, "Báo cáo hoàn chỉnh", "card");
                           }}
                           className="px-3.5 py-1.5 rounded-full bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs transition-all cursor-pointer shadow-sm active:scale-95 flex items-center gap-1"
                         >
@@ -2215,8 +2225,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
               {agentState.current_step === "COMPLETED" && (
                 <button
                   onClick={() => {
-                    setAgentActive(true);
-                    openAgentProgressPreview(agentState, "Báo cáo hoàn chỉnh");
+                    openAgentProgressPreview(agentState, "Báo cáo hoàn chỉnh", "agent");
                   }}
                   className="w-full py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md active:scale-98"
                 >

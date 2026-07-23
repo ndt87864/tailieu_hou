@@ -105,10 +105,13 @@ export function useAgentWorkflow({
     );
   }, [setSessions]);
 
-  const openAgentProgressPreview = useCallback((state, titlePrefix = "Báo cáo") => {
+  const [reportOpenedSource, setReportOpenedSource] = useState("agent"); // "card" | "agent"
+
+  const openAgentProgressPreview = useCallback((state, titlePrefix = "Báo cáo", source = "agent") => {
     const targetState = state || agentStateRef.current;
     const content = buildAgentReportContent(targetState);
     if (!content) return false;
+    setReportOpenedSource(source);
     setSelectedReport({
       title: `${titlePrefix} - ${new Date().toLocaleDateString("vi-VN")}`,
       content,
@@ -467,6 +470,7 @@ export function useAgentWorkflow({
     agentActive, setAgentActive, agentState, setAgentState, agentLoading, setAgentLoading,
     pendingReportRequest, setPendingReportRequest, selectedReportModelId, setSelectedReportModelId,
     reportWorkflowModelId, setReportWorkflowModelId, selectedReport, setSelectedReport,
+    reportOpenedSource, setReportOpenedSource,
     selectedOutline, setSelectedOutline, agentErrorDialog, setAgentErrorDialog,
     agentCancelRequestedRef, agentDraftingInProgressRef, buildAgentReportContent,
     openAgentProgressPreview, loadAgentStatus, runAgentInit, confirmOutlineAndStartDrafting,
