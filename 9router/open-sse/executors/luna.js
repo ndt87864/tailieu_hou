@@ -788,9 +788,13 @@ export class LunaExecutor extends DefaultExecutor {
 
       const finalResponseId = responseId || activeResponseId || `chatcmpl-${Date.now()}`;
 
-      if (content) {
+      if (content || phase === "thinking_summary") {
         const isThinking = phase === "think" || phase === "thinking_summary";
         const finishReason = choice.finish_reason || null;
+        const deltaObj = isThinking
+          ? { reasoning_content: content, phase, extra: choice?.delta?.extra }
+          : { content, phase, extra: choice?.delta?.extra };
+
         const openaiChunk = {
           id: finalResponseId,
           object: "chat.completion.chunk",
@@ -798,9 +802,7 @@ export class LunaExecutor extends DefaultExecutor {
           model: model,
           choices: [{
             index: choice.index || 0,
-            delta: isThinking
-              ? { reasoning_content: content }
-              : { content },
+            delta: deltaObj,
             finish_reason: finishReason,
           }],
         };

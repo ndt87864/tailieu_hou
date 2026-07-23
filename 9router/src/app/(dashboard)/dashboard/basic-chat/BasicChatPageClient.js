@@ -87,7 +87,14 @@ function readAssistantText(chunk) {
   if (!chunk || typeof chunk !== "object") return "";
   const choice = chunk.choices?.[0];
   const delta = choice?.delta || {};
-  const pieces = [delta.content, choice?.message?.content, chunk.output_text, chunk.text]
+  
+  const pieces = [
+    delta.content,
+    delta.text,
+    choice?.message?.content,
+    chunk.output_text,
+    chunk.text
+  ]
     .map(textValue)
     .filter(Boolean);
   return pieces[0] || "";

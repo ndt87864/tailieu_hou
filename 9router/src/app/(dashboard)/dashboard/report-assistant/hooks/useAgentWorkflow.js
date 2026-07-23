@@ -135,7 +135,7 @@ export function useAgentWorkflow({
         return null;
       }
       const data = await res.json().catch(() => null);
-      if (data?.ok && data.state) {
+      if (data?.ok && data.state && data.state.current_step) {
         setAgentState(data.state);
         if (data.state.current_step === "WAIT_APPROVAL") {
           setSessions((prev) =>
@@ -152,17 +152,16 @@ export function useAgentWorkflow({
             })
           );
         }
-        if (forceActive) {
+        const isEnded = data.state.current_step === "COMPLETED" || data.state.current_step === "CANCELLED";
+        if (isEnded) {
+          setAgentActive(false);
+        } else if (forceActive) {
           setAgentActive(true);
-        } else {
-          const isEnded = data.state.current_step === "COMPLETED" || data.state.current_step === "CANCELLED";
-          if (!isEnded) setAgentActive(true);
         }
         return data.state;
       }
-      if (forceActive) {
-        setAgentActive(true);
-      }
+      setAgentActive(false);
+      setAgentState(null);
       return null;
     } catch (err) {
       console.error(err);
@@ -175,11 +174,11 @@ export function useAgentWorkflow({
   }, [activeSessionId, setSessions]);
 
   useEffect(() => {
-    if (!agentActive || !activeSessionId) return;
-    const isEnded = agentState?.current_step === "COMPLETED" || agentState?.current_step === "CANCELLED";
-    const isWaitingApproval = agentState?.current_step === "WAIT_APPROVAL";
+    if (!agentActive || !activeSessionId || !agentState?.current_step) return;
+    const isEnded = agentState.current_step === "COMPLETED" || agentState.current_step === "CANCELLED";
+    const isWaitingApproval = agentState.current_step === "WAIT_APPROVAL";
     if (isEnded || isWaitingApproval) return;
-    const timer = setInterval(() => { loadAgentStatus(activeSessionId); }, 1500);
+    const timer = setInterval(() => { loadAgentStatus(activeSessionId); }, 2000);
     return () => clearInterval(timer);
   }, [agentActive, activeSessionId, agentState?.current_step, loadAgentStatus]);
 

@@ -183,10 +183,16 @@ export function useReportAssistantChat({
 
             try {
               const chunk = JSON.parse(payloadStr);
+              const choiceDelta = chunk.choices?.[0]?.delta;
+
+              // Trích xuất delta text từ các vị trí tiêu chuẩn
               const delta =
-                chunk.choices?.[0]?.delta?.content ||
-                chunk.choices?.[0]?.message?.content ||
+                choiceDelta?.content ??
+                choiceDelta?.text ??
+                chunk.choices?.[0]?.text ??
+                chunk.choices?.[0]?.message?.content ??
                 "";
+
               if (delta) {
                 fullContent += delta;
                 setSessions((prev) =>

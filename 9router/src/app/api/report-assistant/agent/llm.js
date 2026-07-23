@@ -159,15 +159,8 @@ export async function callLLM(modelId, messages, temperature = 0.3, authToken = 
   const maxAttempts = Number.isFinite(REPORT_LLM_MAX_ATTEMPTS) && REPORT_LLM_MAX_ATTEMPTS > 0 ? REPORT_LLM_MAX_ATTEMPTS : 1;
   const timeoutMs = Number.isFinite(options.timeout) && options.timeout > 0 ? options.timeout : (Number.isFinite(REPORT_LLM_TIMEOUT_MS) && REPORT_LLM_TIMEOUT_MS > 0 ? REPORT_LLM_TIMEOUT_MS : 60000);
 
-  // Prepare a sequence of models to try if quota is hit
+  // Execute request on specified model
   let modelsToTry = [modelId];
-  if (isLunaModelId(modelId)) {
-    modelsToTry = [modelId, ...LUNA_BACKUP_MODELS.filter((m) => m !== modelId)];
-  } else if (isArenaModelId(modelId)) {
-    modelsToTry = [modelId, ...ARENA_BACKUP_MODELS.filter((m) => m !== modelId)];
-  } else {
-    modelsToTry = [modelId, ...BACKUP_MODELS.filter((m) => m !== modelId)];
-  }
   let currentModelIdx = 0;
   let attempt = 0;
   let backoffMs = 2000;
@@ -295,7 +288,8 @@ export async function callLLM(modelId, messages, temperature = 0.3, authToken = 
                   if (reasoning && typeof options.onThinking === "function") {
                     options.onThinking(reasoning);
                   }
-                  // Explicitly prioritize content/text and omit thinking/reasoning_content to avoid corrupting report output
+                  
+                  // Lấy delta text chính xác từ các cấu trúc phổ biến
                   const delta = choiceDelta?.content ?? choiceDelta?.text ?? json.choices?.[0]?.text ?? "";
                   if (delta) {
                     fullText += delta;

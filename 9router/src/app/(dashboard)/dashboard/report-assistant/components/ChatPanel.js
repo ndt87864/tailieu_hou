@@ -325,11 +325,18 @@ export function ChatPanel({
                             : "bg-surface border-border text-text-main"
                         )}
                       >
-                        <div
-                          dangerouslySetInnerHTML={{
-                            __html: renderMarkdownAndMath(msg.content),
-                          }}
-                        />
+                        {msg.role === "assistant" && !msg.content && msg.status === "streaming" ? (
+                          <div className="flex items-center gap-2 text-text-subtle py-0.5">
+                            <span className="material-symbols-outlined text-[16px] animate-spin text-brand-500">progress_activity</span>
+                            <span className="text-xs font-medium italic">Đang suy nghĩ & tạo phản hồi...</span>
+                          </div>
+                        ) : (
+                          <div
+                            dangerouslySetInnerHTML={{
+                              __html: renderMarkdownAndMath(msg.content || ""),
+                            }}
+                          />
+                        )}
                         <MessageFilesGrid files={msg.files || []} />
                       </div>
                     )}
