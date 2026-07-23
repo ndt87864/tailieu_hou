@@ -8,7 +8,7 @@ import { getHarnessPrompt } from "./promptsBaseDraft";
 export const templateStudySystem = `Bạn là chuyên gia phân tích báo cáo mẫu học thuật chất lượng cao.
 Nhiệm vụ của bạn là đọc hiểu báo cáo mẫu để rút ra một "style guide" có thể tái sử dụng cho báo cáo mới.
 Tuyệt đối không sao chép nội dung, tên công ty, số liệu, kết luận hoặc câu văn cụ thể trong mẫu.
-Chỉ tổng hợp các quy luật có thể học được: cấu trúc/bố cục, phong cách xưng hô (ngôi 1/ngôi 3, xưng "sinh viên", v.v.), độ dài đoạn văn, cách triển khai luận điểm, loại bảng biểu, công thức/phép tính, sơ đồ/quy trình, cách nhận xét sau bảng, phong cách hành văn, cách trình bày mỹ thuật.
+Chỉ tổng hợp các quy luật có thể học được: cấu trúc/bố cục, cách triển khai luận điểm, loại bảng biểu, công thức/phép tính, sơ đồ/quy trình, cách nhận xét sau bảng, phong cách hành văn, cách trình bày mỹ thuật.
 Trả về JSON hợp lệ duy nhất, không markdown, không giải thích.`;
 
 export function getTemplateStudyUser(reportContextPromptText, templateKnowledgeText) {
@@ -23,9 +23,8 @@ Hãy tạo style guide để agent viết báo cáo mới noi theo hợp lý. Ph
 - Cấu trúc chương/mục thường dùng.
 - Cách đặt bảng, công thức, phép tính, sơ đồ.
 - Cách viết nhận xét sau bảng và phân tích nguyên nhân.
-- Phong cách hành văn, độ dài đoạn trung bình, cách dùng thuật ngữ.
-- Cách mở đầu và kết thúc mỗi chương/mục (cách chuyển ý).
-- Trích xuất 1-2 đoạn văn ngắn (exemplar) làm mẫu cho phong cách.
+- Phong cách hành văn, độ dài đoạn, cách dùng thuật ngữ.
+- Quy tắc trình bày/thẩm mỹ cần mô phỏng.
 
 Schema JSON bắt buộc:
 {
@@ -40,10 +39,6 @@ Schema JSON bắt buộc:
   "tables_and_calculations": ["loại bảng, chỉ tiêu, công thức, phép tính, cách nhận xét"],
   "diagram_patterns": ["loại sơ đồ/quy trình nên có nếu phù hợp"],
   "writing_style": ["phong cách hành văn, độ dài đoạn, cách dùng thuật ngữ"],
-  "voice_and_pronoun": ["phong cách xưng hô: ngôi 1 hay 3, xưng 'sinh viên', 'nhóm tác giả', v.v."],
-  "paragraph_length_guide": ["độ dài trung bình mỗi đoạn/ý"],
-  "opening_closing_patterns": ["cách mở đầu và kết thúc từng loại heading (kèm 1-2 câu ví dụ)"],
-  "exemplar_excerpts": ["trích 1-2 đoạn văn ngắn (100-200 từ) nguyên văn từ mẫu làm ví dụ phong cách"],
   "visual_layout": ["bố cục, nhịp bảng-văn bản, tiêu đề, đánh số"],
   "anti_copy_rules": ["những thứ tuyệt đối không sao chép từ mẫu"]
 }`;
@@ -186,9 +181,6 @@ ${styleGuidance ? `\nChecklist học hiểu báo cáo mẫu áp dụng riêng ch
 ${effectiveTargetWords ? `\nMục tiêu dung lượng toàn bộ mục này: khoảng ${effectiveTargetWords} từ để đáp ứng độ dài báo cáo.` : ""}
 ${effectiveSubsections?.length ? `\nCác mục con bắt buộc (BẮT BUỘC viết tối thiểu ${subTargetWords} từ cho MỖI mục con này. Mỗi mục con phải triển khai tối thiểu 4-5 đoạn văn phân tích cực kỳ sâu sắc, chi tiết, bám sát thực tiễn đơn vị, tuyệt đối không viết chung chung, không viết tóm tắt, không đi lướt qua các ý. Nếu là báo cáo kiến tập BA49 thì các mục con cấp 2 phải tiếp tục bung ra các tiểu mục cấp 3 như 1.1.1, 1.1.2, 1.1.3..., và mỗi tiểu mục cấp 3 cũng phải có dung lượng tối thiểu ${Math.max(340, subTargetWords)} từ. Không tự chèn phần 'LỜI MỞ ĐẦU' riêng vào giữa các mục; phần mở đầu sẽ được ghép ở đầu báo cáo hoàn chỉnh khi xuất cuối):\n${effectiveSubsections.map((item) => `- ${item}`).join("\n")}` : ""}
 ${feedback ? `\nYêu cầu chỉnh sửa thêm từ người dùng/Critic:\n"${feedback}"` : ""}
-
-${supabaseRAGContent ? `[VÍ DỤ PHONG CÁCH TỪ TÀI LIỆU MẪU]:
-Hãy bắt chước: (1) cách xưng hô, (2) độ dài mỗi đoạn/ý, (3) cách mở đầu và kết thúc mục, (4) mật độ chi tiết cụ thể vs mô tả chung, (5) nhịp câu và cách chuyển tiếp. Chỉ thay đổi NỘI DUNG (tên đơn vị, số liệu, sự kiện) cho đúng đơn vị nghiên cứu hiện tại.` : ""}
 
 ${supabaseRAGContent}
 ${webRAGContent}`;

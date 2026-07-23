@@ -49,14 +49,18 @@ export async function runSupabaseRag({ supabaseQuery, username, requestBaseUrl, 
 
   if (allItems.length === 0) return "";
 
-  const rankedChunks = rankKnowledgeItems(supabaseQuery, allItems, 3);
+  const rankedChunks = rankKnowledgeItems(supabaseQuery, allItems, 2);
 
   if (rankedChunks.length === 0) return "";
 
   let content = `\n\n--- TRI THỨC NỘI BỘ TRUY XUẤT ĐƯỢC (Tài liệu mẫu liên quan) ---
-[QUY TẮC BẮT CHƯỚC PHONG CÁCH]: Bạn phải đọc kỹ nội dung mẫu dưới đây để nghiên cứu cách tài liệu tham khảo tiếp cận vấn đề. BẮT BUỘC phải bắt chước: (1) phong cách xưng hô (ví dụ: 'sinh viên', 'nhóm tác giả', v.v.), (2) độ dài đoạn văn trung bình, (3) mật độ chi tiết so với mô tả chung, (4) cách mở đầu và kết thúc mỗi heading, và (5) nhịp câu, cách chuyển tiếp giữa các ý. Tuyệt đối không sao chép nguyên văn số liệu, tên đơn vị hay sự kiện của mẫu, nhưng PHONG CÁCH VÀ CẤU TRÚC DIỄN ĐẠT phải giống hệt.`;
+[QUY TẮC HỌC HỎI TỪ RAG - BẮT BUỘC]:
+1. PHONG CÁCH XƯNG HÔ: Quan sát kỹ và BẮT CHƯỚC y hệt danh xưng được dùng (ví dụ: "sinh viên", "em", "công ty", "tác giả"...).
+2. VĂN PHONG VÀ ĐỘ DÀI: Viết đi thẳng vào vấn đề, súc tích, thực tế đúng như mẫu. TUYỆT ĐỐI không viết dài dòng, sáo rỗng, lan man.
+3. CẤU TRÚC LẬP LUẬN: Học cách tài liệu tham khảo tiếp cận vấn đề, cách họ kết hợp bảng số liệu với các diễn giải thực tế và cách đưa luận điểm.
+Hãy chưng cất và áp dụng triệt để văn phong, tư duy và danh xưng này vào phần soạn thảo của bạn. Tuyệt đối KHÔNG SAO CHÉP câu chữ nguyên văn hay số liệu gốc của họ.`;
   for (const rc of rankedChunks) {
-    content += `\n\n[Tài liệu mẫu tham chiếu: ${rc.item.filename}]\n${rc.item.content_text.slice(0, 6000)}`;
+    content += `\n\n[Tài liệu mẫu tham chiếu: ${rc.item.filename}]\n${rc.item.content_text.slice(0, 4000)}`;
   }
   content += `\n-----------------------------------------------------------`;
   return content;
