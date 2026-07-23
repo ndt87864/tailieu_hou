@@ -74,9 +74,7 @@ export function useAgentWorkflow({
           newMsgs.push(userMsgObj);
         }
         if (assistantMsg) {
-          const isDuplicate =
-            (assistantMsg.isReportCard && currentMsgs.some((m) => m.isReportCard)) ||
-            (assistantMsg.isOutlineCard && currentMsgs.some((m) => m.isOutlineCard));
+          const isDuplicate = currentMsgs.some((m) => m.id === assistantMsg.id);
           if (!isDuplicate) {
             newMsgs.push(assistantMsg);
           }
