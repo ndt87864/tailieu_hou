@@ -290,6 +290,7 @@ export async function handleDraftNext(ctx) {
   const draftTemperature = isSolutionOrConclusion ? 0.65 : 0.4;
 
   let draftResult = "";
+  let bestDraftResult = "";
   let attempts = 0;
   const maxDraftAttempts = 3;
   let dynamicUserPrompt = userPromptMsg;
@@ -326,16 +327,10 @@ export async function handleDraftNext(ctx) {
 
         await throwIfCancelled(getAgentState, chatId, username);
         let lastSaveTime = 0;
-        const onChunk = async (partialText) => {
+        const onChunk = (partialText) => {
           if (!partialText) return;
+          // Store stream output in memory locally only, DB save happens after full response
           nextToDraft.content = partialText;
-          const now = Date.now();
-          if (now - lastSaveTime > 50) {
-            lastSaveTime = now;
-            try {
-              await saveAgentState(chatId, username, currentState, null, lockId);
-            } catch (err) {}
-          }
         };
 
         const rawDraft = await callLLM(targetModelId, [
@@ -362,9 +357,13 @@ export async function handleDraftNext(ctx) {
         }
 
         if (hasSubstantiveDraftContent(draftResult)) {
+          if (draftResult.length > bestDraftResult.length) {
+            bestDraftResult = draftResult;
+          }
           // Thực hiện hậu kiểm chất lượng
           const qualityCheck = validateDraftQuality(draftResult, nextToDraft, activeReportContext);
           if (qualityCheck.valid) {
+            bestDraftResult = draftResult;
             break;
           } else {
             console.warn(`[executeDraftNext] Quality check failed for section ${nextToDraft.id} (Attempt ${attempts}): ${qualityCheck.reason}`);
@@ -392,10 +391,12 @@ export async function handleDraftNext(ctx) {
       }
     }
 
+    const finalContent = hasSubstantiveDraftContent(draftResult) ? draftResult : bestDraftResult;
+
     return handleDraftFinalize(ctx, {
       nextToDraft,
       activeReportContext,
-      draftResult,
+      draftResult: finalContent,
       webSources,
       leaseManager
     });

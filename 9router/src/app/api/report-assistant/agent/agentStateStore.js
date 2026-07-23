@@ -157,6 +157,13 @@ export function createAgentStateStore(turso) {
             throw err;
           }
           if (stateData) stateData.updated_at = now;
+          // Touch / extend lease so long-running streams don't expire mid-execution
+          const leaseTtl = Number.parseInt(process.env.REPORT_AGENT_LEASE_TTL_MS || "720000", 10);
+          const newExpiresAt = new Date(new Date(now).getTime() + leaseTtl).toISOString();
+          turso.execute({
+            sql: `UPDATE report_agent_worker_leases SET expires_at = ?, updated_at = ? WHERE chat_id = ? AND username = ? AND lock_id = ?`,
+            args: [newExpiresAt, now, chatId, username || "admin", leaseLockId]
+          }).catch(() => {});
           return { savedTurso: true };
         }
       }

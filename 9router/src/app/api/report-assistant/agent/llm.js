@@ -291,7 +291,8 @@ export async function callLLM(modelId, messages, temperature = 0.3, authToken = 
                 try {
                   const json = JSON.parse(trimmed.slice(6));
                   const choiceDelta = json.choices?.[0]?.delta;
-                  const delta = choiceDelta?.content || choiceDelta?.text || choiceDelta?.reasoning_content || choiceDelta?.reasoning || json.choices?.[0]?.text || "";
+                  // Explicitly prioritize content/text and omit thinking/reasoning_content to avoid corrupting report output
+                  const delta = choiceDelta?.content ?? choiceDelta?.text ?? json.choices?.[0]?.text ?? "";
                   if (delta) {
                     fullText += delta;
                     options.onChunk(fullText);

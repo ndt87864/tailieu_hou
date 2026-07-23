@@ -23,6 +23,9 @@ export function logAgentStep(stepName, details) {
 export function sanitizeReportDraftContent(content) {
   if (typeof content !== "string") return "";
   return content
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/\[START_REPORT\]/gi, "")
+    .replace(/\[END_REPORT\]/gi, "")
     .replace(/^```markdown\s*/i, "")
     .replace(/^```txt\s*/i, "")
     .replace(/^```text\s*/i, "")
@@ -470,10 +473,10 @@ export function validateDraftQuality(content, section, reportContext) {
   const wordCount = content.trim().split(/\s+/).length;
   const targetWords = section.target_words || 0;
   
-  // 1. Kiểm tra độ dài tối thiểu (đạt ít nhất 55% target words, ngoại trừ kết luận và mở đầu ngắn)
+  // 1. Kiểm tra độ dài tối thiểu (đạt ít nhất 30% target words hoặc 150 từ)
   const isShortSection = isOpeningSection(section) || isConclusionSection(section);
-  const minPercent = isShortSection ? 0.4 : 0.55;
-  if (targetWords > 0 && wordCount < targetWords * minPercent) {
+  const minPercent = isShortSection ? 0.25 : 0.3;
+  if (targetWords > 0 && wordCount < targetWords * minPercent && wordCount < 150) {
     return { 
       valid: false, 
       reason: `Nội dung quá ngắn (${wordCount} từ), chưa đạt mục tiêu tối thiểu là ${Math.round(targetWords * minPercent)} từ (mục tiêu đầy đủ ${targetWords} từ). Hãy viết chi tiết và sâu sắc hơn.` 

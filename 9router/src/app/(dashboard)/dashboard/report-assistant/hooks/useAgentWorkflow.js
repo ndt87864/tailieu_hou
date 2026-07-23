@@ -165,7 +165,7 @@ export function useAgentWorkflow({
     const isEnded = agentState?.current_step === "COMPLETED" || agentState?.current_step === "CANCELLED";
     const isWaitingApproval = agentState?.current_step === "WAIT_APPROVAL";
     if (isEnded || isWaitingApproval) return;
-    const timer = setInterval(() => { loadAgentStatus(activeSessionId); }, 200);
+    const timer = setInterval(() => { loadAgentStatus(activeSessionId); }, 1500);
     return () => clearInterval(timer);
   }, [agentActive, activeSessionId, agentState?.current_step, loadAgentStatus]);
 
@@ -409,27 +409,19 @@ export function useAgentWorkflow({
               appendChatMessage(chatId, null, reportCardMsg);
             }
           }
-        } catch (err) {
-          console.error("Lỗi trong vòng lặp soạn thảo AI Agent:", err);
-          const errClass = classifyAgentDraftError(0, err.message, err);
-          setAgentErrorDialog({
-            title: errClass.title,
-            message: errClass.message,
-            detail: errClass.detail,
-            chatId,
-          });
-          setAgentActive(false);
+        } catch (fetchErr) {
+          if (agentCancelRequestedRef.current) return;
+          console.warn("[runNextDraftStep] Lỗi kết nối mạng tạm thời, tự động thử lại sau 1s...", fetchErr.message);
+          setTimeout(runNextDraftStep, 1000);
         }
       };
 
       runNextDraftStep();
     } catch (err) {
-      console.error(err);
-      showToast("Lỗi khi xác nhận dàn ý: " + err.message, "error");
-    } finally {
+      showToast(err.message || "Không thể khởi chạy quy trình soạn thảo.", "error");
       setAgentLoading(false);
     }
-  }, [activeSessionId, selectedReportModelId, activeModel?.id, username, showToast, openAgentProgressPreview, appendChatMessage, streamEnabled, apiKey]);
+  }, [activeSessionId, selectedReportModelId, activeModel?.id, username, showToast, openAgentProgressPreview, appendChatMessage]);
 
   const reloadSection = useCallback(async (sectionId, chatIdArg = activeSessionId) => {
     const chatId = chatIdArg || activeSessionId;
