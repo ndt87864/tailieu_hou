@@ -46,6 +46,7 @@ export async function handleDraftNext(ctx) {
     turso,
     getAgentState,
     saveAgentState,
+    setMemoryState,
     claimWorkerLease,
     releaseWorkerLease
   } = ctx;
@@ -329,8 +330,11 @@ export async function handleDraftNext(ctx) {
         let lastSaveTime = 0;
         const onChunk = (partialText) => {
           if (!partialText) return;
-          // Store stream output in memory locally only, DB save happens after full response
+          // Store stream output in memory RAM locally only, DB save happens after full response
           nextToDraft.content = partialText;
+          if (typeof setMemoryState === "function") {
+            setMemoryState(chatId, currentState);
+          }
         };
 
         const rawDraft = await callLLM(targetModelId, [

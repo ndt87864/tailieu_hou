@@ -23,8 +23,27 @@ export function createAgentStateStore(turso) {
     }
   }
 
+  const memoryStateMap = new Map();
+
+  function setMemoryState(chatId, stateData) {
+    if (!chatId || !stateData) return;
+    memoryStateMap.set(chatId, {
+      ...stateData,
+      _ram_updated_at: new Date().toISOString(),
+    });
+  }
+
   async function getAgentState(chatId, username = "admin") {
     try {
+      // Return volatile RAM state if available for ultra-fast real-time streaming preview
+      const ramState = memoryStateMap.get(chatId);
+      if (ramState) {
+        return {
+          source: "memory",
+          data: ramState,
+        };
+      }
+
       const result = await turso.execute({
         sql: `SELECT chat_id, username, current_step, current_activity, outline, sections_progress, updated_at, created_at
               FROM report_agent_states WHERE chat_id = ? AND username = ?`,
@@ -37,18 +56,19 @@ export function createAgentStateStore(turso) {
         if (typeof value !== "string") return value;
         try { return JSON.parse(value); } catch { return value; }
       };
+      const dbState = {
+        chat_id: row.chat_id,
+        username: row.username,
+        current_step: row.current_step,
+        current_activity: parseJsonSafe(row.current_activity),
+        outline: parseJsonSafe(row.outline),
+        sections_progress: parseJsonSafe(row.sections_progress),
+        updated_at: row.updated_at,
+        created_at: row.created_at,
+      };
       return {
         source: "turso",
-        data: {
-          chat_id: row.chat_id,
-          username: row.username,
-          current_step: row.current_step,
-          current_activity: parseJsonSafe(row.current_activity),
-          outline: parseJsonSafe(row.outline),
-          sections_progress: parseJsonSafe(row.sections_progress),
-          updated_at: row.updated_at,
-          created_at: row.created_at,
-        },
+        data: dbState,
       };
     } catch (err) {
       console.error("[agent/route] getAgentState failed:", err.message);
@@ -222,6 +242,7 @@ export function createAgentStateStore(turso) {
         throw err;
       }
       if (stateData) stateData.updated_at = now;
+      memoryStateMap.delete(chatId);
       return { savedTurso: true };
     } catch (err) {
       console.error("[agent/route] saveAgentState failed:", err.message);
@@ -305,5 +326,5 @@ export function createAgentStateStore(turso) {
     }
   }
 
-  return { getAgentState, saveAgentState, claimWorkerLease, releaseWorkerLease, invalidateWorkerLease, hasActiveWorkerLease };
+  return { getAgentState, saveAgentState, setMemoryState, claimWorkerLease, releaseWorkerLease, invalidateWorkerLease, hasActiveWorkerLease };
 }

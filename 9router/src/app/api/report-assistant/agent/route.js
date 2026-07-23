@@ -33,6 +33,7 @@ export const maxDuration = 600;
 const {
   getAgentState,
   saveAgentState,
+  setMemoryState,
   claimWorkerLease,
   releaseWorkerLease,
   invalidateWorkerLease,
@@ -102,6 +103,7 @@ export async function POST(request) {
       turso,
       getAgentState,
       saveAgentState,
+      setMemoryState,
       claimWorkerLease,
       releaseWorkerLease,
       invalidateWorkerLease
