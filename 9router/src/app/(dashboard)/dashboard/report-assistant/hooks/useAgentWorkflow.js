@@ -74,8 +74,11 @@ export function useAgentWorkflow({
           newMsgs.push(userMsgObj);
         }
         if (assistantMsg) {
-          const isDuplicate = currentMsgs.some((m) => m.id === assistantMsg.id);
-          if (!isDuplicate) {
+          const isDuplicateId = currentMsgs.some((m) => m.id === assistantMsg.id);
+          const isDuplicateReportCardForSameRun = assistantMsg.isReportCard && currentMsgs.some((m) => 
+            m.isReportCard && (m.sessionId === assistantMsg.sessionId || m.id === assistantMsg.id)
+          );
+          if (!isDuplicateId && !isDuplicateReportCardForSameRun) {
             newMsgs.push(assistantMsg);
           }
         }
@@ -132,16 +135,6 @@ export function useAgentWorkflow({
         } else {
           const isEnded = data.state.current_step === "COMPLETED" || data.state.current_step === "CANCELLED";
           if (!isEnded) setAgentActive(true);
-        }
-        if (data.state.current_step === "COMPLETED") {
-          const reportCardMsg = {
-            id: createId(),
-            role: "assistant",
-            isReportCard: true,
-            content: "Báo cáo hoàn chỉnh",
-            createdAt: new Date().toISOString(),
-          };
-          appendChatMessage(chatId, null, reportCardMsg);
         }
         return data.state;
       }
@@ -397,10 +390,13 @@ export function useAgentWorkflow({
               // B4: Mở drawer + chuyển Preview báo cáo hoàn chỉnh khi HOÀN THÀNH TẤT CẢ CÁC MỤC
               setAgentActive(true);
               openAgentProgressPreview(draftData.state, "Báo cáo hoàn chỉnh");
+              const runId = draftData.state.session_id || draftData.state.run_id || draftData.state.sections_progress?.[0]?.reportContext?.runId || draftData.state.updatedAt || "v1";
+              const reportCardId = `report_card_${chatId}_${runId}`;
               const reportCardMsg = {
-                id: createId(),
+                id: reportCardId,
                 role: "assistant",
                 isReportCard: true,
+                sessionId: runId,
                 content: "Báo cáo hoàn chỉnh",
                 createdAt: new Date().toISOString(),
               };

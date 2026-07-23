@@ -1329,13 +1329,31 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
             <div className="space-y-6">
               {(() => {
                 const rawMsgs = activeSession?.messages || [];
-                const hasReportCard = rawMsgs.some((m) => m.isReportCard);
-                const finalMsgs = [...rawMsgs];
-                if (agentState?.current_step === "COMPLETED" && !hasReportCard) {
+                const currentRunId = agentState?.session_id || agentState?.run_id || agentState?.sections_progress?.[0]?.reportContext?.runId || "";
+                
+                // Lọc bỏ tất cả card Báo cáo hoàn chỉnh bị lặp lại trong rawMsgs
+                // Chỉ giữ lại đúng 1 card Báo cáo hoàn chỉnh cho mỗi sessionId (tin nhắn cũ chưa có sessionId gom thành 1 card duy nhất)
+                const seenReportCardKeys = new Set();
+                const cleanedRawMsgs = rawMsgs.filter((m) => {
+                  if (m.isReportCard || m.content === "Báo cáo hoàn chỉnh") {
+                    const key = m.sessionId ? `session_${m.sessionId}` : "legacy_report_card";
+                    if (seenReportCardKeys.has(key)) return false;
+                    seenReportCardKeys.add(key);
+                  }
+                  return true;
+                });
+
+                const hasReportCardForCurrentRun = currentRunId 
+                  ? cleanedRawMsgs.some((m) => (m.isReportCard || m.content === "Báo cáo hoàn chỉnh") && (m.sessionId === currentRunId || m.id.includes(currentRunId)))
+                  : cleanedRawMsgs.some((m) => m.isReportCard || m.content === "Báo cáo hoàn chỉnh");
+
+                const finalMsgs = [...cleanedRawMsgs];
+                if (agentState?.current_step === "COMPLETED" && !hasReportCardForCurrentRun) {
                   finalMsgs.push({
-                    id: "virtual-completed-report-card",
+                    id: `virtual-completed-report-card-${currentRunId || "v1"}`,
                     role: "assistant",
                     isReportCard: true,
+                    sessionId: currentRunId || "v1",
                     content: "Báo cáo hoàn chỉnh",
                     createdAt: new Date().toISOString(),
                   });
