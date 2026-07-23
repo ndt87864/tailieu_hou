@@ -9,11 +9,12 @@ export function timeoutSignal(ms) {
   return AbortSignal.timeout(timeoutMs);
 }
 
-export async function runSupabaseRag({ supabaseQuery, username, requestBaseUrl, activeReportContext, authToken }) {
+export async function runSupabaseRag({ supabaseQuery, username, requestBaseUrl, activeReportContext, authToken, reportType }) {
   if (!supabaseQuery || !username) return "";
 
   const baseUrl = requestBaseUrl;
-  const selectedKnowledgeSubject = activeReportContext?.outlineSource || "";
+  // reportType takes priority over outlineSource for strict isolation
+  const selectedKnowledgeSubject = reportType || activeReportContext?.outlineSource || "";
   const knowledgeUsers = Array.from(
     new Set([username, REPORT_TEMPLATE_CONTENT_USER].filter(Boolean)),
   );

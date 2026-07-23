@@ -44,7 +44,8 @@ export async function handleInit(ctx) {
     outlineSource,
     runId,
     outlineKnowledge,
-    templateKnowledge
+    templateKnowledge,
+    reportType: bodyReportType
   } = body || {};
 
   if (!userPrompt) {
@@ -52,6 +53,8 @@ export async function handleInit(ctx) {
   }
 
   logAgentStep("INIT_START", { chatId, username, targetModelId, subject, userPrompt });
+
+  const reportType = bodyReportType || deriveReportTypeFromOutlineSource(outlineSource);
 
   const reportContext = buildReportContext(userPrompt, subject, outlineSource);
   if (runId) {
@@ -265,6 +268,7 @@ export async function handleInit(ctx) {
   const newState = {
     chat_id: chatId,
     current_step: "OUTLINING",
+    reportType,
     current_activity: buildAgentActivity("outline_ready", "Agent đã lập đề cương và đang chờ bạn phê duyệt.", {
       actor: "Report Agent",
       sections: sectionsProgress.length,
@@ -283,4 +287,10 @@ export async function handleInit(ctx) {
 
   await saveAgentState(chatId, username, newState);
   return NextResponse.json({ ok: true, state: newState });
+}
+
+function deriveReportTypeFromOutlineSource(outlineSource = "") {
+  if (/b49|ba49/i.test(outlineSource)) return "b49";
+  if (/career|nghe nghiep|dinh huong/i.test(outlineSource)) return "career";
+  return "standard";
 }

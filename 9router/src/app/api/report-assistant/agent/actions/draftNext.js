@@ -188,7 +188,7 @@ export async function handleDraftNext(ctx) {
   }
 
   const [supabaseResult, webResult] = await Promise.allSettled([
-    runSupabaseRag({ supabaseQuery, username, requestBaseUrl, activeReportContext, authToken }),
+    runSupabaseRag({ supabaseQuery, username, requestBaseUrl, activeReportContext, authToken, reportType: currentState?.reportType }),
     runWebRag({ useWebRag, webQuery, requestBaseUrl, authToken }),
   ]);
 
@@ -224,8 +224,10 @@ export async function handleDraftNext(ctx) {
   const previousDone = progress.filter((p) => p.status === "done");
   const lastDoneContent = previousDone.length > 0 ? previousDone[previousDone.length - 1].content : "";
 
-  const isB49 = isInternshipB49ReportSection(nextToDraft);
-  const isCareer = isCareerOrientationReportSection(nextToDraft);
+  // Dispatch system prompt theo reportType lưu trong state (uu tiên), fallback sang regex detect
+  const reportType = currentState?.reportType;
+  const isB49 = reportType ? reportType === "b49" : isInternshipB49ReportSection(nextToDraft);
+  const isCareer = reportType ? reportType === "career" : isCareerOrientationReportSection(nextToDraft);
 
   let systemPrompt = "";
   if (isCareer) {

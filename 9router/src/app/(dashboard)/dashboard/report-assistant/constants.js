@@ -59,20 +59,23 @@ export const REPORT_TYPES = [
     name: "Báo cáo thực tập B49",
     description: "Mẫu báo cáo dành cho sinh viên khóa B49 thực tập doanh nghiệp (phân tích, đề xuất giải pháp, thiết kế, triển khai).",
     outlineUrl: "/report-templates/outline-b49.md",
-    docUrl: "/report-templates/template-b49.md"
+    docUrl: "/report-templates/template-b49.md",
+    ragSubject: "b49"
   },
   {
     id: "standard",
     name: "Báo cáo khoa học tiêu chuẩn",
     description: "Mẫu báo cáo khoa học, chuyên luận hoặc báo cáo học thuật tiêu chuẩn với cấu trúc 5 chương.",
     outlineUrl: "/report-templates/outline-standard.md",
-    docUrl: "/report-templates/template-standard.md"
+    docUrl: "/report-templates/template-standard.md",
+    ragSubject: "standard"
   },
   {
     id: "career",
     name: "Tiểu luận Định hướng nghề nghiệp",
     description: "Báo cáo định hướng nghề nghiệp, tự luận bản thân dành cho sinh viên.",
     outlineUrl: "/report-templates/outline-career.md",
-    docUrl: "/report-templates/template-career.md"
+    docUrl: "/report-templates/template-career.md",
+    ragSubject: "career"
   }
 ];
