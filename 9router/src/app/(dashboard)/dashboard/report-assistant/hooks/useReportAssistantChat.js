@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { createId } from "../utils/helpers";
+import { createId, isReportAssistantLunaModel } from "../utils/helpers";
 import { buildContentWithAttachments } from "../utils/attachmentExtractor";
 
 export function useReportAssistantChat({
@@ -26,6 +26,9 @@ export function useReportAssistantChat({
   streamEnabled,
   thinkingMode,
 }) {
+  const isLunaModel = isReportAssistantLunaModel(activeModel?.id);
+  const effectiveStreamEnabled = isLunaModel ? true : streamEnabled;
+
   const [isSending, setIsSending] = useState(false);
   const [streamingId, setStreamingId] = useState("");
   const [searchStatus, setSearchStatus] = useState("");
@@ -156,7 +159,7 @@ export function useReportAssistantChat({
         body: JSON.stringify({
           model: activeModel?.id,
           messages: requestMessages,
-          stream: streamEnabled,
+          stream: effectiveStreamEnabled,
           thinking_mode: thinkingMode,
           temperature,
         }),
@@ -171,7 +174,7 @@ export function useReportAssistantChat({
 
       let fullContent = "";
 
-      if (!streamEnabled) {
+      if (!effectiveStreamEnabled) {
         const data = await response.json();
         fullContent = data.choices?.[0]?.message?.content || "";
       } else {
@@ -407,7 +410,7 @@ export function useReportAssistantChat({
           body: JSON.stringify({
             model: activeModel?.id,
             messages: requestMessages,
-            stream: streamEnabled,
+            stream: effectiveStreamEnabled,
             thinking_mode: thinkingMode,
             temperature,
           }),
@@ -422,7 +425,7 @@ export function useReportAssistantChat({
 
         let fullContent = "";
 
-        if (!streamEnabled) {
+        if (!effectiveStreamEnabled) {
           const data = await response.json();
           fullContent = data.choices?.[0]?.message?.content || "";
         } else {

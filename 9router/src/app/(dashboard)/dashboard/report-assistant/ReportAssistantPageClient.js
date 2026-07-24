@@ -16,6 +16,7 @@ import {
   createId,
   safeParse,
   getReportAssistantChatModels,
+  isReportAssistantLunaModel,
 } from "./utils/helpers";
 
 import {
@@ -116,6 +117,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
       return saved !== null ? saved === "true" : true;
     } catch { return true; }
   });
+  const [hasActiveLuna, setHasActiveLuna] = useState(false);
 
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
@@ -145,10 +147,13 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
       const res = await fetch("/api/v1/models", { cache: "no-store" });
       const data = await res.json();
       const rawModels = Array.isArray(data?.data) ? data.data : [];
+      const hasLuna = rawModels.some((m) => isReportAssistantLunaModel(m?.id));
+      setHasActiveLuna(hasLuna);
       applyFullModelList(getReportAssistantChatModels(rawModels, currentProviderOnly), uName);
       setFullModelsLoaded(true);
     } catch (err) {
       setLoadError(err.message || "Failed to load models.");
+      setHasActiveLuna(false);
     } finally {
       setLoadingModels(false);
     }
@@ -584,6 +589,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
         setThinkingMode={setThinkingMode}
         onlyCurrentProvider={onlyCurrentProvider}
         onToggleOnlyCurrentProvider={handleToggleOnlyCurrentProvider}
+        hasActiveLuna={hasActiveLuna}
         selectedKnowledgeSubject={selectedKnowledgeSubject}
         setSelectedKnowledgeSubject={setSelectedKnowledgeSubject}
         allSubjects={allSubjects}
@@ -644,6 +650,7 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
         assistantOnlyMode={assistantOnlyMode}
         onlyCurrentProvider={onlyCurrentProvider}
         onToggleOnlyCurrentProvider={handleToggleOnlyCurrentProvider}
+        hasActiveLuna={hasActiveLuna}
         enabledModelIds={enabledModelIds}
         onToggleModel={(id) => {
           setEnabledModelIds((prev) => {

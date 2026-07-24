@@ -5,7 +5,7 @@ import { Button } from "@/shared/components";
 import { cn } from "@/shared/utils/cn";
 import { renderMarkdownAndMath } from "../utils/markdownRenderer";
 import { buildContentWithAttachments } from "../utils/attachmentExtractor";
-import { formatBytes, createId } from "../utils/helpers";
+import { formatBytes, createId, isReportAssistantLunaModel } from "../utils/helpers";
 import {
   AssistantAvatar,
   UserAvatar,
@@ -47,6 +47,7 @@ export function ChatPanel({
   setThinkingMode,
   onlyCurrentProvider = true,
   onToggleOnlyCurrentProvider,
+  hasActiveLuna = false,
   selectedKnowledgeSubject,
   setSelectedKnowledgeSubject,
   allSubjects,
@@ -77,6 +78,8 @@ export function ChatPanel({
         Math.min(textareaRef.current.scrollHeight, 160) + "px";
     }
   }, [draft, textareaRef]);
+
+  const isLunaModel = isReportAssistantLunaModel(activeModel?.id);
 
   return (
     <div
@@ -112,31 +115,33 @@ export function ChatPanel({
               <>
                 <div className="fixed inset-0 z-30" onClick={() => setModelDropdownOpen(false)} />
                 <div className="absolute left-0 mt-1.5 z-40 w-64 bg-surface border border-border rounded-xl shadow-lg overflow-hidden py-1">
-                  <div className="px-3 py-2 border-b border-border bg-surface-2/40 flex items-center justify-between gap-2">
-                    <span className="text-[11px] font-medium text-text-subtle truncate" title="Chỉ sử dụng provider hiện tại khi tạo báo cáo">
-                      Chỉ dùng provider Luna
-                    </span>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={onlyCurrentProvider}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onToggleOnlyCurrentProvider?.(!onlyCurrentProvider);
-                      }}
-                      className={cn(
-                        "relative inline-flex h-4 w-7 flex-shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
-                        onlyCurrentProvider ? "bg-brand-500" : "bg-slate-300 dark:bg-slate-600"
-                      )}
-                    >
-                      <span
+                  {hasActiveLuna && (
+                    <div className="px-3 py-2 border-b border-border bg-surface-2/40 flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-medium text-text-subtle truncate" title="Chỉ sử dụng provider hiện tại khi tạo báo cáo">
+                        Chỉ dùng provider Luna
+                      </span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={onlyCurrentProvider}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleOnlyCurrentProvider?.(!onlyCurrentProvider);
+                        }}
                         className={cn(
-                          "pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
-                          onlyCurrentProvider ? "translate-x-3" : "translate-x-0"
+                          "relative inline-flex h-4 w-7 flex-shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+                          onlyCurrentProvider ? "bg-brand-500" : "bg-slate-300 dark:bg-slate-600"
                         )}
-                      />
-                    </button>
-                  </div>
+                      >
+                        <span
+                          className={cn(
+                            "pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+                            onlyCurrentProvider ? "translate-x-3" : "translate-x-0"
+                          )}
+                        />
+                      </button>
+                    </div>
+                  )}
                   <div className="max-h-60 overflow-y-auto custom-scrollbar">
                     {allModels.map((m) => {
                       const active = m.id === activeModel?.id;
@@ -514,7 +519,7 @@ export function ChatPanel({
             </span>
           )}
 
-          {streamEnabled && (
+          {!isLunaModel && streamEnabled && (
             <span
               onClick={() => setStreamEnabled(false)}
               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-medium text-[11px] cursor-pointer hover:bg-emerald-500/20 transition-colors"
@@ -711,22 +716,24 @@ export function ChatPanel({
                       </span>
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={() => setStreamEnabled((prev) => !prev)}
-                      className={cn(
-                        "w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs font-medium transition-colors",
-                        streamEnabled ? "bg-emerald-500/10 text-emerald-600 font-semibold" : "text-text-main hover:bg-surface-2"
-                      )}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <span className="material-symbols-outlined text-[18px] text-emerald-500">{streamEnabled ? "stream" : "pause_circle"}</span>
-                        <span>Stream Real-time</span>
-                      </div>
-                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-surface border border-border text-text-subtle">
-                        {streamEnabled ? "BẬT" : "TẮT"}
-                      </span>
-                    </button>
+                    {!isLunaModel && (
+                      <button
+                        type="button"
+                        onClick={() => setStreamEnabled((prev) => !prev)}
+                        className={cn(
+                          "w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs font-medium transition-colors",
+                          streamEnabled ? "bg-emerald-500/10 text-emerald-600 font-semibold" : "text-text-main hover:bg-surface-2"
+                        )}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span className="material-symbols-outlined text-[18px] text-emerald-500">{streamEnabled ? "stream" : "pause_circle"}</span>
+                          <span>Stream Real-time</span>
+                        </div>
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-surface border border-border text-text-subtle">
+                          {streamEnabled ? "BẬT" : "TẮT"}
+                        </span>
+                      </button>
+                    )}
 
                     {(() => {
                       const isLockedQwen38 = String(activeModel?.id || activeModel?.name || "").includes("3.8");

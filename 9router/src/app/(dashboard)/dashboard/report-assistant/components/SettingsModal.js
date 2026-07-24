@@ -16,6 +16,7 @@ export function SettingsModal({
   assistantOnlyMode,
   onlyCurrentProvider = true,
   onToggleOnlyCurrentProvider,
+  hasActiveLuna = false,
   enabledModelIds,
   onToggleModel,
   allModels,
@@ -257,45 +258,47 @@ export function SettingsModal({
               </div>
 
               {/* Provider Selection Filter */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-semibold text-text-muted uppercase tracking-wider">
-                    Phạm vi Provider khi tạo báo cáo
-                  </label>
-                </div>
-                <div className="p-3.5 rounded-xl border border-border bg-surface flex items-center justify-between gap-4">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs font-semibold text-text-main flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-[16px] text-brand-500">
-                        tune
-                      </span>
-                      Chỉ sử dụng provider Luna khi tạo báo cáo
-                    </span>
-                    <p className="text-[11px] text-text-subtle">
-                      {onlyCurrentProvider
-                        ? "Đang bật: Chỉ cho phép dùng các model của provider Luna khi tạo báo cáo."
-                        : "Đang tắt: Cho phép dùng tất cả các model khác mà không cần bật tắt tài khoản."}
-                    </p>
+              {hasActiveLuna && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-semibold text-text-muted uppercase tracking-wider">
+                      Phạm vi Provider khi tạo báo cáo
+                    </label>
                   </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={onlyCurrentProvider}
-                    onClick={() => onToggleOnlyCurrentProvider?.(!onlyCurrentProvider)}
-                    className={cn(
-                      "relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
-                      onlyCurrentProvider ? "bg-brand-500" : "bg-slate-200 dark:bg-slate-700"
-                    )}
-                  >
-                    <span
+                  <div className="p-3.5 rounded-xl border border-border bg-surface flex items-center justify-between gap-4">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs font-semibold text-text-main flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[16px] text-brand-500">
+                          tune
+                        </span>
+                        Chỉ sử dụng provider Luna khi tạo báo cáo
+                      </span>
+                      <p className="text-[11px] text-text-subtle">
+                        {onlyCurrentProvider
+                          ? "Đang bật: Chỉ cho phép dùng các model của provider Luna khi tạo báo cáo."
+                          : "Đang tắt: Cho phép dùng tất cả các model khác mà không cần bật tắt tài khoản."}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={onlyCurrentProvider}
+                      onClick={() => onToggleOnlyCurrentProvider?.(!onlyCurrentProvider)}
                       className={cn(
-                        "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
-                        onlyCurrentProvider ? "translate-x-5" : "translate-x-0"
+                        "relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+                        onlyCurrentProvider ? "bg-brand-500" : "bg-slate-200 dark:bg-slate-700"
                       )}
-                    />
-                  </button>
+                    >
+                      <span
+                        className={cn(
+                          "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+                          onlyCurrentProvider ? "translate-x-5" : "translate-x-0"
+                        )}
+                      />
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Mode Selection */}
               <div>
