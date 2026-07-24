@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Card, Button, Badge, Input, Modal, CardSkeleton, OAuthModal, KiroOAuthWrapper, CursorAuthModal, IFlowCookieModal, LunaCaptureModal, ArenaCaptureModal, GitLabAuthModal, Toggle, Select, EditConnectionModal, NoAuthProxyCard, ConfirmModal } from "@/shared/components";
+import { Card, Button, Badge, Input, Modal, CardSkeleton, OAuthModal, KiroOAuthWrapper, CursorAuthModal, IFlowCookieModal, LunaCaptureModal, GitLabAuthModal, Toggle, Select, EditConnectionModal, NoAuthProxyCard, ConfirmModal } from "@/shared/components";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, WEB_COOKIE_PROVIDERS, getProviderAlias, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, AI_PROVIDERS } from "@/shared/constants/providers";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { getThinkingLevels } from "open-sse/providers/thinkingLevels.js";
@@ -45,7 +45,6 @@ export default function ProviderDetailPage() {
   const [showOAuthModal, setShowOAuthModal] = useState(false);
   const [showIFlowCookieModal, setShowIFlowCookieModal] = useState(false);
   const [showLunaCaptureModal, setShowLunaCaptureModal] = useState(false);
-  const [showArenaCaptureModal, setShowArenaCaptureModal] = useState(false);
   const [showAddApiKeyModal, setShowAddApiKeyModal] = useState(false);
   const [addConnectionError, setAddConnectionError] = useState("");
   const [showBulkImportCodex, setShowBulkImportCodex] = useState(false);
@@ -1710,13 +1709,6 @@ export default function ProviderDetailPage() {
           isOpen={showLunaCaptureModal}
           onSuccess={fetchConnections}
           onClose={() => setShowLunaCaptureModal(false)}
-        />
-      )}
-      {providerId === "arena" && (
-        <ArenaCaptureModal
-          isOpen={showArenaCaptureModal}
-          onSuccess={fetchConnections}
-          onClose={() => setShowArenaCaptureModal(false)}
         />
       )}
       <AddApiKeyModal
