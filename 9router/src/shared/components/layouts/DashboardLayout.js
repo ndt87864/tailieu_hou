@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { usePathname } from "next/navigation";
 import { useNotificationStore } from "@/store/notificationStore";
 import useThemeStore from "@/store/themeStore";
@@ -45,11 +45,6 @@ export default function DashboardLayout({ children }) {
     pathname === "/dashboard/assistant" ||
     isReportAssistant;
 
-  useEffect(() => {
-    if (isReportAssistant) {
-      useThemeStore.getState().setTheme("dark");
-    }
-  }, [isReportAssistant]);
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-bg">
@@ -109,7 +104,11 @@ export default function DashboardLayout({ children }) {
       <main className="flex flex-col flex-1 h-full min-w-0 relative transition-colors duration-300 isolate">
         {/* Faint grid background */}
         <div className="landing-grid absolute inset-0 pointer-events-none -z-10" aria-hidden="true" />
-        {!isReportAssistant && <Header onMenuClick={() => setSidebarOpen(true)} />}
+        {!isReportAssistant && (
+          <Suspense fallback={<div className="h-14 border-b border-border-subtle shrink-0" />}>
+            <Header onMenuClick={() => setSidebarOpen(true)} />
+          </Suspense>
+        )}
         <div className={`flex-1 ${isFullScreen ? "flex flex-col overflow-hidden h-full" : "overflow-y-auto custom-scrollbar p-6 lg:p-10"}`}>
           <div className={`${isFullScreen ? "flex-1 w-full h-full flex flex-col min-h-0" : "max-w-7xl mx-auto"}`}>{children}</div>
         </div>
