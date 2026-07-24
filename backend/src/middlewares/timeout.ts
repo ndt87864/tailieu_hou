@@ -2,6 +2,11 @@ import type { MiddlewareHandler } from "hono";
 
 export const timeout = (durationMs = 10000): MiddlewareHandler => {
   return async (c, next) => {
+    // Miễn trừ timeout cho các router proxy streaming (như 9Router AI Gateway)
+    if (c.req.path.startsWith("/api/v1/nine-router")) {
+      return await next();
+    }
+
     let timeoutId: NodeJS.Timeout;
     
     const timeoutPromise = new Promise<void>((_, reject) => {

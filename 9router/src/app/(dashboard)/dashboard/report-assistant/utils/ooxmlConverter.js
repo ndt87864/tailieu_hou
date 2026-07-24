@@ -149,7 +149,7 @@ export function generateCoverPageOoxmlFromLines(coverPart, logoActuallyExists = 
   const isBa49 = text.includes("BÁO CÁO KIẾN TẬP THỰC TẾ") || text.includes("VIỆN ĐÀO TẠO VÀ PHÁT TRIỂN HỌC TẬP SUỐT ĐỜI");
 
   topLines.forEach((line, index) => {
-    const sz = index === 0 ? "28" : "26";
+    const sz = "28";
     const underlineElement = (isBa49 && index === 1) ? '<w:u w:val="single"/>' : '';
     xml += `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="120" w:after="60"/></w:pPr><w:r><w:rPr><w:b/>${underlineElement}<w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/></w:rPr><w:t>${escXml(line)}</w:t></w:r></w:p>`;
   });
@@ -167,8 +167,7 @@ export function generateCoverPageOoxmlFromLines(coverPart, logoActuallyExists = 
   }
 
   titleLines.forEach((line, index) => {
-    const isMainTitle = /báo\s+cáo/i.test(line);
-    const sz = isMainTitle ? "36" : "28";
+    const sz = "28";
     const before = index === 0 ? "240" : "120";
     xml += `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="${before}" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/></w:rPr><w:t>${escXml(line)}</w:t></w:r></w:p>`;
   });

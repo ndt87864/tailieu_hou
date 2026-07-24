@@ -21,7 +21,12 @@ import {
   ChevronLeft,
   ChevronRight,
   FileSpreadsheet,
-  Search
+  Search,
+  Cpu,
+  Sparkles,
+  Bot,
+  FileSearch,
+  Languages
 } from "lucide-react";
 
 // Import actual subpages
@@ -46,6 +51,7 @@ import { QuestionRatioTab } from "../../components/admin/QuestionRatioTab.js";
 import { ProxyTab } from "../../components/admin/ProxyTab.js";
 import { SubjectPricesTab } from "../../components/admin/SubjectPricesTab.js";
 import { CrawlDataTab } from "../../components/admin/CrawlDataTab.js";
+import NineRouterTab from "../../components/admin/NineRouterTab.js";
 import { Header } from "../../components/layout/Layout.js";
 import "../../css/admin.css";
 
@@ -68,7 +74,13 @@ type TabId =
   | "crawler_courses"
   | "crawler_questions"
   | "crawler_resources"
-  | "sheets";
+  | "sheets"
+  | "nine_router"
+  | "ai_agent"
+  | "report_assistant"
+  | "doc_scanner"
+  | "ai_assistant"
+  | "translator";
 
 interface MenuItem {
   id: TabId;
@@ -84,6 +96,19 @@ interface MenuGroup {
   description: string;
   items: MenuItem[];
 }
+
+const EmbeddedAiToolTab: React.FC<{ url: string; title: string }> = ({ url, title }) => {
+  return (
+    <div className="w-full h-full rounded-none border-0 bg-[var(--surface)] overflow-hidden">
+      <iframe
+        src={url}
+        title={title}
+        className="w-full h-full border-0 block rounded-none"
+        sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals"
+      />
+    </div>
+  );
+};
 
 const AdminPage: React.FC = () => {
   const navigate = useNavigate();
@@ -179,6 +204,18 @@ const AdminPage: React.FC = () => {
       ],
     },
     {
+      id: "cong-cu-ai",
+      label: "Công cụ AI & Báo cáo",
+      icon: <Sparkles className="w-4 h-4" />,
+      description: "Các ứng dụng trợ lý AI, quét tài liệu và báo cáo tự động tích hợp 9Router AI Gateway.",
+      items: [
+        { id: "ai_agent",        label: "AI Agent báo cáo",    icon: <Bot className="w-4 h-4 text-brand-600" />,          desc: "Tạo và phân tích báo cáo tự động bằng AI Agent" },
+        { id: "report_assistant",label: "Trợ lý báo cáo",      icon: <FileText className="w-4 h-4 text-blue-600" />,     desc: "Trợ lý soạn thảo và phân tích báo cáo" },
+        { id: "doc_scanner",     label: "Document Scanner",   icon: <FileSearch className="w-4 h-4 text-emerald-600" />, desc: "Quét và trích xuất dữ liệu tài liệu tự động" },
+        { id: "ai_assistant",    label: "AI Assistant",        icon: <Sparkles className="w-4 h-4 text-purple-600" />,   desc: "Trợ lý AI thông minh đa năng" },
+      ],
+    },
+    {
       id: "he-thong",
       label: "Hệ thống",
       icon: <Calendar className="w-4 h-4" />,
@@ -188,6 +225,7 @@ const AdminPage: React.FC = () => {
         { id: "footer",   label: "Footer",       icon: <Compass className="w-4 h-4" />, desc: "Thông tin chân trang và chính sách" },
         { id: "contacts", label: "Liên hệ",      icon: <Mail className="w-4 h-4" />, desc: "Hộp thư tiếp nhận góp ý, phản hồi của người dùng" },
         { id: "sheets",   label: "Trang tính",    icon: <FileSpreadsheet className="w-4 h-4" />, desc: "Quản lí trang tính" },
+        { id: "nine_router", label: "Cấu hình 9Router AI", icon: <Cpu className="w-4 h-4" />, desc: "Quản lý 9Router AI Gateway & Provider Routing" },
       ],
     },
   ];
@@ -213,6 +251,10 @@ const AdminPage: React.FC = () => {
     setMobileOpen(false);
   };
 
+  const handleItemClick = (itemId: TabId) => {
+    navigate(`/admin/${itemId}`);
+  };
+
   const isGroupActive = (group: MenuGroup) => {
     if (activeRoute.type === "group") {
       return activeRoute.id === group.id;
@@ -233,7 +275,7 @@ const AdminPage: React.FC = () => {
             {currentGroup.items.map((item) => (
               <button
                 key={item.id}
-                onClick={() => navigate(`/admin/${item.id}`)}
+                onClick={() => handleItemClick(item.id)}
                 className="flex flex-col items-start p-6 rounded-3xl border border-[var(--border)] bg-[var(--surface)] hover:border-[var(--brand-600)] hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group text-left cursor-pointer relative overflow-hidden w-full"
               >
                 {/* Subtle Hover Gradient Glow */}
@@ -298,6 +340,16 @@ const AdminPage: React.FC = () => {
         return <CrawlDataTab view="resources" />;
       case "sheets":
         return <SheetsTab />;
+      case "nine_router":
+        return <EmbeddedAiToolTab url="http://localhost:20128/dashboard" title="Cấu hình 9Router AI" />;
+      case "ai_agent":
+        return <EmbeddedAiToolTab url="http://localhost:20128/dashboard/ai-agent" title="AI Agent Báo Cáo" />;
+      case "report_assistant":
+        return <EmbeddedAiToolTab url="http://localhost:20128/dashboard/report-assistant" title="Trợ Lý Báo Cáo" />;
+      case "doc_scanner":
+        return <EmbeddedAiToolTab url="http://localhost:20128/dashboard/doc-scanner" title="Document Scanner" />;
+      case "ai_assistant":
+        return <EmbeddedAiToolTab url="http://localhost:20128/dashboard/assistant" title="AI Assistant" />;
       default:
         return <DashboardTab />;
     }
@@ -338,8 +390,12 @@ const AdminPage: React.FC = () => {
       )
     : [];
 
+  const isEmbeddedTab =
+    activeRoute.type === "tab" &&
+    ["nine_router", "ai_agent", "report_assistant", "doc_scanner", "ai_assistant"].includes(activeRoute.id);
+
   return (
-    <div className="admin-layout shadow-sm border border-[var(--border)] relative">
+    <div className={`admin-layout shadow-sm border border-[var(--border)] relative ${isEmbeddedTab ? "h-screen overflow-hidden" : ""}`}>
       {/* 1. Mobile Drawer Overlay */}
       {mobileOpen && (
         <>
@@ -444,7 +500,7 @@ const AdminPage: React.FC = () => {
       </aside>
 
       {/* Main Content Area */}
-      <div className="admin-main-container">
+      <div className={`admin-main-container ${isEmbeddedTab ? "h-screen overflow-hidden flex flex-col" : ""}`}>
         <Header 
           onOpenSettings={() => window.dispatchEvent(new Event("open-settings"))}
           onOpenProfile={() => window.dispatchEvent(new Event("open-profile"))}
@@ -508,7 +564,7 @@ const AdminPage: React.FC = () => {
                     <button
                       key={item.id}
                       onClick={() => {
-                        navigate(`/admin/${item.id}`);
+                        handleItemClick(item.id);
                         setPageSearchQuery("");
                         setShowSearchSuggestions(false);
                       }}
@@ -541,7 +597,11 @@ const AdminPage: React.FC = () => {
         />
 
         {/* Tab Content container */}
-        <main className="admin-main-content">
+        <main className={
+          isEmbeddedTab
+            ? "flex-1 w-full h-full p-0 overflow-hidden bg-[var(--bg)]"
+            : "admin-main-content"
+        }>
           {renderContent()}
         </main>
       </div>

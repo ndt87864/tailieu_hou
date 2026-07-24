@@ -1,21 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import PropTypes from "prop-types";
 import ProviderIcon from "@/shared/components/ProviderIcon";
-import HeaderMenu from "@/shared/components/HeaderMenu";
-import ThemeToggle from "@/shared/components/ThemeToggle";
 import { useHeaderSearchStore } from "@/store/headerSearchStore";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS } from "@/shared/constants/config";
 import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS } from "@/shared/constants/providers";
 import { translate } from "@/i18n/runtime";
+import EditProfileModal from "@/shared/components/modals/EditProfileModal";
+import UISettingsModal from "@/shared/components/modals/UISettingsModal";
 
 const getPageInfo = (pathname, searchParams) => {
-  if (!pathname) return { title: "", description: "", breadcrumbs: [] };
+  if (!pathname) return { title: "9Router AI", breadcrumbs: ["Hệ thống", "9Router AI"] };
 
-  // Media provider detail: /dashboard/media-providers/[kind]/[id]
   const mediaDetailMatch = pathname.match(/\/media-providers\/([^/]+)\/([^/]+)$/);
   if (mediaDetailMatch) {
     const kindId = mediaDetailMatch[1];
@@ -24,319 +23,345 @@ const getPageInfo = (pathname, searchParams) => {
     const provider = AI_PROVIDERS[providerId];
     return {
       title: provider?.name || providerId,
-      description: "",
-      breadcrumbs: [
-        { label: "Media Providers", href: `/dashboard/media-providers/${kindId}` },
-        { label: kindConfig?.label || kindId, href: `/dashboard/media-providers/${kindId}` },
-        { label: provider?.name || providerId, image: `/providers/${providerId}.png` },
-      ],
+      breadcrumbs: ["Hệ thống", "9Router AI", kindConfig?.label || kindId, provider?.name || providerId],
     };
   }
 
-  // Media provider kind: /dashboard/media-providers/[kind]
   const mediaKindMatch = pathname.match(/\/media-providers\/([^/]+)$/);
   if (mediaKindMatch) {
     const kindId = mediaKindMatch[1];
     const kindConfig = MEDIA_PROVIDER_KINDS.find((k) => k.id === kindId);
     return {
       title: kindConfig?.label || kindId,
-      description: `Manage your ${kindConfig?.label || kindId} providers`,
-      icon: kindConfig?.icon || "perm_media",
-      breadcrumbs: [],
+      breadcrumbs: ["Hệ thống", "9Router AI", kindConfig?.label || kindId],
     };
   }
 
-  // Provider detail page: /dashboard/providers/[id]
   const providerMatch = pathname.match(/\/providers\/([^/]+)$/);
   if (providerMatch) {
     const providerId = providerMatch[1];
-    const providerInfo =
-      OAUTH_PROVIDERS[providerId] || APIKEY_PROVIDERS[providerId];
-    if (providerInfo) {
-      const fromPath = searchParams?.get("from");
-      const isFromAiAgent = fromPath === "/dashboard/ai-agent" || fromPath === "ai-agent";
-      return {
-        title: providerInfo.name,
-        description: "",
-        breadcrumbs: [
-          isFromAiAgent
-            ? { label: "AI Agent báo cáo", href: "/dashboard/ai-agent" }
-            : { label: "Providers", href: "/dashboard/providers" },
-          {
-            label: providerInfo.name,
-            image: `/providers/${providerInfo.id}.png`,
-          },
-        ],
-      };
-    }
+    const providerInfo = OAUTH_PROVIDERS[providerId] || APIKEY_PROVIDERS[providerId];
+    return {
+      title: providerInfo?.name || "Nhà cung cấp",
+      breadcrumbs: ["Hệ thống", "9Router AI", "Nhà cung cấp", providerInfo?.name || providerId],
+    };
   }
 
-  if (pathname.includes("/providers") && !pathname.includes("/media-providers"))
+  if (pathname.includes("/providers"))
     return {
-      title: "Providers",
-      description: "Manage your AI provider connections",
-      icon: "dns",
-      breadcrumbs: [],
+      title: "Nhà cung cấp",
+      breadcrumbs: ["Hệ thống", "9Router AI", "Nhà cung cấp"],
     };
   if (pathname.includes("/combos"))
     return {
-      title: "Combos",
-      description: "Model combos with fallback",
-      icon: "layers",
-      breadcrumbs: [],
+      title: "Combos Model",
+      breadcrumbs: ["Hệ thống", "9Router AI", "Combos"],
     };
   if (pathname.includes("/usage"))
     return {
-      title: "Usage & Analytics",
-      description:
-        "Monitor your API usage, token consumption, and request logs",
-      icon: "bar_chart",
-      breadcrumbs: [],
-    };
-  if (pathname.includes("/auth-files"))
-    return {
-      title: "Auth Files",
-      description: "Map provider credentials stored in the local database",
-      icon: "vpn_key",
-      breadcrumbs: [],
+      title: "Thống kê sử dụng",
+      breadcrumbs: ["Hệ thống", "9Router AI", "Thống kê"],
     };
   if (pathname.includes("/quota"))
     return {
-      title: "Quota Tracker",
-      description: "Track and manage your API quota limits",
-      icon: "data_usage",
-      breadcrumbs: [],
+      title: "Hạn mức Quota",
+      breadcrumbs: ["Hệ thống", "9Router AI", "Quota Tracker"],
     };
-  if (pathname.includes("/mitm"))
-    return {
-      title: "MITM Proxy",
-      description: "Intercept CLI tool traffic and route through 9Router",
-      icon: "security",
-      breadcrumbs: [],
-    };
-  if (pathname.includes("/token-saver"))
-    return {
-      title: "Token Saver",
-      description: "Compress prompts and outputs to save tokens",
-      icon: "savings",
-      breadcrumbs: [],
-    };
-  if (pathname.includes("/proxy-pools"))
-    return {
-      title: "Proxy Pools",
-      description: "Manage your proxy pool configurations",
-      icon: "lan",
-      breadcrumbs: [],
-    };
-  if (pathname.includes("/skills"))
-    return {
-      title: "Agent Skills",
-      description: "Copy a link and paste to your AI to use 9Router — no install needed",
-      icon: "extension",
-      breadcrumbs: [],
-    };
-  if (pathname.includes("/endpoint"))
-    return {
-      title: "Endpoint",
-      description: "API endpoint configuration",
-      icon: "api",
-      breadcrumbs: [],
-    };
-  if (pathname.includes("/profile"))
-    return {
-      title: "Settings",
-      description: "Manage your preferences",
-      icon: "settings",
-      breadcrumbs: [],
-    };
-  if (pathname.includes("/translator"))
-    return {
-      title: "Translator",
-      description: "Debug translation flow between formats",
-      icon: "translate",
-      breadcrumbs: [],
-    };
-  if (pathname === "/dashboard")
-    return {
-      title: "Endpoint",
-      description: "API endpoint configuration",
-      icon: "api",
-      breadcrumbs: [],
-    };
-  return { title: "", description: "", breadcrumbs: [] };
+
+  return {
+    title: "9Router AI",
+    breadcrumbs: ["Hệ thống", "9Router AI"],
+  };
 };
 
 export default function Header({ onMenuClick, showMenuButton = true }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [displayName, setDisplayName] = useState("");
-  const [loginMethod, setLoginMethod] = useState("");
+  const [userProfile, setUserProfile] = useState({
+    name: "Trung Nguyễn Đình",
+    email: "tapnham502@gmail.com",
+    role: "Admin",
+    avatar: "",
+    phone: "",
+  });
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const dropdownRef = useRef(null);
 
-  // Memoize page info to prevent unnecessary recalculations
-  const pageInfo = useMemo(() => getPageInfo(pathname, searchParams), [pathname, searchParams]);
-  const { title, description, icon, breadcrumbs } = pageInfo;
+  const pageInfo = useMemo(
+    () => getPageInfo(pathname, searchParams),
+    [pathname, searchParams]
+  );
+  const { breadcrumbs = [] } = pageInfo;
+
+  const loadProfileFromStorage = useCallback(() => {
+    try {
+      const cachedStr = localStorage.getItem("user-profile");
+      const cachedRole = localStorage.getItem("user-role");
+      if (cachedStr) {
+        const p = JSON.parse(cachedStr);
+        const avatarUrl = p.avatar_url || p.avatar || p.picture || "";
+        const fullName = p.full_name || p.displayName || p.name || "Trung Nguyễn Đình";
+        const email = p.email || "tapnham502@gmail.com";
+        const phone = p.phone || "";
+        const r = cachedRole ? (cachedRole.charAt(0).toUpperCase() + cachedRole.slice(1)) : "Admin";
+
+        setUserProfile({
+          name: fullName,
+          email: email,
+          role: r,
+          avatar: avatarUrl,
+          phone: phone,
+        });
+      }
+    } catch (e) {}
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadAuthStatus() {
-      try {
-        const res = await fetch("/api/auth/status", { cache: "no-store" });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!cancelled) {
-          setDisplayName(data?.displayName || data?.oidcName || data?.oidcEmail || "");
-          setLoginMethod(data?.loginMethod || "");
-        }
-      } catch {
-        if (!cancelled) {
-          setDisplayName("");
-          setLoginMethod("");
-        }
-      }
-    }
+    loadProfileFromStorage();
+    window.addEventListener("storage", loadProfileFromStorage);
 
-    loadAuthStatus();
+    fetch("http://localhost:3001/api/v1/auth/profile", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.profile) return;
+        const p = data.profile;
+        setUserProfile({
+          name: p.full_name || p.displayName || "Trung Nguyễn Đình",
+          email: p.email || "tapnham502@gmail.com",
+          role: data.role ? (data.role.charAt(0).toUpperCase() + data.role.slice(1)) : "Admin",
+          avatar: p.avatar_url || p.avatar || "",
+          phone: p.phone || "",
+        });
+      })
+      .catch(() => {});
+
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
       cancelled = true;
+      window.removeEventListener("storage", loadProfileFromStorage);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, []);
+  }, [loadProfileFromStorage]);
 
   const handleLogout = async () => {
     try {
-      const res = await fetch("/api/auth/logout", { method: "POST" });
-      if (res.ok) {
-        window.location.assign("/login");
-      }
-    } catch (err) {
-      console.error("Failed to logout:", err);
-    }
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch {}
+    localStorage.removeItem("user-profile");
+    localStorage.removeItem("user-role");
+    window.location.href = "http://localhost:3000/login";
   };
 
   return (
-    <header className="shrink-0 flex items-center justify-between gap-3 px-4 lg:px-8 pt-3 pb-2 border-b border-border-subtle bg-surface/60 backdrop-blur-xl lg:bg-transparent lg:backdrop-blur-none z-20">
-      {/* Mobile menu button */}
-      <div className="flex items-center gap-3 lg:hidden shrink-0">
-        {showMenuButton && (
-          <button
-            onClick={onMenuClick}
-            className="text-text-main hover:text-primary transition-colors"
-          >
-            <span className="material-symbols-outlined">menu</span>
-          </button>
-        )}
-      </div>
+    <>
+      <header className="shrink-0 flex items-center justify-between gap-3 px-4 lg:px-6 h-16 border-b border-border bg-surface text-text-main z-30">
+        {/* Left: Mobile Menu & Breadcrumbs matching HOU Admin Header 100% */}
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          {showMenuButton && (
+            <button
+              onClick={onMenuClick}
+              className="p-1.5 rounded-lg text-text-muted hover:text-text-main hover:bg-surface-2 transition-colors lg:hidden shrink-0"
+              aria-label="Toggle menu"
+            >
+              <span className="material-symbols-outlined text-[20px]">menu</span>
+            </button>
+          )}
 
-      {/* Page title with breadcrumbs */}
-      <div className="flex flex-col min-w-0 flex-1">
-        {breadcrumbs.length > 0 ? (
-          <div className="flex items-center gap-2">
-            {breadcrumbs.map((crumb, index) => (
-              <div
-                key={`${crumb.label}-${crumb.href || "current"}`}
-                className="flex items-center gap-2"
-              >
-                {index > 0 && (
-                  <span className="material-symbols-outlined text-text-muted text-base">
-                    chevron_right
-                  </span>
+          <div className="flex items-center gap-1.5 min-w-0 truncate text-xs">
+            {breadcrumbs.map((crumb, idx) => (
+              <div key={`${crumb}-${idx}`} className="flex items-center gap-1.5 truncate">
+                {idx > 0 && (
+                  <span className="text-text-muted/60 text-[11px] shrink-0">/</span>
                 )}
-                {crumb.href ? (
-                  <Link
-                    href={crumb.href}
-                    className="text-text-muted hover:text-primary transition-colors"
-                  >
-                    {crumb.label}
-                  </Link>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    {crumb.image && (
-                      <ProviderIcon
-                        src={crumb.image}
-                        alt={crumb.label}
-                        size={28}
-                        className="object-contain rounded max-w-[28px] max-h-[28px]"
-                        fallbackText={crumb.label.slice(0, 2).toUpperCase()}
-                      />
-                    )}
-                    <h1 className="text-base lg:text-2xl font-semibold text-text-main tracking-tight truncate">
-                      {translate(crumb.label)}
-                    </h1>
-                  </div>
-                )}
+                <span
+                  className={
+                    idx === breadcrumbs.length - 1
+                      ? "font-semibold text-text-main truncate"
+                      : "text-text-muted font-medium truncate"
+                  }
+                >
+                  {crumb}
+                </span>
               </div>
             ))}
           </div>
-        ) : title ? (
-          <div>
-            <div className="flex items-center gap-2">
-              {icon && (
-                <span className="material-symbols-outlined text-primary text-xl lg:text-2xl">
-                  {icon}
+        </div>
+
+        {/* Right: Quick Search + User Profile Dropdown matching HOU Admin Header 100% */}
+        <div className="flex items-center gap-3 shrink-0">
+          <HeaderSearch />
+
+          {/* User Profile Button with Avatar Photo Support */}
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setDropdownOpen((prev) => !prev)}
+              className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-all duration-200 hover:bg-surface-2 text-text-main"
+            >
+              <div className="w-8 h-8 rounded-full flex items-center justify-center bg-blue-600 text-white text-xs font-bold shadow-sm shrink-0 overflow-hidden">
+                {userProfile.avatar ? (
+                  <img src={userProfile.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  userProfile.name.charAt(0).toUpperCase()
+                )}
+              </div>
+
+              <div className="hidden sm:flex flex-col items-start min-w-0 text-left">
+                <span className="truncate max-w-[120px] text-xs font-semibold text-text-main">
+                  {userProfile.name}
                 </span>
-              )}
-              <h1 className="text-base lg:text-2xl font-semibold tracking-tight truncate">
-                {translate(title)}
-              </h1>
-            </div>
-            {description && (
-              <p className="hidden lg:block text-sm text-text-muted truncate">
-                {translate(description)}
-              </p>
+                <span className="bg-[#fee2e2] text-[#b91c1c] border border-[#fca5a5] text-[10px] font-bold px-2 py-[1px] rounded-full inline-block mt-0.5">
+                  {userProfile.role}
+                </span>
+              </div>
+
+              <span className={`material-symbols-outlined text-[16px] text-text-muted transition-transform duration-200 ${dropdownOpen ? "rotate-180" : ""}`}>
+                keyboard_arrow_down
+              </span>
+            </button>
+
+            {/* User Profile Dropdown Modal with Avatar Photo Support */}
+            {dropdownOpen && (
+              <div className="absolute right-0 mt-2 w-60 rounded-2xl py-1.5 bg-surface border border-border shadow-2xl z-50 animate-scale-in origin-top-right">
+                <div className="px-4 py-3 border-b border-border/60">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-9 h-9 rounded-full flex items-center justify-center bg-blue-600 text-white text-xs font-bold shadow-sm shrink-0 overflow-hidden">
+                      {userProfile.avatar ? (
+                        <img src={userProfile.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        userProfile.name.charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-xs text-text-main truncate">{userProfile.name}</p>
+                      <p className="text-[10px] text-text-muted truncate mt-0.5">{userProfile.email}</p>
+                    </div>
+                  </div>
+                  <span className="bg-[#fee2e2] text-[#b91c1c] border border-[#fca5a5] text-[10px] font-bold px-2 py-[1px] rounded-full inline-block">
+                    {userProfile.role}
+                  </span>
+                </div>
+
+                <div className="py-1 text-xs text-text-main">
+                  <button
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      setProfileModalOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-surface-2 transition-colors text-left"
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-text-muted">person</span>
+                    <span>Trang cá nhân</span>
+                  </button>
+                  <a
+                    href="http://localhost:3000/"
+                    className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-surface-2 transition-colors text-left"
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-text-muted">home</span>
+                    <span>Trang chủ</span>
+                  </a>
+                  <a
+                    href="http://localhost:3000/lich-thi"
+                    className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-surface-2 transition-colors text-left"
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-text-muted">calendar_today</span>
+                    <span>Lịch thi</span>
+                  </a>
+                  <a
+                    href="http://localhost:3000/pricing"
+                    className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-surface-2 transition-colors text-left"
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-text-muted">call</span>
+                    <span>Liên hệ</span>
+                  </a>
+                  <a
+                    href="http://localhost:3000/admin"
+                    className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-surface-2 transition-colors text-left"
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-text-muted">shield</span>
+                    <span>Quản trị hệ thống</span>
+                  </a>
+                  <button
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      setSettingsModalOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-surface-2 transition-colors text-left text-text-main"
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-text-muted">settings</span>
+                    <span>Giao diện hệ thống</span>
+                  </button>
+                  <div className="border-t border-border/60 my-1" />
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-left flex items-center gap-2.5 px-4 py-2.5 text-red-500 hover:bg-red-500/10 transition-colors font-medium"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">logout</span>
+                    <span>Đăng xuất</span>
+                  </button>
+                </div>
+              </div>
             )}
           </div>
-        ) : null}
-      </div>
+        </div>
+      </header>
 
-      {/* Right actions */}
-      <div className="flex items-center gap-1 shrink-0">
-        {displayName && loginMethod === "OIDC" && (
-          <div className="hidden sm:flex items-center max-w-[220px] px-3 py-1.5 rounded-full border border-border bg-surface/70 text-xs text-text-muted truncate">
-            <span className="material-symbols-outlined text-[14px] mr-1.5 text-primary">person</span>
-            <span className="truncate">{displayName}</span>
-            <span className="ml-2 shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
-              OIDC
-            </span>
-          </div>
-        )}
-        <HeaderSearch />
-        <ThemeToggle />
-        <HeaderMenu onLogout={handleLogout} />
-      </div>
-    </header>
+      {/* Edit Profile Modal */}
+      <EditProfileModal
+        isOpen={profileModalOpen}
+        onClose={() => setProfileModalOpen(false)}
+        userProfile={userProfile}
+        onProfileUpdated={loadProfileFromStorage}
+      />
+
+      {/* UI Settings Modal */}
+      <UISettingsModal
+        isOpen={settingsModalOpen}
+        onClose={() => setSettingsModalOpen(false)}
+      />
+    </>
   );
 }
 
 function HeaderSearch() {
   const visible = useHeaderSearchStore((s) => s.visible);
   const query = useHeaderSearchStore((s) => s.query);
-  const placeholder = useHeaderSearchStore((s) => s.placeholder);
   const setQuery = useHeaderSearchStore((s) => s.setQuery);
 
   if (!visible) return null;
 
   return (
-    <div className="relative w-[160px] sm:w-[220px]">
-      <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-text-muted text-[16px] pointer-events-none">
-        search
-      </span>
-      <input
-        type="text"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder={placeholder}
-        className="w-full h-8 pl-7 pr-7 rounded-lg border border-border bg-surface/60 text-sm focus:outline-none focus:border-primary/50 transition-colors"
-      />
-      {query && (
-        <button
-          type="button"
-          onClick={() => setQuery("")}
-          className="absolute right-1 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main p-0.5 rounded"
-          aria-label="Clear search"
-        >
-          <span className="material-symbols-outlined text-[16px]">close</span>
-        </button>
-      )}
+    <div className="relative w-36 xs:w-44 sm:w-60 md:w-64">
+      <div className="relative">
+        <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted text-[15px] pointer-events-none">
+          search
+        </span>
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Tìm trang..."
+          className="w-full pl-8 pr-7 py-1.5 bg-surface-2 border border-border rounded-full text-xs text-text-main placeholder-text-muted focus:outline-none focus:border-brand-500 transition-all"
+        />
+        {query && (
+          <button
+            type="button"
+            onClick={() => setQuery("")}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main p-0 cursor-pointer flex items-center justify-center"
+            aria-label="Clear search"
+          >
+            <span className="material-symbols-outlined text-[14px]">close</span>
+          </button>
+        )}
+      </div>
     </div>
   );
 }

@@ -14,12 +14,27 @@ services:
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       - REDIS_URL=redis://redis:6379
+      - NINE_ROUTER_URL=${NINE_ROUTER_URL:-http://nine_router:20128}
     depends_on:
       - redis
+      - nine_router
     restart: always
     networks:
       - app_network
       - supabase_network
+
+  nine_router:
+    build:
+      context: ./9router
+      dockerfile: Dockerfile
+    ports:
+      - "20128:20128"
+    environment:
+      - PORT=20128
+      - NODE_ENV=production
+    restart: always
+    networks:
+      - app_network
 
   redis:
     image: redis:7-alpine

@@ -109,7 +109,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="layout-header">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+      <div className="w-full px-4 sm:px-6">
         <div className="flex items-center justify-between h-16">
           {/* Logo or custom left element */}
           {leftElement ? (
@@ -520,7 +520,7 @@ const Layout: React.FC = () => {
         <main className="flex-1 flex flex-col">
           <Outlet />
         </main>
-        <Footer />
+        {!isAdminPage && <Footer />}
       </div>
       <UISettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <EditProfileModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} />

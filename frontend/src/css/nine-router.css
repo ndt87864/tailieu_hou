@@ -1,0 +1,205 @@
+/* Styling for 9Router Admin Tab using CSS Custom Properties */
+.nine-router-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  background-color: var(--bg, #f8fafc);
+  border-radius: 0.75rem;
+  color: var(--fg, #0f172a);
+}
+
+.nine-router-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  background: var(--surface, #ffffff);
+  padding: 1.25rem 1.5rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border, #e2e8f0);
+}
+
+.nine-router-title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.nine-router-icon {
+  width: 2rem;
+  height: 2rem;
+  color: var(--brand-600, #3b82f6);
+}
+
+.nine-router-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--fg, #0f172a);
+}
+
+.nine-router-subtitle {
+  font-size: 0.875rem;
+  color: var(--muted, #64748b);
+}
+
+.nine-router-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.nine-router-status-badge.online {
+  background-color: rgba(34, 197, 94, 0.15);
+  color: #16a34a;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.nine-router-status-badge.offline {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.nine-router-status-badge.checking {
+  background-color: var(--bg-2, #f1f5f9);
+  color: var(--muted, #475569);
+  border: 1px solid var(--border, #e2e8f0);
+}
+
+.nine-router-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.25rem;
+}
+
+.nine-router-card {
+  background: var(--surface, #ffffff);
+  padding: 1.25rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border, #e2e8f0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.nine-router-card-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--fg, #1e293b);
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.nine-router-code-block {
+  background-color: var(--bg-2, #1e293b);
+  color: var(--fg, #f8fafc);
+  padding: 0.75rem 1rem;
+  border-radius: 0.375rem;
+  font-family: monospace;
+  font-size: 0.85rem;
+  word-break: break-all;
+  user-select: all;
+  border: 1px solid var(--border, #334155);
+}
+
+.nine-router-badge-role {
+  background-color: rgba(59, 130, 246, 0.12);
+  color: var(--brand-600, #2563eb);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+}
+
+.nine-router-iframe-container {
+  width: 100%;
+  height: 650px;
+  background: var(--surface, #ffffff);
+  border-radius: 0.5rem;
+  border: 1px solid var(--border, #cbd5e1);
+  overflow: hidden;
+}
+
+.nine-router-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.nine-router-btn-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.875rem;
+  background-color: var(--bg-2, #f1f5f9);
+  color: var(--fg, #334155);
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.nine-router-btn-refresh:hover {
+  background-color: var(--border, #e2e8f0);
+}
+
+.nine-router-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 1rem;
+  background-color: var(--brand-600, #2563eb);
+  color: #ffffff;
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.nine-router-btn-primary:hover {
+  opacity: 0.9;
+}
+
+.nine-router-test-area {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.nine-router-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background-color: var(--bg, #ffffff);
+  color: var(--fg, #0f172a);
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+}
+
+.nine-router-test-response {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background-color: var(--bg-2, #f1f5f9);
+  color: var(--fg, #0f172a);
+  border-radius: 0.375rem;
+  font-family: monospace;
+  font-size: 0.75rem;
+  max-height: 8rem;
+  overflow-y: auto;
+  word-break: break-word;
+  white-space: pre-wrap;
+  border: 1px solid var(--border, #e2e8f0);
+}

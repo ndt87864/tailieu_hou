@@ -192,7 +192,7 @@ export function injectCoverPageFull(content, title = "") {
     <div style="font-size: 14pt; font-weight: bold; text-transform: uppercase; line-height: 1.3; margin-bottom: 5px; text-align: center;">
       TRƯỜNG ĐẠI HỌC MỞ HÀ NỘI
     </div>
-    <div style="font-size: 13pt; font-weight: bold; text-transform: uppercase; line-height: 1.3; text-align: center; text-decoration: underline;">
+    <div style="font-size: 14pt; font-weight: bold; text-transform: uppercase; line-height: 1.3; text-align: center; text-decoration: underline;">
       VIỆN ĐÀO TẠO VÀ PHÁT TRIỂN HỌC TẬP SUỐT ĐỜI
     </div>
   </div>
@@ -202,7 +202,7 @@ export function injectCoverPageFull(content, title = "") {
   </div>
 
   <div style="width: 100%; display: flex; flex-direction: column; align-items: center; margin-bottom: 1.5cm;">
-    <div style="font-size: 24pt; font-weight: bold; text-transform: uppercase; line-height: 1.4; max-width: 90%; text-align: center; margin-bottom: 10px;">
+    <div style="font-size: 14pt; font-weight: bold; text-transform: uppercase; line-height: 1.4; max-width: 90%; text-align: center; margin-bottom: 10px;">
       ${meta.reportTitle}
     </div>
     <div style="font-size: 14pt; text-align: center; max-width: 90%;">
@@ -238,8 +238,8 @@ export function injectCoverPageFull(content, title = "") {
     <div style="font-size: 14pt; font-weight: bold; text-transform: uppercase; line-height: 1.3; margin-bottom: 5px; text-align: center;">
       TRƯỜNG ĐẠI HỌC MỞ HÀ NỘI
     </div>
-    <div style="font-size: 13pt; font-weight: bold; text-transform: uppercase; line-height: 1.3; text-align: center;">
-      VIỆN ĐT & PT HỌC TẬP SUỐT ĐỜI
+    <div style="font-size: 14pt; font-weight: bold; text-transform: uppercase; line-height: 1.3; text-align: center;">
+      VIỆN ĐÀO TẠO VÀ PHÁT TRIỂN HỌC TẬP SUỐT ĐỜI
     </div>
     <div style="width: 120px; height: 1px; background-color: #000; margin: 8px auto 0 auto;"></div>
   </div>
@@ -249,13 +249,13 @@ export function injectCoverPageFull(content, title = "") {
   </div>
 
   <div style="width: 100%; display: flex; flex-direction: column; align-items: center; margin-bottom: 1.5cm;">
-    <div style="font-size: 16pt; font-weight: bold; text-transform: uppercase; line-height: 1.4; max-width: 90%; text-align: center; margin-bottom: 5px;">
+    <div style="font-size: 14pt; font-weight: bold; text-transform: uppercase; line-height: 1.4; max-width: 90%; text-align: center; margin-bottom: 5px;">
       BÁO CÁO THỰC TẬP
     </div>
-    <div style="font-size: 16pt; font-weight: bold; text-transform: uppercase; line-height: 1.4; max-width: 90%; text-align: center; margin-bottom: 5px;">
+    <div style="font-size: 14pt; font-weight: bold; text-transform: uppercase; line-height: 1.4; max-width: 90%; text-align: center; margin-bottom: 5px;">
       HỌC PHẦN
     </div>
-    <div style="font-size: 16pt; font-weight: bold; text-transform: uppercase; line-height: 1.4; max-width: 90%; text-align: center; margin-bottom: 10px;">
+    <div style="font-size: 14pt; font-weight: bold; text-transform: uppercase; line-height: 1.4; max-width: 90%; text-align: center; margin-bottom: 10px;">
       ${subTitle}
     </div>
   </div>
@@ -286,8 +286,8 @@ export function injectCoverPageFull(content, title = "") {
     <div style="font-size: 14pt; font-weight: bold; text-transform: uppercase; line-height: 1.3; margin-bottom: 5px; text-align: center;">
       TRƯỜNG ĐẠI HỌC MỞ HÀ NỘI
     </div>
-    <div style="font-size: 13pt; font-weight: bold; text-transform: uppercase; line-height: 1.3; text-align: center;">
-      TRUNG TÂM ĐÀO TẠO TRỰC TUYẾN
+    <div style="font-size: 14pt; font-weight: bold; text-transform: uppercase; line-height: 1.3; text-align: center;">
+      VIỆN ĐÀO TẠO VÀ PHÁT TRIỂN HỌC TẬP SUỐT ĐỜI
     </div>
     <div style="width: 120px; height: 1px; background-color: #000; margin: 8px auto 0 auto;"></div>
   </div>
@@ -297,7 +297,7 @@ export function injectCoverPageFull(content, title = "") {
   </div>
 
   <div style="width: 100%; display: flex; flex-direction: column; align-items: center; margin-bottom: 2cm;">
-    <div style="font-size: 18pt; font-weight: bold; text-transform: uppercase; line-height: 1.4; max-width: 90%; text-align: center; margin-bottom: 10px;">
+    <div style="font-size: 14pt; font-weight: bold; text-transform: uppercase; line-height: 1.4; max-width: 90%; text-align: center; margin-bottom: 10px;">
       ${meta.reportTitle}
     </div>
     <div style="font-size: 14pt; font-weight: bold; font-style: italic; text-align: center; max-width: 90%;">
