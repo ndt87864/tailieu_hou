@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Card, Button, Input } from "@/shared/components";
 
 export default function LoginPage() {
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [resetHint, setResetHint] = useState("");
@@ -67,7 +68,7 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ email, password }),
       });
 
       if (res.ok) {
@@ -193,17 +194,30 @@ export default function LoginPage() {
                   </p>
                 )}
 
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium">Password</label>
-                  <Input
-                    type="password"
-                    placeholder="Enter password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    autoFocus={!oidcAvailable}
-                  />
-                  {error && <p className="text-xs text-red-500">{error}</p>}
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-medium">Email / Tên đăng nhập (HOU / 9Router)</label>
+                    <Input
+                      type="text"
+                      placeholder="admin@hou.edu.vn hoặc admin"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      autoFocus={!oidcAvailable}
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-medium">Mật khẩu</label>
+                    <Input
+                      type="password"
+                      placeholder="Nhập mật khẩu"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
                   {retryAfter > 0 && (
                     <p className="text-xs text-amber-600 dark:text-amber-400">
                       Locked. Retry in <span className="font-mono">{retryAfter}s</span>.
@@ -219,15 +233,15 @@ export default function LoginPage() {
                 <Button
                   type="submit"
                   variant="primary"
-                  className="w-full"
+                  className="w-full mt-2"
                   loading={loading}
                   disabled={retryAfter > 0}
                 >
-                  {retryAfter > 0 ? `Wait ${retryAfter}s` : "Login"}
+                  {retryAfter > 0 ? `Wait ${retryAfter}s` : "Đăng nhập"}
                 </Button>
 
                 <p className="text-xs text-center text-text-muted mt-2">
-                  Default password is <code className="bg-sidebar px-1 rounded">123456</code>
+                  Đăng nhập bằng tài khoản <b>Admin</b> hoặc <b>Management</b> của TaiLieu HOU. (Mật khẩu mặc định 9Router nội bộ: <code className="bg-sidebar px-1 rounded">123456</code>)
                 </p>
                 {hasPassword === false && (
                   <p className="text-xs text-center text-amber-600 dark:text-amber-400">

@@ -6,6 +6,7 @@ import { setDashboardAuthCookie } from "@/lib/auth/dashboardSession";
 import { isOidcConfigured } from "@/lib/auth/oidc";
 import { checkLock, recordFail, recordSuccess, getClientIp } from "@/lib/auth/loginLimiter";
 import { isLocalRequest } from "@/dashboardGuard";
+import { createClient } from "@supabase/supabase-js";
 
 const RESET_HINT = "Forgot password? Reset to default via 9Router CLI → Settings → Reset Password to Default.";
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
@@ -28,7 +29,10 @@ export async function POST(request) {
       );
     }
 
-    const { password } = await request.json();
+    const body = await request.json();
+    const password = body.password || "";
+    const userEmail = (body.email || body.username || "").trim();
+
     const settings = await getSettings();
 
     // Block login via tunnel/tailscale if dashboard access is disabled
@@ -36,18 +40,60 @@ export async function POST(request) {
       return NextResponse.json({ error: "Dashboard access via tunnel is disabled" }, { status: 403 });
     }
 
-    // Default password is '123456' if not set
-    const storedHash = settings.password;
-
     if (settings.authMode === "oidc" && isOidcConfigured(settings)) {
       return NextResponse.json({ error: "Password login is disabled. Use OIDC sign in." }, { status: 403 });
     }
 
+    // --- Strategy 1: Supabase Auth (TaiLieu HOU Users - Admin & Management) ---
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (userEmail && userEmail.includes("@") && supabaseUrl && supabaseKey) {
+      try {
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          email: userEmail,
+          password: password,
+        });
+
+        if (!authError && authData?.user) {
+          // Check role in profiles table
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("role, full_name, email")
+            .eq("id", authData.user.id)
+            .maybeSingle();
+
+          const userRole = profile?.role || "free";
+          const ALLOWED_ROLES = ["admin", "management"];
+
+          if (ALLOWED_ROLES.includes(userRole)) {
+            recordSuccess(ip);
+            const cookieStore = await cookies();
+            await setDashboardAuthCookie(cookieStore, request, {
+              username: profile?.email || userEmail,
+              role: userRole,
+              userId: authData.user.id,
+            });
+            return NextResponse.json({ success: true, user: { email: userEmail, role: userRole } }, { headers: NO_STORE_HEADERS });
+          } else {
+            return NextResponse.json(
+              { error: `Tài khoản (${userEmail}) có quyền '${userRole}' không có quyền truy cập 9Router (Yêu cầu quyền Admin hoặc Management).` },
+              { status: 403 }
+            );
+          }
+        }
+      } catch (supabaseErr) {
+        console.warn("[Auth] Supabase auth error, falling back to local auth:", supabaseErr.message);
+      }
+    }
+
+    // --- Strategy 2: Local 9Router Password Fallback ---
+    const storedHash = settings.password;
     let isValid = false;
     if (storedHash) {
       isValid = await bcrypt.compare(password, storedHash);
     } else {
-      // Use env var or default
       const initialPassword = process.env.INITIAL_PASSWORD || "123456";
       isValid = password === initialPassword;
     }
@@ -55,10 +101,8 @@ export async function POST(request) {
     if (isValid) {
       recordSuccess(ip);
       const cookieStore = await cookies();
-      await setDashboardAuthCookie(cookieStore, request, { username: "admin" });
+      await setDashboardAuthCookie(cookieStore, request, { username: "admin", role: "admin" });
 
-      // Default password still in use on a remote client → force a password
-      // change before the dashboard is exposed remotely (keeps local UX intact).
       const mustChangePassword =
         !storedHash && !process.env.INITIAL_PASSWORD && !isLocalRequest(request);
 
