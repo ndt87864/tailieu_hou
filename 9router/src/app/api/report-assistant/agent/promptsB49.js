@@ -48,7 +48,7 @@ BẮT BUỘC VỀ ĐỘ CHI TIẾT VÀ DUNG LƯỢNG LỚN:
 3. Ở tiểu mục 1.1.3: Lập bảng tóm tắt các chỉ tiêu về quy mô tài sản, nguồn vốn và kết quả kinh doanh trong 3 năm (${analysisYearsText}).
 4. Ở tiểu mục 1.1.4: Vẽ bảng cơ cấu nhân sự % và liệt kê nhân sự chủ chốt.
 5. Ở tiểu mục 1.3.1 & 1.3.2: Vẽ sơ đồ Mermaid \`flowchart TD\` cơ cấu tổ chức bộ máy.
-6. Ở tiểu mục 1.4.1 & 1.4.2: Bảng liệt kê nhân sự quản trị & sơ đồ luồng Mermaid các quy trình quản trị.`;
+6. Ở tiểu mục 1.4.1 & 1.4.2: Bảng liệt kê nhân sự quản trị & tại mục 1.4.2 với MỖI quy trình BẮT BUỘC phải vẽ 1 sơ đồ Mermaid `flowchart TD` (hoặc `flowchart LR`) riêng mô tả chi tiết từng bước của quy trình đó.`;
   }
 
   const trimmedLastContent = lastDoneContent && lastDoneContent.length > 500
