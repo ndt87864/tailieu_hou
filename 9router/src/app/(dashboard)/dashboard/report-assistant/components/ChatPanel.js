@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/shared/components";
+import { copyTextToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { cn } from "@/shared/utils/cn";
 import { renderMarkdownAndMath } from "../utils/markdownRenderer";
 import { isReportAssistantLunaModel } from "../utils/helpers";
@@ -380,8 +381,8 @@ export function ChatPanel({
                         )}
                       >
                         <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(msg.content);
+                          onClick={async () => {
+                            await copyTextToClipboard(msg.content);
                             showToast("Sao chép thành công!", "success");
                             setCopiedMessageId(msg.id);
                             setTimeout(() => setCopiedMessageId(null), 2000);

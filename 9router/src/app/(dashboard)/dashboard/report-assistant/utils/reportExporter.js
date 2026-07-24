@@ -105,16 +105,32 @@ export async function copyReportRichText(rawContent, title = "") {
     return '<table>';
   })}</body></html>`;
   try {
-    await navigator.clipboard.write([
-      new ClipboardItem({
-        "text/html": new Blob([htmlContent], { type: "text/html" }),
-        "text/plain": new Blob([plainText], { type: "text/plain" }),
-      }),
-    ]);
-    return true;
+    if (typeof navigator !== "undefined" && navigator.clipboard?.write && typeof ClipboardItem !== "undefined") {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          "text/html": new Blob([htmlContent], { type: "text/html" }),
+          "text/plain": new Blob([plainText], { type: "text/plain" }),
+        }),
+      ]);
+      return true;
+    }
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(plainText);
+      return false;
+    }
+    throw new Error("No clipboard API");
   } catch {
-    // Fallback: copy clean plain text
-    await navigator.clipboard.writeText(plainText);
+    // Fallback: copy clean plain text using execCommand for HTTP insecure origins
+    try {
+      const textarea = document.createElement("textarea");
+      textarea.value = plainText;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+    } catch {}
     return false;
   }
 }

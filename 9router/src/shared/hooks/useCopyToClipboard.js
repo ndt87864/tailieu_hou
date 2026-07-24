@@ -13,9 +13,13 @@ export function useCopyToClipboard(resetDelay = 2000) {
 
   const copy = useCallback((text, id = "default") => {
     const write = async () => {
-      if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
-      } else {
+      try {
+        if (navigator?.clipboard?.writeText) {
+          await navigator.clipboard.writeText(text);
+          return;
+        }
+      } catch {}
+      try {
         const textarea = document.createElement("textarea");
         textarea.value = text;
         textarea.style.position = "fixed";
@@ -24,7 +28,7 @@ export function useCopyToClipboard(resetDelay = 2000) {
         textarea.select();
         document.execCommand("copy");
         document.body.removeChild(textarea);
-      }
+      } catch {}
     };
     write();
     setCopied(id);
@@ -39,5 +43,27 @@ export function useCopyToClipboard(resetDelay = 2000) {
   }, [resetDelay]);
 
   return { copied, copy };
+}
+
+export async function copyTextToClipboard(text) {
+  try {
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {}
+  try {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand("copy");
+    document.body.removeChild(textarea);
+    return true;
+  } catch {
+    return false;
+  }
 }
 

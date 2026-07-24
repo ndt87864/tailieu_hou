@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/shared/utils/cn";
+import { copyTextToClipboard } from "@/shared/hooks/useCopyToClipboard";
 
 function SmoothStreamText({ text, isDone = false, className = "" }) {
   const [displayedText, setDisplayedText] = useState(text || "");
@@ -195,12 +196,12 @@ export function AgentProgressPanel({
             </span>
             {agentState.sections_progress?.some((s) => s.status === "done" && s.content) && (
               <button
-                onClick={() => {
+                onClick={async () => {
                   const completedText = (agentState.sections_progress || [])
                     .filter((s) => s.status === "done" && s.content)
                     .map((s) => `## ${s.title}\n\n${s.content}`)
                     .join("\n\n");
-                  navigator.clipboard.writeText(completedText);
+                  await copyTextToClipboard(completedText);
                   showToast("Đã sao chép toàn bộ nội dung hoàn thành!", "success");
                 }}
                 className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20 transition-all cursor-pointer text-[10px]"
@@ -307,8 +308,8 @@ export function AgentProgressPanel({
                       <span>Nội dung đã hoàn thành:</span>
                     </div>
                     <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(sec.content);
+                      onClick={async () => {
+                        await copyTextToClipboard(sec.content);
                         showToast("Đã sao chép nội dung chương mục này!", "success");
                       }}
                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 transition-colors cursor-pointer font-bold border border-emerald-500/20 bg-emerald-500/5 text-[11px]"
@@ -333,8 +334,8 @@ export function AgentProgressPanel({
                       <span>Bản nháp đã bị hủy:</span>
                     </div>
                     <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(sec.content);
+                      onClick={async () => {
+                        await copyTextToClipboard(sec.content);
                         showToast("Đã sao chép nội dung bản nháp!", "success");
                       }}
                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg hover:bg-rose-500/10 text-rose-600 dark:text-rose-400 transition-colors cursor-pointer font-bold border border-rose-500/20 bg-rose-500/5 text-[11px]"
