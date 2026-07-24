@@ -108,6 +108,14 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
       return saved || "auto";
     } catch { return "auto"; }
   });
+  const [onlyCurrentProvider, setOnlyCurrentProvider] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const uSK = getSK("admin");
+      const saved = localStorage.getItem(uSK.onlyCurrentProvider) ?? localStorage.getItem("report-assistant.onlyCurrentProvider");
+      return saved !== null ? saved === "true" : true;
+    } catch { return true; }
+  });
 
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
@@ -131,20 +139,42 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
 
   const { fetchUser } = useUserStore();
 
-  const loadFullModels = useCallback(async (uName = username) => {
+  const loadFullModels = useCallback(async (uName = username, currentProviderOnly = onlyCurrentProvider) => {
     setLoadingModels(true);
     try {
       const res = await fetch("/api/v1/models", { cache: "no-store" });
       const data = await res.json();
       const rawModels = Array.isArray(data?.data) ? data.data : [];
-      applyFullModelList(getReportAssistantChatModels(rawModels), uName);
+      applyFullModelList(getReportAssistantChatModels(rawModels, currentProviderOnly), uName);
       setFullModelsLoaded(true);
     } catch (err) {
       setLoadError(err.message || "Failed to load models.");
     } finally {
       setLoadingModels(false);
     }
-  }, [applyFullModelList, username]);
+  }, [applyFullModelList, username, onlyCurrentProvider]);
+
+  const handleToggleOnlyCurrentProvider = useCallback((val) => {
+    setOnlyCurrentProvider(val);
+    const uSK = getSK(username);
+    try {
+      localStorage.setItem(uSK.onlyCurrentProvider, String(val));
+      localStorage.setItem("report-assistant.onlyCurrentProvider", String(val));
+    } catch {}
+    loadFullModels(username, val);
+  }, [username, loadFullModels]);
+
+  useEffect(() => {
+    if (!hydrated || !usernameLoaded) return;
+    const uSK = getSK(username);
+    try {
+      localStorage.setItem(uSK.assistantOnlyMode, String(assistantOnlyMode));
+      localStorage.setItem(uSK.webSearchEnabled, String(webSearchEnabled));
+      localStorage.setItem(uSK.streamEnabled, String(streamEnabled));
+      localStorage.setItem(uSK.thinkingMode, String(thinkingMode));
+      localStorage.setItem(uSK.onlyCurrentProvider, String(onlyCurrentProvider));
+    } catch (err) {}
+  }, [hydrated, usernameLoaded, username, assistantOnlyMode, webSearchEnabled, streamEnabled, thinkingMode, onlyCurrentProvider]);
 
   const {
     sessions,
@@ -552,6 +582,8 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
         setStreamEnabled={setStreamEnabled}
         thinkingMode={thinkingMode}
         setThinkingMode={setThinkingMode}
+        onlyCurrentProvider={onlyCurrentProvider}
+        onToggleOnlyCurrentProvider={handleToggleOnlyCurrentProvider}
         selectedKnowledgeSubject={selectedKnowledgeSubject}
         setSelectedKnowledgeSubject={setSelectedKnowledgeSubject}
         allSubjects={allSubjects}
@@ -610,6 +642,8 @@ export default function ReportAssistantPageClient({ initialPrompt, initialChatId
         temperature={temperature}
         onTemperature={setTemperature}
         assistantOnlyMode={assistantOnlyMode}
+        onlyCurrentProvider={onlyCurrentProvider}
+        onToggleOnlyCurrentProvider={handleToggleOnlyCurrentProvider}
         enabledModelIds={enabledModelIds}
         onToggleModel={(id) => {
           setEnabledModelIds((prev) => {

@@ -85,6 +85,26 @@ export default function ProviderDetailPage() {
   const [importingQoderModels, setImportingQoderModels] = useState(false);
   const { copied, copy } = useCopyToClipboard();
 
+  const [onlyCurrentProvider, setOnlyCurrentProvider] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const saved =
+        localStorage.getItem("report-assistant.admin.onlyCurrentProvider") ??
+        localStorage.getItem("report-assistant.onlyCurrentProvider");
+      return saved !== null ? saved === "true" : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const handleToggleOnlyCurrentProvider = (val) => {
+    setOnlyCurrentProvider(val);
+    try {
+      localStorage.setItem("report-assistant.admin.onlyCurrentProvider", String(val));
+      localStorage.setItem("report-assistant.onlyCurrentProvider", String(val));
+    } catch { }
+  };
+
   const AG_RISK_STORAGE_KEY = "ag_risk_confirmed";
 
   const openOAuthConnection = () => {
@@ -142,14 +162,14 @@ export default function ProviderDetailPage() {
 
   const providerInfo = providerNode
     ? {
-        id: providerNode.id,
-        name: providerNode.name || (providerNode.type === "anthropic-compatible" ? "Anthropic Compatible" : "OpenAI Compatible"),
-        color: providerNode.type === "anthropic-compatible" ? "#D97757" : "#10A37F",
-        textIcon: providerNode.type === "anthropic-compatible" ? "AC" : "OC",
-        apiType: providerNode.apiType,
-        baseUrl: providerNode.baseUrl,
-        type: providerNode.type,
-      }
+      id: providerNode.id,
+      name: providerNode.name || (providerNode.type === "anthropic-compatible" ? "Anthropic Compatible" : "OpenAI Compatible"),
+      color: providerNode.type === "anthropic-compatible" ? "#D97757" : "#10A37F",
+      textIcon: providerNode.type === "anthropic-compatible" ? "AC" : "OC",
+      apiType: providerNode.apiType,
+      baseUrl: providerNode.baseUrl,
+      type: providerNode.type,
+    }
     : (OAUTH_PROVIDERS[providerId] || APIKEY_PROVIDERS[providerId] || FREE_PROVIDERS[providerId] || FREE_TIER_PROVIDERS[providerId] || WEB_COOKIE_PROVIDERS[providerId]);
   const authModes = providerInfo?.authModes || [];
   const isOAuth = !!OAUTH_PROVIDERS[providerId] || !!FREE_PROVIDERS[providerId] || authModes.includes("oauth");
@@ -157,15 +177,15 @@ export default function ProviderDetailPage() {
   const isFreeNoAuth = !!FREE_PROVIDERS[providerId]?.noAuth;
   const models = getModelsByProviderId(providerId);
   const providerAlias = getProviderAlias(providerId);
-  
+
   const isOpenAICompatible = isOpenAICompatibleProvider(providerId);
   const isAnthropicCompatible = isAnthropicCompatibleProvider(providerId);
   const isCompatible = isOpenAICompatible || isAnthropicCompatible;
   const hasDualAuthModes = !isCompatible && isOAuth && supportsApiKeyAuth;
   const oauthConnectionLabel =
     providerId === "xai" ? "Grok Build OAuth"
-    : providerId === "grok-cli" ? "Grok CLI Device Login"
-    : "OAuth";
+      : providerId === "grok-cli" ? "Grok CLI Device Login"
+        : "OAuth";
   const apiKeyConnectionLabel = providerId === "xai" ? "xAI API Key" : "API Key";
   // Resolve suffix "(level)" for a model when a thinking level is picked and the model supports it.
   const resolveThinkingSuffix = (modelId) => {
@@ -291,7 +311,7 @@ export default function ProviderDetailPage() {
     fetch("/api/providers/kilo/free-models")
       .then((res) => res.json())
       .then((data) => { if (data.models?.length) setKiloFreeModels(data.models); })
-      .catch(() => {});
+      .catch(() => { });
   }, [providerId]);
 
   const fetchConnections = useCallback(async () => {
@@ -560,7 +580,7 @@ export default function ProviderDetailPage() {
       for (const model of models) {
         const modelId = model.id || model.name;
         if (!modelId) continue;
-        
+
         // Qoder model ID format may be "qoder/auto" or "auto", need to remove prefix
         const cleanModelId = modelId.replace(/^qoder\//, "");
         const alreadyExists = customModels.some(
@@ -573,7 +593,7 @@ export default function ProviderDetailPage() {
         await handleAddCustomModel(cleanModelId, "llm", providerStorageAlias);
         importedCount += 1;
       }
-      
+
       if (importedCount === 0) {
         alert(translate("All models already exist, no new models added"));
       } else {
@@ -1084,9 +1104,9 @@ export default function ProviderDetailPage() {
 
     const groupedDisplayModels = providerId === "arena"
       ? Object.entries(displayModels.reduce((groups, model) => {
-          (groups[model.group || "Other"] ||= []).push(model);
-          return groups;
-        }, {}))
+        (groups[model.group || "Other"] ||= []).push(model);
+        return groups;
+      }, {}))
       : [[null, displayModels]];
 
     return (
@@ -1100,7 +1120,7 @@ export default function ProviderDetailPage() {
             alias={model.alias}
             copied={copied}
             onCopy={copy}
-            onSetAlias={() => {}}
+            onSetAlias={() => { }}
             onDeleteAlias={() => {
               if (model.source === "custom") {
                 handleDeleteCustomModel(model.id, "llm", providerStorageAlias);
@@ -1125,32 +1145,32 @@ export default function ProviderDetailPage() {
                 {group} ({groupModels.length})
               </div>
             )}
-        {groupModels.map((model) => {
-          const fullModel = `${providerStorageAlias}/${model.id}`;
-          const oldFormatModel = `${providerId}/${model.id}`;
-          const existingAlias = Object.entries(modelAliases).find(
-            ([, m]) => m === fullModel || m === oldFormatModel
-          )?.[0];
-          return (
-            <ModelRow
-              key={model.id}
-              model={model}
-              fullModel={`${providerDisplayAlias}/${model.id}`}
-              alias={existingAlias}
-              copied={copied}
-              onCopy={copy}
-              onSetAlias={(alias) => handleSetAlias(model.id, alias, providerStorageAlias)}
-              onDeleteAlias={() => handleDeleteAlias(existingAlias)}
-              testStatus={modelTestResults[model.id]}
-              onTest={connections.length > 0 || isFreeNoAuth ? () => handleTestModel(model.id) : undefined}
-              isTesting={testingModelIds.has(model.id)}
-              isFree={model.isFree}
-              onDisable={() => handleDisableModel(model.id)}
-              caps={getCaps(`${providerId}/${model.id}`)}
-              thinkingSuffix={resolveThinkingSuffix(model.id)}
-            />
-          );
-        })}
+            {groupModels.map((model) => {
+              const fullModel = `${providerStorageAlias}/${model.id}`;
+              const oldFormatModel = `${providerId}/${model.id}`;
+              const existingAlias = Object.entries(modelAliases).find(
+                ([, m]) => m === fullModel || m === oldFormatModel
+              )?.[0];
+              return (
+                <ModelRow
+                  key={model.id}
+                  model={model}
+                  fullModel={`${providerDisplayAlias}/${model.id}`}
+                  alias={existingAlias}
+                  copied={copied}
+                  onCopy={copy}
+                  onSetAlias={(alias) => handleSetAlias(model.id, alias, providerStorageAlias)}
+                  onDeleteAlias={() => handleDeleteAlias(existingAlias)}
+                  testStatus={modelTestResults[model.id]}
+                  onTest={connections.length > 0 || isFreeNoAuth ? () => handleTestModel(model.id) : undefined}
+                  isTesting={testingModelIds.has(model.id)}
+                  isFree={model.isFree}
+                  onDisable={() => handleDisableModel(model.id)}
+                  caps={getCaps(`${providerId}/${model.id}`)}
+                  thinkingSuffix={resolveThinkingSuffix(model.id)}
+                />
+              );
+            })}
           </div>
         ))}
 
@@ -1240,7 +1260,7 @@ export default function ProviderDetailPage() {
         <CardSkeleton />
       </div>
     );
-}
+  }
 
   if (!providerInfo) {
     return (
@@ -1317,6 +1337,33 @@ export default function ProviderDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Report Assistant Provider Constraint Toggle */}
+      <Card className="border-brand-500/30 bg-brand-500/5 dark:bg-brand-500/10">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2.5">
+            <span className="material-symbols-outlined text-brand-500 text-[20px]">
+              tune
+            </span>
+            <div>
+              <h3 className="text-sm font-bold text-text-main">
+                Chỉ sử dụng provider Luna khi tạo báo cáo
+              </h3>
+              <p className="text-xs text-text-muted">
+                {onlyCurrentProvider
+                  ? "Đang bật: Chỉ cho phép dùng các model của provider Luna khi tạo báo cáo."
+                  : "Đang tắt: Cho phép dùng cả các model khác mà không sử dụng bật tắt tài khoản nữa."}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Toggle
+              checked={onlyCurrentProvider}
+              onChange={(checked) => handleToggleOnlyCurrentProvider(checked)}
+            />
+          </div>
+        </div>
+      </Card>
 
       {providerInfo.deprecated && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/30">

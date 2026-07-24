@@ -45,6 +45,8 @@ export function ChatPanel({
   setStreamEnabled,
   thinkingMode,
   setThinkingMode,
+  onlyCurrentProvider = true,
+  onToggleOnlyCurrentProvider,
   selectedKnowledgeSubject,
   setSelectedKnowledgeSubject,
   allSubjects,
@@ -83,8 +85,8 @@ export function ChatPanel({
         activeDoc
           ? "hidden md:flex md:w-[50%] xl:w-[45%] border-r border-border"
           : agentActive && agentState
-          ? "hidden md:flex flex-1"
-          : "flex-1"
+            ? "hidden md:flex flex-1"
+            : "flex-1"
       )}
     >
       {/* Top Header */}
@@ -110,6 +112,31 @@ export function ChatPanel({
               <>
                 <div className="fixed inset-0 z-30" onClick={() => setModelDropdownOpen(false)} />
                 <div className="absolute left-0 mt-1.5 z-40 w-64 bg-surface border border-border rounded-xl shadow-lg overflow-hidden py-1">
+                  <div className="px-3 py-2 border-b border-border bg-surface-2/40 flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-medium text-text-subtle truncate" title="Chỉ sử dụng provider hiện tại khi tạo báo cáo">
+                      Chỉ dùng provider Luna
+                    </span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={onlyCurrentProvider}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleOnlyCurrentProvider?.(!onlyCurrentProvider);
+                      }}
+                      className={cn(
+                        "relative inline-flex h-4 w-7 flex-shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+                        onlyCurrentProvider ? "bg-brand-500" : "bg-slate-300 dark:bg-slate-600"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+                          onlyCurrentProvider ? "translate-x-3" : "translate-x-0"
+                        )}
+                      />
+                    </button>
+                  </div>
                   <div className="max-h-60 overflow-y-auto custom-scrollbar">
                     {allModels.map((m) => {
                       const active = m.id === activeModel?.id;
@@ -122,17 +149,17 @@ export function ChatPanel({
                               const uSK = getSK(username);
                               try {
                                 localStorage.setItem(uSK.activeModel, m.id);
-                              } catch {}
+                              } catch { }
                             }
                             if (activeSessionId) {
                               setSessions((prev) =>
                                 prev.map((s) =>
                                   s.id === activeSessionId
                                     ? {
-                                        ...s,
-                                        modelId: m.id,
-                                        updatedAt: new Date().toISOString(),
-                                      }
+                                      ...s,
+                                      modelId: m.id,
+                                      updatedAt: new Date().toISOString(),
+                                    }
                                     : s
                                 )
                               );
@@ -205,7 +232,7 @@ export function ChatPanel({
             {(() => {
               const rawMsgs = activeSession?.messages || [];
               const currentRunId = agentState?.session_id || agentState?.run_id || agentState?.sections_progress?.[0]?.reportContext?.runId || "";
-              
+
               const seenReportCardKeys = new Set();
               const cleanedRawMsgs = rawMsgs.filter((m) => {
                 if (m.isReportCard || m.content === "Báo cáo hoàn chỉnh") {
@@ -216,7 +243,7 @@ export function ChatPanel({
                 return true;
               });
 
-              const hasReportCardForCurrentRun = currentRunId 
+              const hasReportCardForCurrentRun = currentRunId
                 ? cleanedRawMsgs.some((m) => (m.isReportCard || m.content === "Báo cáo hoàn chỉnh") && (m.sessionId === currentRunId || m.id.includes(currentRunId)))
                 : cleanedRawMsgs.some((m) => m.isReportCard || m.content === "Báo cáo hoàn chỉnh");
 
@@ -515,8 +542,8 @@ export function ChatPanel({
                   currentThinkingMode === "thinking"
                     ? "bg-purple-500/10 border-purple-500/20 text-purple-600 dark:text-purple-400"
                     : currentThinkingMode === "fast"
-                    ? "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400"
-                    : "bg-surface border-border text-text-muted",
+                      ? "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400"
+                      : "bg-surface border-border text-text-muted",
                   isLockedQwen38 && "cursor-not-allowed opacity-90"
                 )}
                 title={isLockedQwen38 ? "Thinking Mode: KHÓA TỰ ĐỘNG (Dành cho Qwen 3.8 Max)" : `Thinking Mode: ${currentThinkingMode.toUpperCase()} (Click để đổi)`}

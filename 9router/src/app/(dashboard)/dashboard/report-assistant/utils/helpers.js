@@ -120,16 +120,18 @@ export function getReportAssistantLunaModels(models) {
   return models.filter((model) => isReportAssistantLunaModel(model?.id));
 }
 
-export function getReportAssistantChatModels(models) {
+export function getReportAssistantChatModels(models, onlyCurrentProvider = true) {
   if (!Array.isArray(models)) return [];
-  const lunaModels = getReportAssistantLunaModels(models);
-  if (lunaModels.length > 0) {
-    return lunaModels;
+  if (onlyCurrentProvider) {
+    const lunaModels = getReportAssistantLunaModels(models);
+    if (lunaModels.length > 0) {
+      return lunaModels;
+    }
   }
 
   return models.filter((model) => {
     const modelId = String(model?.id || "");
-    return modelId && !isReportAssistantLunaModel(modelId);
+    return Boolean(modelId);
   });
 }
 

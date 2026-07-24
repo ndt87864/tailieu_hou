@@ -49,6 +49,7 @@ export const getSK = (username) => {
     webSearchEnabled: `${prefix}.webSearchEnabled`,
     streamEnabled: `${prefix}.streamEnabled`,
     thinkingMode: `${prefix}.thinkingMode`,
+    onlyCurrentProvider: `${prefix}.onlyCurrentProvider`,
   };
 };
 
