@@ -10,14 +10,9 @@ const REPORT_MAX_COMBO_MODELS = Number.parseInt(process.env.REPORT_AGENT_MAX_COM
 const REPORT_COMBO_STRATEGY = String(process.env.REPORT_AGENT_COMBO_STRATEGY || "round-robin").trim().toLowerCase();
 const REPORT_MAX_ACCOUNT_FALLBACKS = Number.parseInt(process.env.REPORT_AGENT_MAX_ACCOUNT_FALLBACKS || "2", 10);
 const REPORT_ASSISTANT_LUNA_MODEL_PREFIX = "ln/";
-const REPORT_ASSISTANT_ARENA_MODEL_PREFIX = "ar/";
 
 export function isLunaModelId(modelId) {
   return String(modelId || "").startsWith(REPORT_ASSISTANT_LUNA_MODEL_PREFIX);
-}
-
-export function isArenaModelId(modelId) {
-  return String(modelId || "").startsWith(REPORT_ASSISTANT_ARENA_MODEL_PREFIX);
 }
 
 export function getReportAssistantFallbackModel() {
@@ -29,26 +24,16 @@ export function getReportAssistantLunaModelId() {
   return lunaModel ? `${REPORT_ASSISTANT_LUNA_MODEL_PREFIX}${lunaModel}` : getReportAssistantFallbackModel();
 }
 
-export function getReportAssistantArenaModelId() {
-  const arenaModel = getDefaultModel("arena");
-  return arenaModel ? `${REPORT_ASSISTANT_ARENA_MODEL_PREFIX}${arenaModel}` : getReportAssistantFallbackModel();
-}
-
-export function normalizeReportAssistantModelId(modelId, lunaActive, arenaActive) {
+export function normalizeReportAssistantModelId(modelId, lunaActive) {
   const requested = String(modelId || "").trim();
   const fallback = getReportAssistantFallbackModel();
   const lunaModelId = getReportAssistantLunaModelId();
-  const arenaModelId = getReportAssistantArenaModelId();
 
   if (lunaActive) {
     return isLunaModelId(requested) ? requested : lunaModelId;
   }
 
-  if (arenaActive) {
-    return isArenaModelId(requested) ? requested : arenaModelId;
-  }
-
-  // When neither is active, allow the requested model (which is the chat model) directly.
+  // When not active, allow the requested model directly.
   return requested || fallback;
 }
 
@@ -124,7 +109,6 @@ export async function buildInternalFetchHeaders(authToken = null, contentType = 
 
 const BACKUP_MODELS = ["gemini-1.5-flash", "gemini-2.5-flash", "gpt-4o-mini", "gemini-1.5-pro"];
 const LUNA_BACKUP_MODELS = ["ln/qwen3.8-max", "ln/qwen3.7-max", "ln/qwen3.6-plus", "gemini-1.5-flash", "gpt-4o-mini"];
-const ARENA_BACKUP_MODELS = ["ar/claude-3-5-sonnet-20241022", "gemini-1.5-flash", "gpt-4o-mini"];
 
 export function extractLLMText(data) {
   const choice = data?.choices?.[0] || {};

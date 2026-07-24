@@ -501,7 +501,7 @@ export default function ModelSelectModal({
 
             <div className="space-y-2">
               {Object.entries(group.models.reduce((modelGroups, model) => {
-                const modelGroup = providerId === "arena" ? (model.group || "Other") : "";
+                const modelGroup = "";
                 (modelGroups[modelGroup] ||= []).push(model);
                 return modelGroups;
               }, {})).map(([modelGroup, models]) => (

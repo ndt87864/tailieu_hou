@@ -1,6 +1,5 @@
 import {
-  REPORT_ASSISTANT_LUNA_MODEL_PREFIX,
-  REPORT_ASSISTANT_ARENA_MODEL_PREFIX
+  REPORT_ASSISTANT_LUNA_MODEL_PREFIX
 } from "../constants";
 
 export function tryParseJsonText(text) {
@@ -87,10 +86,6 @@ export function isReportAssistantLunaModel(modelId) {
   return String(modelId || "").startsWith(REPORT_ASSISTANT_LUNA_MODEL_PREFIX);
 }
 
-export function isReportAssistantArenaModel(modelId) {
-  return String(modelId || "").startsWith(REPORT_ASSISTANT_ARENA_MODEL_PREFIX);
-}
-
 export function hasAgentResultCards(messages) {
   return (Array.isArray(messages) ? messages : []).some(
     (message) => message?.kind === "agent_result_cards",
@@ -100,7 +95,7 @@ export function hasAgentResultCards(messages) {
 export function shouldAutoRestoreReportSession(session) {
   if (!session) return false;
   const modelId = String(session.modelId || "");
-  if (!modelId.startsWith(REPORT_ASSISTANT_LUNA_MODEL_PREFIX) && !modelId.startsWith(REPORT_ASSISTANT_ARENA_MODEL_PREFIX)) {
+  if (!modelId.startsWith(REPORT_ASSISTANT_LUNA_MODEL_PREFIX)) {
     return false;
   }
   return !hasAgentResultCards(session.messages);
@@ -125,11 +120,6 @@ export function getReportAssistantLunaModels(models) {
   return models.filter((model) => isReportAssistantLunaModel(model?.id));
 }
 
-export function getReportAssistantArenaModels(models) {
-  if (!Array.isArray(models)) return [];
-  return models.filter((model) => isReportAssistantArenaModel(model?.id));
-}
-
 export function getReportAssistantChatModels(models) {
   if (!Array.isArray(models)) return [];
   const lunaModels = getReportAssistantLunaModels(models);
@@ -137,14 +127,9 @@ export function getReportAssistantChatModels(models) {
     return lunaModels;
   }
 
-  const arenaModels = getReportAssistantArenaModels(models);
-  if (arenaModels.length > 0) {
-    return arenaModels;
-  }
-
   return models.filter((model) => {
     const modelId = String(model?.id || "");
-    return modelId && !isReportAssistantLunaModel(modelId) && !isReportAssistantArenaModel(modelId);
+    return modelId && !isReportAssistantLunaModel(modelId);
   });
 }
 

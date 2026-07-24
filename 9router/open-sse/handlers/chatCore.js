@@ -299,7 +299,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     finalBody = result.transformedBody;
     reqLogger.logTargetRequest(providerUrl, providerHeaders, finalBody);
   } catch (error) {
-    // Preserve original status code from executor errors (e.g., 429 from Arena)
+    // Preserve original status code from executor errors
     const errorStatus = error.status || (error.name === "AbortError" ? 499 : HTTP_STATUS.BAD_GATEWAY);
     trackPendingRequest(model, provider, connectionId, false, true);
     appendRequestLog({ model, provider, connectionId, status: `FAILED ${errorStatus}` }).catch(() => { });

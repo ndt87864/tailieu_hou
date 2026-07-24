@@ -15,4 +15,3 @@ export { GitHubService } from "./github.js";
 export { KiroService } from "./kiro.js";
 export { CursorService } from "./cursor.js";
 export { LunaService } from "./luna.js";
-export { ArenaService } from "./arena.js";

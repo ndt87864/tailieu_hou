@@ -58,7 +58,6 @@ import p55 from "./kiro.js";
 import p56 from "./linkup.js";
 import p57 from "./local-device.js";
 import p100 from "./luna.js";
-import p101 from "./arena.js";
 import p58 from "./mimo-free.js";
 import p59 from "./minimax-cn.js";
 import p60 from "./minimax.js";
@@ -203,6 +202,5 @@ export default [
   p97,
   p98,
   p99,
-  p100,
-  p101
+  p100
 ];

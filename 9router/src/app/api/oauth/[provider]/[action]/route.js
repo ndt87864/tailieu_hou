@@ -5,8 +5,7 @@ import {
   exchangeTokens, 
   requestDeviceCode, 
   pollForToken,
-  LUNA_CONFIG,
-  ARENA_CONFIG
+  LUNA_CONFIG
 } from "@/lib/oauth/providers";
 import { createProviderConnection } from "@/models";
 import {
@@ -88,7 +87,7 @@ export async function GET(request, { params }) {
 
     if (action === "authorize") {
       const redirectUri = searchParams.get("redirect_uri") || "http://localhost:8080/callback";
-      if (["luna", "arena"].includes(provider)) {
+      if (provider === "luna") {
         return NextResponse.json({
           authUrl: null,
           state: "",
@@ -106,10 +105,10 @@ export async function GET(request, { params }) {
     }
 
     if (action === "capture-init") {
-      if (!["luna", "arena"].includes(provider)) {
-        return NextResponse.json({ error: "Capture only supported for luna and arena" }, { status: 400 });
+      if (provider !== "luna") {
+        return NextResponse.json({ error: "Capture only supported for luna" }, { status: 400 });
       }
-      const config = provider === "luna" ? LUNA_CONFIG : ARENA_CONFIG;
+      const config = LUNA_CONFIG;
       return NextResponse.json({
         loginUrl: config.captureConfig.loginUrl,
         cdpPort: config.captureConfig.cdpPort,
@@ -310,16 +309,14 @@ export async function POST(request, { params }) {
     }
 
     if (action === "capture-auto") {
-      if (!["luna", "arena"].includes(provider)) {
-        return NextResponse.json({ error: "Auto capture only supported for luna and arena" }, { status: 400 });
+      if (provider !== "luna") {
+        return NextResponse.json({ error: "Auto capture only supported for luna" }, { status: 400 });
       }
 
       let CaptureService;
       try {
-        const mod = provider === "luna" 
-          ? await import("@/lib/oauth/services/luna") 
-          : await import("@/lib/oauth/services/arena");
-        CaptureService = provider === "luna" ? mod.LunaService : mod.ArenaService;
+        const mod = await import("@/lib/oauth/services/luna");
+        CaptureService = mod.LunaService;
       } catch (e) {
         const detail = String(e?.message || e || "").trim();
         return NextResponse.json({
@@ -348,7 +345,7 @@ export async function POST(request, { params }) {
           if (!executablePath) {
             return NextResponse.json({
               success: false,
-              error: `${provider === "luna" ? "Luna" : "Arena"} auto capture requires a desktop browser (Chrome, Edge, Brave, or Coc Coc) installed on the server machine, or an existing Chrome session with remote debugging enabled (--remote-debugging-port=9222). No browser was found — use manual JWT + Cookie Header instead.`,
+              error: `Luna auto capture requires a desktop browser (Chrome, Edge, Brave, or Coc Coc) installed on the server machine, or an existing Chrome session with remote debugging enabled (--remote-debugging-port=9222). No browser was found — use manual JWT + Cookie Header instead.`,
               needsManual: true,
             }, { status: 400 });
           }
@@ -419,8 +416,8 @@ export async function POST(request, { params }) {
     }
 
     if (action === "save") {
-      if (!["luna", "arena"].includes(provider)) {
-        return NextResponse.json({ error: "Save only supported for luna and arena" }, { status: 400 });
+      if (provider !== "luna") {
+        return NextResponse.json({ error: "Save only supported for luna" }, { status: 400 });
       }
 
       const { accessToken, cookies, captureMethod, email, displayName, accountInfo } = body;

@@ -31,25 +31,6 @@ export default function AIAgentSelectorPage() {
             </div>
           </Card>
         </Link>
-        
-        <Link href="/dashboard/providers/arena" className="group block">
-          <Card className="h-full hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors p-8 flex flex-col items-center justify-center gap-6 cursor-pointer border border-border group-hover:border-primary/40">
-            <div className="size-20 rounded-2xl flex items-center justify-center bg-black/5 dark:bg-white/5 shadow-sm">
-              <ProviderIcon
-                src="/providers/arena.png"
-                alt="Arena"
-                size={56}
-                className="object-contain rounded-xl"
-                fallbackText="AR"
-                fallbackColor="#ff4d4f"
-              />
-            </div>
-            <div className="text-center">
-              <h2 className="text-xl font-semibold group-hover:text-primary transition-colors">Arena Provider</h2>
-              <p className="text-sm text-text-muted mt-2">Chat với nhiều model trên nền tảng LMsys Arena</p>
-            </div>
-          </Card>
-        </Link>
       </div>
     </div>
   );

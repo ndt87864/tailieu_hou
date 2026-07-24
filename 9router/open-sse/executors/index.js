@@ -21,7 +21,6 @@ import { XiaomiTokenplanExecutor } from "./xiaomi-tokenplan.js";
 import { MimoFreeExecutor } from "./mimo-free.js";
 import { CodeBuddyExecutor } from "./codebuddy-cn.js";
 import { LunaExecutor } from "./luna.js";
-import { ArenaExecutor } from "./arena.js";
 import { DefaultExecutor } from "./default.js";
 
 const executors = {
@@ -40,7 +39,6 @@ const executors = {
   "vertex-partner": new VertexExecutor("vertex-partner"),
   qwen: new QwenExecutor(),
   luna: new LunaExecutor(),
-  arena: new ArenaExecutor(),
   opencode: new OpenCodeExecutor(),
   "opencode-go": new OpenCodeGoExecutor(),
   "grok-web": new GrokWebExecutor(),
@@ -93,4 +91,3 @@ export { XiaomiTokenplanExecutor } from "./xiaomi-tokenplan.js";
 export { MimoFreeExecutor } from "./mimo-free.js";
 export { CodeBuddyExecutor } from "./codebuddy-cn.js";
 export { LunaExecutor } from "./luna.js";
-export { ArenaExecutor } from "./arena.js";

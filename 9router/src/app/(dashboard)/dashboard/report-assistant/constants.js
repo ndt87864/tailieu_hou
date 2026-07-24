@@ -27,7 +27,6 @@ export const SAMPLE_TOP_K = 8;
 export const KNOWLEDGE_CACHE_PREFIX = "report-assistant.knowledge-content.";
 export const KNOWLEDGE_SESSION_OWNER_KEY = "report-assistant.knowledge-content.sessionOwner";
 export const REPORT_ASSISTANT_LUNA_MODEL_PREFIX = "ln/";
-export const REPORT_ASSISTANT_ARENA_MODEL_PREFIX = "ar/";
 export const A4_PAGE_WIDTH = "8.27in";
 export const A4_PAGE_HEIGHT = "11.69in";
 export const A4_MARGIN_TOP = "2.5cm";
