@@ -20,6 +20,45 @@ function textValue(val) {
   return String(val || "");
 }
 
+function splitMarkdownBlocks(content) {
+  const blocks = [];
+  let currentLines = [];
+  let fence = null;
+
+  const flushBlock = () => {
+    const block = currentLines.join("\n").trim();
+    if (block) blocks.push(block);
+    currentLines = [];
+  };
+
+  for (const line of textValue(content).split(/\r?\n/)) {
+    const trimmed = line.trim();
+    const fenceMatch = trimmed.match(/^(`{3,}|~{3,})(.*)$/);
+
+    if (!fence && !trimmed) {
+      flushBlock();
+      continue;
+    }
+
+    currentLines.push(line);
+
+    if (!fence && fenceMatch) {
+      fence = { character: fenceMatch[1][0], length: fenceMatch[1].length };
+    } else if (
+      fence &&
+      fenceMatch &&
+      fenceMatch[1][0] === fence.character &&
+      fenceMatch[1].length >= fence.length &&
+      !fenceMatch[2].trim()
+    ) {
+      fence = null;
+    }
+  }
+
+  flushBlock();
+  return blocks;
+}
+
 // Copy report content as rich HTML (for paste into Word/Google Docs with formatting)
 export async function copyReportRichText(rawContent, title = "") {
   const preparedContent = prepareReportContent(rawContent, title);
@@ -147,10 +186,7 @@ export function paginateReportContent(content, charsPerPage = 5000) {
 
   const pages = [];
   for (const section of manualSections) {
-    const rawBlocks = section
-      .split(/\n{2,}/)
-      .map((block) => block.trim())
-      .filter(Boolean);
+    const rawBlocks = splitMarkdownBlocks(section);
     const blocks = [];
     for (let idx = 0; idx < rawBlocks.length; idx += 1) {
       const block = rawBlocks[idx];
