@@ -72,7 +72,8 @@ export function tableRowsToOoxml(rows) {
   }
   xml += `</w:tblGrid>`;
 
-  rows.forEach((row) => {
+  rows.forEach((row, rowIndex) => {
+    const isHeaderRow = rowIndex === 0 && !isBorderless;
     xml += `<w:tr>`;
     for (let c = 0; c < colCount; c++) {
       const cellText = (row[c] || "").replace(/DOCXCELLBREAKTOKEN/g, "\n");
@@ -80,6 +81,7 @@ export function tableRowsToOoxml(rows) {
         <w:tcPr>
           <w:tcW w:w="${colWidth}" w:type="dxa"/>
           ${isBorderless ? '<w:vAlign w:val="top"/>' : '<w:vAlign w:val="center"/>'}
+          ${isHeaderRow ? '<w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/>' : ""}
         </w:tcPr>`;
       const lines = cellText.split("\n");
       lines.forEach((lineText) => {
