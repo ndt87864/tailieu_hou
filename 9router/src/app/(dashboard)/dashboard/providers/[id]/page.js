@@ -4,48 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Card, Button, Badge, Input, Modal, CardSkeleton, OAuthModal, KiroOAuthWrapper, CursorAuthModal, IFlowCookieModal, LunaCaptureModal, GitLabAuthModal, Toggle, Select, EditConnectionModal, NoAuthProxyCard, ConfirmModal } from "@/shared/components";
-import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, WEB_COOKIE_PROVIDERS, getProviderAlias, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, AI_PROVIDERS } from "@/shared/constants/providers";
-import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
-import { getThinkingLevels } from "open-sse/providers/thinkingLevels.js";
-import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
-import { useModelCaps } from "@/shared/hooks/useModelCaps";
-import { translate } from "@/i18n/runtime";
-import { fetchSuggestedModels } from "@/shared/utils/providerModelsFetcher";
-import { getProviderCustomModelRows } from "@/shared/utils/providerCustomModels";
-import ModelRow from "./ModelRow";
-import PassthroughModelsSection from "./PassthroughModelsSection";
-import CompatibleModelsSection from "./CompatibleModelsSection";
-import ConnectionRow from "./ConnectionRow";
-import AddApiKeyModal from "./AddApiKeyModal";
-import EditCompatibleNodeModal from "./EditCompatibleNodeModal";
-import AddCustomModelModal from "./AddCustomModelModal";
-import BulkImportCodexModal from "./BulkImportCodexModal";
-
-const ONE_BY_ONE_DELAY_MS = 1000;
-
-const AUTO_PING_SETTINGS_KEYS = {
-  claude: "claudeAutoPing",
-  codex: "codexAutoPing",
-};
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-export default function ProviderDetailPage() {
-  const params = useParams();
-  const router = useRouter();
-  const providerId = params.id;
-  const { getCaps } = useModelCaps();
-  const [connections, setConnections] = useState([]);
-"use client";
-
-import { useState, useEffect, useCallback, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
-import Image from "next/image";
-import { Card, Button, Badge, Input, Modal, CardSkeleton, OAuthModal, KiroOAuthWrapper, CursorAuthModal, IFlowCookieModal, LunaCaptureModal, GitLabAuthModal, Toggle, Select, EditConnectionModal, NoAuthProxyCard, ConfirmModal } from "@/shared/components";
+import { Card, Button, Badge, Input, Modal, CardSkeleton, OAuthModal, KiroOAuthWrapper, CursorAuthModal, IFlowCookieModal, LunaCaptureModal, ArenaCaptureModal, GitLabAuthModal, Toggle, Select, EditConnectionModal, NoAuthProxyCard, ConfirmModal } from "@/shared/components";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, WEB_COOKIE_PROVIDERS, getProviderAlias, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, AI_PROVIDERS } from "@/shared/constants/providers";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { getThinkingLevels } from "open-sse/providers/thinkingLevels.js";
@@ -86,6 +45,7 @@ export default function ProviderDetailPage() {
   const [showOAuthModal, setShowOAuthModal] = useState(false);
   const [showIFlowCookieModal, setShowIFlowCookieModal] = useState(false);
   const [showLunaCaptureModal, setShowLunaCaptureModal] = useState(false);
+  const [showArenaCaptureModal, setShowArenaCaptureModal] = useState(false);
   const [showAddApiKeyModal, setShowAddApiKeyModal] = useState(false);
   const [addConnectionError, setAddConnectionError] = useState("");
   const [showBulkImportCodex, setShowBulkImportCodex] = useState(false);
@@ -151,6 +111,10 @@ export default function ProviderDetailPage() {
   const triggerAddConnection = () => {
     if (providerId === "luna") {
       setShowLunaCaptureModal(true);
+      return;
+    }
+    if (providerId === "arena") {
+      setShowArenaCaptureModal(true);
       return;
     }
     if (isOAuth) {
@@ -1114,7 +1078,12 @@ export default function ProviderDetailPage() {
       type: "llm",
     });
 
-    const groupedDisplayModels = [[null, displayModels]];
+    const groupedDisplayModels = providerId === "arena"
+      ? Object.entries(displayModels.reduce((groups, model) => {
+          (groups[model.group || "Other"] ||= []).push(model);
+          return groups;
+        }, {}))
+      : [[null, displayModels]];
 
     return (
       <div className="flex flex-wrap gap-3">
@@ -1180,6 +1149,581 @@ export default function ProviderDetailPage() {
         })}
           </div>
         ))}
+
+        {/* Add model button — inline, same style as model chips */}
+        <button
+          onClick={() => setShowAddCustomModel(true)}
+          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-primary/40 px-3 py-2 text-xs text-primary transition-colors hover:border-primary hover:bg-primary/5 sm:w-auto"
+        >
+          <span className="material-symbols-outlined text-sm">add</span>
+          Add Model
+        </button>
+
+        {/* Import Qoder models button — only show for qoder provider */}
+        {providerId === "qoder" && connections.some((conn) => conn.isActive !== false) && (
+          <button
+            onClick={handleImportQoderModels}
+            disabled={importingQoderModels}
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-blue-500/40 px-3 py-2 text-xs text-blue-600 dark:text-blue-400 transition-colors hover:border-blue-500 hover:bg-blue-500/5 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span className="material-symbols-outlined text-sm" style={importingQoderModels ? { animation: "spin 1s linear infinite" } : undefined}>
+              {importingQoderModels ? "progress_activity" : "download"}
+            </span>
+            {importingQoderModels ? translate("Fetching...") : translate("Fetch Qoder Models")}
+          </button>
+        )}
+
+        {/* Suggested models from provider API — show only models not yet added */}
+        {suggestedModels.length > 0 && (() => {
+          const addedFullModels = new Set([
+            ...Object.values(modelAliases),
+            ...customModelRows.map((model) => model.fullModel),
+          ]);
+          const hardcodedIds = new Set(models.map((m) => m.id));
+          const notAdded = suggestedModels.filter(
+            (m) => !addedFullModels.has(`${providerStorageAlias}/${m.id}`) && !hardcodedIds.has(m.id)
+          );
+          if (notAdded.length === 0) return null;
+          return (
+            <div className="w-full mt-2">
+              <p className="text-xs text-text-muted mb-2">Suggested free models (≥200k context):</p>
+              <div className="flex flex-wrap gap-2">
+                {notAdded.map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={async () => {
+                      await handleAddCustomModel(m.id, "llm", providerStorageAlias);
+                    }}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-xs text-text-muted hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                    title={`${m.name} · ${(m.contextLength / 1000).toFixed(0)}k ctx`}
+                  >
+                    <span className="material-symbols-outlined text-[13px]">add</span>
+                    {m.id.split("/").pop()}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Disabled models — restorable */}
+        {disabledDisplayModels.length > 0 && (
+          <div className="w-full mt-2">
+            <p className="text-xs text-text-muted mb-2">Disabled models ({disabledDisplayModels.length}):</p>
+            <div className="flex flex-wrap gap-2">
+              {disabledDisplayModels.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => handleEnableModel(m.id)}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-dashed border-black/10 dark:border-white/10 text-xs text-text-muted hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                  title="Restore model"
+                >
+                  <span className="material-symbols-outlined text-[13px]">add</span>
+                  {m.id}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-8">
+        <CardSkeleton />
+        <CardSkeleton />
+      </div>
+    );
+}
+
+  if (!providerInfo) {
+    return (
+      <div className="text-center py-20">
+        <p className="text-text-muted">Provider not found</p>
+        <Link href="/dashboard/providers" className="text-primary mt-4 inline-block">
+          Back to Providers
+        </Link>
+      </div>
+    );
+  }
+
+  // Determine icon path: OpenAI Compatible providers use specialized icons
+  const getHeaderIconPath = () => {
+    if (isOpenAICompatible && providerInfo.apiType) {
+      return providerInfo.apiType === "responses" ? "/providers/oai-r.png" : "/providers/oai-cc.png";
+    }
+    if (isAnthropicCompatible) {
+      return "/providers/anthropic-m.png";
+    }
+    return `/providers/${providerInfo.id}.png`;
+  };
+
+  return (
+    <div className="flex min-w-0 flex-col gap-6 px-1 sm:gap-8 sm:px-0">
+      {/* Header */}
+      <div className="min-w-0">
+        <Link
+          href="/dashboard/providers"
+          className="inline-flex items-center gap-1 text-sm text-text-muted hover:text-primary transition-colors mb-4"
+        >
+          <span className="material-symbols-outlined text-lg">arrow_back</span>
+          Back to Providers
+        </Link>
+        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+          <div
+            className="flex size-12 shrink-0 items-center justify-center rounded-lg"
+            style={{ backgroundColor: `${providerInfo.color}15` }}
+          >
+            {headerImgError ? (
+              <span className="text-sm font-bold" style={{ color: providerInfo.color }}>
+                {providerInfo.textIcon || providerInfo.id.slice(0, 2).toUpperCase()}
+              </span>
+            ) : (
+              <Image
+                src={getHeaderIconPath()}
+                alt={providerInfo.name}
+                width={48}
+                height={48}
+                className="max-h-12 max-w-12 rounded-lg object-contain"
+                sizes="48px"
+                onError={() => setHeaderImgError(true)}
+              />
+            )}
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="truncate text-2xl font-semibold tracking-tight sm:text-3xl">{providerInfo.name}</h1>
+              {(providerInfo.notice?.apiKeyUrl || providerInfo.notice?.signupUrl || providerInfo.website) && (
+                <a
+                  href={providerInfo.notice?.apiKeyUrl || providerInfo.notice?.signupUrl || providerInfo.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+                >
+                  <span className="material-symbols-outlined text-sm">open_in_new</span>
+                  {providerInfo.notice?.apiKeyUrl ? "Get API Key" : "Sign up / Learn more"}
+                </a>
+              )}
+            </div>
+            <p className="text-text-muted">
+              {connections.length} connection{connections.length === 1 ? "" : "s"}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {providerInfo.deprecated && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+          <span className="material-symbols-outlined text-[16px] text-yellow-500 mt-0.5 shrink-0">warning</span>
+          <p className="text-xs text-red-600 dark:text-yellow-400 leading-relaxed">{providerInfo.deprecationNotice}</p>
+        </div>
+      )}
+
+      {providerInfo.notice?.text && !providerInfo.deprecated && (
+        <div className="flex flex-col gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 sm:flex-row sm:items-center">
+          <span className="material-symbols-outlined text-[16px] text-blue-500 shrink-0">info</span>
+          <p className="min-w-0 flex-1 text-xs leading-relaxed text-blue-600 dark:text-blue-400">{providerInfo.notice.text}</p>
+          {providerInfo.notice.apiKeyUrl && (
+            <a
+              href={providerInfo.notice.apiKeyUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex justify-center rounded bg-blue-500 px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-blue-600 sm:py-0.5"
+            >
+              Get API Key →
+            </a>
+          )}
+        </div>
+      )}
+
+      {isCompatible && providerNode && (
+        <Card>
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold">{isAnthropicCompatible ? "Anthropic Compatible Details" : "OpenAI Compatible Details"}</h2>
+              <p className="break-all text-sm text-text-muted">
+                {isAnthropicCompatible ? "Messages API" : (providerNode.apiType === "responses" ? "Responses API" : "Chat Completions")} · {(providerNode.baseUrl || "").replace(/\/$/, "")}/
+                {isAnthropicCompatible ? "messages" : (providerNode.apiType === "responses" ? "responses" : "chat/completions")}
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center">
+              <Button
+                size="sm"
+                icon="add"
+                onClick={() => {
+                  setAddConnectionError("");
+                  setShowAddApiKeyModal(true);
+                }}
+                className="w-full sm:w-auto"
+              >
+                Add API Key
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                icon="edit"
+                onClick={() => setShowEditNodeModal(true)}
+                className="w-full sm:w-auto"
+              >
+                Edit
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                icon="delete"
+                onClick={async () => {
+                  setConfirmState({
+                    title: "Delete Compatible Node",
+                    message: `Delete this ${isAnthropicCompatible ? "Anthropic" : "OpenAI"} Compatible node?`,
+                    onConfirm: async () => {
+                      setConfirmState(null);
+                      try {
+                        const res = await fetch(`/api/provider-nodes/${providerId}`, { method: "DELETE" });
+                        if (res.ok) {
+                          router.push("/dashboard/providers");
+                        }
+                      } catch (error) {
+                        console.log("Error deleting provider node:", error);
+                      }
+                    }
+                  });
+                }}
+                className="w-full sm:w-auto"
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Connections */}
+      {isFreeNoAuth ? (
+        <NoAuthProxyCard providerId={providerId} />
+      ) : (
+        <Card>
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-lg font-semibold">Connections</h2>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+              {connections.length > 0 && proxyPools.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon="lan"
+                  onClick={() => setShowBulkProxyModal(true)}
+                >
+                  Apply Proxy
+                </Button>
+              )}
+              {connections.length > 0 && (
+                <>
+                  {selectedConnectionIds.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      icon="delete"
+                      onClick={handleBulkDelete}
+                    >
+                      Delete Selected ({selectedConnectionIds.length})
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    icon="sync"
+                    onClick={handleRunOneByOneTest}
+                    disabled={oneByOneRunning}
+                  >
+                    {oneByOneRunning ? "Testing Connection One-by-One..." : "Test Connection One-by-One"}
+                  </Button>
+                  {oneByOneRunning && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      icon="stop"
+                      onClick={handleStopOneByOneTest}
+                      disabled={oneByOneStopping}
+                    >
+                      {oneByOneStopping ? "Stopping..." : "Stop"}
+                    </Button>
+                  )}
+                </>
+              )}
+              {/* Round Robin toggle */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-text-muted font-medium">Round Robin</span>
+                <Toggle
+                  checked={providerStrategy === "round-robin"}
+                  onChange={handleRoundRobinToggle}
+                />
+                {providerStrategy === "round-robin" && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-text-muted">Sticky:</span>
+                    <input
+                      type="number"
+                      min={1}
+                      value={providerStickyLimit}
+                      onChange={(e) => handleStickyLimitChange(e.target.value)}
+                      placeholder="1"
+                      className="w-14 px-2 py-1 text-xs border border-border rounded-md bg-background focus:outline-none focus:border-primary"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {connections.length === 0 ? (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <div className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-primary/10 text-primary shrink-0">
+                  <span className="material-symbols-outlined text-[18px]">{isOAuth ? "lock" : "key"}</span>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm text-text-muted">No connections yet</p>
+                  {hasDualAuthModes && (
+                    <p className="text-xs text-text-muted">
+                      Choose {oauthConnectionLabel} or {apiKeyConnectionLabel}.
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                {hasDualAuthModes ? (
+                  <>
+                    <Button size="sm" icon="lock" variant="secondary" onClick={triggerOAuthConnection}>
+                      {oauthConnectionLabel}
+                    </Button>
+                    <Button size="sm" icon="key" onClick={triggerApiKeyConnection}>
+                      {apiKeyConnectionLabel}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    {!isCompatible && providerId === "iflow" && (
+                      <Button size="sm" icon="cookie" variant="secondary" onClick={() => setShowIFlowCookieModal(true)}>
+                        Cookie
+                      </Button>
+                    )}
+                    {providerId === "codex" && (
+                      <Button size="sm" icon="playlist_add" variant="secondary" onClick={() => setShowBulkImportCodex(true)}>
+                        {translate("Bulk Add")}
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      icon="add"
+                      onClick={triggerAddConnection}
+                    >
+                      {isCompatible ? "Add API Key" : (providerId === "iflow" ? "OAuth" : "Add Connection")}
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          ) : (
+            <>
+              {oneByOneSummary && (
+                <div className="mb-4 rounded-lg border border-black/10 bg-black/[0.02] px-3 py-2 text-xs text-text-muted dark:border-white/10 dark:bg-white/[0.03]">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span>Total: {oneByOneSummary.total}</span>
+                    <span>Completed: {oneByOneSummary.completed}</span>
+                    <span>Passed: {oneByOneSummary.passed}</span>
+                    <span>Failed: {oneByOneSummary.failed}</span>
+                    {oneByOneSummary.stopped && (
+                      <span className="text-amber-600 dark:text-amber-400">Stopped</span>
+                    )}
+                    {oneByOneRunning && oneByOneCurrentConnectionId && (
+                      <span>Running: {connections.find((conn) => conn.id === oneByOneCurrentConnectionId)?.name || oneByOneCurrentConnectionId}</span>
+                    )}
+                  </div>
+                </div>
+              )}
+              {connections.length > 0 && (
+                <div className="mb-3 flex items-center gap-2 border-b border-black/[0.03] pb-2 dark:border-white/[0.03]">
+                  <label className="flex cursor-pointer items-center gap-1.5 text-xs text-text-muted hover:text-primary">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={toggleSelectAllConnections}
+                      className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                    Select All
+                  </label>
+                </div>
+              )}
+              {connectionsList}
+              {!isCompatible && (
+                <div className="mt-4 grid grid-cols-1 gap-2 sm:flex">
+                  {providerId === "iflow" && (
+                    <Button
+                      size="sm"
+                      icon="cookie"
+                      variant="secondary"
+                      onClick={() => setShowIFlowCookieModal(true)}
+                      title="Add connection using browser cookie"
+                      className="w-full sm:w-auto"
+                    >
+                      Cookie
+                    </Button>
+                  )}
+                  {providerId === "codex" && (
+                    <Button
+                      size="sm"
+                      icon="playlist_add"
+                      variant="secondary"
+                      onClick={() => setShowBulkImportCodex(true)}
+                      title={translate("Bulk import codex accounts from JSON")}
+                      className="w-full sm:w-auto"
+                    >
+                      {translate("Bulk Add")}
+                    </Button>
+                  )}
+                  {hasDualAuthModes ? (
+                    <>
+                      <Button
+                        size="sm"
+                        icon="lock"
+                        variant="secondary"
+                        onClick={triggerOAuthConnection}
+                        className="w-full sm:w-auto"
+                      >
+                        {oauthConnectionLabel}
+                      </Button>
+                      <Button
+                        size="sm"
+                        icon="key"
+                        onClick={triggerApiKeyConnection}
+                        className="w-full sm:w-auto"
+                      >
+                        {apiKeyConnectionLabel}
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      size="sm"
+                      icon="add"
+                      onClick={triggerAddConnection}
+                      className="w-full sm:w-auto"
+                    >
+                      Add
+                    </Button>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </Card>
+      )}
+
+      {/* Models */}
+      <Card>
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-semibold">
+              {"Available Models"}
+            </h2>
+            {providerThinkingLevels && (
+              <select
+                value={thinkingMode}
+                onChange={(e) => handleThinkingModeChange(e.target.value)}
+                title="Appends (level) suffix to copied model names"
+                className="rounded-md border border-border bg-background px-2 py-1 text-xs focus:border-primary focus:outline-none"
+              >
+                {providerThinkingLevels.map((opt) => (
+                  <option key={opt} value={opt}>{`Thinking: ${opt.charAt(0).toUpperCase() + opt.slice(1)}`}</option>
+                ))}
+              </select>
+            )}
+          </div>
+          {!isCompatible && (() => {
+            const allIds = [
+              ...models,
+              ...kiloFreeModels.filter((fm) => !models.some((m) => m.id === fm.id)),
+            ].filter((m) => { const k = getModelKind(m); return !k || k === "llm"; }).map((m) => m.id);
+            const activeIds = allIds.filter((id) => !disabledModelIds.includes(id));
+            return (
+              <div className="flex gap-2">
+                {disabledModelIds.length > 0 && (
+                  <Button size="sm" variant="secondary" icon="restart_alt" onClick={handleEnableAll}>
+                    Active All
+                  </Button>
+                )}
+                {activeIds.length > 0 && (
+                  <Button size="sm" variant="secondary" icon="block" onClick={() => handleDisableAll(activeIds)}>
+                    Disable All
+                  </Button>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+        {!!modelsTestError && (
+          <p className="text-xs text-red-500 mb-3 break-words">{modelsTestError}</p>
+        )}
+        {renderModelsSection()}
+      </Card>
+
+      {bulkActionModal}
+
+      {/* Modals */}
+      {providerId === "kiro" ? (
+        <KiroOAuthWrapper
+          isOpen={showOAuthModal}
+          providerInfo={providerInfo}
+          onSuccess={handleOAuthSuccess}
+          onClose={() => setShowOAuthModal(false)}
+        />
+      ) : providerId === "cursor" ? (
+        <CursorAuthModal
+          isOpen={showOAuthModal}
+          onSuccess={handleOAuthSuccess}
+          onClose={() => setShowOAuthModal(false)}
+        />
+      ) : providerId === "gitlab" ? (
+        <GitLabAuthModal
+          isOpen={showOAuthModal}
+          providerInfo={providerInfo}
+          onSuccess={handleOAuthSuccess}
+          onClose={() => setShowOAuthModal(false)}
+        />
+      ) : (
+        <OAuthModal
+          isOpen={showOAuthModal}
+          provider={providerId}
+          providerInfo={providerInfo}
+          onSuccess={handleOAuthSuccess}
+          onClose={() => setShowOAuthModal(false)}
+        />
+      )}
+      {providerId === "iflow" && (
+        <IFlowCookieModal
+          isOpen={showIFlowCookieModal}
+          onSuccess={handleIFlowCookieSuccess}
+          onClose={() => setShowIFlowCookieModal(false)}
+        />
+      )}
+      {providerId === "luna" && (
+        <LunaCaptureModal
+          isOpen={showLunaCaptureModal}
+          onSuccess={fetchConnections}
+          onClose={() => setShowLunaCaptureModal(false)}
+        />
+      )}
+      {providerId === "arena" && (
+        <ArenaCaptureModal
+          isOpen={showArenaCaptureModal}
+          onSuccess={fetchConnections}
+          onClose={() => setShowArenaCaptureModal(false)}
+        />
+      )}
+      <AddApiKeyModal
+        isOpen={showAddApiKeyModal}
+        provider={providerId}
+        providerName={providerInfo.name}
+        isCompatible={isCompatible}
         isAnthropic={isAnthropicCompatible}
         authType={providerInfo?.authType}
         authHint={providerInfo?.authHint}
