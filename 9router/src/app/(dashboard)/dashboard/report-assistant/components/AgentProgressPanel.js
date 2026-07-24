@@ -62,10 +62,10 @@ export function AgentProgressPanel({
   if (!agentState) return null;
 
   return (
-    <div className="w-[714px] border-l border-border bg-surface flex flex-col h-full shrink-0 shadow-lg z-20 transition-all">
+    <div className="flex-1 md:w-[60%] xl:w-[60%] border-l border-border bg-surface flex flex-col h-full shrink-0 shadow-lg z-20 transition-all overflow-hidden min-w-0">
       {/* Header */}
-      <div className="p-4 border-b border-border flex items-center justify-between bg-surface-2/50">
-        <div className="flex items-center gap-2.5 min-w-0">
+      <div className="p-3 border-b border-border flex items-center justify-between bg-surface-2/50">
+        <div className="flex items-center gap-2 min-w-0">
           {(() => {
             const isCompleted = agentState?.current_step === "COMPLETED";
             const isCancelled = agentState?.current_step === "CANCELLED";
@@ -73,7 +73,7 @@ export function AgentProgressPanel({
             return (
               <div
                 className={cn(
-                  "size-9 rounded-xl flex items-center justify-center font-bold shrink-0",
+                  "size-8 rounded-lg flex items-center justify-center font-bold shrink-0",
                   isCompleted
                     ? "bg-emerald-500/10 text-emerald-500"
                     : isCancelled
@@ -83,7 +83,7 @@ export function AgentProgressPanel({
               >
                 <span
                   className={cn(
-                    "material-symbols-outlined text-[22px]",
+                    "material-symbols-outlined text-[18px]",
                     isRunning && "animate-spin"
                   )}
                 >
@@ -93,45 +93,45 @@ export function AgentProgressPanel({
             );
           })()}
           <div className="min-w-0">
-            <h3 className="text-sm font-extrabold text-brand-600 dark:text-brand-400 truncate">
+            <h3 className="text-xs font-extrabold text-brand-600 dark:text-brand-400 truncate">
               AI Agent - Báo cáo tự động
             </h3>
-            <p className="text-[11px] text-text-subtle truncate">
+            <p className="text-[10px] text-text-subtle truncate">
               Quy trình RAG tự động đa bước
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           {(agentState.current_step === "OUTLINING" || agentState.current_step === "DRAFTING") && (
             <button
               onClick={cancelAgentWorkflow}
-              className="px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+              className="px-2 py-0.5 rounded-md bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
               title="Dừng khẩn cấp quy trình AI Agent"
             >
-              <span className="material-symbols-outlined text-[15px]">stop_circle</span>
+              <span className="material-symbols-outlined text-[13px]">stop_circle</span>
               <span>HỦY</span>
             </button>
           )}
 
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20 uppercase">
+          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20 uppercase">
             {agentState.current_step || "DRAFTING"}
           </span>
 
           <button
             onClick={() => setAgentActive(false)}
-            className="size-7 rounded-lg hover:bg-surface-2 text-text-muted hover:text-text-main flex items-center justify-center transition-colors cursor-pointer"
+            className="size-6 rounded-md hover:bg-surface-2 text-text-muted hover:text-text-main flex items-center justify-center transition-colors cursor-pointer"
             title="Đóng bảng Agent"
           >
-            <span className="material-symbols-outlined text-[18px]">close</span>
+            <span className="material-symbols-outlined text-[16px]">close</span>
           </button>
         </div>
       </div>
 
       {/* Banner Status */}
-      <div className="p-4 border-b border-border/50 bg-amber-500/5 space-y-3">
-        <div className="flex items-center gap-2 text-xs font-bold text-amber-700 dark:text-amber-400">
-          <span className="material-symbols-outlined text-[18px]">
+      <div className="p-3 border-b border-border/50 bg-amber-500/5 space-y-2">
+        <div className="flex items-center gap-1.5 text-xs font-bold text-amber-700 dark:text-amber-400">
+          <span className="material-symbols-outlined text-[16px]">
             {agentState.current_step === "WAIT_APPROVAL" || agentState.current_step === "OUTLINING"
               ? "fact_check"
               : agentState.current_step === "COMPLETED"
@@ -150,7 +150,7 @@ export function AgentProgressPanel({
               : "Agent đang thực thi quy trình..."}
           </span>
         </div>
-        <p className="text-[11px] text-text-subtle leading-relaxed">
+        <p className="text-[10px] text-text-subtle leading-relaxed">
           {agentState.current_step === "OUTLINING"
             ? "Vui lòng chờ trong giây lát. Hệ thống đang trích xuất tri thức và phân tích đề cương mẫu..."
             : agentState.current_step === "WAIT_APPROVAL"
@@ -164,9 +164,9 @@ export function AgentProgressPanel({
           <button
             onClick={() => confirmOutlineAndStartDrafting()}
             disabled={agentLoading}
-            className="w-full py-2.5 px-4 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md active:scale-98 disabled:opacity-50"
+            className="w-full py-2 px-3 rounded-lg bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-98 disabled:opacity-50"
           >
-            <span className="material-symbols-outlined text-[18px]">check_circle</span>
+            <span className="material-symbols-outlined text-[16px]">check_circle</span>
             <span>XÁC NHẬN DÀN Ý & BẮT ĐẦU TẠO BÁO CÁO</span>
           </button>
         )}
@@ -176,19 +176,19 @@ export function AgentProgressPanel({
             onClick={() => {
               openAgentProgressPreview(agentState, "Báo cáo hoàn chỉnh", "agent");
             }}
-            className="w-full py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md active:scale-98"
+            className="w-full py-2 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-98"
           >
-            <span className="material-symbols-outlined text-[18px]">visibility</span>
+            <span className="material-symbols-outlined text-[16px]">visibility</span>
             <span>XEM PREVIEW BÁO CÁO HOÀN CHỈNH</span>
           </button>
         )}
       </div>
 
       {/* Sections Progress List */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-        <div className="flex items-center justify-between text-xs font-extrabold text-text-subtle uppercase tracking-wider">
+      <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
+        <div className="flex items-center justify-between text-[11px] font-extrabold text-text-subtle uppercase tracking-wider">
           <span>TIẾN ĐỘ CÁC CHƯƠNG MỤC ({agentState.sections_progress?.length || 0})</span>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <span>
               {agentState.sections_progress?.filter((s) => s.status === "done").length || 0}/
               {agentState.sections_progress?.length || 0} Hoàn thành
@@ -203,10 +203,10 @@ export function AgentProgressPanel({
                   navigator.clipboard.writeText(completedText);
                   showToast("Đã sao chép toàn bộ nội dung hoàn thành!", "success");
                 }}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20 transition-all cursor-pointer shadow-2xs"
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20 transition-all cursor-pointer text-[10px]"
                 title="Sao chép toàn bộ các chương đã hoàn thành"
               >
-                <span className="material-symbols-outlined text-[12px]">content_copy</span>
+                <span className="material-symbols-outlined text-[11px]">content_copy</span>
                 <span>Copy All</span>
               </button>
             )}

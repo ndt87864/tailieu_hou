@@ -260,62 +260,32 @@ export default function Sidebar({ onClose }) {
               </p>
             )}
 
-            {/* Media Providers accordion */}
-            <button
-              onClick={() => isExpanded && setMediaOpen((v) => !v)}
+            {/* Web Fetch & Search */}
+            <Link
+              key={COMBINED_WEB_ITEM.id}
+              href={COMBINED_WEB_ITEM.href}
+              onClick={onClose}
               className={cn(
-                "w-full flex items-center rounded-lg transition-all group text-left",
-                isExpanded ? "gap-3 px-3 py-1.5" : "justify-center p-2 mx-1",
-                pathname.startsWith("/dashboard/media-providers")
+                "flex items-center rounded-lg transition-all group",
+                isExpanded ? "gap-3 px-3 py-1" : "justify-center p-2 mx-1",
+                pathname.startsWith(COMBINED_WEB_ITEM.href)
                   ? "bg-primary/10 text-primary"
                   : "text-text-muted hover:bg-surface-2 hover:text-text-main"
               )}
-              title={!isExpanded ? "Media Providers" : undefined}
+              title={!isExpanded ? COMBINED_WEB_ITEM.label : undefined}
             >
-              <span className="material-symbols-outlined text-[18px] shrink-0">perm_media</span>
+              <span
+                className={cn(
+                  "material-symbols-outlined text-[18px] shrink-0",
+                  pathname.startsWith(COMBINED_WEB_ITEM.href) ? "fill-1" : "group-hover:text-primary transition-colors"
+                )}
+              >
+                {COMBINED_WEB_ITEM.icon}
+              </span>
               {isExpanded && (
-                <>
-                  <span className="text-[13px] font-medium flex-1 truncate">Media Providers</span>
-                  <span className="material-symbols-outlined text-[14px] transition-transform shrink-0" style={{ transform: mediaOpen ? "rotate(180deg)" : "rotate(0deg)" }}>
-                    expand_more
-                  </span>
-                </>
+                <span className="text-[13px] font-medium truncate">{COMBINED_WEB_ITEM.label}</span>
               )}
-            </button>
-            {isExpanded && mediaOpen && (
-              <div className="pl-4 space-y-0.5">
-                {MEDIA_PROVIDER_KINDS.filter((k) => VISIBLE_MEDIA_KINDS.includes(k.id)).map((kind) => (
-                  <Link
-                    key={kind.id}
-                    href={`/dashboard/media-providers/${kind.id}`}
-                    onClick={onClose}
-                    className={cn(
-                      "flex items-center gap-3 px-4 py-1 rounded-lg transition-all group",
-                      pathname.startsWith(`/dashboard/media-providers/${kind.id}`)
-                        ? "bg-primary/10 text-primary"
-                        : "text-text-muted hover:bg-surface-2 hover:text-text-main"
-                    )}
-                  >
-                    <span className="material-symbols-outlined text-[16px] shrink-0">{kind.icon}</span>
-                    <span className="text-[13px] font-medium truncate">{kind.label}</span>
-                  </Link>
-                ))}
-                <Link
-                  key={COMBINED_WEB_ITEM.id}
-                  href={COMBINED_WEB_ITEM.href}
-                  onClick={onClose}
-                  className={cn(
-                    "flex items-center gap-3 px-4 py-1 rounded-lg transition-all group",
-                    pathname.startsWith(COMBINED_WEB_ITEM.href)
-                      ? "bg-primary/10 text-primary"
-                      : "text-text-muted hover:bg-surface-2 hover:text-text-main"
-                  )}
-                >
-                  <span className="material-symbols-outlined text-[16px] shrink-0">{COMBINED_WEB_ITEM.icon}</span>
-                  <span className="text-[13px] font-medium truncate">{COMBINED_WEB_ITEM.label}</span>
-                </Link>
-              </div>
-            )}
+            </Link>
 
             {systemItems.map((item) => (
               <Link

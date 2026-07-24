@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useNotificationStore } from "@/store/notificationStore";
+import useThemeStore from "@/store/themeStore";
 import Sidebar from "../Sidebar";
 import Header from "../Header";
 
@@ -37,11 +38,18 @@ export default function DashboardLayout({ children }) {
   const notifications = useNotificationStore((state) => state.notifications);
   const removeNotification = useNotificationStore((state) => state.removeNotification);
 
+  const isReportAssistant = pathname?.startsWith("/dashboard/report-assistant");
   const isFullScreen =
     pathname === "/dashboard/basic-chat" ||
     pathname === "/dashboard/doc-scanner" ||
     pathname === "/dashboard/assistant" ||
-    pathname?.startsWith("/dashboard/report-assistant");
+    isReportAssistant;
+
+  useEffect(() => {
+    if (isReportAssistant) {
+      useThemeStore.getState().setTheme("dark");
+    }
+  }, [isReportAssistant]);
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-bg">
@@ -101,8 +109,8 @@ export default function DashboardLayout({ children }) {
       <main className="flex flex-col flex-1 h-full min-w-0 relative transition-colors duration-300 isolate">
         {/* Faint grid background */}
         <div className="landing-grid absolute inset-0 pointer-events-none -z-10" aria-hidden="true" />
-        <Header onMenuClick={() => setSidebarOpen(true)} />
-        <div className={`flex-1 ${isFullScreen ? "flex flex-col overflow-hidden h-full" : "overflow-y-auto custom-scrollbar p-6 lg:p-10"} ${isFullScreen ? "flex flex-col overflow-hidden" : ""}`}>
+        {!isReportAssistant && <Header onMenuClick={() => setSidebarOpen(true)} />}
+        <div className={`flex-1 ${isFullScreen ? "flex flex-col overflow-hidden h-full" : "overflow-y-auto custom-scrollbar p-6 lg:p-10"}`}>
           <div className={`${isFullScreen ? "flex-1 w-full h-full flex flex-col min-h-0" : "max-w-7xl mx-auto"}`}>{children}</div>
         </div>
       </main>

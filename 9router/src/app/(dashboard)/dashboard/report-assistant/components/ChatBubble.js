@@ -3,8 +3,8 @@ import { formatBytes } from "../utils/helpers";
 
 export function AssistantAvatar() {
   return (
-    <div className="flex-shrink-0 size-8 rounded-xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center text-brand-600 dark:text-brand-400">
-      <span className="material-symbols-outlined text-[18px]">
+    <div className="flex-shrink-0 size-7 rounded-lg bg-brand-500/10 border border-brand-500/20 flex items-center justify-center text-brand-600 dark:text-brand-400">
+      <span className="material-symbols-outlined text-[16px]">
         auto_awesome
       </span>
     </div>
@@ -13,8 +13,8 @@ export function AssistantAvatar() {
 
 export function UserAvatar() {
   return (
-    <div className="flex-shrink-0 size-8 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600">
-      <span className="material-symbols-outlined text-[18px]">
+    <div className="flex-shrink-0 size-7 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600">
+      <span className="material-symbols-outlined text-[16px]">
         person
       </span>
     </div>
