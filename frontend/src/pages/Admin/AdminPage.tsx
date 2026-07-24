@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import {
   BarChart2,
@@ -26,8 +26,10 @@ import {
   Sparkles,
   Bot,
   FileSearch,
-  Languages
+  Languages,
+  ExternalLink,
 } from "lucide-react";
+
 
 // Import actual subpages
 import DashboardTab from "../../components/admin/DashboardTab.js";
@@ -51,8 +53,8 @@ import { QuestionRatioTab } from "../../components/admin/QuestionRatioTab.js";
 import { ProxyTab } from "../../components/admin/ProxyTab.js";
 import { SubjectPricesTab } from "../../components/admin/SubjectPricesTab.js";
 import { CrawlDataTab } from "../../components/admin/CrawlDataTab.js";
-import NineRouterTab from "../../components/admin/NineRouterTab.js";
 import { Header } from "../../components/layout/Layout.js";
+import { useUI } from "../../context/UIContext.js";
 import "../../css/admin.css";
 
 type TabId =
@@ -75,7 +77,6 @@ type TabId =
   | "crawler_questions"
   | "crawler_resources"
   | "sheets"
-  | "nine_router"
   | "ai_agent"
   | "report_assistant"
   | "doc_scanner"
@@ -87,6 +88,7 @@ interface MenuItem {
   label: string;
   icon: React.ReactNode;
   desc?: string;
+  externalUrl?: string; // Mở trong tab mới thay vì embed
 }
 
 interface MenuGroup {
@@ -97,14 +99,54 @@ interface MenuGroup {
   items: MenuItem[];
 }
 
+const IFRAME_ORIGINS = ["http://localhost:20128", window.location.origin];
+
 const EmbeddedAiToolTab: React.FC<{ url: string; title: string }> = ({ url, title }) => {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const { themeMode, primaryColor } = useUI();
+
+  const pushThemeToIframe = useCallback(() => {
+    iframeRef.current?.contentWindow?.postMessage(
+      { type: "PUSH_UI_SETTINGS", themeMode, primaryColor },
+      "*" // cross-origin: 9router chạy ở port khác
+    );
+  }, [themeMode, primaryColor]);
+
+  // Push khi iframe load xong (fallback)
+  const handleLoad = useCallback(() => {
+    pushThemeToIframe();
+  }, [pushThemeToIframe]);
+
+  // Push lại ngay khi theme/color thay đổi (realtime sync)
+  useEffect(() => {
+    pushThemeToIframe();
+  }, [pushThemeToIframe]);
+
+  // Lắng nghe 9router yêu cầu settings sau khi hydrate (handshake chính)
+  useEffect(() => {
+    const handleRequest = (event: MessageEvent) => {
+      if (!IFRAME_ORIGINS.includes(event.origin)) return;
+      if (!event.data || event.data.type !== "REQUEST_UI_SETTINGS") return;
+      // Chỉ phản hồi iframe con của component này
+      if (event.source !== iframeRef.current?.contentWindow) return;
+      (event.source as Window).postMessage(
+        { type: "PUSH_UI_SETTINGS", themeMode, primaryColor },
+        "*" // cross-origin
+      );
+    };
+    window.addEventListener("message", handleRequest);
+    return () => window.removeEventListener("message", handleRequest);
+  }, [themeMode, primaryColor]);
+
   return (
     <div className="w-full h-full rounded-none border-0 bg-[var(--surface)] overflow-hidden">
       <iframe
+        ref={iframeRef}
         src={url}
         title={title}
         className="w-full h-full border-0 block rounded-none"
         sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals"
+        onLoad={handleLoad}
       />
     </div>
   );
@@ -225,7 +267,7 @@ const AdminPage: React.FC = () => {
         { id: "footer",   label: "Footer",       icon: <Compass className="w-4 h-4" />, desc: "Thông tin chân trang và chính sách" },
         { id: "contacts", label: "Liên hệ",      icon: <Mail className="w-4 h-4" />, desc: "Hộp thư tiếp nhận góp ý, phản hồi của người dùng" },
         { id: "sheets",   label: "Trang tính",    icon: <FileSpreadsheet className="w-4 h-4" />, desc: "Quản lí trang tính" },
-        { id: "nine_router", label: "Cấu hình 9Router AI", icon: <Cpu className="w-4 h-4" />, desc: "Quản lý 9Router AI Gateway & Provider Routing" },
+        { id: "nine_router", label: "Cấu hình 9Router AI", icon: <Cpu className="w-4 h-4" />, desc: "Quản lý 9Router AI Gateway & Provider Routing", externalUrl: "http://localhost:20128/dashboard" },
       ],
     },
   ];
@@ -251,8 +293,12 @@ const AdminPage: React.FC = () => {
     setMobileOpen(false);
   };
 
-  const handleItemClick = (itemId: TabId) => {
-    navigate(`/admin/${itemId}`);
+  const handleItemClick = (item: MenuItem) => {
+    if (item.externalUrl) {
+      window.open(item.externalUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+    navigate(`/admin/${item.id}`);
   };
 
   const isGroupActive = (group: MenuGroup) => {
@@ -275,7 +321,7 @@ const AdminPage: React.FC = () => {
             {currentGroup.items.map((item) => (
               <button
                 key={item.id}
-                onClick={() => handleItemClick(item.id)}
+                onClick={() => handleItemClick(item)}
                 className="flex flex-col items-start p-6 rounded-3xl border border-[var(--border)] bg-[var(--surface)] hover:border-[var(--brand-600)] hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group text-left cursor-pointer relative overflow-hidden w-full"
               >
                 {/* Subtle Hover Gradient Glow */}
@@ -286,12 +332,13 @@ const AdminPage: React.FC = () => {
                 </div>
                 <h3 className="font-bold text-sm md:text-base text-[var(--fg)] group-hover:text-[var(--brand-600)] transition-colors duration-300 leading-snug">
                   {item.label}
+                  {item.externalUrl && <ExternalLink className="inline w-3.5 h-3.5 ml-1.5 opacity-60" />}
                 </h3>
                 <p className="text-xs text-[var(--muted)] mt-2.5 line-clamp-3 leading-relaxed flex-1 w-full">
                   {item.desc || `Quản lý phân hệ ${item.label}`}
                 </p>
                 <div className="mt-5 pt-3.5 border-t border-[var(--border-soft)] w-full text-xs font-bold text-[var(--brand-600)] flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-1 group-hover:translate-y-0">
-                  <span>Truy cập ngay</span> 
+                  <span>{item.externalUrl ? "Mở trang mới" : "Truy cập ngay"}</span>
                   <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                 </div>
               </button>
@@ -340,8 +387,6 @@ const AdminPage: React.FC = () => {
         return <CrawlDataTab view="resources" />;
       case "sheets":
         return <SheetsTab />;
-      case "nine_router":
-        return <EmbeddedAiToolTab url="http://localhost:20128/dashboard" title="Cấu hình 9Router AI" />;
       case "ai_agent":
         return <EmbeddedAiToolTab url="http://localhost:20128/dashboard/ai-agent" title="AI Agent Báo Cáo" />;
       case "report_assistant":
@@ -392,7 +437,7 @@ const AdminPage: React.FC = () => {
 
   const isEmbeddedTab =
     activeRoute.type === "tab" &&
-    ["nine_router", "ai_agent", "report_assistant", "doc_scanner", "ai_assistant"].includes(activeRoute.id);
+    ["ai_agent", "report_assistant", "doc_scanner", "ai_assistant"].includes(activeRoute.id);
 
   return (
     <div className={`admin-layout shadow-sm border border-[var(--border)] relative ${isEmbeddedTab ? "h-screen overflow-hidden" : ""}`}>
@@ -564,7 +609,7 @@ const AdminPage: React.FC = () => {
                     <button
                       key={item.id}
                       onClick={() => {
-                        handleItemClick(item.id);
+                        handleItemClick(item);
                         setPageSearchQuery("");
                         setShowSearchSuggestions(false);
                       }}

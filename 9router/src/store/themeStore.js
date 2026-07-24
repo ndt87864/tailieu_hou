@@ -42,6 +42,16 @@ function applyTheme(theme, color = "blue") {
   root.style.setProperty("--color-primary", palette.brand500);
 }
 
+/** Gửi settings lên parent khi 9router đang chạy trong iframe */
+function notifyParent(theme, primaryColor) {
+  if (typeof window === "undefined") return;
+  if (window.self === window.top) return; // không phải iframe, bỏ qua
+  window.parent.postMessage(
+    { type: "SYNC_UI_SETTINGS", themeMode: theme, primaryColor },
+    "*" // cross-origin: parent có thể ở port khác
+  );
+}
+
 const useThemeStore = create(
   persist(
     (set, get) => ({
@@ -51,11 +61,13 @@ const useThemeStore = create(
       setTheme: (theme) => {
         set({ theme });
         applyTheme(theme, get().primaryColor);
+        notifyParent(theme, get().primaryColor);
       },
 
       setPrimaryColor: (color) => {
         set({ primaryColor: color });
         applyTheme(get().theme, color);
+        notifyParent(get().theme, color);
       },
 
       toggleTheme: () => {
@@ -63,6 +75,7 @@ const useThemeStore = create(
         const newTheme = currentTheme === "dark" ? "light" : "dark";
         set({ theme: newTheme });
         applyTheme(newTheme, get().primaryColor);
+        notifyParent(newTheme, get().primaryColor);
       },
 
       initTheme: () => {
@@ -75,5 +88,6 @@ const useThemeStore = create(
     }
   )
 );
+
 
 export default useThemeStore;

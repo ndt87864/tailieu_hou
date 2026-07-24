@@ -71,10 +71,22 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const [loadingSettings, setLoadingSettings] = useState<boolean>(true);
   const [pageLoading, setPageLoading] = useState<boolean>(false);
 
-  // Sync settings when receiving messages from iframe
+  // Sync settings when receiving messages from iframe (cross-origin: 9router port khác)
   useEffect(() => {
+    const isTrusted = (origin: string) => {
+      if (origin === window.location.origin) return true;
+      if (origin === "http://localhost:20128" || origin === "https://localhost:20128") return true;
+      
+      try {
+        const url = new URL(origin);
+        return url.hostname.endsWith(window.location.hostname);
+      } catch {
+        return false;
+      }
+    };
+
     const handleMessage = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return;
+      if (!isTrusted(event.origin)) return;
       if (!event.data) return;
 
       if (event.data.type === "SYNC_VIEW_MODE") {
