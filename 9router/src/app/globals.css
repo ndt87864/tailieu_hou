@@ -9,19 +9,32 @@
    Brand orange (dark) / soft coral (light), neutral warm bases
    ============================================================ */
 :root {
-  /* Brand scale (light) - Blue theme from parent project */
-  --color-brand-50: #eff6ff;
-  --color-brand-100: #dbeafe;
-  --color-brand-200: #bfdbfe;
-  --color-brand-300: #93c5fd;
-  --color-brand-400: #60a5fa;
-  --color-brand-500: #3b82f6;
-  --color-brand-600: #2563eb;
-  --color-brand-700: #1d4ed8;
-  --color-brand-800: #1e40af;
-  --color-brand-900: #1e3a8a;
+  /* Default Primary: Xanh dương (blue) */
+  --brand-50:  #eff6ff;
+  --brand-100: #dbeafe;
+  --brand-200: #bfdbfe;
+  --brand-300: #93c5fd;
+  --brand-400: #60a5fa;
+  --brand-500: #3b82f6;
+  --brand-600: #2563eb;
+  --brand-700: #1d4ed8;
+  --brand-800: #1e40af;
+  --brand-900: #1e3a8a;
+  --brand-rgb: 37, 99, 235;
 
-  /* Primary (legacy alias for backward compat with existing components) */
+  /* Dynamic Brand scale for Tailwind */
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-brand-900: var(--brand-900);
+
+  /* Primary aliases */
   --color-primary: var(--color-brand-500);
   --color-primary-hover: var(--color-brand-600);
 
@@ -55,34 +68,33 @@
 
   /* Shadows */
   --shadow-soft: 0 1px 2px 0 rgba(0,0,0,0.04);
-  --shadow-warm: 0 2px 12px -2px rgba(37, 99, 235, 0.18);
+  --shadow-warm: 0 2px 12px -2px rgba(var(--brand-rgb), 0.18);
   --shadow-elevated: 0 12px 28px -4px rgba(60, 50, 45, 0.06);
   --shadow-elev:
     inset 0 1px 0 0 rgba(255,255,255,0.8),
     0 1px 2px rgba(15,23,42,0.04),
     0 12px 36px -8px rgba(15,23,42,0.10);
-  --shadow-focus: 0 0 0 3px rgba(37, 99, 235, 0.18);
+  --shadow-focus: 0 0 0 3px rgba(var(--brand-rgb), 0.18);
 
   color-scheme: light;
 }
 
 .dark {
-  /* Brand scale (dark) - Blue theme from parent project */
-  --color-brand-50: #eff6ff;
-  --color-brand-100: #dbeafe;
-  --color-brand-200: #bfdbfe;
-  --color-brand-300: #93c5fd;
-  --color-brand-400: #60a5fa;
-  --color-brand-500: #60a5fa;
-  --color-brand-600: #3b82f6;
-  --color-brand-700: #2563eb;
-  --color-brand-800: #1d4ed8;
-  --color-brand-900: #1e3a8a;
+  --brand-500: #60a5fa;
+  --brand-600: #3b82f6;
+  --brand-700: #2563eb;
+  --brand-800: #1d4ed8;
+  --brand-rgb: 59, 130, 246;
+
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
 
   --color-primary: var(--color-brand-500);
   --color-primary-hover: var(--color-brand-600);
 
-  /* Surfaces (dark - Claude-like neutral warm) */
+  /* Surfaces (dark) */
   --color-bg: #1a1a1a;
   --color-bg-alt: #1F1F1E;
   --color-surface: #262626;
@@ -104,15 +116,184 @@
   --color-info: #60a5fa;
 
   --shadow-soft: 0 1px 2px 0 rgba(0,0,0,0.3);
-  --shadow-warm: 0 2px 12px -2px rgba(37, 99, 235, 0.25);
+  --shadow-warm: 0 2px 12px -2px rgba(var(--brand-rgb), 0.25);
   --shadow-elevated: 0 12px 28px -4px rgba(0, 0, 0, 0.45);
   --shadow-elev:
     inset 0 1px 0 0 rgba(255,255,255,0.06),
     0 1px 2px rgba(0,0,0,0.4),
     0 16px 48px -8px rgba(0,0,0,0.55);
-  --shadow-focus: 0 0 0 3px rgba(37, 99, 235, 0.18);
+  --shadow-focus: 0 0 0 3px rgba(var(--brand-rgb), 0.18);
 
   color-scheme: dark;
+}
+
+/* Theme presets from parent project (frontend/src/css/themes.css) */
+.theme-blue {
+  --brand-50:  #eff6ff;
+  --brand-100: #dbeafe;
+  --brand-200: #bfdbfe;
+  --brand-300: #93c5fd;
+  --brand-400: #60a5fa;
+  --brand-500: #3b82f6;
+  --brand-600: #2563eb;
+  --brand-700: #1d4ed8;
+  --brand-800: #1e40af;
+  --brand-900: #1e3a8a;
+  --brand-rgb: 37, 99, 235;
+}
+.dark.theme-blue {
+  --brand-500: #60a5fa;
+  --brand-600: #3b82f6;
+  --brand-700: #2563eb;
+  --brand-800: #1d4ed8;
+  --brand-rgb: 59, 130, 246;
+}
+
+.theme-lime {
+  --brand-50:  #f0fdf0;
+  --brand-100: #dcfce6;
+  --brand-200: #bbf7cd;
+  --brand-300: #86efac;
+  --brand-400: #4ade80;
+  --brand-500: #22c55e;
+  --brand-600: #16a34a;
+  --brand-700: #15803d;
+  --brand-800: #166534;
+  --brand-900: #14532d;
+  --brand-rgb: 22, 163, 74;
+}
+.dark.theme-lime {
+  --brand-500: #4ade80;
+  --brand-600: #22c55e;
+  --brand-700: #16a34a;
+  --brand-800: #15803d;
+  --brand-rgb: 74, 222, 128;
+}
+
+.theme-red {
+  --brand-50:  #fff1f2;
+  --brand-100: #ffe4e6;
+  --brand-200: #fecdd3;
+  --brand-300: #fda4af;
+  --brand-400: #fb7185;
+  --brand-500: #f43f5e;
+  --brand-600: #e11d48;
+  --brand-700: #be123c;
+  --brand-800: #9f1239;
+  --brand-900: #881337;
+  --brand-rgb: 225, 29, 72;
+}
+.dark.theme-red {
+  --brand-500: #fb7185;
+  --brand-600: #f43f5e;
+  --brand-700: #e11d48;
+  --brand-800: #be123c;
+  --brand-rgb: 244, 63, 94;
+}
+
+.theme-orange {
+  --brand-50:  #fff7ed;
+  --brand-100: #ffedd5;
+  --brand-200: #fed7aa;
+  --brand-300: #fdba74;
+  --brand-400: #fb923c;
+  --brand-500: #f97316;
+  --brand-600: #ea580c;
+  --brand-700: #c2410c;
+  --brand-800: #9a3412;
+  --brand-900: #7c2d12;
+  --brand-rgb: 249, 115, 22;
+}
+.dark.theme-orange {
+  --brand-500: #fb923c;
+  --brand-600: #f97316;
+  --brand-700: #ea580c;
+  --brand-800: #c2410c;
+  --brand-rgb: 249, 115, 22;
+}
+
+.theme-yellow {
+  --brand-50:  #fefce8;
+  --brand-100: #fef9c3;
+  --brand-200: #fef08a;
+  --brand-300: #fde047;
+  --brand-400: #facc15;
+  --brand-500: #eab308;
+  --brand-600: #ca8a04;
+  --brand-700: #a16207;
+  --brand-800: #854d0e;
+  --brand-900: #713f12;
+  --brand-rgb: 202, 138, 4;
+}
+.dark.theme-yellow {
+  --brand-500: #fde047;
+  --brand-600: #facc15;
+  --brand-700: #eab308;
+  --brand-800: #ca8a04;
+  --brand-rgb: 234, 179, 8;
+}
+
+.theme-mint {
+  --brand-50:  #ecfdf5;
+  --brand-100: #d1fae5;
+  --brand-200: #a7f3d0;
+  --brand-300: #6ee7b7;
+  --brand-400: #34d399;
+  --brand-500: #10b981;
+  --brand-600: #059669;
+  --brand-700: #047857;
+  --brand-800: #065f46;
+  --brand-900: #064e3b;
+  --brand-rgb: 5, 150, 105;
+}
+.dark.theme-mint {
+  --brand-500: #34d399;
+  --brand-600: #10b981;
+  --brand-700: #059669;
+  --brand-800: #047857;
+  --brand-rgb: 16, 185, 129;
+}
+
+.theme-charcoal {
+  --brand-50:  #f8fafc;
+  --brand-100: #f1f5f9;
+  --brand-200: #e2e8f0;
+  --brand-300: #cbd5e1;
+  --brand-400: #94a3b8;
+  --brand-500: #64748b;
+  --brand-600: #475569;
+  --brand-700: #334155;
+  --brand-800: #1e293b;
+  --brand-900: #0f172a;
+  --brand-rgb: 71, 85, 105;
+}
+.dark.theme-charcoal {
+  --brand-500: #94a3b8;
+  --brand-600: #64748b;
+  --brand-700: #475569;
+  --brand-800: #334155;
+  --brand-rgb: 100, 116, 139;
+}
+
+.theme-purple {
+  --brand-50:  #faf5ff;
+  --brand-100: #f3e8ff;
+  --brand-200: #e9d5ff;
+  --brand-300: #d8b4fe;
+  --brand-400: #c084fc;
+  --brand-500: #a855f7;
+  --brand-600: #9333ea;
+  --brand-700: #7e22ce;
+  --brand-800: #6b21a8;
+  --brand-900: #581c87;
+  --brand-rgb: 147, 51, 234;
+}
+.dark.theme-purple {
+  --brand-500: #c084fc;
+  --brand-600: #a855f7;
+  --brand-700: #9333ea;
+  --brand-800: #7e22ce;
+  --brand-rgb: 168, 85, 247;
 }
 
 /* ============================================================
