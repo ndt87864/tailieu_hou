@@ -13,7 +13,7 @@ export default function AIAgentSelectorPage() {
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Link href="/dashboard/providers/luna" className="group block">
+        <Link href="/dashboard/providers/luna?from=/dashboard/ai-agent" className="group block">
           <Card className="h-full hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors p-8 flex flex-col items-center justify-center gap-6 cursor-pointer border border-border group-hover:border-primary/40">
             <div className="size-20 rounded-2xl flex items-center justify-center bg-black/5 dark:bg-white/5 shadow-sm">
               <ProviderIcon

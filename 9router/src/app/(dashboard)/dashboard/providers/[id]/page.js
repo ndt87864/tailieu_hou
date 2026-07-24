@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { Card, Button, Badge, Input, Modal, CardSkeleton, OAuthModal, KiroOAuthWrapper, CursorAuthModal, IFlowCookieModal, LunaCaptureModal, GitLabAuthModal, Toggle, Select, EditConnectionModal, NoAuthProxyCard, ConfirmModal } from "@/shared/components";
@@ -36,7 +36,12 @@ function sleep(ms) {
 export default function ProviderDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const providerId = params.id;
+  const fromPath = searchParams.get("from");
+  const isFromAiAgent = fromPath === "/dashboard/ai-agent" || fromPath === "ai-agent";
+  const backHref = isFromAiAgent ? "/dashboard/ai-agent" : "/dashboard/providers";
+  const backLabel = isFromAiAgent ? translate("Back to AI Agent") : translate("Back to Providers");
   const { getCaps } = useModelCaps();
   const [connections, setConnections] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1241,8 +1246,8 @@ export default function ProviderDetailPage() {
     return (
       <div className="text-center py-20">
         <p className="text-text-muted">Provider not found</p>
-        <Link href="/dashboard/providers" className="text-primary mt-4 inline-block">
-          Back to Providers
+        <Link href={backHref} className="text-primary mt-4 inline-block">
+          {backLabel}
         </Link>
       </div>
     );
@@ -1264,11 +1269,11 @@ export default function ProviderDetailPage() {
       {/* Header */}
       <div className="min-w-0">
         <Link
-          href="/dashboard/providers"
+          href={backHref}
           className="inline-flex items-center gap-1 text-sm text-text-muted hover:text-primary transition-colors mb-4"
         >
           <span className="material-symbols-outlined text-lg">arrow_back</span>
-          Back to Providers
+          {backLabel}
         </Link>
         <div className="flex min-w-0 items-center gap-3 sm:gap-4">
           <div

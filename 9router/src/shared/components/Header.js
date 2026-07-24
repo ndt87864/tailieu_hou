@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import PropTypes from "prop-types";
 import ProviderIcon from "@/shared/components/ProviderIcon";
@@ -12,7 +12,7 @@ import { OAUTH_PROVIDERS, APIKEY_PROVIDERS } from "@/shared/constants/config";
 import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS } from "@/shared/constants/providers";
 import { translate } from "@/i18n/runtime";
 
-const getPageInfo = (pathname) => {
+const getPageInfo = (pathname, searchParams) => {
   if (!pathname) return { title: "", description: "", breadcrumbs: [] };
 
   // Media provider detail: /dashboard/media-providers/[kind]/[id]
@@ -53,11 +53,15 @@ const getPageInfo = (pathname) => {
     const providerInfo =
       OAUTH_PROVIDERS[providerId] || APIKEY_PROVIDERS[providerId];
     if (providerInfo) {
+      const fromPath = searchParams?.get("from");
+      const isFromAiAgent = fromPath === "/dashboard/ai-agent" || fromPath === "ai-agent";
       return {
         title: providerInfo.name,
         description: "",
         breadcrumbs: [
-          { label: "Providers", href: "/dashboard/providers" },
+          isFromAiAgent
+            ? { label: "AI Agent báo cáo", href: "/dashboard/ai-agent" }
+            : { label: "Providers", href: "/dashboard/providers" },
           {
             label: providerInfo.name,
             image: `/providers/${providerInfo.id}.png`,
@@ -164,11 +168,12 @@ const getPageInfo = (pathname) => {
 
 export default function Header({ onMenuClick, showMenuButton = true }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [displayName, setDisplayName] = useState("");
   const [loginMethod, setLoginMethod] = useState("");
 
   // Memoize page info to prevent unnecessary recalculations
-  const pageInfo = useMemo(() => getPageInfo(pathname), [pathname]);
+  const pageInfo = useMemo(() => getPageInfo(pathname, searchParams), [pathname, searchParams]);
   const { title, description, icon, breadcrumbs } = pageInfo;
 
   useEffect(() => {
