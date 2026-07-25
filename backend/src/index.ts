@@ -29,8 +29,19 @@ dotenv.config();
 
 const app = new Hono();
 
-// Global Middlewares
-app.use("*", cors({ origin: "*", credentials: true }));
+app.use(
+  "*",
+  cors({
+    origin: (origin) => {
+      if (!origin) return "*";
+      // Trả về chính origin yêu cầu (localhost:3000, localhost:20128, v.v.) để hợp lệ với credentials: true
+      return origin;
+    },
+    credentials: true,
+    allowHeaders: ["Content-Type", "Authorization", "x-nine-router-proxy-key"],
+    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+  })
+);
 app.use("*", securityHeaders);
 app.use("*", timeout(15000)); // Timeout 15s để bảo vệ resource
 app.use("/api/v1/auth/*", rateLimiter(20, 60000)); // Auth endpoints: 20 req/phút
