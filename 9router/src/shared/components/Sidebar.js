@@ -25,16 +25,11 @@ const monitoringItems = [
   { href: "/dashboard/quota", label: "Quota Tracker", icon: "data_usage" },
 ];
 
-const reportItems = [
+const aiToolItems = [
   { href: "/dashboard/ai-agent", label: "AI Agent báo cáo", icon: "assistant" },
   { href: "/dashboard/report-assistant", label: "Trợ lý báo cáo", icon: "description" },
-];
-
-const debugItems = [
   { href: "/dashboard/doc-scanner", label: "Document Scanner", icon: "document_scanner" },
   { href: "/dashboard/assistant", label: "AI Assistant", icon: "smart_toy" },
-  // { href: "/dashboard/console-log", label: "Console Log", icon: "terminal" },
-  { href: "/dashboard/translator", label: "Translator", icon: "translate" },
 ];
 
 const systemItems = [
@@ -48,6 +43,13 @@ export default function Sidebar({ onClose }) {
   const [enableTranslator, setEnableTranslator] = useState(false);
   const [mediaOpen, setMediaOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+
+  const isAiAgent = pathname?.startsWith("/dashboard/ai-agent");
+  const isReportAssistant = pathname?.startsWith("/dashboard/report-assistant");
+  const isDocScanner = pathname?.startsWith("/dashboard/doc-scanner");
+  const isAssistant = pathname?.startsWith("/dashboard/assistant");
+
+  const isAiToolPage = isAiAgent || isReportAssistant || isDocScanner || isAssistant;
 
   const { fetchSettings } = useSettingsStore();
 
@@ -105,167 +107,206 @@ export default function Sidebar({ onClose }) {
 
         {/* Navigation */}
         <nav className="flex-1 px-4 py-2 space-y-0.5 overflow-y-auto custom-scrollbar">
-          {/* Connections section */}
-          <div className="space-y-0.5">
-            {isExpanded && (
-              <p className="px-4 text-xs font-semibold text-text-muted/60 uppercase tracking-wider mb-2">
-                Connections
-              </p>
-            )}
-            {connectionItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onClose}
-                className={cn(
-                  "flex items-center rounded-lg transition-all group",
-                  isExpanded ? "gap-3 px-3 py-1" : "justify-center p-2 mx-1",
-                  isActive(item.href)
-                    ? "bg-primary/10 text-primary"
-                    : "text-text-muted hover:bg-surface-2 hover:text-text-main"
-                )}
-                title={!isExpanded ? item.label : undefined}
-              >
-                <span
-                  className={cn(
-                    "material-symbols-outlined text-[18px] shrink-0",
-                    isActive(item.href) ? "fill-1" : "group-hover:text-primary transition-colors"
-                  )}
-                >
-                  {item.icon}
-                </span>
-                {isExpanded && (
-                  <span className="text-[13px] font-medium truncate">{item.label}</span>
-                )}
-              </Link>
-            ))}
-          </div>
-
-          {/* Monitoring section */}
-          <div className={cn("space-y-0.5", isExpanded && "pt-3 mt-2")}>
-            {isExpanded && (
-              <p className="px-4 text-xs font-semibold text-text-muted/60 uppercase tracking-wider mb-2">
-                Monitoring
-              </p>
-            )}
-            {monitoringItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onClose}
-                className={cn(
-                  "flex items-center rounded-lg transition-all group",
-                  isExpanded ? "gap-3 px-3 py-1" : "justify-center p-2 mx-1",
-                  isActive(item.href)
-                    ? "bg-primary/10 text-primary"
-                    : "text-text-muted hover:bg-surface-2 hover:text-text-main"
-                )}
-                title={!isExpanded ? item.label : undefined}
-              >
-                <span
-                  className={cn(
-                    "material-symbols-outlined text-[18px] shrink-0",
-                    isActive(item.href) ? "fill-1" : "group-hover:text-primary transition-colors"
-                  )}
-                >
-                  {item.icon}
-                </span>
-                {isExpanded && (
-                  <span className="text-[13px] font-medium truncate">{item.label}</span>
-                )}
-              </Link>
-            ))}
-          </div>
-
-          {/* System section */}
-          <div className={cn("space-y-0.5", isExpanded && "pt-3 mt-2")}>
-            {isExpanded && (
-              <p className="px-4 text-xs font-semibold text-text-muted/60 uppercase tracking-wider mb-2">
-                System
-              </p>
-            )}
-
-            {/* Web Fetch & Search */}
-            <Link
-              key={COMBINED_WEB_ITEM.id}
-              href={COMBINED_WEB_ITEM.href}
-              onClick={onClose}
-              className={cn(
-                "flex items-center rounded-lg transition-all group",
-                isExpanded ? "gap-3 px-3 py-1" : "justify-center p-2 mx-1",
-                pathname.startsWith(COMBINED_WEB_ITEM.href)
-                  ? "bg-primary/10 text-primary"
-                  : "text-text-muted hover:bg-surface-2 hover:text-text-main"
-              )}
-              title={!isExpanded ? COMBINED_WEB_ITEM.label : undefined}
-            >
-              <span
-                className={cn(
-                  "material-symbols-outlined text-[18px] shrink-0",
-                  pathname.startsWith(COMBINED_WEB_ITEM.href) ? "fill-1" : "group-hover:text-primary transition-colors"
-                )}
-              >
-                {COMBINED_WEB_ITEM.icon}
-              </span>
+          {isAiToolPage ? (
+            <div className="space-y-0.5">
               {isExpanded && (
-                <span className="text-[13px] font-medium truncate">{COMBINED_WEB_ITEM.label}</span>
+                <p className="px-4 text-xs font-semibold text-text-muted/60 uppercase tracking-wider mb-2">
+                  Công cụ AI & Báo cáo
+                </p>
               )}
-            </Link>
-
-            {systemItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onClose}
-                className={cn(
-                  "flex items-center rounded-lg transition-all group",
-                  isExpanded ? "gap-3 px-3 py-1" : "justify-center p-2 mx-1",
-                  isActive(item.href)
-                    ? "bg-primary/10 text-primary"
-                    : "text-text-muted hover:bg-surface-2 hover:text-text-main"
-                )}
-                title={!isExpanded ? item.label : undefined}
-              >
-                <span
+              {aiToolItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onClose}
                   className={cn(
-                    "material-symbols-outlined text-[18px] shrink-0",
-                    isActive(item.href) ? "fill-1" : "group-hover:text-primary transition-colors"
+                    "flex items-center rounded-lg transition-all group",
+                    isExpanded ? "gap-3 px-3 py-1.5" : "justify-center p-2 mx-1",
+                    isActive(item.href)
+                      ? "bg-primary/10 text-primary font-semibold"
+                      : "text-text-muted hover:bg-surface-2 hover:text-text-main"
                   )}
+                  title={!isExpanded ? item.label : undefined}
                 >
-                  {item.icon}
-                </span>
+                  <span
+                    className={cn(
+                      "material-symbols-outlined text-[18px] shrink-0",
+                      isActive(item.href) ? "fill-1 text-primary" : "group-hover:text-primary transition-colors"
+                    )}
+                  >
+                    {item.icon}
+                  </span>
+                  {isExpanded && (
+                    <span className="text-[13px] font-medium truncate">{item.label}</span>
+                  )}
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <>
+              {/* Connections section */}
+              <div className="space-y-0.5">
                 {isExpanded && (
-                  <span className="text-[13px] font-medium truncate">{item.label}</span>
+                  <p className="px-4 text-xs font-semibold text-text-muted/60 uppercase tracking-wider mb-2">
+                    Connections
+                  </p>
                 )}
-              </Link>
-            ))}
+                {connectionItems.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={onClose}
+                    className={cn(
+                      "flex items-center rounded-lg transition-all group",
+                      isExpanded ? "gap-3 px-3 py-1" : "justify-center p-2 mx-1",
+                      isActive(item.href)
+                        ? "bg-primary/10 text-primary"
+                        : "text-text-muted hover:bg-surface-2 hover:text-text-main"
+                    )}
+                    title={!isExpanded ? item.label : undefined}
+                  >
+                    <span
+                      className={cn(
+                        "material-symbols-outlined text-[18px] shrink-0",
+                        isActive(item.href) ? "fill-1" : "group-hover:text-primary transition-colors"
+                      )}
+                    >
+                      {item.icon}
+                    </span>
+                    {isExpanded && (
+                      <span className="text-[13px] font-medium truncate">{item.label}</span>
+                    )}
+                  </Link>
+                ))}
+              </div>
 
-            {/* Settings */}
-            <Link
-              href="/dashboard/profile"
-              onClick={onClose}
-              className={cn(
-                "flex items-center rounded-lg transition-all group",
-                isExpanded ? "gap-3 px-3 py-1" : "justify-center p-2 mx-1",
-                isActive("/dashboard/profile")
-                  ? "bg-primary/10 text-primary"
-                  : "text-text-muted hover:bg-surface-2 hover:text-text-main"
-              )}
-              title={!isExpanded ? "Settings" : undefined}
-            >
-              <span
-                className={cn(
-                  "material-symbols-outlined text-[18px] shrink-0",
-                  isActive("/dashboard/profile") ? "fill-1" : "group-hover:text-primary transition-colors"
+              {/* Monitoring section */}
+              <div className={cn("space-y-0.5", isExpanded && "pt-3 mt-2")}>
+                {isExpanded && (
+                  <p className="px-4 text-xs font-semibold text-text-muted/60 uppercase tracking-wider mb-2">
+                    Monitoring
+                  </p>
                 )}
-              >
-                settings
-              </span>
-              {isExpanded && (
-                <span className="text-[13px] font-medium truncate">Settings</span>
-              )}
-            </Link>
-          </div>
+                {monitoringItems.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={onClose}
+                    className={cn(
+                      "flex items-center rounded-lg transition-all group",
+                      isExpanded ? "gap-3 px-3 py-1" : "justify-center p-2 mx-1",
+                      isActive(item.href)
+                        ? "bg-primary/10 text-primary"
+                        : "text-text-muted hover:bg-surface-2 hover:text-text-main"
+                    )}
+                    title={!isExpanded ? item.label : undefined}
+                  >
+                    <span
+                      className={cn(
+                        "material-symbols-outlined text-[18px] shrink-0",
+                        isActive(item.href) ? "fill-1" : "group-hover:text-primary transition-colors"
+                      )}
+                    >
+                      {item.icon}
+                    </span>
+                    {isExpanded && (
+                      <span className="text-[13px] font-medium truncate">{item.label}</span>
+                    )}
+                  </Link>
+                ))}
+              </div>
+
+              {/* System section */}
+              <div className={cn("space-y-0.5", isExpanded && "pt-3 mt-2")}>
+                {isExpanded && (
+                  <p className="px-4 text-xs font-semibold text-text-muted/60 uppercase tracking-wider mb-2">
+                    System
+                  </p>
+                )}
+
+                {/* Web Fetch & Search */}
+                <Link
+                  key={COMBINED_WEB_ITEM.id}
+                  href={COMBINED_WEB_ITEM.href}
+                  onClick={onClose}
+                  className={cn(
+                    "flex items-center rounded-lg transition-all group",
+                    isExpanded ? "gap-3 px-3 py-1" : "justify-center p-2 mx-1",
+                    pathname.startsWith(COMBINED_WEB_ITEM.href)
+                      ? "bg-primary/10 text-primary"
+                      : "text-text-muted hover:bg-surface-2 hover:text-text-main"
+                  )}
+                  title={!isExpanded ? COMBINED_WEB_ITEM.label : undefined}
+                >
+                  <span
+                    className={cn(
+                      "material-symbols-outlined text-[18px] shrink-0",
+                      pathname.startsWith(COMBINED_WEB_ITEM.href) ? "fill-1" : "group-hover:text-primary transition-colors"
+                    )}
+                  >
+                    {COMBINED_WEB_ITEM.icon}
+                  </span>
+                  {isExpanded && (
+                    <span className="text-[13px] font-medium truncate">{COMBINED_WEB_ITEM.label}</span>
+                  )}
+                </Link>
+
+                {systemItems.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={onClose}
+                    className={cn(
+                      "flex items-center rounded-lg transition-all group",
+                      isExpanded ? "gap-3 px-3 py-1" : "justify-center p-2 mx-1",
+                      isActive(item.href)
+                        ? "bg-primary/10 text-primary"
+                        : "text-text-muted hover:bg-surface-2 hover:text-text-main"
+                    )}
+                    title={!isExpanded ? item.label : undefined}
+                  >
+                    <span
+                      className={cn(
+                        "material-symbols-outlined text-[18px] shrink-0",
+                        isActive(item.href) ? "fill-1" : "group-hover:text-primary transition-colors"
+                      )}
+                    >
+                      {item.icon}
+                    </span>
+                    {isExpanded && (
+                      <span className="text-[13px] font-medium truncate">{item.label}</span>
+                    )}
+                  </Link>
+                ))}
+
+                {/* Settings */}
+                <Link
+                  href="/dashboard/profile"
+                  onClick={onClose}
+                  className={cn(
+                    "flex items-center rounded-lg transition-all group",
+                    isExpanded ? "gap-3 px-3 py-1" : "justify-center p-2 mx-1",
+                    isActive("/dashboard/profile")
+                      ? "bg-primary/10 text-primary"
+                      : "text-text-muted hover:bg-surface-2 hover:text-text-main"
+                  )}
+                  title={!isExpanded ? "Settings" : undefined}
+                >
+                  <span
+                    className={cn(
+                      "material-symbols-outlined text-[18px] shrink-0",
+                      isActive("/dashboard/profile") ? "fill-1" : "group-hover:text-primary transition-colors"
+                    )}
+                  >
+                    settings
+                  </span>
+                  {isExpanded && (
+                    <span className="text-[13px] font-medium truncate">Settings</span>
+                  )}
+                </Link>
+              </div>
+            </>
+          )}
         </nav>
       </aside>
 

@@ -68,6 +68,27 @@ const getPageInfo = (pathname, searchParams) => {
       breadcrumbs: ["Hệ thống", "9Router AI", "Quota Tracker"],
     };
 
+  if (pathname.includes("/ai-agent"))
+    return {
+      title: "AI Agent báo cáo",
+      breadcrumbs: ["Công cụ AI & Báo cáo", "AI Agent báo cáo"],
+    };
+  if (pathname.includes("/report-assistant"))
+    return {
+      title: "Trợ lý báo cáo",
+      breadcrumbs: ["Công cụ AI & Báo cáo", "Trợ lý báo cáo"],
+    };
+  if (pathname.includes("/doc-scanner"))
+    return {
+      title: "Document Scanner",
+      breadcrumbs: ["Công cụ AI & Báo cáo", "Document Scanner"],
+    };
+  if (pathname.includes("/assistant"))
+    return {
+      title: "AI Assistant",
+      breadcrumbs: ["Công cụ AI & Báo cáo", "AI Assistant"],
+    };
+
   return {
     title: "9Router AI",
     breadcrumbs: ["Hệ thống", "9Router AI"],

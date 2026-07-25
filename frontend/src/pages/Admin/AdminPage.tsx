@@ -395,16 +395,6 @@ const AdminPage: React.FC = () => {
         return <CrawlDataTab view="resources" />;
       case "sheets":
         return <SheetsTab />;
-      case "nine_router":
-        return <EmbeddedAiToolTab url="http://localhost:20128/dashboard" title="9Router Dashboard" />;
-      case "ai_agent":
-        return <EmbeddedAiToolTab url="http://localhost:20128/dashboard/ai-agent" title="AI Agent Báo Cáo" />;
-      case "report_assistant":
-        return <EmbeddedAiToolTab url="http://localhost:20128/dashboard/report-assistant" title="Trợ Lý Báo Cáo" />;
-      case "doc_scanner":
-        return <EmbeddedAiToolTab url="http://localhost:20128/dashboard/doc-scanner" title="Document Scanner" />;
-      case "ai_assistant":
-        return <EmbeddedAiToolTab url="http://localhost:20128/dashboard/assistant" title="AI Assistant" />;
       default:
         return <DashboardTab />;
     }

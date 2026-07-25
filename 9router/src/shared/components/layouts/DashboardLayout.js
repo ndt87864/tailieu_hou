@@ -38,61 +38,17 @@ export default function DashboardLayout({ children }) {
   const notifications = useNotificationStore((state) => state.notifications);
   const removeNotification = useNotificationStore((state) => state.removeNotification);
 
+  const isAiAgent = pathname?.startsWith("/dashboard/ai-agent");
   const isReportAssistant = pathname?.startsWith("/dashboard/report-assistant");
-  const isAiToolPage =
-    pathname === "/dashboard/ai-agent" ||
-    isReportAssistant ||
-    pathname === "/dashboard/doc-scanner" ||
-    pathname === "/dashboard/assistant";
+  const isDocScanner = pathname?.startsWith("/dashboard/doc-scanner");
+  const isAssistant = pathname?.startsWith("/dashboard/assistant");
 
   const isFullScreen =
     pathname === "/dashboard/basic-chat" ||
-    pathname === "/dashboard/doc-scanner" ||
-    pathname === "/dashboard/assistant" ||
-    isReportAssistant;
-
-  // Render clean standalone view without 9Router Header/Sidebar for HOU AI Tools & Reports
-  if (isAiToolPage) {
-    return (
-      <div className="flex flex-col h-full w-full overflow-hidden bg-bg text-text-main">
-        {/* Top Notification Toast Container */}
-        <div className="fixed top-4 right-4 z-[80] flex w-[min(92vw,380px)] flex-col gap-2">
-          {notifications.map((n) => {
-            const style = getToastStyle(n.type);
-            return (
-              <div
-                key={n.id}
-                className={`rounded-lg border px-3 py-2 shadow-lg backdrop-blur-sm ${style.wrapper}`}
-              >
-                <div className="flex items-start gap-2">
-                  <span className="material-symbols-outlined text-[18px] leading-5">{style.icon}</span>
-                  <div className="min-w-0 flex-1">
-                    {n.title ? <p className="text-xs font-semibold mb-0.5">{n.title}</p> : null}
-                    <p className="text-xs whitespace-pre-wrap break-words">{n.message}</p>
-                  </div>
-                  {n.dismissible ? (
-                    <button
-                      type="button"
-                      onClick={() => removeNotification(n.id)}
-                      className="text-current/70 hover:text-current"
-                      aria-label="Dismiss notification"
-                    >
-                      <span className="material-symbols-outlined text-[16px]">close</span>
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Main Content Area (NO 9Router sidebar or header) */}
-        <main className="flex-1 flex flex-col min-h-0 w-full h-full overflow-hidden relative">
-          <div className="flex-1 w-full h-full flex flex-col min-h-0">{children}</div>
-        </main>
-      </div>
-    );
-  }
+    isAiAgent ||
+    isReportAssistant ||
+    isDocScanner ||
+    isAssistant;
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-bg">
