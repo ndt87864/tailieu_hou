@@ -277,3 +277,39 @@ describe("dashboard guard helpers", () => {
     expect(__test__.extractApiKey(apiRequest)).toBe("header-key");
   });
 });
+
+describe("dashboard guard proxy key bypass", () => {
+  const originalEnv = process.env.NINE_ROUTER_PROXY_KEY;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.NINE_ROUTER_PROXY_KEY = "test-secret-key";
+  });
+
+  afterEach(() => {
+    if (originalEnv !== undefined) {
+      process.env.NINE_ROUTER_PROXY_KEY = originalEnv;
+    } else {
+      delete process.env.NINE_ROUTER_PROXY_KEY;
+    }
+  });
+
+  it("allows request when x-nine-router-proxy-key matches NINE_ROUTER_PROXY_KEY", async () => {
+    const response = await proxy(request("/dashboard", {
+      "x-nine-router-proxy-key": "test-secret-key",
+    }));
+
+    expect(response).toBe(mocks.nextResponse);
+  });
+
+  it("does not bypass when x-nine-router-proxy-key does not match", async () => {
+    mocks.getSettings.mockResolvedValue({ requireLogin: true });
+
+    const response = await proxy(request("/dashboard", {
+      "x-nine-router-proxy-key": "invalid-key",
+    }));
+
+    expect(response.status).toBe(307);
+    expect(String(response.url)).toBe("http://localhost/login");
+  });
+});

@@ -13,14 +13,27 @@ interface AuthResult {
 }
 
 export const authMiddleware: MiddlewareHandler = async (c, next) => {
+  let token: string | null = null;
+
   const authHeader = c.req.header("Authorization");
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    token = authHeader.split(" ")[1];
+  } else {
+    // Đọc JWT token từ Cookie tự động gửi bởi trình duyệt (đối với Iframe navigation)
+    const cookieHeader = c.req.header("Cookie");
+    if (cookieHeader) {
+      const match = cookieHeader.match(/(?:^|;\s*)sb-access-token=([^;]+)/);
+      if (match) {
+        token = decodeURIComponent(match[1]);
+      }
+    }
+  }
+
+  if (!token) {
     c.set("user", null);
     c.set("role", "guest");
     return await next();
   }
-
-  const token = authHeader.split(" ")[1];
 
   // Cache key dùng 32 ký tự cuối của token (tránh lưu cả token quá dài)
   const cacheKey = `auth:${token.slice(-32)}`;

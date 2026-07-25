@@ -110,6 +110,10 @@ authRouter.get("/profile", async (c) => {
   }
 
   const { profile } = await getProfileWithRole(user.id);
+  if (profile) {
+    profile.avatar_url = profile.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture || null;
+    profile.full_name = profile.full_name || user.user_metadata?.full_name || user.user_metadata?.name || profile.full_name;
+  }
 
   return c.json({ user, profile, role });
 });

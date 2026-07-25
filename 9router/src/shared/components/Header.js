@@ -101,8 +101,8 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
       const cachedRole = localStorage.getItem("user-role");
       if (cachedStr) {
         const p = JSON.parse(cachedStr);
-        const avatarUrl = p.avatar_url || p.avatar || p.picture || "";
-        const fullName = p.full_name || p.displayName || p.name || "Trung Nguyễn Đình";
+        const avatarUrl = p.avatar_url || p.avatar || p.picture || p.user_metadata?.avatar_url || p.user_metadata?.picture || "";
+        const fullName = p.full_name || p.displayName || p.name || p.user_metadata?.full_name || "Trung Nguyễn Đình";
         const email = p.email || "tapnham502@gmail.com";
         const phone = p.phone || "";
         const r = cachedRole ? (cachedRole.charAt(0).toUpperCase() + cachedRole.slice(1)) : "Admin";
@@ -124,16 +124,34 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
     loadProfileFromStorage();
     window.addEventListener("storage", loadProfileFromStorage);
 
+    // Lắng nghe postMessage từ cửa sổ cha (Tailieu HOU React App)
+    const handleMessage = (event) => {
+      if (!event.data) return;
+      if (event.data.type === "PUSH_USER_PROFILE" && event.data.profile) {
+        const p = event.data.profile;
+        setUserProfile({
+          name: p.full_name || p.displayName || "Trung Nguyễn Đình",
+          email: p.email || "tapnham502@gmail.com",
+          role: event.data.role ? (event.data.role.charAt(0).toUpperCase() + event.data.role.slice(1)) : "Admin",
+          avatar: p.avatar_url || p.avatar || "",
+          phone: p.phone || "",
+        });
+      }
+    };
+    window.addEventListener("message", handleMessage);
+
     fetch("http://localhost:3001/api/v1/auth/profile", { credentials: "include" })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (cancelled || !data?.profile) return;
         const p = data.profile;
+        const u = data.user;
+        const avatarUrl = p.avatar_url || p.avatar || u?.user_metadata?.avatar_url || u?.user_metadata?.picture || "";
         setUserProfile({
-          name: p.full_name || p.displayName || "Trung Nguyễn Đình",
-          email: p.email || "tapnham502@gmail.com",
+          name: p.full_name || p.displayName || u?.user_metadata?.full_name || u?.user_metadata?.name || "Trung Nguyễn Đình",
+          email: p.email || u?.email || "tapnham502@gmail.com",
           role: data.role ? (data.role.charAt(0).toUpperCase() + data.role.slice(1)) : "Admin",
-          avatar: p.avatar_url || p.avatar || "",
+          avatar: avatarUrl,
           phone: p.phone || "",
         });
       })
@@ -148,6 +166,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
     return () => {
       cancelled = true;
       window.removeEventListener("storage", loadProfileFromStorage);
+      window.removeEventListener("message", handleMessage);
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [loadProfileFromStorage]);

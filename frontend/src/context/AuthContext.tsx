@@ -44,6 +44,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const res = await apiClient.get("/api/v1/auth/profile");
       const fetchedRole = res.data.role || "free";
       const fetchedProfile = res.data.profile || null;
+      if (fetchedProfile && res.data.user?.user_metadata) {
+        fetchedProfile.avatar_url = fetchedProfile.avatar_url || res.data.user.user_metadata.avatar_url || res.data.user.user_metadata.picture || null;
+        fetchedProfile.full_name = fetchedProfile.full_name || res.data.user.user_metadata.full_name || res.data.user.user_metadata.name || fetchedProfile.full_name;
+      }
 
       setRole(fetchedRole);
       setProfile(fetchedProfile);
@@ -63,6 +67,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       clearAllCache();
       setSession(session);
       setUser(session?.user ?? null);
+
+      if (session?.access_token) {
+        // Lưu token vào Cookie SameSite=Lax để các request Iframe nội bộ tự động gửi kèm cookie
+        document.cookie = `sb-access-token=${encodeURIComponent(session.access_token)}; path=/; SameSite=Lax; max-age=28800`;
+      } else {
+        document.cookie = `sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+      }
+
       if (session) {
         fetchProfile(session.access_token, session.user.id).then(() => {
           setLoading(false);
@@ -87,6 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     setLoading(true);
+    document.cookie = `sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
     await supabase.auth.signOut();
     setSession(null);
     setUser(null);

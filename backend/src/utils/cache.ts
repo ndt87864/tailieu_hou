@@ -14,11 +14,12 @@ let isRedisReady = false;
 
 // Khởi tạo Redis nếu có cấu hình
 const redisUrl = process.env.REDIS_URL;
-if (redisUrl) {
+if (redisUrl && redisUrl.trim() !== "" && !redisUrl.includes("ENOTFOUND")) {
   try {
     redisClient = new Redis(redisUrl, {
-      maxRetriesPerRequest: 1,
-      connectTimeout: 3000,
+      maxRetriesPerRequest: 0,
+      connectTimeout: 1000,
+      retryStrategy: () => null,
       lazyConnect: false,
     });
     

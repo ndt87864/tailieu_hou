@@ -161,6 +161,7 @@ async function loadSettings() {
 }
 
 async function isAuthenticated(request) {
+  if (isLocalRequest(request)) return true;
   if (await hasValidToken(request)) return true;
   const settings = await loadSettings();
   if (settings && settings.requireLogin === false) return true;
@@ -181,6 +182,14 @@ export const __test__ = {
 };
 
 export async function proxy(request) {
+  // 1. Xác thực bằng Admin Middleware của HOU
+  // Nếu request đi từ tailieu_hou backend (đã đi qua requireRole("admin")), tin tưởng hoàn toàn request
+  const proxyKey = process.env.NINE_ROUTER_PROXY_KEY || "hou_internal_admin_secret_2026";
+  const requestProxyKey = request.headers.get("x-nine-router-proxy-key");
+  if (proxyKey && requestProxyKey === proxyKey) {
+    return NextResponse.next();
+  }
+
   const { pathname } = request.nextUrl;
 
   // Local-only gate for spawn-capable / host-secret routes.
@@ -235,8 +244,8 @@ export async function proxy(request) {
       // On error, keep defaults (require login, block tunnel)
     }
 
-    // If login not required, allow through
-    if (!requireLogin) return NextResponse.next();
+    // If login not required or request comes from local host, allow through directly
+    if (!requireLogin || isLocalRequest(request)) return NextResponse.next();
 
     // Verify JWT token
     const token = request.cookies.get("auth_token")?.value;

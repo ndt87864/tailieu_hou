@@ -9,9 +9,12 @@ const tracingRoot = process.env.NEXT_TRACING_ROOT_MODE === "workspace"
   : projectRoot;
 const proxyClientMaxBodySize = process.env.NINEROUTER_PROXY_CLIENT_MAX_BODY_SIZE || "128mb";
 
+const basePath = "";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: false,
+  basePath,
   distDir: process.env.NEXT_DIST_DIR || ".next",
   output: "standalone",
   serverExternalPackages: ["better-sqlite3", "sql.js", "node:sqlite", "bun:sqlite", "@libsql/client", "libsql"],

@@ -3,13 +3,16 @@ import { requireRole } from "../middlewares/role.js";
 
 const nineRouter = new Hono();
 
-// Yêu cầu tối thiểu vai trò management (level >= 90: management & admin)
-nineRouter.use("*", requireRole("management"));
+// Yêu cầu tối thiểu vai trò admin (chỉ admin của tailieu_hou mới có quyền sử dụng 9Router)
+nineRouter.use("*", requireRole("admin"));
 
 const getNineRouterUrl = (): string => {
   const url = process.env.NINE_ROUTER_URL || "http://localhost:20128";
   return url.endsWith("/") ? url.slice(0, -1) : url;
 };
+
+// Secret key nội bộ để HOU backend xác thực trực tiếp với 9router
+const SYSTEM_PROXY_SECRET = process.env.NINE_ROUTER_PROXY_KEY || "hou_internal_admin_secret_2026";
 
 // Helper fetch có timeout an toàn, tự giải phóng timer và ngắt kết nối khi hết giờ
 const fetchSingleEndpoint = async (url: string, timeoutMs: number = 4000) => {
@@ -74,7 +77,11 @@ nineRouter.get("/status", async (c) => {
 // Proxy tất cả các đường dẫn dưới /v1/* hoặc /* tới 9Router
 nineRouter.all("/*", async (c) => {
   const targetBase = getNineRouterUrl();
+  const path = c.req.path;
+
+  const proxyKey = process.env.NINE_ROUTER_PROXY_KEY;
   const subPath = c.req.path.replace(/^\/api\/v1\/nine-router/, "");
+
   const targetUrl = `${targetBase}${subPath}${
     c.req.url.includes("?") ? c.req.url.slice(c.req.url.indexOf("?")) : ""
   }`;
@@ -89,6 +96,9 @@ nineRouter.all("/*", async (c) => {
       forwardHeaders[key] = value;
     }
   }
+
+  // Luôn luôn gửi bí mật hệ thống x-nine-router-proxy-key để 9Router tin tưởng request từ HOU Admin Middleware
+  forwardHeaders["x-nine-router-proxy-key"] = SYSTEM_PROXY_SECRET;
 
   // Nếu trong file .env có cấu hình NINE_ROUTER_API_KEY riêng, sử dụng cho 9Router Gateway
   if (process.env.NINE_ROUTER_API_KEY) {

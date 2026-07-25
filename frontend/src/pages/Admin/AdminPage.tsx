@@ -54,6 +54,7 @@ import { ProxyTab } from "../../components/admin/ProxyTab.js";
 import { SubjectPricesTab } from "../../components/admin/SubjectPricesTab.js";
 import { CrawlDataTab } from "../../components/admin/CrawlDataTab.js";
 import { Header } from "../../components/layout/Layout.js";
+import { useAuth } from "../../context/AuthContext.js";
 import { useUI } from "../../context/UIContext.js";
 import "../../css/admin.css";
 
@@ -81,7 +82,8 @@ type TabId =
   | "report_assistant"
   | "doc_scanner"
   | "ai_assistant"
-  | "translator";
+  | "translator"
+  | "nine_router";
 
 interface MenuItem {
   id: TabId;
@@ -104,13 +106,20 @@ const IFRAME_ORIGINS = ["http://localhost:20128", window.location.origin];
 const EmbeddedAiToolTab: React.FC<{ url: string; title: string }> = ({ url, title }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { themeMode, primaryColor } = useUI();
+  const { profile, role } = useAuth();
 
   const pushThemeToIframe = useCallback(() => {
     iframeRef.current?.contentWindow?.postMessage(
       { type: "PUSH_UI_SETTINGS", themeMode, primaryColor },
       "*" // cross-origin: 9router chạy ở port khác
     );
-  }, [themeMode, primaryColor]);
+    if (profile) {
+      iframeRef.current?.contentWindow?.postMessage(
+        { type: "PUSH_USER_PROFILE", profile, role },
+        "*"
+      );
+    }
+  }, [themeMode, primaryColor, profile, role]);
 
   // Push khi iframe load xong (fallback)
   const handleLoad = useCallback(() => {
@@ -251,10 +260,10 @@ const AdminPage: React.FC = () => {
       icon: <Sparkles className="w-4 h-4" />,
       description: "Các ứng dụng trợ lý AI, quét tài liệu và báo cáo tự động tích hợp 9Router AI Gateway.",
       items: [
-        { id: "ai_agent",        label: "AI Agent báo cáo",    icon: <Bot className="w-4 h-4 text-brand-600" />,          desc: "Tạo và phân tích báo cáo tự động bằng AI Agent" },
-        { id: "report_assistant",label: "Trợ lý báo cáo",      icon: <FileText className="w-4 h-4 text-blue-600" />,     desc: "Trợ lý soạn thảo và phân tích báo cáo" },
-        { id: "doc_scanner",     label: "Document Scanner",   icon: <FileSearch className="w-4 h-4 text-emerald-600" />, desc: "Quét và trích xuất dữ liệu tài liệu tự động" },
-        { id: "ai_assistant",    label: "AI Assistant",        icon: <Sparkles className="w-4 h-4 text-purple-600" />,   desc: "Trợ lý AI thông minh đa năng" },
+        { id: "ai_agent",        label: "AI Agent báo cáo",    icon: <Bot className="w-4 h-4 text-brand-600" />,          desc: "Tạo và phân tích báo cáo tự động bằng AI Agent", externalUrl: "http://localhost:20128/dashboard/ai-agent" },
+        { id: "report_assistant",label: "Trợ lý báo cáo",      icon: <FileText className="w-4 h-4 text-blue-600" />,     desc: "Trợ lý soạn thảo và phân tích báo cáo", externalUrl: "http://localhost:20128/dashboard/report-assistant" },
+        { id: "doc_scanner",     label: "Document Scanner",   icon: <FileSearch className="w-4 h-4 text-emerald-600" />, desc: "Quét và trích xuất dữ liệu tài liệu tự động", externalUrl: "http://localhost:20128/dashboard/doc-scanner" },
+        { id: "ai_assistant",    label: "AI Assistant",        icon: <Sparkles className="w-4 h-4 text-purple-600" />,   desc: "Trợ lý AI thông minh đa năng", externalUrl: "http://localhost:20128/dashboard/assistant" },
       ],
     },
     {
@@ -266,7 +275,6 @@ const AdminPage: React.FC = () => {
         { id: "calendar", label: "Lịch",         icon: <Calendar className="w-4 h-4" />, desc: "Lịch nhắc nhở và sự kiện hệ thống" },
         { id: "footer",   label: "Footer",       icon: <Compass className="w-4 h-4" />, desc: "Thông tin chân trang và chính sách" },
         { id: "contacts", label: "Liên hệ",      icon: <Mail className="w-4 h-4" />, desc: "Hộp thư tiếp nhận góp ý, phản hồi của người dùng" },
-        { id: "sheets",   label: "Trang tính",    icon: <FileSpreadsheet className="w-4 h-4" />, desc: "Quản lí trang tính" },
         { id: "nine_router", label: "Cấu hình 9Router AI", icon: <Cpu className="w-4 h-4" />, desc: "Quản lý 9Router AI Gateway & Provider Routing", externalUrl: "http://localhost:20128/dashboard" },
       ],
     },
@@ -387,6 +395,8 @@ const AdminPage: React.FC = () => {
         return <CrawlDataTab view="resources" />;
       case "sheets":
         return <SheetsTab />;
+      case "nine_router":
+        return <EmbeddedAiToolTab url="http://localhost:20128/dashboard" title="9Router Dashboard" />;
       case "ai_agent":
         return <EmbeddedAiToolTab url="http://localhost:20128/dashboard/ai-agent" title="AI Agent Báo Cáo" />;
       case "report_assistant":
@@ -435,9 +445,7 @@ const AdminPage: React.FC = () => {
       )
     : [];
 
-  const isEmbeddedTab =
-    activeRoute.type === "tab" &&
-    ["ai_agent", "report_assistant", "doc_scanner", "ai_assistant"].includes(activeRoute.id);
+  const isEmbeddedTab = false;
 
   return (
     <div className={`admin-layout shadow-sm border border-[var(--border)] relative ${isEmbeddedTab ? "h-screen overflow-hidden" : ""}`}>
