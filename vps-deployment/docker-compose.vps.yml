@@ -23,7 +23,7 @@ services:
 networks:
   app_network:
     driver: bridge
-    name: vps-deployment_app_network
+    name: tailieu_hou_app_network
   supabase_network:
     external: true
     name: supabase_default

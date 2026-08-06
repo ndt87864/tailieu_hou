@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { getNineRouterBaseUrl, openNineRouterWithSso } from "../../utils/nineRouterUrl.js";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import {
   BarChart2,
@@ -101,7 +102,7 @@ interface MenuGroup {
   items: MenuItem[];
 }
 
-const IFRAME_ORIGINS = ["http://localhost:20128", window.location.origin];
+const IFRAME_ORIGINS = [getNineRouterBaseUrl(), window.location.origin];
 
 const EmbeddedAiToolTab: React.FC<{ url: string; title: string }> = ({ url, title }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -260,10 +261,10 @@ const AdminPage: React.FC = () => {
       icon: <Sparkles className="w-4 h-4" />,
       description: "Các ứng dụng trợ lý AI, quét tài liệu và báo cáo tự động tích hợp 9Router AI Gateway.",
       items: [
-        { id: "ai_agent",        label: "AI Agent báo cáo",    icon: <Bot className="w-4 h-4 text-brand-600" />,          desc: "Tạo và phân tích báo cáo tự động bằng AI Agent", externalUrl: "http://localhost:20128/dashboard/ai-agent" },
-        { id: "report_assistant",label: "Trợ lý báo cáo",      icon: <FileText className="w-4 h-4 text-blue-600" />,     desc: "Trợ lý soạn thảo và phân tích báo cáo", externalUrl: "http://localhost:20128/dashboard/report-assistant" },
-        { id: "doc_scanner",     label: "Document Scanner",   icon: <FileSearch className="w-4 h-4 text-emerald-600" />, desc: "Quét và trích xuất dữ liệu tài liệu tự động", externalUrl: "http://localhost:20128/dashboard/doc-scanner" },
-        { id: "ai_assistant",    label: "AI Assistant",        icon: <Sparkles className="w-4 h-4 text-purple-600" />,   desc: "Trợ lý AI thông minh đa năng", externalUrl: "http://localhost:20128/dashboard/assistant" },
+        { id: "ai_agent",        label: "AI Agent báo cáo",    icon: <Bot className="w-4 h-4 text-brand-600" />,          desc: "Tạo và phân tích báo cáo tự động bằng AI Agent", externalUrl: `${getNineRouterBaseUrl()}/dashboard/ai-agent` },
+        { id: "report_assistant",label: "Trợ lý báo cáo",      icon: <FileText className="w-4 h-4 text-blue-600" />,     desc: "Trợ lý soạn thảo và phân tích báo cáo", externalUrl: `${getNineRouterBaseUrl()}/dashboard/report-assistant` },
+        { id: "doc_scanner",     label: "Document Scanner",   icon: <FileSearch className="w-4 h-4 text-emerald-600" />, desc: "Quét và trích xuất dữ liệu tài liệu tự động", externalUrl: `${getNineRouterBaseUrl()}/dashboard/doc-scanner` },
+        { id: "ai_assistant",    label: "AI Assistant",        icon: <Sparkles className="w-4 h-4 text-purple-600" />,   desc: "Trợ lý AI thông minh đa năng", externalUrl: `${getNineRouterBaseUrl()}/dashboard/assistant` },
       ],
     },
     {
@@ -275,7 +276,7 @@ const AdminPage: React.FC = () => {
         { id: "calendar", label: "Lịch",         icon: <Calendar className="w-4 h-4" />, desc: "Lịch nhắc nhở và sự kiện hệ thống" },
         { id: "footer",   label: "Footer",       icon: <Compass className="w-4 h-4" />, desc: "Thông tin chân trang và chính sách" },
         { id: "contacts", label: "Liên hệ",      icon: <Mail className="w-4 h-4" />, desc: "Hộp thư tiếp nhận góp ý, phản hồi của người dùng" },
-        { id: "nine_router", label: "Cấu hình 9Router AI", icon: <Cpu className="w-4 h-4" />, desc: "Quản lý 9Router AI Gateway & Provider Routing", externalUrl: "http://localhost:20128/dashboard" },
+        { id: "nine_router", label: "Cấu hình 9Router AI", icon: <Cpu className="w-4 h-4" />, desc: "Quản lý 9Router AI Gateway & Provider Routing", externalUrl: `${getNineRouterBaseUrl()}/dashboard` },
       ],
     },
   ];
@@ -301,8 +302,14 @@ const AdminPage: React.FC = () => {
     setMobileOpen(false);
   };
 
-  const handleItemClick = (item: MenuItem) => {
+  const handleItemClick = async (item: MenuItem) => {
     if (item.externalUrl) {
+      const baseUrl = getNineRouterBaseUrl();
+      if (item.externalUrl.startsWith(baseUrl)) {
+        const redirectPath = item.externalUrl.replace(baseUrl, "") || "/dashboard";
+        await openNineRouterWithSso(redirectPath, "_blank");
+        return;
+      }
       window.open(item.externalUrl, "_blank", "noopener,noreferrer");
       return;
     }

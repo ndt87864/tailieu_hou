@@ -27,6 +27,7 @@ const PUBLIC_API_PATHS = [
   "/api/auth/logout",
   "/api/auth/status",
   "/api/auth/oidc",
+  "/api/auth/sso",
   "/api/version",
   "/api/settings/require-login",
 ];
@@ -227,7 +228,7 @@ export async function proxy(request) {
     try {
       const settings = await loadSettings();
       if (settings) {
-        requireLogin = settings.requireLogin !== false;
+        requireLogin = settings.requireLogin === true;
         tunnelDashboardAccess = settings.tunnelDashboardAccess === true;
 
         // Block tunnel/tailscale access if disabled (redirect to login)

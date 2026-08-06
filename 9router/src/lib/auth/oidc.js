@@ -41,6 +41,9 @@ export function getPublicOrigin(request) {
 }
 
 export function isOidcConfigured(settings) {
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    return true;
+  }
   return !!(
     trimTrailingSlashes(settings?.oidcIssuerUrl) &&
     (settings?.oidcClientId || "").trim() &&
@@ -50,7 +53,18 @@ export function isOidcConfigured(settings) {
 
 export async function getOidcRuntimeConfig() {
   const settings = await getSettings();
-  if (!["oidc", "both"].includes(settings.authMode) || !isOidcConfigured(settings)) return null;
+  
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    return {
+      issuerUrl: "https://accounts.google.com",
+      clientId: process.env.GOOGLE_CLIENT_ID.trim(),
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET.trim(),
+      scopes: normalizeScopes(settings?.oidcScopes || DEFAULT_SCOPES),
+      loginLabel: "Đăng nhập bằng Google",
+    };
+  }
+
+  if (!["oidc", "both"].includes(settings?.authMode) || !isOidcConfigured(settings)) return null;
 
   const issuerUrl = trimTrailingSlashes(settings.oidcIssuerUrl);
   return {

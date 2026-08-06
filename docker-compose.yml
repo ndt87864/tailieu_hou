@@ -1,20 +1,30 @@
-version: '3.8'
-
 services:
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+      - nine_router
+    restart: always
+    networks:
+      - app_network
+
   backend:
     build:
       context: .
       dockerfile: Dockerfile
     ports:
       - "3001:3001"
+    env_file:
+      - backend/.env
     environment:
       - PORT=3001
       - NODE_ENV=production
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
-      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       - REDIS_URL=redis://redis:6379
-      - NINE_ROUTER_URL=${NINE_ROUTER_URL:-http://nine_router:20128}
+      - NINE_ROUTER_URL=http://nine_router:20128
     depends_on:
       - redis
       - nine_router
@@ -29,9 +39,16 @@ services:
       dockerfile: Dockerfile
     ports:
       - "20128:20128"
+    env_file:
+      - 9router/.env
     environment:
       - PORT=20128
+      - HOSTNAME=0.0.0.0
       - NODE_ENV=production
+      - DATA_DIR=/app/data
+      - REDIS_URL=redis://redis:6379/1
+    volumes:
+      - nine_router_data:/app/data
     restart: always
     networks:
       - app_network
@@ -40,9 +57,15 @@ services:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
     restart: always
     networks:
       - app_network
+
+volumes:
+  nine_router_data:
+  redis_data:
 
 networks:
   app_network:
@@ -50,3 +73,4 @@ networks:
   supabase_network:
     external: true
     name: supabase_default
+

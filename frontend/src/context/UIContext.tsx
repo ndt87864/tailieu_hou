@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext.js";
 import apiClient from "../services/client.js";
 import { cachedGet } from "../utils/apiCache.js";
+import { isNineRouterOrigin } from "../utils/nineRouterUrl.js";
 
 export type ThemeMode = "light" | "dark" | "system";
 export type PrimaryColor = "blue" | "lime" | "red" | "orange" | "yellow" | "mint" | "charcoal" | "purple";
@@ -75,7 +76,7 @@ export const UIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   useEffect(() => {
     const isTrusted = (origin: string) => {
       if (origin === window.location.origin) return true;
-      if (origin === "http://localhost:20128" || origin === "https://localhost:20128") return true;
+      if (isNineRouterOrigin(origin)) return true;
       
       try {
         const url = new URL(origin);

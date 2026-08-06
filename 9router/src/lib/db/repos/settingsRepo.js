@@ -24,7 +24,7 @@ const DEFAULT_SETTINGS = {
   comboStrategy: "fallback",
   comboStickyRoundRobinLimit: 1,
   comboStrategies: {},
-  requireLogin: true,
+  requireLogin: false,
   tunnelDashboardAccess: true,
   authMode: "password",
   oidcIssuerUrl: "",

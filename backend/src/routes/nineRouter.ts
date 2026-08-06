@@ -1,10 +1,18 @@
 import { Hono } from "hono";
+import crypto from "node:crypto";
 import { requireRole } from "../middlewares/role.js";
 
-const nineRouter = new Hono();
+type Env = {
+  Variables: {
+    user: any;
+    role: any;
+  };
+};
 
-// Yêu cầu tối thiểu vai trò admin (chỉ admin của tailieu_hou mới có quyền sử dụng 9Router)
-nineRouter.use("*", requireRole("admin"));
+const nineRouter = new Hono<Env>();
+
+// Yêu cầu tối thiểu vai trò management (quản lý / admin mới có quyền truy cập 9Router)
+nineRouter.use("*", requireRole("management"));
 
 const getNineRouterUrl = (): string => {
   const url = process.env.NINE_ROUTER_URL || "http://localhost:20128";
@@ -29,6 +37,34 @@ const fetchSingleEndpoint = async (url: string, timeoutMs: number = 4000) => {
     clearTimeout(timeoutId);
   }
 };
+
+// Endpoint sinh SSO URL cho 9Router
+nineRouter.get("/sso-url", async (c) => {
+  const user = c.get("user") as any;
+  const role = c.get("role") || "management";
+  const redirectPath = c.req.query("redirect") || "/dashboard";
+
+  const payload = {
+    userId: user?.id || "hou_admin",
+    email: user?.email || "admin@hou.edu.vn",
+    role: role,
+    exp: Date.now() + 60 * 1000, // Token sống trong 60s
+  };
+
+  const payloadB64 = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const signature = crypto
+    .createHmac("sha256", SYSTEM_PROXY_SECRET)
+    .update(payloadB64)
+    .digest("hex");
+
+  const token = `${payloadB64}.${signature}`;
+
+  return c.json({
+    ok: true,
+    token,
+    redirectPath,
+  });
+});
 
 // Endpoint kiểm tra trạng thái hoạt động của 9Router
 nineRouter.get("/status", async (c) => {

@@ -1,19 +1,39 @@
-import React, { useRef, useEffect, useCallback } from "react";
+import React, { useRef, useEffect, useCallback, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Header } from "../../components/layout/Layout.js";
 import { useUI } from "../../context/UIContext.js";
 import { useAuth } from "../../context/AuthContext.js";
+import { getNineRouterBaseUrl, getNineRouterSsoUrl } from "../../utils/nineRouterUrl.js";
 
-const IFRAME_ORIGINS = ["http://localhost:20128", window.location.origin];
+const IFRAME_ORIGINS = [getNineRouterBaseUrl(), window.location.origin];
 
 const AiToolPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { themeMode, primaryColor } = useUI();
   const { profile, role } = useAuth();
+  const [iframeUrl, setIframeUrl] = useState<string>("");
 
-  const url = searchParams.get("url") || "";
+  const rawUrl = searchParams.get("url") || "";
   const title = searchParams.get("title") || "AI Tool";
+
+  useEffect(() => {
+    let isMounted = true;
+    const initIframeUrl = async () => {
+      const baseUrl = getNineRouterBaseUrl();
+      if (rawUrl && rawUrl.startsWith(baseUrl)) {
+        const redirectPath = rawUrl.replace(baseUrl, "") || "/dashboard";
+        const ssoUrl = await getNineRouterSsoUrl(redirectPath);
+        if (isMounted) setIframeUrl(ssoUrl);
+      } else {
+        if (isMounted) setIframeUrl(rawUrl);
+      }
+    };
+    initIframeUrl();
+    return () => {
+      isMounted = false;
+    };
+  }, [rawUrl]);
 
   const pushThemeToIframe = useCallback(() => {
     iframeRef.current?.contentWindow?.postMessage(
@@ -47,7 +67,7 @@ const AiToolPage: React.FC = () => {
     return () => window.removeEventListener("message", handleRequest);
   }, [themeMode, primaryColor]);
 
-  if (!url) {
+  if (!rawUrl) {
     return (
       <div className="flex items-center justify-center h-screen text-[var(--muted)] text-sm">
         Không tìm thấy URL công cụ.
@@ -69,7 +89,7 @@ const AiToolPage: React.FC = () => {
       <div className="flex-1 overflow-hidden">
         <iframe
           ref={iframeRef}
-          src={url}
+          src={iframeUrl || rawUrl}
           title={title}
           className="w-full h-full border-0 block"
           sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals"

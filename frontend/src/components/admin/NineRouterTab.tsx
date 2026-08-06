@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { getNineRouterBaseUrl, openNineRouterWithSso } from "../../utils/nineRouterUrl.js";
 import {
   Cpu,
   Server,
@@ -47,7 +48,7 @@ export const NineRouterTab: React.FC = () => {
     } catch (err: any) {
       setStatus({
         ok: false,
-        targetUrl: "http://localhost:20128",
+        targetUrl: getNineRouterBaseUrl(),
         error: err.message,
         message: "Lỗi kết nối tới Backend Proxy.",
       });
@@ -60,9 +61,8 @@ export const NineRouterTab: React.FC = () => {
     checkStatus();
   }, []);
 
-  const openNineRouterWeb = () => {
-    const target = status?.targetUrl || "http://localhost:20128";
-    window.open(`${target}/dashboard`, "_blank");
+  const openNineRouterWeb = async () => {
+    await openNineRouterWithSso("/dashboard", "_blank");
   };
 
   const handleTestSubmit = async (e: React.FormEvent) => {
@@ -224,7 +224,7 @@ export const NineRouterTab: React.FC = () => {
             {proxyEndpoint}
           </div>
           <div className="text-xs text-slate-500">
-            Target Service URL: {status?.targetUrl || "http://localhost:20128"}
+            Target Service URL: {status?.targetUrl || getNineRouterBaseUrl()}
           </div>
         </div>
 
