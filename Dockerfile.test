@@ -1,0 +1,3 @@
+FROM alpine
+COPY frontend/.env /test.env
+RUN cat /test.env

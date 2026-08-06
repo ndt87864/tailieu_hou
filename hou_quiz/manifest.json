@@ -11,7 +11,7 @@
     "https://*.ehou.edu.vn/*",
     "https://lmshub.hou.edu.vn/*",
     "http://localhost/*",
-    "https://tailieu-hou.duckdns.org/*"
+    "https://tailieuehou.id.vn/*"
   ],
   "action": {
     "default_title": "HOU Quiz",

@@ -4,4 +4,5 @@ frontend/dist
 .git
 .env
 backend/.env
-frontend/.env
+frontend/.env.local
+!frontend/.env

@@ -31,9 +31,9 @@
 
   // Cau hinh moi truong API URL
   const CONFIG = {
-    API_URL: "https://tailieu-hou.duckdns.org/api/v1",
+    API_URL: "https://tailieuehou.id.vn/api/v1",
     LOCAL_API_URL: "http://localhost:3001/api/v1",
-    VPS_API_URL: "https://tailieu-hou.duckdns.org/api/v1"
+    VPS_API_URL: "https://tailieuehou.id.vn/api/v1"
   };
 
   window.houQuizConfig = CONFIG;
