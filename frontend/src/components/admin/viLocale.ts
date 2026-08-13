@@ -1,4 +1,4 @@
-export const viLocale = {
+export const viLocale: { [key: string]: any } = {
   generalDialog: {
     partiallyError: "Không thể thực hiện thao tác này trên các ô đã gộp một phần",
     readOnlyError: "Không thể thực hiện thao tác này trong chế độ chỉ đọc",

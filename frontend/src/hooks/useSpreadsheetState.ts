@@ -318,7 +318,7 @@ export const useSpreadsheetState = (initialTitle: string, initialContent: any, o
   };
 
   const handleAlignChange = (align: "left" | "center" | "right") => applyStyleToSelection({ align });
-  const handleColorChange = (type: "text" | "bg", color: string) => applyStyleToSelection(type === "text" ? { color } : { bg: color });
+  const handleColorChange = (type: "color" | "bg", color: string) => applyStyleToSelection(type === "color" ? { color } : { bg: color });
   const handleFontChange = (fontFamily: string) => applyStyleToSelection({ fontFamily });
 
   const handleFormulaInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

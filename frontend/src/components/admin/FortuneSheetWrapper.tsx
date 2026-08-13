@@ -7,8 +7,8 @@ import { viLocale } from "./viLocale";
 // Patch the English locale object with our Vietnamese translations
 const enObj = locale({ lang: "en" } as any);
 Object.keys(viLocale).forEach((key) => {
-  if (enObj[key]) {
-    Object.assign(enObj[key], (viLocale as any)[key]);
+  if ((enObj as any)[key]) {
+    Object.assign((enObj as any)[key], viLocale[key]);
   }
 });
 
