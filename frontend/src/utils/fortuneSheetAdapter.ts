@@ -1,4 +1,4 @@
-import { parseCellAddress } from "./formulaEvaluator";
+import { parseCellAddress, colLetterToNumber, numberToColLetter, evaluateFormula } from "./formulaEvaluator";
 
 // Cấu trúc dữ liệu cũ
 interface OldCellData {
@@ -27,8 +27,17 @@ export interface OldSheet {
 export const convertOldSheetsToFortune = (oldSheets: OldSheet[]): any[] => {
   return oldSheets.map((sheet, index) => {
     const celldata: any[] = [];
+    const calcChain: any[] = [];
     
-    // Convert cells object to array of {r, c, v}
+    // Create initial 2D data array filled with null
+    const rowCount = sheet.rowCount || 500;
+    const colCount = sheet.colCount || 26;
+    const data: any[][] = [];
+    for (let i = 0; i < rowCount; i++) {
+      data.push(new Array(colCount).fill(null));
+    }
+    
+    // Convert cells object to array of {r, c, v} and populate 2D array
     Object.entries(sheet.cells || {}).forEach(([address, cell]) => {
       const parsedAddr = parseCellAddress(address);
       if (!parsedAddr) return;
@@ -40,11 +49,19 @@ export const convertOldSheetsToFortune = (oldSheets: OldSheet[]): any[] => {
       
       if (cell.formula) {
         v.f = cell.formula;
+        let calculatedValue = cell.value;
+        if (!calculatedValue || calculatedValue === "") {
+          calculatedValue = evaluateFormula(cell.formula, sheet.cells || {});
+        }
+        
+        if (calculatedValue !== undefined && calculatedValue !== "") {
+          v.v = calculatedValue;
+          v.m = String(calculatedValue);
+        }
+        calcChain.push({ r, c, index: index.toString() });
+      } else if (cell.value !== undefined && cell.value !== "") {
         v.v = cell.value;
-        v.m = cell.value;
-      } else if (cell.value) {
-        v.v = cell.value;
-        v.m = cell.value;
+        v.m = String(cell.value);
       }
       
       if (cell.bold) v.bl = 1;
@@ -70,6 +87,19 @@ export const convertOldSheetsToFortune = (oldSheets: OldSheet[]): any[] => {
 
       if (Object.keys(v).length > 0) {
         celldata.push({ r, c, v });
+        
+        // Dynamically expand rows if necessary
+        while (data.length <= r) {
+           data.push(new Array(data[0]?.length || colCount).fill(null));
+        }
+        // Dynamically expand columns if necessary
+        while (data[r].length <= c) {
+           for (let i = 0; i < data.length; i++) {
+               data[i].push(null);
+           }
+        }
+        
+        data[r][c] = v;
       }
     });
 
@@ -79,21 +109,14 @@ export const convertOldSheetsToFortune = (oldSheets: OldSheet[]): any[] => {
       index: index.toString(),
       status: index === 0 ? 1 : 0, // only first sheet is active by default
       order: index,
+      data,
       celldata,
-      row: sheet.rowCount || 500,
-      column: sheet.colCount || 26,
+      calcChain: calcChain.length > 0 ? calcChain : undefined,
+      row: data.length,
+      column: data[0]?.length || 26,
     };
   });
 };
-
-// Hàm hỗ trợ để lấy số từ cột A, B, C...
-function colLetterToNumber(letter: string): number {
-  let num = 0;
-  for (let i = 0; i < letter.length; i++) {
-    num = num * 26 + (letter.charCodeAt(i) - 64);
-  }
-  return num - 1;
-}
 
 // Kiểm tra xem content này là từ Fortune Sheet hay Old Sheet
 export const isFortuneSheetData = (content: any): boolean => {
@@ -109,3 +132,72 @@ export const isFortuneSheetData = (content: any): boolean => {
   
   return false;
 }
+
+export const convertFortuneToOldSheets = (fortuneSheets: any[]): OldSheet[] => {
+  return fortuneSheets.map(sheet => {
+    const cells: Record<string, OldCellData> = {};
+    
+    // Process a single cell value
+    const processCell = (r: number, c: number, v: any) => {
+      if (!v) return;
+
+      const address = `${numberToColLetter(c)}${r + 1}`;
+      const cell: OldCellData = { value: "", formula: "" };
+
+      if (v.f) {
+        cell.formula = v.f;
+        cell.value = v.v !== undefined && v.v !== null ? String(v.v) : (v.m !== undefined && v.m !== null ? String(v.m) : "");
+      } else {
+        cell.value = v.v !== undefined && v.v !== null ? String(v.v) : (v.m !== undefined && v.m !== null ? String(v.m) : "");
+      }
+
+      if (v.bl) cell.bold = true;
+      if (v.it) cell.italic = true;
+      if (v.un) cell.underline = true;
+      if (v.cl) cell.strikethrough = true;
+
+      if (v.fc) cell.color = v.fc;
+      if (v.bg) cell.bg = v.bg;
+
+      if (v.ht === 1) cell.align = "left";
+      if (v.ht === 0) cell.align = "center";
+      if (v.ht === 2) cell.align = "right";
+
+      if (v.ff) cell.fontFamily = v.ff;
+      if (v.fs) cell.fontSize = `${v.fs}px`;
+
+      // Only add to cells if it actually has content or formatting
+      if (
+        cell.value !== "" || cell.formula !== "" ||
+        cell.bold || cell.italic || cell.underline || cell.strikethrough ||
+        cell.color || cell.bg || cell.align || cell.fontFamily || cell.fontSize
+      ) {
+        cells[address] = cell;
+      }
+    };
+
+    // Fortune Sheet updates `data` array in real-time when edited.
+    // If it exists and has content, use it. Otherwise fallback to `celldata`.
+    if (sheet.data && Array.isArray(sheet.data) && sheet.data.length > 0) {
+      sheet.data.forEach((row: any[], r: number) => {
+        if (!Array.isArray(row)) return;
+        row.forEach((v: any, c: number) => {
+          processCell(r, c, v);
+        });
+      });
+    } else {
+      const celldata = sheet.celldata || [];
+      celldata.forEach((cd: any) => {
+        processCell(cd.r, cd.c, cd.v);
+      });
+    }
+
+    return {
+      name: sheet.name,
+      cells,
+      rowCount: sheet.row || 500,
+      colCount: sheet.column || 26,
+    };
+  });
+};
+

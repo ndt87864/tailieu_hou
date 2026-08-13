@@ -11,6 +11,8 @@ import { useNavigate } from "react-router-dom";
 import { useConfirm } from "../../context/ConfirmContext.js";
 import { useSpreadsheetState, Sheet, CellData } from "../../hooks/useSpreadsheetState.js";
 import { exportToXlsx, exportToCsvOrTsv } from "../../utils/spreadsheetExport.js";
+import FortuneSheetWrapper, { FortuneSheetRef } from "./FortuneSheetWrapper";
+import { convertOldSheetsToFortune, convertFortuneToOldSheets, isFortuneSheetData } from "../../utils/fortuneSheetAdapter";
 import { PrintSettingsModal } from "./modals/PrintSettingsModal.js";
 import { ExcelImportModal } from "./modals/ExcelImportModal.js";
 import { TabContextMenu } from "./TabContextMenu.js";
@@ -46,11 +48,66 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
   const navigate = useNavigate();
   const confirmModal = useConfirm();
   const [isSaving, setIsSaving] = useState(false);
+  const [isAdvancedMode, setIsAdvancedMode] = useState(() => isFortuneSheetData(initialContent));
+  const sheetRef = React.useRef<FortuneSheetRef>(null);
 
-  const state = useSpreadsheetState(initialTitle, initialContent, async (title, content) => {
+  // Always keep a normalized Basic Mode content for initialization
+  const normalizedInitialContent = React.useMemo(() => {
+    if (!initialContent) return { sheets: [{ name: "Sheet1", cells: {}, rowCount: 500, colCount: 26 }] };
+    
+    if (isFortuneSheetData(initialContent)) {
+      if (Array.isArray(initialContent)) {
+        return { sheets: convertFortuneToOldSheets(initialContent) };
+      }
+      if (initialContent.sheets && Array.isArray(initialContent.sheets)) {
+        return { sheets: convertFortuneToOldSheets(initialContent.sheets) };
+      }
+    }
+    return initialContent;
+  }, [initialContent]);
+
+  // Compute Fortune data strictly from the current state.sheets whenever we switch to Advanced Mode
+  const fortuneData = React.useMemo(() => {
+    // We only need to convert if we are currently IN advanced mode,
+    // to pass the latest Basic Mode state into Fortune Sheet.
+    // If it's not advanced mode, this will just sit idle.
+    if (!isAdvancedMode) return [];
+    
+    // Use state.sheets (which might not exist on first render before the hook initializes,
+    // but the hook uses normalizedInitialContent so it will be there)
+    return convertOldSheetsToFortune(normalizedInitialContent.sheets); 
+  }, [isAdvancedMode]); // Only recompute on toggle
+
+  const state = useSpreadsheetState(initialTitle, normalizedInitialContent, async (title, content) => {
     setIsSaving(true);
-    try { await onSave(title, content); } finally { setIsSaving(false); }
+    try { 
+      let finalContent = content;
+      if (isAdvancedMode && sheetRef.current) {
+        finalContent = { sheets: sheetRef.current.getData() };
+      }
+      await onSave(title, finalContent); 
+    } finally { setIsSaving(false); }
   });
+
+  // Re-map fortuneData to properly use state.sheets once state is ready
+  const currentFortuneData = React.useMemo(() => {
+    if (!isAdvancedMode) return [];
+    return convertOldSheetsToFortune(state.sheets && state.sheets.length > 0 ? state.sheets : normalizedInitialContent.sheets);
+  }, [isAdvancedMode, state.sheets, normalizedInitialContent]);
+
+  const handleToggleAdvancedMode = (newMode: boolean) => {
+    if (!newMode && isAdvancedMode && sheetRef.current) {
+      // Switching from Advanced to Basic: sync data back to Basic state
+      const advancedData = sheetRef.current.getData();
+      const oldSheets = convertFortuneToOldSheets(advancedData);
+      
+      // Preserve some basic state properties that Fortune Sheet might not have 
+      // (like filters, hiddenRows, isVip etc.) by merging them if needed,
+      // but for now, directly updating is fine.
+      state.updateSheetsAndSaveHistory(oldSheets);
+    }
+    setIsAdvancedMode(newMode);
+  };
 
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
@@ -430,9 +487,15 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
   return (
     <div className="sheet-editor-container">
       {showHeader && <SpreadsheetHeader
-        title={state.title} setTitle={state.setTitle} isStarred={state.isStarred}
-        setIsStarred={(star) => { state.setIsStarred(star); state.updateSheetsAndSaveHistory(p => p); }}
-        isSaving={isSaving} onBack={onBack} onSave={() => state.updateSheetsAndSaveHistory(p => p)}
+        title={state.title}
+        setTitle={state.setTitle}
+        isStarred={state.isStarred}
+        setIsStarred={state.setIsStarred}
+        isSaving={isSaving}
+        isAdvancedMode={isAdvancedMode}
+        setIsAdvancedMode={handleToggleAdvancedMode}
+        onBack={onBack}
+        onSave={() => state.handleSave()}
         onImportExcelClick={() => document.getElementById("excel-import-file-input")?.click()}
         handleExportJSON={() => {
           const link = document.createElement("a");
@@ -533,34 +596,27 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
         applyCommonFormula={state.applyCommonFormula}
       />}
 
-      <SpreadsheetToolbar
-        activeCell={activeCellStyle} zoomLevel={state.zoomLevel} setZoomLevel={state.setZoomLevel}
-        showFindReplace={showFindReplace} setShowFindReplace={setShowFindReplace}
-        handleUndo={state.handleUndo} handleRedo={state.handleRedo}
-        canUndo={state.canUndo} canRedo={state.canRedo}
-        handleFontChange={state.handleFontChange} handleToolbarStyleChange={state.handleToolbarStyleChange}
-        handleAlignChange={state.handleAlignChange} handleColorChange={(key, value) => state.handleColorChange(key === "color" ? "text" : "bg", value)}
-        onFormatSelection={state.formatSelection} onInsertFormula={state.insertFormula}
-        onInsertLink={() => {
-          if (state.selectedCell) {
-            setShowLinkModal({ address: state.selectedCell, defaultText: state.cells[state.selectedCell]?.value || "" });
-          } else {
-            toast.warn("Vui lòng chọn một ô trước khi chèn liên kết!");
-          }
-        }}
-        onCreateFilter={() => {
-          if (state.selectedCell) {
-            const match = state.selectedCell.match(/^([A-Z]+)([0-9]+)$/);
-            if (match) {
-              setShowFilterModal({ colLetter: match[1] });
-            }
-          } else {
-            toast.warn("Vui lòng chọn một ô trước khi tạo bộ lọc!");
-          }
-        }}
-      />
+      {!isAdvancedMode && <SpreadsheetToolbar
+        activeCell={state.selectedCell ? state.cells[state.selectedCell] : null}
+        zoomLevel={state.zoomLevel}
+        setZoomLevel={state.setZoomLevel}
+        showFindReplace={showFindReplace}
+        setShowFindReplace={setShowFindReplace}
+        handleUndo={state.handleUndo}
+        handleRedo={state.handleRedo}
+        canUndo={state.history.length > 0}
+        canRedo={false}
+        handleFontChange={state.handleFontChange}
+        handleToolbarStyleChange={state.handleToolbarStyleChange}
+        handleAlignChange={state.handleAlignChange}
+        handleColorChange={state.handleColorChange}
+        onFormatSelection={state.formatSelection}
+        onInsertFormula={state.insertFormula}
+        onInsertLink={() => state.selectedCell && setShowLinkModal({ address: state.selectedCell, defaultText: state.cells[state.selectedCell]?.value || "" })}
+        onCreateFilter={() => state.selectedCell && setShowFilterModal({ colLetter: state.selectedCell.replace(/[0-9]/g, '') })}
+      />}
 
-      {showFindReplace && (
+      {!isAdvancedMode && showFindReplace && (
         <div className="find-replace-panel">
           <div className="find-replace-title">
             <div className="flex gap-2">
@@ -695,7 +751,7 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
         </div>
       )}
 
-      {state.showFormulaBar && (
+      {!isAdvancedMode && state.showFormulaBar && (
         <div className="sheet-formula-bar">
           <div className="formula-cell-address">{state.selectedCell || ""}</div>
           <div className="formula-icon-fx">fx</div>
@@ -706,8 +762,13 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
         </div>
       )}
 
-      <div style={{ zoom: state.zoomLevel === "100%" ? undefined : parseFloat(state.zoomLevel) / 100, overflow: "auto", flex: 1 }}>
-        <SpreadsheetGrid
+      {isAdvancedMode ? (
+        <div className="flex-1 overflow-hidden relative">
+          <FortuneSheetWrapper key={isAdvancedMode ? "advanced" : "basic"} ref={sheetRef} initialData={currentFortuneData} />
+        </div>
+      ) : (
+        <div style={{ zoom: state.zoomLevel === "100%" ? undefined : parseFloat(state.zoomLevel) / 100, overflow: "auto", flex: 1 }}>
+          <SpreadsheetGrid
           cells={state.cells} selectedCell={state.selectedCell} onSelectCell={state.setSelectedCell}
           selectedRange={state.selectedRange} onSelectRange={state.setSelectedRange} onUpdateCell={state.handleUpdateCell}
           rowCount={state.rowCount} colCount={state.colCount} onUndo={state.handleUndo}
@@ -728,16 +789,20 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
           onTriggerFilterModal={(colLetter) => setShowFilterModal({ colLetter })}
           filters={state.sheets[state.activeSheetIdx]?.filters}
         />
-      </div>
+        </div>
+      )}
 
-      <div className="add-rows-panel">
-        <span>Thêm</span>
-        <input type="number" className="add-rows-input" value={state.addRowsNum} onChange={e => state.setAddRowsNum(Math.max(1, parseInt(e.target.value, 10) || 1))} />
-        <span>hàng khác ở dưới cùng</span>
-        <button onClick={state.handleAddRows} className="btn-add-rows">Thêm</button>
-      </div>
+      {!isAdvancedMode && (
+        <div className="add-rows-panel">
+          <span>Thêm</span>
+          <input type="number" className="add-rows-input" value={state.addRowsNum} onChange={e => state.setAddRowsNum(Math.max(1, parseInt(e.target.value, 10) || 1))} />
+          <span>hàng khác ở dưới cùng</span>
+          <button onClick={state.handleAddRows} className="btn-add-rows">Thêm</button>
+        </div>
+      )}
 
-      <div className="sheet-bottom-bar" onContextMenu={e => e.preventDefault()}>
+      {!isAdvancedMode && (
+        <div className="sheet-bottom-bar" onContextMenu={e => e.preventDefault()}>
         {state.sheets.map((sheet, idx) => !sheet.isHidden && (
           <div
             key={idx} className={`sheet-tab ${state.activeSheetIdx === idx ? "active" : ""}`}
@@ -759,6 +824,7 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
         ))}
         <button onClick={state.handleAddSheet} className="btn-add-tab"><Plus className="w-3.5 h-3.5" /></button>
       </div>
+      )}
 
       <TabContextMenu
         tabContextMenu={tabContextMenu} onClose={() => setTabContextMenu(null)} sheets={state.sheets}

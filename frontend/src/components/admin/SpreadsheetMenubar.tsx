@@ -61,6 +61,7 @@ interface SpreadsheetMenubarProps {
   deleteCommonFormula: (id: string) => Promise<boolean>;
   applyCommonFormula: (formula: string) => void;
   onAlignChange: (align: "left" | "center" | "right") => void;
+  isAdvancedMode?: boolean;
 }
 
 export const SpreadsheetMenubar: React.FC<SpreadsheetMenubarProps> = ({
@@ -115,6 +116,7 @@ export const SpreadsheetMenubar: React.FC<SpreadsheetMenubarProps> = ({
   updateCommonFormula,
   deleteCommonFormula,
   applyCommonFormula,
+  isAdvancedMode = false,
 }) => {
   const [showAddFormulaModal, setShowAddFormulaModal] = useState(false);
   const [editingFormula, setEditingFormula] = useState<any | null>(null);
@@ -215,6 +217,7 @@ export const SpreadsheetMenubar: React.FC<SpreadsheetMenubarProps> = ({
         </div>
       </div>
 
+      {!isAdvancedMode && <>
       <div 
         className={`menu-item-dropdown ${activeMenu === "edit" ? "active" : ""}`}
         onClick={() => setActiveMenu(activeMenu === "edit" ? null : "edit")}
@@ -572,6 +575,7 @@ export const SpreadsheetMenubar: React.FC<SpreadsheetMenubarProps> = ({
       </div>
 
       <div className="menu-item-dropdown" onClick={() => { onOpenHelp(); setActiveMenu(null); }}>Trợ giúp</div>
+      </>}
 
       {showAddFormulaModal && (
         <div className="sheets-modal-overlay z-[10002]" onClick={() => { setShowAddFormulaModal(false); setEditingFormula(null); }}>

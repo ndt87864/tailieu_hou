@@ -53,6 +53,7 @@ const FortuneSheetWrapper = forwardRef<FortuneSheetRef, FortuneSheetWrapperProps
           data={data}
           onChange={handleChange}
           lang="en" // Keep it english or vietnamese depending on the library support
+          devicePixelRatio={Math.max(window.devicePixelRatio || 1, 2.5)}
         />
       </div>
     );

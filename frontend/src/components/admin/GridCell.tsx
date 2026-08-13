@@ -71,7 +71,9 @@ const CellEditor: React.FC<CellEditorProps> = ({ initialValue, onCommit, onCance
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.focus();
-      inputRef.current.select();
+      // Đặt con trỏ vào cuối text
+      const len = inputRef.current.value.length;
+      inputRef.current.setSelectionRange(len, len);
     }
   }, []);
 
@@ -308,7 +310,14 @@ export const GridCell: React.FC<GridCellProps> = React.memo(({
       style={cellStyle}
       onMouseDown={(e) => onCellMouseDown(address, col, row, e)}
       onMouseEnter={(e) => onCellMouseEnter(address, col, row, e)}
-      onDoubleClick={() => onCellDoubleClick(address)}
+      onClick={() => onCellDoubleClick(address)}
+      onDoubleClick={(e) => {
+        // onClick đã mở editor, double-click chỉ cần select all text trong input
+        const input = (e.currentTarget as HTMLElement).querySelector<HTMLInputElement>("input.cell-editor");
+        if (input) {
+          input.select();
+        }
+      }}
       onContextMenu={(e) => onCellContextMenu && onCellContextMenu(address, col, row, e)}
     >
       {isEditing ? (
