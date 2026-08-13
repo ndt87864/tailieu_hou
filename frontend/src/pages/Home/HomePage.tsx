@@ -534,33 +534,62 @@ const HomePage: React.FC = () => {
                 </Link>
               </div>
 
-              {/* Card 4: Trạng thái Premium & Liên hệ (Giống Warranty Widget) */}
-              <div className="p-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] hover:shadow-md transition-shadow relative overflow-hidden">
-                <h3 className="text-sm font-bold text-[var(--fg)] mb-4">
-                  Đăng ký tài khoản
-                </h3>
-                
-                <div className="flex items-start gap-4 mb-4">
-                  {/* Shield icon */}
-                  <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center border border-amber-200 shrink-0">
-                    <Icons.Shield className="w-6 h-6 text-amber-500" />
+              {/* Card 4: Trạng thái Premium / Trang tính (Dành cho admin) */}
+              {(role === "admin" || role === "management") ? (
+                <div className="p-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] hover:shadow-md transition-shadow relative overflow-hidden">
+                  <h3 className="text-sm font-bold text-[var(--fg)] mb-4">
+                    Trang Tính
+                  </h3>
+                  
+                  <div className="flex items-start gap-4 mb-4">
+                    {/* Excel icon */}
+                    <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center border border-green-100 shrink-0">
+                      <Icons.FileSpreadsheet className="w-6 h-6 text-green-600" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-green-600">Trang tính Excel</div>
+                      <div className="text-[10px] text-[var(--muted)] mt-1">Tạo và quản lý các bảng tính Excel của hệ thống.</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-xs font-bold text-amber-600">Premium Active</div>
-                    <div className="text-[10px] text-[var(--muted)] mt-1">Đầy đủ quyền lợi học tập & tải tài liệu eHOU không giới hạn.</div>
-                  </div>
-                </div>
 
-                {/* Nút liên hệ và nâng cấp */}
-                <div className="w-full">
-                  <Link
-                    to="/pricing"
-                    className="py-2 px-3 rounded-lg border border-[var(--border)] hover:bg-[var(--bg-2)] text-[10px] font-bold text-[var(--fg)] text-center transition-colors block w-full"
-                  >
-                    Gói dịch vụ
-                  </Link>
+                  <div className="w-full">
+                    <Link 
+                      to="/excel"
+                      className="py-2 px-3 rounded-lg bg-green-600 hover:bg-green-700 !text-white text-[10px] font-bold text-center transition-colors flex w-full items-center justify-center gap-1.5"
+                    >
+                      <Icons.FileSpreadsheet className="w-3.5 h-3.5 shrink-0" />
+                      Quản lý Trang tính
+                    </Link>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="p-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] hover:shadow-md transition-shadow relative overflow-hidden">
+                  <h3 className="text-sm font-bold text-[var(--fg)] mb-4">
+                    Đăng ký tài khoản
+                  </h3>
+                  
+                  <div className="flex items-start gap-4 mb-4">
+                    {/* Shield icon */}
+                    <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center border border-amber-200 shrink-0">
+                      <Icons.Shield className="w-6 h-6 text-amber-500" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-amber-600">Premium Active</div>
+                      <div className="text-[10px] text-[var(--muted)] mt-1">Đầy đủ quyền lợi học tập & tải tài liệu eHOU không giới hạn.</div>
+                    </div>
+                  </div>
+
+                  {/* Nút liên hệ và nâng cấp */}
+                  <div className="w-full">
+                    <Link
+                      to="/pricing"
+                      className="py-2 px-3 rounded-lg border border-[var(--border)] hover:bg-[var(--bg-2)] text-[10px] font-bold text-[var(--fg)] text-center transition-colors block w-full"
+                    >
+                      Gói dịch vụ
+                    </Link>
+                  </div>
+                </div>
+              )}
 
             </div>
 

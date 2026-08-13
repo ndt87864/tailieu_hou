@@ -9,6 +9,7 @@ import LoginPage from "./pages/Login/LoginPage.js";
 import DocumentPage from "./pages/Document/DocumentPage.js";
 import CategoryPage from "./pages/Document/CategoryPage.js";
 import AdminPage from "./pages/Admin/AdminPage.js";
+import ExcelPage from "./pages/Admin/ExcelPage.js";
 import SheetEditorPage from "./pages/Admin/SheetEditorPage.js";
 import ExamSchedulePage from "./pages/ExamSchedule/ExamSchedulePage.js";
 import PricingPage from "./pages/Pricing/PricingPage.js";
@@ -56,6 +57,14 @@ const App: React.FC = () => {
           <Route path="/login" element={<AuthRoute><LoginPage /></AuthRoute>} />
           <Route path="/register" element={<AuthRoute><LoginPage /></AuthRoute>} />
           <Route path="/lich-thi" element={<ExamSchedulePage />} />
+          <Route
+            path="/excel"
+            element={
+              <ProtectedRoute roles={["admin", "management"]}>
+                <ExcelPage />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/categories/:id" element={<CategoryPage />} />
           <Route path="/documents/:id" element={<DocumentPage />} />
           <Route path="/pricing" element={<PricingPage />} />

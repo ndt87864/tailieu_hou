@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Outlet } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.js";
-import { GraduationCap, User, Shield, LogOut, ChevronDown, Menu, X, Settings, Phone, Home, Calendar, Search } from "lucide-react";
+import { GraduationCap, User, Shield, LogOut, ChevronDown, Menu, X, Settings, Phone, Home, Calendar, Search, FileSpreadsheet } from "lucide-react";
 import UISettingsModal from "./UISettingsModal.js";
 import EditProfileModal from "./EditProfileModal.js";
 import { useUI } from "../../context/UIContext.js";
@@ -283,6 +283,16 @@ export const Header: React.FC<HeaderProps> = ({
                             <Calendar className="w-4 h-4 layout-icon-meta" />
                             Lịch thi
                           </Link>
+                          {(role === "admin" || role === "management") && (
+                            <Link
+                              to="/excel"
+                              onClick={() => setDropdownOpen(false)}
+                              className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--bg-2)] transition-colors layout-text-fg2 text-left"
+                            >
+                              <FileSpreadsheet className="w-4 h-4 layout-icon-meta" />
+                              Trang tính Excel
+                            </Link>
+                          )}
                           <Link
                             to="/pricing"
                             onClick={() => setDropdownOpen(false)}
@@ -425,6 +435,17 @@ export const Header: React.FC<HeaderProps> = ({
             >
               Lịch thi
             </Link>
+            {(role === "admin" || role === "management") && (
+              <Link
+                to="/excel"
+                onClick={() => setMobileOpen(false)}
+                className={`block px-4 py-2.5 rounded-xl text-sm font-medium transition-colors mb-1 ${
+                  isActive("/excel") ? "layout-nav-link-active" : "layout-nav-link-inactive hover:bg-[var(--bg-2)]"
+                }`}
+              >
+                Trang tính Excel
+              </Link>
+            )}
             <Link
               to="/pricing"
               onClick={() => setMobileOpen(false)}
@@ -484,7 +505,7 @@ const Layout: React.FC = () => {
   const isCategoryPage = location.pathname.startsWith("/categories/");
   const isAdminPage = location.pathname.startsWith("/admin");
   const isPricingPage = location.pathname === "/pricing";
-  const isFullWidthPage = isDocPage || isCategoryPage || isAdminPage || isPricingPage || location.pathname === "/lich-thi";
+  const isFullWidthPage = isDocPage || isCategoryPage || isAdminPage || isPricingPage || location.pathname === "/lich-thi" || location.pathname === "/excel";
 
   useEffect(() => {
     const handleOpenSettings = () => setSettingsOpen(true);
