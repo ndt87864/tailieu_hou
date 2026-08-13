@@ -1,10 +1,9 @@
-// frontend/src/pages/Admin/SheetEditorPage.tsx
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import apiClient from "../../services/client.js";
-import { useUI } from "../../context/UIContext.js";
+import apiClient from "../../services/client";
+import { useUI } from "../../context/UIContext";
 import { toast } from "react-toastify";
-import { SpreadsheetEditor } from "../../components/admin/SpreadsheetEditor.js";
+import { FortuneSheetEditor } from "../../components/admin/FortuneSheetEditor";
 
 const SheetEditorPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -67,10 +66,10 @@ const SheetEditorPage: React.FC = () => {
     );
   }
 
-  // Ở trang biên tập tách biệt, SpreadsheetEditor sẽ chiếm 100vh để người dùng thao tác tối đa diện tích
+  // Ở trang biên tập tách biệt, FortuneSheetEditor sẽ chiếm 100vh để người dùng thao tác tối đa diện tích
   return (
     <div className="w-screen h-screen overflow-hidden bg-[var(--bg-1)]">
-      <SpreadsheetEditor
+      <FortuneSheetEditor
         sheetId={id!}
         initialTitle={sheetData.title}
         initialContent={sheetData.content}
