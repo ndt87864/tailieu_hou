@@ -327,6 +327,26 @@ export const useSpreadsheetState = (initialTitle: string, initialContent: any, o
     setFormulaValue(val);
     handleUpdateCell(selectedCell, val.startsWith("=") ? { value: "", formula: val } : { value: val, formula: "" });
   };
+
+  const clearValues = () => {
+    const addresses = getSelectedAddresses();
+    if (addresses.length === 0) return;
+    updateSheetsAndSaveHistory((prev) => {
+      const newSheets = [...prev];
+      const targetSheet = { ...newSheets[activeSheetIdx] };
+      const newCells = { ...targetSheet.cells };
+      addresses.forEach((addr) => {
+        if (newCells[addr]) {
+          newCells[addr] = { ...newCells[addr], value: "", formula: "" };
+        }
+      });
+      targetSheet.cells = newCells;
+      newSheets[activeSheetIdx] = targetSheet;
+      return newSheets;
+    });
+    setFormulaValue("");
+  };
+
   const removeDuplicates = () => {
     updateSheetsAndSaveHistory((prev) => removeDuplicatesInSheets(prev, activeSheetIdx, rowCount, colCount));
     toast.success("Đã loại bỏ các hàng trùng lặp!");
@@ -825,6 +845,7 @@ export const useSpreadsheetState = (initialTitle: string, initialContent: any, o
     removeEmptyRows,
     removeDuplicates,
     clearFormatting,
+    clearValues,
     handlePasteCells,
     applyStyleToSelection,
     handleToolbarStyleChange,

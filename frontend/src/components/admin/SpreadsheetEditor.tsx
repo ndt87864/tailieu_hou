@@ -16,10 +16,12 @@ import { convertOldSheetsToFortune, convertFortuneToOldSheets, isFortuneSheetDat
 import { PrintSettingsModal } from "./modals/PrintSettingsModal.js";
 import { ExcelImportModal } from "./modals/ExcelImportModal.js";
 import { TabContextMenu } from "./TabContextMenu.js";
+import { useAuth } from "../../context/AuthContext.js";
+import { useSpreadsheetPresence } from "../../hooks/useSpreadsheetPresence.js";
+import { VersionHistoryModal } from "./modals/VersionHistoryModal.js";
 import {
   HelpShortcutsModal,
   OpenSpreadsheetModal,
-  VersionHistoryModal,
   DocumentDetailsModal,
   RenameSheetModal,
   DeleteSheetModal,
@@ -47,6 +49,8 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
 }) => {
   const navigate = useNavigate();
   const confirmModal = useConfirm();
+  const { user, profile, role } = useAuth();
+  const { activeUsers } = useSpreadsheetPresence(sheetId, user, profile, role);
   const [isSaving, setIsSaving] = useState(false);
   const [isAdvancedMode, setIsAdvancedMode] = useState(() => isFortuneSheetData(initialContent));
   const sheetRef = React.useRef<FortuneSheetRef>(null);
@@ -121,6 +125,7 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
     show: false, title: "Tạo trang tính mới", defaultName: "Trang tính chưa có tên", action: () => {},
   });
 
+  const [advancedKey, setAdvancedKey] = useState<number>(0);
   const [importedSheets, setImportedSheets] = useState<Sheet[]>([]);
   const [importOption, setImportOption] = useState<"new_doc" | "new_sheet" | "replace_current">("new_sheet");
   const [otherSheetsList, setOtherSheetsList] = useState<any[]>([]);
@@ -552,6 +557,7 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
           }
         }}
         onVersionHistory={() => setShowVersionHistoryModal(true)} onShowDetails={() => setShowDetailsModal(true)}
+        activeUsers={activeUsers}
         sheets={state.sheets} onUnhideSheet={(idx) => {
           state.updateSheetsAndSaveHistory(prev => { const copy = [...prev]; copy[idx] = { ...copy[idx], isHidden: false }; return copy; });
           state.setActiveSheetIdx(idx);
@@ -764,7 +770,7 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
 
       {isAdvancedMode ? (
         <div className="flex-1 overflow-hidden relative">
-          <FortuneSheetWrapper key={isAdvancedMode ? "advanced" : "basic"} ref={sheetRef} initialData={currentFortuneData} />
+          <FortuneSheetWrapper key={`advanced-${advancedKey}`} ref={sheetRef} initialData={currentFortuneData} />
         </div>
       ) : (
         <div style={{ zoom: state.zoomLevel === "100%" ? undefined : parseFloat(state.zoomLevel) / 100, overflow: "auto", flex: 1 }}>
@@ -781,6 +787,7 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
           onPasteSpecial={state.pasteClipboard}
           onShiftCells={state.handleShiftCells}
           onDeleteCellsAndShift={state.handleDeleteCellsAndShift}
+          onClearValues={state.clearValues}
           hiddenRows={state.sheets[state.activeSheetIdx]?.hiddenRows}
           onConvertToTable={state.handleConvertToTable}
           onCreateFilter={state.handleCreateFilter}
@@ -836,8 +843,27 @@ export const SpreadsheetEditor: React.FC<SpreadsheetEditorProps> = ({
       <HelpShortcutsModal show={showHelpModal} onClose={() => setShowHelpModal(false)} />
       <OpenSpreadsheetModal show={showOpenModal} onClose={() => setShowOpenModal(false)} loading={loadingOtherSheets} list={otherSheetsList} />
       <VersionHistoryModal
-        show={showVersionHistoryModal} onClose={() => setShowVersionHistoryModal(false)} history={state.history}
-        onRestore={(sheets, timestamp) => { state.updateSheetsAndSaveHistory(sheets); setShowVersionHistoryModal(false); toast.success(`Khôi phục: ${timestamp}`); }}
+        show={showVersionHistoryModal}
+        onClose={() => setShowVersionHistoryModal(false)}
+        sheetId={sheetId}
+        currentSheets={state.sheets}
+        onRestore={(restoredSheets, timestamp, versionTitle) => {
+          if (versionTitle && versionTitle !== state.title) {
+            state.setTitle(versionTitle);
+          }
+          state.updateSheetsAndSaveHistory(restoredSheets);
+          setAdvancedKey(k => k + 1);
+          setShowVersionHistoryModal(false);
+          toast.success(`Đã khôi phục phiên bản: ${timestamp}`);
+          setTimeout(() => {
+            if (isAdvancedMode) {
+              const fortuneDataToSave = convertOldSheetsToFortune(restoredSheets);
+              onSave(versionTitle || state.title, { sheets: fortuneDataToSave });
+            } else {
+              state.handleSave(restoredSheets);
+            }
+          }, 200);
+        }}
       />
       <DocumentDetailsModal show={showDetailsModal} onClose={() => setShowDetailsModal(false)} title={state.title} sheetsCount={state.sheets.length} cellsCount={Object.keys(state.cells).length} />
       <RenameSheetModal

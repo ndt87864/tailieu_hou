@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { 
-  FileSpreadsheet, Star, Save,
+  FileSpreadsheet, Star, Save, Clock,
   ChevronDown, User, Home, Calendar, Phone, Shield, Settings, LogOut
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext.js";
@@ -80,6 +80,7 @@ interface SpreadsheetHeaderProps {
   updateCommonFormula: (id: string, name: string, formula: string, description?: string) => Promise<boolean>;
   deleteCommonFormula: (id: string) => Promise<boolean>;
   applyCommonFormula: (formula: string) => void;
+  activeUsers?: Array<{ userId: string; name: string; avatar: string | null; email: string | null; role?: string; color: string }>;
 }
 
 export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
@@ -112,6 +113,7 @@ export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
   onDownload,
   onRename,
   onMoveToTrash,
+  onVersionHistory,
   onShowDetails,
   sheets,
   onUnhideSheet,
@@ -142,6 +144,7 @@ export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
   updateCommonFormula,
   deleteCommonFormula,
   applyCommonFormula,
+  activeUsers = [],
 }) => {
   const { user, profile, role, logout } = useAuth();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -206,6 +209,48 @@ export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
         </div>
         
         <div className="sheet-google-right-section" ref={userMenuRef}>
+          {/* Active Users Realtime Presence Avatars */}
+          {activeUsers && activeUsers.length > 0 && (
+            <div className="sheet-presence-avatars-group" title={`${activeUsers.length} người đang xem trang tính này`}>
+              {activeUsers.slice(0, 4).map((u) => {
+                const isMe = u.userId === user?.id;
+                return (
+                  <div
+                    key={u.userId}
+                    className="sheet-presence-avatar-item"
+                    style={{ borderColor: u.color }}
+                    title={`${u.name}${isMe ? " (Bạn)" : ""} - Đang ở trong trang tính`}
+                  >
+                    {u.avatar ? (
+                      <img src={u.avatar} alt={u.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <span style={{ backgroundColor: u.color }} className="presence-initials">
+                        {u.name.charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                    <span className="sheet-presence-online-dot" />
+                  </div>
+                );
+              })}
+              {activeUsers.length > 4 && (
+                <div className="sheet-presence-avatar-item more-count" title={`+${activeUsers.length - 4} người khác`}>
+                  +{activeUsers.length - 4}
+                </div>
+              )}
+            </div>
+          )}
+
+          {onVersionHistory && (
+            <button
+              onClick={onVersionHistory}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--bg-3)] hover:bg-[var(--bg-2)] text-[var(--fg-2)] border border-[var(--border)] text-xs font-semibold shadow-sm transition-all mr-2"
+              title="Xem nhật ký phiên bản và khôi phục (Google Sheets)"
+            >
+              <Clock className="w-3.5 h-3.5 text-emerald-500" />
+              <span className="hidden sm:inline">Lịch sử</span>
+            </button>
+          )}
+
           <button
             onClick={() => setIsAdvancedMode(!isAdvancedMode)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm transition-all mr-2 ${isAdvancedMode ? 'bg-indigo-500 hover:bg-indigo-600 text-white' : 'bg-[var(--bg-3)] hover:bg-[var(--bg-2)] text-[var(--fg-2)] border border-[var(--border)]'}`}
@@ -350,6 +395,7 @@ export const SpreadsheetHeader: React.FC<SpreadsheetHeaderProps> = ({
         onDownload={onDownload}
         onRename={onRename}
         onMoveToTrash={onMoveToTrash}
+        onVersionHistory={onVersionHistory}
         onShowDetails={onShowDetails}
         onUndo={onUndo}
         onRedo={onRedo}

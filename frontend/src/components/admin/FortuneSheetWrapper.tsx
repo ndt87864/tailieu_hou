@@ -27,6 +27,10 @@ const FortuneSheetWrapper = forwardRef<FortuneSheetRef, FortuneSheetWrapperProps
     const workbookRef = useRef<WorkbookInstance>(null);
     const [data, setData] = useState<any[]>(initialData);
 
+    useEffect(() => {
+      setData(initialData);
+    }, [initialData]);
+
     // Provide a way for the parent to trigger save and get the latest data
     useImperativeHandle(ref, () => ({
       getData: () => {
@@ -35,6 +39,9 @@ const FortuneSheetWrapper = forwardRef<FortuneSheetRef, FortuneSheetWrapperProps
         }
         return data;
       },
+      setData: (newData: any[]) => {
+        setData(newData);
+      }
     }));
 
     // Optional: if the parent wants to auto-save, we can hook into onChange

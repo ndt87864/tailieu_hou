@@ -216,21 +216,74 @@ spreadsheetsRouter.post("/", async (c) => {
   }
 });
 
-// 4. Cập nhật trang tính (title và content)
+// 4. Cập nhật trang tính (title và content) & tự động lưu snapshot phiên bản
 spreadsheetsRouter.put("/:id", async (c) => {
   const id = c.req.param("id");
+  const user = c.get("user");
   try {
     const body = await c.req.json();
     const updateData: any = {};
     if (body.title !== undefined) updateData.title = body.title;
-    if (body.content !== undefined) {
-      const { data: oldSheet } = await supabaseAdmin
-        .from("spreadsheets")
-        .select("content")
-        .eq("id", id)
+
+    // Lấy bản ghi hiện tại để lưu snapshot phiên bản nếu có thay đổi content
+    const { data: oldSheet } = await supabaseAdmin
+      .from("spreadsheets")
+      .select("title, content, updated_at")
+      .eq("id", id)
+      .single();
+
+    const oldContent = oldSheet?.content || {};
+
+    // Lấy thông tin người chỉnh sửa (full_name, avatar, email)
+    let modifierName = user?.email || "Người dùng";
+    let modifierAvatar = null;
+    if (user?.id) {
+      const { data: userProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("full_name, avatar_url")
+        .eq("id", user.id)
         .single();
-      const oldContent = oldSheet?.content || {};
-      updateData.content = { ...oldContent, ...body.content };
+      if (userProfile?.full_name) {
+        modifierName = userProfile.full_name;
+      }
+      if (userProfile?.avatar_url) {
+        modifierAvatar = userProfile.avatar_url;
+      }
+    }
+
+    let existingVersions = Array.isArray(oldContent.versions) ? [...oldContent.versions] : [];
+
+    // Nếu có sự thay đổi content hoặc người dùng chủ động yêu cầu tạo snapshot
+    if (body.content !== undefined) {
+      // Lưu lại phiên bản cũ trước khi cập nhật dữ liệu mới nếu oldContent có sheets
+      if (oldContent.sheets && Array.isArray(oldContent.sheets) && oldContent.sheets.length > 0) {
+        const newVersionEntry = {
+          id: `v_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          timestamp: oldSheet?.updated_at || new Date().toISOString(),
+          title: oldSheet?.title || "Trang tính",
+          sheets: oldContent.sheets,
+          isStarred: !!oldContent.isStarred,
+          user: {
+            id: user?.id || null,
+            name: modifierName,
+            avatar: modifierAvatar,
+            email: user?.email || null,
+          }
+        };
+
+        // Tránh trùng lặp version vừa lưu trong khoảng thời gian quá ngắn nếu không có thay đổi
+        existingVersions.unshift(newVersionEntry);
+        // Giới hạn lưu tối đa 50 phiên bản gần nhất
+        if (existingVersions.length > 50) {
+          existingVersions = existingVersions.slice(0, 50);
+        }
+      }
+
+      updateData.content = { 
+        ...oldContent, 
+        ...body.content, 
+        versions: existingVersions 
+      };
     }
 
     const { data: updatedSheet, error } = await supabaseAdmin
@@ -248,6 +301,27 @@ spreadsheetsRouter.put("/:id", async (c) => {
     await clearSpreadsheetsCache();
 
     return c.json({ data: updatedSheet });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// 4.1. Lấy danh sách lịch sử phiên bản của trang tính
+spreadsheetsRouter.get("/:id/versions", async (c) => {
+  const id = c.req.param("id");
+  try {
+    const { data: sheet, error } = await supabaseAdmin
+      .from("spreadsheets")
+      .select("id, title, content, updated_at")
+      .eq("id", id)
+      .single();
+
+    if (error || !sheet) {
+      return c.json({ error: error?.message || "Không tìm thấy trang tính" }, 404);
+    }
+
+    const versions = Array.isArray(sheet.content?.versions) ? sheet.content.versions : [];
+    return c.json({ data: versions, currentTitle: sheet.title, currentUpdatedAt: sheet.updated_at });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }

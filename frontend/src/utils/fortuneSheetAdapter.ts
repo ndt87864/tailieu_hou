@@ -18,8 +18,8 @@ interface OldCellData {
 export interface OldSheet {
   name: string;
   cells: Record<string, OldCellData>;
-  rowCount: number;
-  colCount: number;
+  rowCount?: number;
+  colCount?: number;
   isVip?: boolean;
 }
 

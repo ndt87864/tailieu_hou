@@ -14,6 +14,7 @@ interface SpreadsheetMenubarProps {
   onDownload: (type: "csv" | "tsv" | "xlsx" | "pdf") => void;
   onRename: () => void;
   onMoveToTrash: () => void;
+  onVersionHistory?: () => void;
   onShowDetails: () => void;
   
   onUndo: () => void;
@@ -75,6 +76,7 @@ export const SpreadsheetMenubar: React.FC<SpreadsheetMenubarProps> = ({
   onDownload,
   onRename,
   onMoveToTrash,
+  onVersionHistory,
   onShowDetails,
   onUndo,
   onRedo,
@@ -194,6 +196,13 @@ export const SpreadsheetMenubar: React.FC<SpreadsheetMenubarProps> = ({
           </div>
 
           <div className="menu-dropdown-divider"></div>
+
+          {onVersionHistory && (
+            <button onClick={() => { onVersionHistory(); setActiveMenu(null); }} className="dropdown-action-btn flex justify-between items-center">
+              <span>Lịch sử phiên bản</span>
+              <span className="text-[10px] text-gray-400 font-normal">Xem nhật ký</span>
+            </button>
+          )}
 
           <button onClick={onRename} className="dropdown-action-btn">
             Đổi tên

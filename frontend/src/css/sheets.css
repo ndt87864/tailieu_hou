@@ -462,9 +462,17 @@
 }
 
 .sheet-cell.selected {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent, #10b981);
   outline-offset: -2px;
   z-index: 2;
+}
+
+.sheet-cell.in-range {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+}
+
+.dark .sheet-cell.in-range {
+  background-color: rgba(16, 185, 129, 0.25) !important;
 }
 
 .sheet-cell.editing {
@@ -2070,6 +2078,249 @@
   background-color: rgba(16, 185, 129, 0.15);
   color: #10b981;
   font-weight: 600;
+}
+
+/* ==========================================================================
+   Realtime Presence Avatars (Google Sheets Style)
+   ========================================================================== */
+.sheet-presence-avatars-group {
+  display: flex;
+  align-items: center;
+  margin-right: 10px;
+  padding: 2px 6px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+}
+
+.sheet-presence-avatar-item {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid #10b981;
+  margin-left: -6px;
+  background: var(--bg-1);
+  overflow: visible;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.15s ease, z-index 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.sheet-presence-avatar-item:first-child {
+  margin-left: 0;
+}
+
+.sheet-presence-avatar-item:hover {
+  transform: translateY(-2px) scale(1.1);
+  z-index: 10;
+}
+
+.sheet-presence-avatar-item img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.sheet-presence-avatar-item .presence-initials {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+}
+
+.sheet-presence-online-dot {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #22c55e;
+  border: 1.5px solid var(--bg-1);
+}
+
+.sheet-presence-avatar-item.more-count {
+  background: var(--bg-3);
+  color: var(--fg-2);
+  border: 1.5px solid var(--border);
+  font-size: 10px;
+}
+
+/* ==========================================================================
+   Version History Modal (Google Sheets Style)
+   ========================================================================== */
+.sheets-version-history-container {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+  width: 95vw;
+  max-width: 1150px;
+  height: 85vh;
+  max-height: 750px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalScaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sheets-version-history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-2);
+}
+
+.btn-version-restore-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background-color: #10b981;
+  color: #ffffff;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25);
+}
+
+.btn-version-restore-action:hover {
+  background-color: #059669;
+  transform: translateY(-1px);
+}
+
+.sheets-version-history-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sheets-version-preview-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  background: var(--bg);
+  min-width: 0;
+}
+
+.sheets-preview-meta-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-2);
+}
+
+.sheets-preview-table-wrapper {
+  flex: 1;
+  overflow: auto;
+  padding: 12px;
+}
+
+.sheets-preview-table {
+  border-collapse: collapse;
+  width: 100%;
+  background: var(--bg-1);
+  font-size: 12px;
+  border: 1px solid var(--border);
+}
+
+.sheets-preview-table th {
+  background: var(--bg-3);
+  color: var(--fg-2);
+  font-weight: 600;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  text-align: center;
+  font-size: 11px;
+}
+
+.sheets-preview-table td {
+  border: 1px solid var(--border);
+  padding: 5px 8px;
+  min-width: 80px;
+  max-width: 160px;
+  height: 24px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--fg);
+}
+
+.sheets-preview-table td.row-header-num {
+  background: var(--bg-3);
+  color: var(--fg-muted);
+  font-weight: 600;
+  text-align: center;
+  width: 32px;
+  min-width: 32px;
+  font-size: 10px;
+}
+
+.sheets-preview-table td.preview-cell.has-data {
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.sheets-version-sidebar {
+  width: 300px;
+  background: var(--bg-1);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.sheets-version-list-scroll {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.version-item-card {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: var(--bg-2);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.version-item-card:hover {
+  background: var(--bg-3);
+  border-color: var(--border);
+}
+
+.version-item-card.active {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: #10b981;
+}
+
+@keyframes modalScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 

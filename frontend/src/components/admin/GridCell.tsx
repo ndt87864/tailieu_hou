@@ -310,14 +310,13 @@ export const GridCell: React.FC<GridCellProps> = React.memo(({
       style={cellStyle}
       onMouseDown={(e) => onCellMouseDown(address, col, row, e)}
       onMouseEnter={(e) => onCellMouseEnter(address, col, row, e)}
-      onClick={() => onCellDoubleClick(address)}
-      onDoubleClick={(e) => {
-        // onClick đã mở editor, double-click chỉ cần select all text trong input
-        const input = (e.currentTarget as HTMLElement).querySelector<HTMLInputElement>("input.cell-editor");
-        if (input) {
-          input.select();
+      onClick={(e) => {
+        // Chỉ chọn ô và không mở editor khi click đơn
+        if (!isEditing) {
+          onCellMouseDown(address, col, row, e);
         }
       }}
+      onDoubleClick={() => onCellDoubleClick(address)}
       onContextMenu={(e) => onCellContextMenu && onCellContextMenu(address, col, row, e)}
     >
       {isEditing ? (

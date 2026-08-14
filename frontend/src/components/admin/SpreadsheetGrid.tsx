@@ -56,6 +56,7 @@ interface SpreadsheetGridProps {
   onPasteSpecial?: (option: "value" | "format") => void;
   onShiftCells?: (direction: "down" | "right") => void;
   onDeleteCellsAndShift?: (direction: "up" | "left") => void;
+  onClearValues?: () => void;
   hiddenRows?: Record<number, boolean>;
   onConvertToTable?: () => void;
   onCreateFilter?: (colLetter: string, val: any) => void;
@@ -96,6 +97,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   onPasteSpecial,
   onShiftCells,
   onDeleteCellsAndShift,
+  onClearValues,
   hiddenRows,
   onConvertToTable,
   onCreateFilter,
@@ -148,15 +150,56 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     const endCell = `${lastColLetter}${rowNum}`;
     onSelectCell(startCell);
     onSelectRange({ start: startCell, end: endCell });
-    
-    containerRef.current?.querySelectorAll(".sheet-cell").forEach((el) => {
-      const cellEl = el as HTMLElement;
-      if (parseInt(cellEl.dataset.row || "0", 10) === rowNum) {
-        cellEl.classList.add("in-range");
-      } else {
-        cellEl.classList.remove("in-range");
-      }
-    });
+  };
+
+  const handleRowHeaderMouseDown = (rowNum: number, e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    isMouseDownRef.current = true;
+    dragStartRef.current = { col: 0, row: rowNum };
+    dragEndRef.current = `${numberToColLetter(colCount - 1)}${rowNum}`;
+    const startCell = `A${rowNum}`;
+    const endCell = `${numberToColLetter(colCount - 1)}${rowNum}`;
+    onSelectCell(startCell);
+    onSelectRange({ start: startCell, end: endCell });
+    containerRef.current?.focus();
+  };
+
+  const handleRowHeaderMouseEnter = (rowNum: number) => {
+    if (isMouseDownRef.current && dragStartRef.current) {
+      const start = dragStartRef.current;
+      const lastColLetter = numberToColLetter(colCount - 1);
+      const startCell = `A${start.row}`;
+      const endCell = `${lastColLetter}${rowNum}`;
+      dragEndRef.current = endCell;
+      onSelectRange({ start: startCell, end: endCell });
+    }
+  };
+
+  const handleColHeaderMouseDown = (colIdx: number, e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    isMouseDownRef.current = true;
+    dragStartRef.current = { col: colIdx, row: 1 };
+    const colLetter = numberToColLetter(colIdx);
+    const startCell = `${colLetter}1`;
+    const endCell = `${colLetter}${rowCount}`;
+    dragEndRef.current = endCell;
+    onSelectCell(startCell);
+    onSelectRange({ start: startCell, end: endCell });
+    containerRef.current?.focus();
+  };
+
+  const handleColHeaderMouseEnter = (colIdx: number) => {
+    if (isMouseDownRef.current && dragStartRef.current) {
+      const start = dragStartRef.current;
+      const startColLetter = numberToColLetter(start.col);
+      const endColLetter = numberToColLetter(colIdx);
+      const startCell = `${startColLetter}1`;
+      const endCell = `${endColLetter}${rowCount}`;
+      dragEndRef.current = endCell;
+      onSelectRange({ start: startCell, end: endCell });
+    }
   };
 
   const handleColHeaderContextMenu = (e: React.MouseEvent, colIdx: number) => {
@@ -200,13 +243,15 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
 
   const handleCellMouseDown = React.useCallback((address: string, colIdx: number, rowNum: number, e: React.MouseEvent) => {
     if (e.button !== 0) return;
+    e.preventDefault();
     isMouseDownRef.current = true;
     dragStartRef.current = { col: colIdx, row: rowNum };
     dragEndRef.current = address;
     onSelectCell(address);
+    onSelectRange({ start: address, end: address });
     containerRef.current?.querySelectorAll(".sheet-cell").forEach(el => el.classList.remove("in-range"));
     containerRef.current?.focus();
-  }, [onSelectCell]);
+  }, [onSelectCell, onSelectRange]);
 
   const handleCellMouseEnter = React.useCallback((address: string, colIdx: number, rowNum: number, e: React.MouseEvent) => {
     // 1. Kiểm tra hiển thị tooltip link khi hover
@@ -230,10 +275,15 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
       setHoveredLink(null);
     }
 
-    // 2. Kéo chọn vùng
+    // 2. Kéo chọn vùng (Realtime Selection Range)
     if (isMouseDownRef.current && dragStartRef.current) {
       dragEndRef.current = address;
       const start = dragStartRef.current;
+      onSelectRange({
+        start: `${numberToColLetter(start.col)}${start.row}`,
+        end: address,
+      });
+
       const minRow = Math.min(start.row, rowNum);
       const maxRow = Math.max(start.row, rowNum);
       const minCol = Math.min(start.col, colIdx);
@@ -250,7 +300,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
         }
       });
     }
-  }, [cells]);
+  }, [cells, onSelectRange]);
 
   const handleContainerMouseMove = (e: React.MouseEvent) => {
     if (!isMouseDownRef.current || !containerRef.current) return;
@@ -310,12 +360,17 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
         else if (key === "x") { e.preventDefault(); onCut(); }
         else if (key === "z") { e.preventDefault(); onUndo(); }
         else if (key === "y") { e.preventDefault(); onRedo(); }
+      } else if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        if (onClearValues) {
+          onClearValues();
+        }
       }
     };
 
     window.addEventListener("keydown", handleGlobalKeyDown);
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [editingCell, colCount, rowCount, onSelectCell, onSelectRange, onUndo, onRedo, onCopy, onPaste, onCut]);
+  }, [editingCell, colCount, rowCount, onSelectCell, onSelectRange, onUndo, onRedo, onCopy, onPaste, onCut, onClearValues]);
 
   const isCellInRange = (addr: string) => {
     if (!selectedRange) return false;
@@ -330,14 +385,6 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
 
     return col >= Math.min(startCol, endCol) && col <= Math.max(startCol, endCol) && cell.row >= Math.min(start.row, end.row) && cell.row <= Math.max(start.row, end.row);
   };
-
-  const [renderedRowCount, setRenderedRowCount] = useState(() => Math.min(rowCount, 40));
-
-  useEffect(() => {
-    setRenderedRowCount(Math.min(rowCount, 40));
-    const timer = setTimeout(() => setRenderedRowCount(rowCount), 50);
-    return () => clearTimeout(timer);
-  }, [rowCount]);
 
   const renderCells = () => {
     const tableRows = [];
@@ -374,7 +421,10 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
         <th 
           key={colLetter} className={`th-col ${hasFilter ? "has-active-filter" : ""}`}
           style={colHeaderStyle}
-          onClick={() => handleColHeaderClick(c)} onContextMenu={(e) => handleColHeaderContextMenu(e, c)}
+          onClick={() => handleColHeaderClick(c)}
+          onMouseDown={(e) => handleColHeaderMouseDown(c, e)}
+          onMouseEnter={() => handleColHeaderMouseEnter(c)}
+          onContextMenu={(e) => handleColHeaderContextMenu(e, c)}
         >
           <div className="th-col-content">
             <span className="col-letter">{colLetter}</span>
@@ -395,7 +445,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     }
     tableRows.push(<tr key="header-row" style={{ height: "25px" }}>{headerCols}</tr>);
 
-    for (let r = 1; r <= renderedRowCount; r++) {
+    for (let r = 1; r <= rowCount; r++) {
       if (hiddenRows?.[r]) continue;
       const rowHeight = rowHeights?.[r] || 25;
 
@@ -420,7 +470,10 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
       const rowCells = [
         <td 
           key={`row-header-${r}`} className="th-row" style={rowHeaderStyle}
-          onClick={() => handleRowHeaderClick(r)} onContextMenu={(e) => handleRowHeaderContextMenu(e, r)}
+          onClick={() => handleRowHeaderClick(r)}
+          onMouseDown={(e) => handleRowHeaderMouseDown(r, e)}
+          onMouseEnter={() => handleRowHeaderMouseEnter(r)}
+          onContextMenu={(e) => handleRowHeaderContextMenu(e, r)}
         >
           {r}
           <span className="row-resize-handle" onMouseDown={(e) => startRowResize(e, r)} />
