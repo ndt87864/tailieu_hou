@@ -147,7 +147,7 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
           >
             <div className="p-4 flex items-center justify-between border-b doc-border-brand shrink-0">
               <Link to="/" className="font-bold flex items-center gap-2 text-white hover:opacity-80 transition-opacity">
-                <GraduationCap className="w-5 h-5 text-white" /> Tài liệu HOU
+                <img src="/logo.png" alt="Logo Tài liệu HOU" className="w-6 h-6 object-contain shrink-0 rounded-full" /> Tài liệu HOU
               </Link>
               <button onClick={() => setMobileOpen(false)} className="p-1 rounded text-white/80 hover:text-white">
                 <X className="w-6 h-6" />
@@ -235,7 +235,7 @@ export const DocumentSidebar: React.FC<DocumentSidebarProps> = ({
               }`}
               title="Về trang chủ"
             >
-              <GraduationCap className="w-6 h-6 text-white shrink-0" />
+              <img src="/logo.png" alt="Logo Tài liệu HOU" className="w-7 h-7 object-contain shrink-0 rounded-full" />
               {(!isCollapsed || isHovered) && (
                 <span className="truncate transition-opacity duration-300 opacity-100">
                   Tài liệu HOU

@@ -121,9 +121,11 @@ export const Header: React.FC<HeaderProps> = ({
               to="/"
               className="flex items-center gap-2.5 font-bold text-lg shrink-0 hover:opacity-80 transition-opacity layout-logo-link"
             >
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-sm layout-logo-icon-wrapper">
-                <GraduationCap className="w-4 h-4 text-white" />
-              </div>
+              <img
+                src="/logo.png"
+                alt="Logo Tài liệu HOU"
+                className="w-8 h-8 object-contain rounded-full shadow-sm"
+              />
               <span className="hidden sm:inline">Tài liệu HOU</span>
             </Link>
           )}
@@ -474,9 +476,11 @@ export const Footer: React.FC = () => (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center shadow-sm layout-footer-logo">
-            <GraduationCap className="w-3.5 h-3.5 text-white" />
-          </div>
+          <img
+            src="/logo.png"
+            alt="Logo Tài liệu HOU"
+            className="w-7 h-7 object-contain rounded-full shadow-sm"
+          />
           <span className="layout-footer-title">Tài liệu HOU</span>
           <span className="hidden sm:inline ml-2 layout-footer-copyright">
             &copy; {new Date().getFullYear()} — Nền tảng ôn thi trực tuyến

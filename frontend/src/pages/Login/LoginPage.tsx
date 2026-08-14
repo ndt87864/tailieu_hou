@@ -146,8 +146,8 @@ const LoginPage: React.FC = () => {
         <div className="login-form-sidebar">
           {/* Header */}
           <div className="text-center mb-6">
-            <Link to="/" className="inline-flex items-center justify-center w-12 h-12 rounded-xl mb-4 login-brand-logo-container">
-              <GraduationCap className="w-6 h-6" />
+            <Link to="/" className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-4 login-brand-logo-container p-1">
+              <img src="/logo.png" alt="Logo Tài liệu HOU" className="w-full h-full object-contain" />
             </Link>
             <h1 className="login-title">
               {isForgotPassword ? "Khôi phục mật khẩu" : isSignUp ? "Đăng ký thành viên" : "Đăng nhập tài khoản"}
